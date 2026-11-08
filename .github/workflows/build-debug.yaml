@@ -61,6 +61,15 @@ jobs:
       #     echo "cat signing.properties"
       #     cat signing.properties
 
+      # CUSTOM: retry wrapper download (services.gradle.org sometimes times out)
+      - name: Prefetch Gradle wrapper
+        run: |
+          for i in 1 2 3 4 5; do
+            ./gradlew --no-daemon --version && exit 0
+            echo "Gradle wrapper download failed, retry $i/5"; sleep 15
+          done
+          exit 1
+
       - name: Build
         if: success()
         run: ./gradlew --no-daemon app:assembleAlphaRelease
