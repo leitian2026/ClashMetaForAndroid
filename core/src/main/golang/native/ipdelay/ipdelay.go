@@ -4,8 +4,9 @@
 //     (taken from the profile's `hosts:` entry, or resolved from the domain when there is no
 //     such entry) and, through the same temporary node, asks a "what is my country" service
 //     where the traffic exits. The last result per proxy is kept for the UI.
-//  2. Current IP: remembers which node IP the core most recently dialed (observed through
-//     the socket hook), so the home page can show it.
+//  2. Current IP: tells the home page which node IP is in use. The node is the one that carries
+//     the active connections (their chains); its IP is the one the core dialed most recently
+//     (observed through the socket hook), or its only address.
 //
 // Power: nothing here runs on its own. Tests only start when the user taps the URL-test
 // button (TestGroup, called from the exported healthCheck); the socket hook only does a map
@@ -37,6 +38,7 @@ import (
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
+	"github.com/metacubex/mihomo/tunnel/statistic"
 )
 
 // IPDelay is one tested address. Delay > 0: milliseconds, 0: failed / timeout.
@@ -61,15 +63,18 @@ type used struct {
 }
 
 var (
-	lock      sync.RWMutex
-	proxies   = map[string]map[string]any{} // proxy name -> raw proxy mapping
-	hosts     = map[string]any{}            // raw `hosts:` of the profile
-	results   = map[string][]IPDelay{}      // proxy name -> last result
-	tracked   = map[string]string{}         // server ip -> proxy name (for the socket hook)
-	countries = map[string]string{}         // node + "|" + ip -> country code
-	probing   = map[string]bool{}           // node + "|" + ip -> lookup running
-	failedAt  = map[string]time.Time{}      // node + "|" + ip -> last failed lookup
-	lastUsed  used
+	lock       sync.RWMutex
+	proxies    = map[string]map[string]any{} // proxy name -> raw proxy mapping
+	hosts      = map[string]any{}            // raw `hosts:` of the profile
+	results    = map[string][]IPDelay{}      // proxy name -> last result
+	tracked    = map[string]string{}         // server ip -> proxy name (for the socket hook)
+	nodeIPs    = map[string][]string{}       // proxy name -> every address its server may use
+	ambiguous  = map[string]bool{}           // ips that other `hosts:` entries (e.g. DoH) also map to
+	lastByNode = map[string]string{}         // proxy name -> ip dialed most recently
+	countries  = map[string]string{}         // node + "|" + ip -> country code
+	probing    = map[string]bool{}           // node + "|" + ip -> lookup running
+	failedAt   = map[string]time.Time{}      // node + "|" + ip -> last failed lookup
+	lastUsed   used
 
 	// > 0 while our own temporary nodes dial, so that those sockets are not mistaken for
 	// real traffic by the socket hook.
@@ -104,13 +109,16 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	}
 
 	// every address the core may dial for a node: literal server IPs and `hosts:` entries
-	newTracked := map[string]string{}
+	newNodeIPs := map[string][]string{}
+	servers := map[string]bool{}
 
 	for name, raw := range newProxies {
 		server, _ := raw["server"].(string)
 		if server == "" {
 			continue
 		}
+
+		servers[server] = true
 
 		var values []string
 
@@ -122,10 +130,34 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 
 		for _, v := range values {
 			if a, err := netip.ParseAddr(v); err == nil {
-				ip := a.Unmap().String()
-				if _, exists := newTracked[ip]; !exists {
-					newTracked[ip] = name
-				}
+				newNodeIPs[name] = append(newNodeIPs[name], a.Unmap().String())
+			}
+		}
+	}
+
+	// `hosts:` entries that are not a node's server (e.g. the DoH domain of the dns section) make
+	// the core open sockets to their addresses itself. Those sockets say nothing about which node
+	// IP is in use, so such addresses are not watched by the socket hook.
+	newAmbiguous := map[string]bool{}
+
+	for key, entry := range newHosts {
+		if servers[key] {
+			continue
+		}
+
+		for _, v := range toStrings(entry) {
+			if a, err := netip.ParseAddr(v); err == nil {
+				newAmbiguous[a.Unmap().String()] = true
+			}
+		}
+	}
+
+	newTracked := map[string]string{}
+
+	for name, list := range newNodeIPs {
+		for _, ip := range list {
+			if _, exists := newTracked[ip]; !exists && !newAmbiguous[ip] {
+				newTracked[ip] = name
 			}
 		}
 	}
@@ -135,6 +167,9 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	hosts = newHosts
 	results = map[string][]IPDelay{}
 	tracked = newTracked
+	nodeIPs = newNodeIPs
+	ambiguous = newAmbiguous
+	lastByNode = map[string]string{}
 	countries = map[string]string{}
 	probing = map[string]bool{}
 	failedAt = map[string]time.Time{}
@@ -189,21 +224,47 @@ func record(address string) {
 
 	lock.Lock()
 	lastUsed = used{node: node, ip: ip}
+	lastByNode[node] = ip
 	lock.Unlock()
 }
 
-// Current returns the node IP the core dialed most recently and, if already known, the exit
-// country behind it. When the country is unknown a single lookup is started in the background;
-// ask again later (the UI does that when the user refreshes).
+// Current returns the node IP in use and, if already known, the exit country behind it.
+// The node is the one carrying the most active connections (matched through their chains); with
+// no active connection the most recently dialed node IP is used. When the country is unknown a
+// single lookup is started in the background; ask again later (the UI does that on refresh).
 func Current() (node, ip, country string) {
+	active := activeNodes() // before taking our lock: it walks the core's connection list
+
 	lock.Lock()
 	defer lock.Unlock()
 
-	if lastUsed.ip == "" {
+	best := ""
+
+	for name, count := range active {
+		if best == "" || count > active[best] || (count == active[best] && name < best) {
+			best = name
+		}
+	}
+
+	switch {
+	case best != "":
+		node = best
+
+		if list := nodeIPs[best]; len(list) == 1 {
+			ip = list[0] // a single address: nothing to choose from
+		} else if last, ok := lastByNode[best]; ok {
+			ip = last
+		} else if len(list) > 0 {
+			ip = list[0]
+		}
+	case lastUsed.ip != "":
+		node, ip = lastUsed.node, lastUsed.ip
+	}
+
+	if ip == "" {
 		return "", "", ""
 	}
 
-	node, ip = lastUsed.node, lastUsed.ip
 	key := node + "|" + ip
 	country = countries[key]
 
@@ -216,6 +277,30 @@ func Current() (node, ip, country string) {
 	}
 
 	return node, ip, country
+}
+
+// activeNodes counts the active connections per node, by looking for node names in the chains.
+func activeNodes() map[string]int {
+	lock.RLock()
+	names := make(map[string]bool, len(proxies))
+	for name := range proxies {
+		names[name] = true
+	}
+	lock.RUnlock()
+
+	counts := map[string]int{}
+
+	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
+		for _, name := range c.Chains() {
+			if names[name] {
+				counts[name]++
+			}
+		}
+
+		return true
+	})
+
+	return counts
 }
 
 func probeCountry(key string, raw map[string]any, ip string) {
@@ -341,8 +426,12 @@ func testProxy(name string, raw map[string]any, testURL string) {
 
 	// addresses found by resolving the domain are tracked too, so the home page can show them
 	lock.Lock()
+	if len(nodeIPs[name]) == 0 {
+		nodeIPs[name] = append(nodeIPs[name], ips...)
+	}
+
 	for _, ip := range ips {
-		if _, exists := tracked[ip]; !exists {
+		if _, exists := tracked[ip]; !exists && !ambiguous[ip] {
 			tracked[ip] = name
 		}
 	}
