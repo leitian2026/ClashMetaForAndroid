@@ -15,4 +15,9 @@
     <string name="geosite_download_err_invalid">下载的文件不是有效的 geosite.dat</string>
     <string name="geosite_reset_title">GeoSite 已恢复为内置版本</string>
     <string name="geosite_reset_message">应用更新后，你之前下载安装的 geosite.dat 已被内置版本替换。需要自己的版本，请到 设置 → Meta 特性 → Geo 文件 重新下载。</string>
+    <string name="main_geosite_reset_title">GeoSite 已恢复为内置版本</string>
+    <string name="main_geosite_reset_hint">应用更新覆盖了你下载的 geosite.dat，点击前往重新下载</string>
+    <string name="main_current_ip_none">暂无节点连接</string>
+    <string name="main_current_ip_refresh">点击刷新</string>
+    <string name="main_current_ip_node">节点 %1$s · 点击刷新</string>
 </resources>
