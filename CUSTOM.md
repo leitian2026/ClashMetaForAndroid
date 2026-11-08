@@ -16,12 +16,13 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`） | 以上游新版为底，重加 `custom_container` id，并按 #7 重新包住 App 名字、加红字 `custom_geosite_notice` |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 | 低 | 重加 `RefreshCustom`、`customCards`、`setCustomCards()` |
+| `design/src/main/res/layout/design_main.xml` | #7 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility` |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 | 低 | 重加 `customCards`、`setCustomCards()` |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 | 低 | 重加 `geoSiteDownload()` 一行 |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 | 低 | 重加 `RefreshCustom -> design.fetch()` 和 `setCustomCards(...)` |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customTick` 变量和 ticker 里的 `refreshCustom` 一行 |
+| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow` |
 
-共 13 个上游文件。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 14 个上游文件。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -40,7 +41,7 @@
 **新增文件**
 - `core/src/main/golang/native/ipdelay/ipdelay.go`：逐 IP 测速逻辑（临时复制节点、把 server 换成该 IP、经节点拨号请求测速 URL）。
 - `core/src/main/java/com/github/kr328/clash/core/model/IpDelay.kt`：数据类（`ip`、`delay`、`country`）。
-- `design/src/main/java/com/github/kr328/clash/design/custom/CountryFlag.kt`：国家码转国旗 emoji。
+- `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`：国家码转国旗 emoji（放在 core，design 和 service 都用）。
 - `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`：文案。
 
 **改了上游文件（冲突只会出现在这里）**
@@ -104,18 +105,23 @@
 
 **依赖的上游约定（上游改动后先查这些）：** geo 文件目录为 `filesDir/clash`（与 app 模块 `Context.clashDir` 一致，这里直接写成 `context.filesDir.resolve("clash")`）；`PreferenceScreen`/`addElement`/`Preference` 这套设置页接口。
 
-## 7. 首页：当前节点 IP + 国旗
-**效果：** 首页状态卡片下方有一张常显的卡片，显示正在承载流量的节点所用的 IP，前面是它出口国家的国旗，副标题是节点名；点击卡片刷新。没有连接 / 未运行时显示"暂无节点连接"。国旗查不到显示"？"。#6 的 GeoSite 提示不在这里，是 App 名字下方的红字（布局里 `custom_geosite_notice`）。
+## 7. 当前节点 IP + 国旗（首页代理卡片、状态栏通知）
+**效果：**
+- 首页"代理"卡片改为**常显**（停止时也显示），副标题在原来的模式后面加 ` · 🇺🇸 45.139.193.125`（正在承载流量的节点所用 IP 和出口国旗）。没有连接 / 未运行时只显示模式。国旗查不到显示"？"。没有单独的 IP 卡片，也没有点击刷新。
+- 状态栏通知正文由"上传/下载速度"改为 `🇺🇸 IP · 节点名`（没有连接时显示"暂无节点连接"）；副标题（累计流量）保持上游原样。
+- #6 的 GeoSite 提示在 App 名字下方（红字，与名字隔开 6dp，布局里 `custom_geosite_notice`），也在这里的布局里。
 - **节点怎么定的（r10）：** 遍历内核当前连接（`statistic.DefaultManager.Range`），链路（`Chains()`）里出现的节点名（在配置 `proxies:` 里的）计数，连接数最多的就是"正在用的节点"；没有连接时退回最近一次拨号记录。
 - **IP 怎么定的：** 内核每建一个连接都会经过 `dialer.DefaultSocketHook`，这里包了一层，记下每个节点最近拨的 IP。节点只有一个地址就直接用它。`hosts:` 里不属于任何节点 server 的条目（例如 dns 里 DoH 域名映射的 IP）会让内核自己去连，这些 IP 不记入，避免把 DoH 的直连误当成节点使用（r9 的错误来源）。
-- **国旗怎么来的：** 该 IP 还没有国家时，首页查询会在后台起一次探测（经该节点、该 IP 请求同样的国家查询服务），结果缓存；探测中显示"？"，再点一下刷新就有。失败 5 分钟内不重试。测速时测到的国家会直接复用。
-- **更新时机（无定时器 / 轮询）：** 进入首页、Clash 启动 / 停止、配置变化、点击卡片刷新。
-- **功耗：** hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次刷新时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
+- **国旗怎么来的：** 该 IP 还没有国家时，查询会在后台起一次探测（经该节点、该 IP 请求同样的国家查询服务），结果缓存；探测中显示"？"，下一次刷新就有。失败 5 分钟内不重试。测速时测到的国家会直接复用。
+- **更新时机（自动刷新，不新增任何定时器）：** 首页：进入页面、Clash 启动 / 停止、配置变化，以及借用 `MainActivity` 上游本来就有的 1 秒 ticker（只在页面打开且 Clash 运行时跑）每 3 次触发一次读取；通知：借用 `DynamicNotificationModule` 上游本来就有的 1 秒更新（息屏时本来就停），每 3 次读取一次内核。
+- **功耗：** 没有新增 ticker / 定时器 / 轮询；通知里不再每秒查速度（少了一次 JNI）；hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次读取时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
 
 **新增文件**
-- `design/src/main/java/com/github/kr328/clash/design/custom/MainCustomCards.kt`：首页当前 IP 卡片，以及 App 名字下方红字提示的显示控制。
-- `design/src/main/java/com/github/kr328/clash/design/custom/CountryFlag.kt`（同 #1）。
-- 文案追加在 `strings_custom.xml`（`main_*`）。
+- `design/src/main/java/com/github/kr328/clash/design/custom/MainCustomCards.kt`：红字提示的显示控制，以及生成代理卡片副标题后缀。
+- `app/src/main/java/com/github/kr328/clash/custom/MainCustomRefresh.kt`：`MainDesign.refreshCustom()`，ticker 调用。
+- `service/src/main/java/com/github/kr328/clash/service/custom/NodeIpText.kt`：通知正文文本。
+- `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`（同 #1）。
+- 文案：`design/.../strings_custom.xml`（`main_*`）、`service/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`custom_notification_no_ip`）。
 
 **改了上游文件（冲突只会出现在这里）**
 | 文件 | 改动 |
@@ -123,8 +129,9 @@
 | `core/src/main/golang/native/delegate/init.go` | import 加 `cfa/native/ipdelay`；`Init` 末尾加 `ipdelay.InstallSocketHook()` |
 | `core/src/main/golang/native/tunnel.go` | `queryTunnelState` 里取 `ipdelay.Current()`，响应结构加 `currentNode` / `currentIp` / `currentCountry`（三个字段都带 `omitempty`） |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | 构造参数加 `currentNode` / `currentIp` / `currentCountry`（默认空串） |
-| `design/src/main/res/layout/design_main.xml` | 内容 `LinearLayout` 加 `android:id="@+id/custom_container"`；App 名字 `TextView` 外包一层竖向 `LinearLayout`，其下加红字 `custom_geosite_notice`（默认 gone） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | import `MainCustomCards`；`Request` 加 `RefreshCustom`；加 `customCards` 属性和 `setCustomCards()` |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | `fetch()` 里加 `setCustomCards(clashRunning, state)`；`when` 里加 `RefreshCustom -> design.fetch()` |
+| `design/src/main/res/layout/design_main.xml` | 加变量 `customIp`；App 名字 `TextView` 外包一层竖向 `LinearLayout`，其下加红字 `custom_geosite_notice`（默认 gone）；代理卡片去掉 `visibility`，`subtext` 改为 `@{customIp == null ? mode : mode + customIp}` |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | import `MainCustomCards`；加 `customCards` 属性和 `setCustomCards()`（写 `binding.customIp`） |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | import `refreshCustom`；`fetch()` 里加 `setCustomCards(clashRunning, state)`；加 `customTick` 变量；ticker 分支里加一行 `refreshCustom` |
+| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | import `NodeIpText`；`update()` 去掉 `queryTrafficNow` 及上传/下载速度变量；`setContentText` 改为 `NodeIpText.get(service)` |
 
-**依赖的 mihomo API：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）。
+**依赖的上游接口：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）；`MainActivity` 里的 1 秒 `ticker` 和 `DynamicNotificationModule` 的 1 秒更新；`Clash.queryTunnelState()`。
