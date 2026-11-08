@@ -54,3 +54,24 @@
 - 没改上游文件（`build.gradle.kts` 里写死的 4 个架构不动，用 Gradle 参数限制）。
 - 同步上游时若 `build-debug.yaml` 冲突，保留这两处即可。
 - 要出其他架构时，去掉该参数并把上传步骤加回来。
+
+## 6. GeoSite 按地址下载并安装
+**效果：** "Meta 功能"设置页的"Geo 文件"区域最下方，多出一块常显的 GeoSite 下载区：地址输入框（常显，默认预填官方 `latest/geosite.dat` 地址，之后记住上次填的）、"下载并安装"按钮（下载中变"取消"）、进度/结果文字，以及一行常显提示。
+- 只接受 `https://` 地址。先下载到临时文件，检查大小 ≥ 1 KB 且首字节为 `0x0A`（geosite.dat 的 protobuf 头），通过后才替换 `geosite.dat`；失败或取消不会动原文件。
+- 安装后需重新加载配置（或重启服务）才生效（内核已把规则读进内存）。
+- **更新应用后不保留：** 上游 `MainApplication.extractGeoFiles()` 会在应用更新后把旧于安装时间的 `geosite.dat` 换回内置版本。这是有意不改的，界面上的常显提示已写明。
+- 功耗：只在用户点按钮时联网，不轮询、不后台；退出页面会取消正在进行的下载。
+- 地址保存在独立的 SharedPreferences `custom_geosite`（键 `url`），不写入 override 配置。
+
+**新增文件**
+- `design/src/main/java/com/github/kr328/clash/design/custom/GeoSiteDownloader.kt`：下载、校验、替换逻辑。
+- `design/src/main/java/com/github/kr328/clash/design/preference/GeoSiteDownloadPreference.kt`：设置页里的这一块界面（`PreferenceScreen.geoSiteDownload()`）。
+- `design/src/main/res/layout/preference_geosite_download.xml`：布局。
+- 文案追加在 `design/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`geosite_download_*`）。
+
+**改了上游文件（冲突只会出现在这里）**
+| 文件 | 改动 |
+|---|---|
+| `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | "导入 ASN 数据库"那个 `clickable` 之后加一行 `geoSiteDownload()`（带 `CUSTOM` 注释） |
+
+**依赖的上游约定（上游改动后先查这些）：** geo 文件目录为 `filesDir/clash`（与 app 模块 `Context.clashDir` 一致，这里直接写成 `context.filesDir.resolve("clash")`）；`PreferenceScreen`/`addElement`/`Preference` 这套设置页接口。
