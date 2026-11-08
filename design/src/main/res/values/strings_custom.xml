@@ -14,4 +14,6 @@
     <string name="geosite_download_err_url">Enter an address starting with https://</string>
     <string name="geosite_download_err_http">Server returned HTTP %1$d</string>
     <string name="geosite_download_err_invalid">The downloaded file is not a valid geosite.dat</string>
+    <string name="geosite_reset_title">GeoSite reset to built-in</string>
+    <string name="geosite_reset_message">After the app update, the geosite.dat you downloaded was replaced by the built-in one. To use your own copy again, download it in Settings → Meta Features → Geo Files.</string>
 </resources>
