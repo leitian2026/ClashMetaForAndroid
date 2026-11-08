@@ -16,7 +16,6 @@ import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.ticker
 import com.github.kr328.clash.design.MainDesign
-import com.github.kr328.clash.design.custom.GeoSiteResetNotice
 import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.util.startClashService
 import com.github.kr328.clash.util.stopClashService
@@ -35,8 +34,6 @@ class MainActivity : BaseActivity<MainDesign>() {
         val design = MainDesign(this)
 
         setContentDesign(design)
-
-        GeoSiteResetNotice.showIfNeeded(this) // CUSTOM: CUSTOM.md #6
 
         design.fetch()
 
@@ -80,6 +77,8 @@ class MainActivity : BaseActivity<MainDesign>() {
                             startActivity(HelpActivity::class.intent)
                         MainDesign.Request.OpenAbout ->
                             design.showAbout(queryAppVersionName())
+                        MainDesign.Request.RefreshCustom -> // CUSTOM: CUSTOM.md #7
+                            design.fetch()
                     }
                 }
                 if (clashRunning) {
@@ -103,6 +102,7 @@ class MainActivity : BaseActivity<MainDesign>() {
 
         setMode(state.mode)
         setHasProviders(providers.isNotEmpty())
+        setCustomCards(clashRunning, state) // CUSTOM: CUSTOM.md #6, #7
 
         withProfile {
             setProfileName(queryActive()?.name)
