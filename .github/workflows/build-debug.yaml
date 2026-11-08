@@ -74,6 +74,10 @@ jobs:
         # CUSTOM: arm64-v8a only (skips Go/C++ builds for the other 3 ABIs)
         run: ./gradlew --no-daemon -Pandroid.injected.build.abi=arm64-v8a app:assembleAlphaRelease
           
+      # CUSTOM: show where the APK actually ended up (path changes with injected ABI)
+      - name: List APK files
+        run: find app/build -name "*.apk" -print
+
       # CUSTOM: single arm64-v8a upload (other ABI upload steps removed)
       - name: Upload Aritfact (arm64-v8a)
         uses: actions/upload-artifact@v7
@@ -81,5 +85,5 @@ jobs:
         with:
           name: CMFA Debug Unsigned APK (arm64-v8a)
           path: |
-            app/build/outputs/apk/alpha/release/*.apk
+            app/build/outputs/**/*.apk
           if-no-files-found: error
