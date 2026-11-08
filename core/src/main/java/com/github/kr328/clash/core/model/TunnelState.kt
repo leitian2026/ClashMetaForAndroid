@@ -9,6 +9,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TunnelState(
     val mode: Mode,
+    // CUSTOM (CUSTOM.md #7): node IP the core dialed most recently, "" if none yet
+    val currentNode: String = "",
+    val currentIp: String = "",
+    val currentCountry: String = "",
 ) : Parcelable {
     @Serializable
     enum class Mode {
