@@ -5,62 +5,52 @@ import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.util.getPixels
 import com.github.kr328.clash.design.view.LargeActionCard
 
-// CUSTOM (CUSTOM.md #6, #7): two cards on the home page, right below the status card.
-//  - GeoSite reminder: shown while an app update has replaced the user's downloaded geosite.dat
-//    with the built-in one; tapping opens the Meta feature settings (where the download is).
-//  - Current node IP: the node IP the core dialed most recently, with the flag of its exit
-//    country; tapping refreshes it. Updated when the page is shown or refreshed, never by a timer.
+// CUSTOM (CUSTOM.md #6, #7) on the home page:
+//  - GeoSite reminder: red text under the app name while an app update has replaced the user's
+//    downloaded geosite.dat with the built-in one; tapping it opens the Meta feature settings
+//    (where the download is). It disappears once geosite is downloaded again.
+//  - Current node IP card (always visible, right below the status card): the IP of the node
+//    carrying the traffic with the flag of its exit country; tapping refreshes it. Updated when
+//    the page is shown or refreshed, never by a timer.
 class MainCustomCards(
     private val context: Context,
     container: ViewGroup,
     private val onRefresh: () -> Unit,
 ) {
-    private val geoSiteCard = newCard(R.drawable.ic_baseline_update).apply {
-        text = context.getString(R.string.main_geosite_reset_title)
-        subtext = context.getString(R.string.main_geosite_reset_hint)
+    private val geoSiteNotice: TextView? = container.findViewById<TextView>(R.id.custom_geosite_notice)?.apply {
         setOnClickListener { openGeoSiteSettings() }
-        visibility = View.GONE
     }
 
     private val ipCard = newCard(R.drawable.ic_baseline_dns).apply {
         setOnClickListener { onRefresh() }
-        visibility = View.GONE
     }
 
     init {
         // child 0 is the title row, child 1 the status card
-        val index = minOf(2, container.childCount)
-
-        container.addView(geoSiteCard, index)
-        container.addView(ipCard, index + 1)
+        container.addView(ipCard, minOf(2, container.childCount))
     }
 
     fun update(running: Boolean, state: TunnelState) {
-        geoSiteCard.visibility = if (GeoSiteResetNotice.isPending(context)) View.VISIBLE else View.GONE
+        geoSiteNotice?.visibility = if (GeoSiteResetNotice.isPending(context)) View.VISIBLE else View.GONE
 
-        if (!running) {
-            ipCard.visibility = View.GONE
+        if (!running || state.currentIp.isEmpty()) {
+            ipCard.text = context.getString(R.string.main_current_ip_none)
+            ipCard.subtext = context.getString(R.string.main_current_ip_refresh)
 
             return
         }
 
-        ipCard.visibility = View.VISIBLE
+        val flag = CountryFlag.of(state.currentCountry).ifEmpty { "？" }
 
-        if (state.currentIp.isEmpty()) {
-            ipCard.text = context.getString(R.string.main_current_ip_none)
-            ipCard.subtext = context.getString(R.string.main_current_ip_refresh)
-        } else {
-            val flag = CountryFlag.of(state.currentCountry).ifEmpty { "？" }
-
-            ipCard.text = "$flag ${state.currentIp}"
-            ipCard.subtext = context.getString(R.string.main_current_ip_node, state.currentNode)
-        }
+        ipCard.text = "$flag ${state.currentIp}"
+        ipCard.subtext = context.getString(R.string.main_current_ip_node, state.currentNode)
     }
 
     private fun newCard(iconRes: Int): LargeActionCard {
