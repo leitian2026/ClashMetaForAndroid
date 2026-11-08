@@ -6,6 +6,8 @@ import (
 
 	"github.com/dlclark/regexp2"
 
+	"cfa/native/ipdelay"
+
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/constant/provider"
@@ -28,6 +30,8 @@ type Proxy struct {
 	Type     string `json:"type"`
 	Delay    int    `json:"delay"`
 	IsGroup  bool   `json:"isGroup"`
+
+	IPDelays []ipdelay.IPDelay `json:"ipDelays,omitempty"` // CUSTOM
 }
 
 type ProxyGroup struct {
@@ -199,6 +203,7 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 			Type:     p.Type().String(),
 			Delay:    int(p.LastDelayForTestUrl(testURL)),
 			IsGroup:  isGroup,
+			IPDelays: ipdelay.Get(name), // CUSTOM
 		})
 	}
 	return result
