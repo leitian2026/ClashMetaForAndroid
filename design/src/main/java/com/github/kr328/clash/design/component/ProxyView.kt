@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
 import com.github.kr328.clash.common.compat.getDrawableCompat
+import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.store.UiStore
 
 class ProxyView(
@@ -17,7 +18,18 @@ class ProxyView(
         background = context.getDrawableCompat(config.clickableBackground)
     }
 
+    // CUSTOM: re-measure when a new state (possibly with per-IP rows) is bound
     var state: ProxyViewState? = null
+        set(value) {
+            field = value
+            requestLayout()
+        }
+
+    // CUSTOM: extra height used by the per-IP delay rows (0 when there are none)
+    private var ipRowStep = 0f
+    private var ipExtraHeight = 0
+    private val ipTimeoutText by lazy { context.getString(R.string.ip_delay_timeout) }
+
     constructor(context: Context) : this(context, ProxyViewConfig(context, 2))
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val state = state ?: return super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -40,10 +52,15 @@ class ProxyView(
         }
 
         val textHeight = state.rect.height()
+        // CUSTOM: one extra row per tested IP
+        val ipCount = state.proxy.ipDelays.size
+        ipRowStep = textHeight + state.config.textMargin * 0.6f
+        ipExtraHeight = if (ipCount > 0) (ipRowStep * ipCount).toInt() else 0
+
         val exceptHeight = (state.config.layoutPadding * 2 +
                 state.config.contentPadding * 2 +
                 textHeight * 2 +
-                state.config.textMargin).toInt()
+                state.config.textMargin).toInt() + ipExtraHeight
 
         val height = when (MeasureSpec.getMode(heightMeasureSpec)) {
             MeasureSpec.UNSPECIFIED ->
@@ -116,7 +133,8 @@ class ProxyView(
         val paint = state.paint
 
         val width = width.toFloat()
-        val height = height.toFloat()
+        // CUSTOM: the original two-line layout is laid out in the area above the IP rows
+        val height = height.toFloat() - ipExtraHeight
 
         paint.textSize = state.config.textSize
 
@@ -190,6 +208,34 @@ class ProxyView(
                     (height - state.config.layoutPadding * 2) / 3f * 2 - textOffset
 
             drawText(state.subtitle, 0, subtitleCount, x, y, paint)
+        }
+
+        // CUSTOM: draw one row per tested IP: "ip ........ delay"
+        val ipDelays = state.proxy.ipDelays
+
+        if (ipDelays.isNotEmpty()) {
+            paint.alpha = 0xB4
+
+            val left = state.config.layoutPadding + state.config.contentPadding
+            val right = width - state.config.layoutPadding - state.config.contentPadding
+            val subtitleY = state.config.layoutPadding +
+                    (height - state.config.layoutPadding * 2) / 3f * 2
+
+            ipDelays.forEachIndexed { index, item ->
+                val text = if (item.delay > 0) item.delay.toString() else ipTimeoutText
+                val y = subtitleY + ipRowStep * (index + 1) - textOffset
+                val textWidth = paint.measureText(text)
+
+                val ipCount = paint.breakText(
+                    item.ip,
+                    false,
+                    (right - left - textWidth - state.config.textMargin).coerceAtLeast(0f),
+                    null,
+                )
+
+                canvas.drawText(item.ip, 0, ipCount, left, y, paint)
+                canvas.drawText(text, right - textWidth, y, paint)
+            }
         }
     }
 }
