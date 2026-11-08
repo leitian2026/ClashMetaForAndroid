@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ip_delay_timeout">Timeout</string>
+    <string name="geosite_download_title">GeoSite download URL</string>
+    <string name="geosite_download_hint">https://…/geosite.dat</string>
+    <string name="geosite_download_default_url" translatable="false">https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat</string>
+    <string name="geosite_download_button">Download and install</string>
+    <string name="geosite_download_cancel">Cancel</string>
+    <string name="geosite_download_notice">Takes effect after reloading the profile or restarting the service. Updating the app restores the built-in geosite.dat, so download it again if you need your own copy.</string>
+    <string name="geosite_download_progress">Downloaded %1$s</string>
+    <string name="geosite_download_done">Installed geosite.dat (%1$s)</string>
+    <string name="geosite_download_failed">Failed: %1$s</string>
+    <string name="geosite_download_cancelled">Cancelled</string>
+    <string name="geosite_download_err_url">Enter an address starting with https://</string>
+    <string name="geosite_download_err_http">Server returned HTTP %1$d</string>
+    <string name="geosite_download_err_invalid">The downloaded file is not a valid geosite.dat</string>
 </resources>
