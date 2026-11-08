@@ -1,12 +1,11 @@
 # AGENTS.md — 给所有在本仓库工作的 AI / 开发者
 
 这是 `MetaCubeX/ClashMetaForAndroid` 的 fork，带少量自定义功能。**最高目标：以后能轻松合并上游更新。**
+动手前必须先读本文件和 `CUSTOM.md`（自定义功能登记表 + 改了哪些上游文件的总表）。
 
 ## 分支规则
 - `main`：只跟随官方上游，**不放任何自定义内容**。
 - `custom`：唯一的功能开发分支，也是默认分支。所有改动只提交到这里。
-- 同步上游：先把 `main` 快进到 `upstream/main`，再把 `custom` rebase（或 merge）到 `main`。
-  推送 rebase 后的分支只用 `--force-with-lease`，不要用裸 `--force`。
 - 子模块（`core/src/foss/golang/clash`，即 mihomo）只同步，**不要擅自修改**。
 
 ## 改代码时必须遵守（合并友好）
@@ -14,12 +13,27 @@
 2. 必须改上游文件时，只加最少几行"挂钩"，真正的逻辑放在新文件里；挂钩处加 `CUSTOM` 注释方便搜索。
 3. 不要格式化、重命名、移动、重排上游代码，不要顺手"优化"无关部分。
 4. 字符串 / 资源放进独立的新文件（如 `strings_custom.xml`），不要往上游资源文件里插行。
-5. 一个功能一个提交，功能之间互不依赖，方便单独 rebase 或回退。
+5. 一个功能一个提交，功能之间互不依赖，方便单独 rebase 或回退。提交信息统一写 `custom #N：简述`（N 是 `CUSTOM.md` 里的编号）。
 6. **功耗**：不用定时器 / 轮询，用事件驱动；息屏和后台少干活。需要"测一次"的功能只在用户操作时触发。
-7. 每加 / 改一个功能，都要在 `CUSTOM.md` 登记：新增了哪些文件、改了上游哪些文件和哪几处。
+7. 每加 / 改一个功能，都要在 `CUSTOM.md` 登记：新增了哪些文件、改了上游哪些文件和哪几处，并更新开头的"上游文件总表"。**代码和 `CUSTOM.md` 必须在同一次提交里一起改，不能只改其一。**
 
-## 同步上游遇到冲突时
-先看 `CUSTOM.md` 里"改了上游哪些文件"那一栏，冲突只会出现在这些地方，逐处保留上游新内容并重新加上 `CUSTOM` 挂钩即可。
+## 同步上游的步骤
+1. 一次性设置：`git config rerere.enabled true`（记住冲突解法，下次自动套用）。
+2. 把 `main` 快进到 `upstream/main`（`main` 不允许出现自定义提交）。
+3. 把 `custom` rebase（或 merge）到 `main`。推送 rebase 后的分支只用 `--force-with-lease`，不要用裸 `--force`。
+4. 冲突只会出现在 `CUSTOM.md` 总表列出的上游文件里。处理方法：**以上游新版本为底**，再按 `CUSTOM.md` 对应条目的描述重新加上挂钩和 `CUSTOM` 注释；不要为了保留旧改动而丢掉上游的新内容。
+5. 合并后检查：
+   - `grep -rn CUSTOM` 找到的挂钩数量和总表一致，没有丢；
+   - 总表里每个"依赖的上游接口"（mihomo API、`dialer.DefaultSocketHook`、`statistic`、`PreferenceScreen` 等）在新版本里还在；
+   - 手动触发一次 Actions 的 Build Debug，构建成功再认为同步完成（这里无法本地编译，只能靠它验证）。
+6. 同步后更新 `CUSTOM.md` 开头的基线提交号和版本号。
 
-## 交付约定
-- 发给用户的压缩包文件名必须带版本号。
+## 构建事实（别误判）
+- 日常构建用 `build-debug.yaml`，实际跑的是 `app:assembleAlphaRelease`（**R8 已开**），只构建 arm64-v8a，固定签名。只能手动触发（`workflow_dispatch`）。
+- `build-release.yaml`、`update-dependencies.yaml` 没有改动。
+
+## 交付约定（给用户发文件时）
+- 压缩包文件名必须带版本号，格式 `ClashMetaForAndroid-custom-<上游版本>-r<数字>.zip`，每次交付 r 数字加 1。
+- 增量包只放这次改动过的文件，路径从仓库根目录算起，外面不要再套一层目录；不要打进 `.idea` 等 IDE 文件。
+- 每次交付都要同步更新 `CUSTOM.md`。
+- 没被明确要求时，不要改文件、不要发文件。
