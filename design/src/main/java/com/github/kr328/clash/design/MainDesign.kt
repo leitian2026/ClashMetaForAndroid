@@ -6,6 +6,7 @@ import androidx.appcompat.app.AlertDialog
 import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.core.util.trafficTotal
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
+import com.github.kr328.clash.design.custom.MainCustomCards
 import com.github.kr328.clash.design.databinding.DesignMainBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
@@ -23,6 +24,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenSettings,
         OpenHelp,
         OpenAbout,
+        RefreshCustom, // CUSTOM: CUSTOM.md #6, #7
     }
 
     private val binding = DesignMainBinding
@@ -30,6 +32,17 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
     override val root: View
         get() = binding.root
+
+    // CUSTOM: GeoSite reminder + "current node IP" cards, CUSTOM.md #6, #7
+    private val customCards = MainCustomCards(context, binding.customContainer) {
+        request(Request.RefreshCustom)
+    }
+
+    suspend fun setCustomCards(running: Boolean, state: TunnelState) {
+        withContext(Dispatchers.Main) {
+            customCards.update(running, state)
+        }
+    }
 
     suspend fun setProfileName(name: String?) {
         withContext(Dispatchers.Main) {
