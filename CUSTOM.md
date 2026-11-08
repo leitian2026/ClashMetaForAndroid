@@ -50,7 +50,7 @@
 
 ## 5. build-debug 只构建 arm64-v8a
 - 原因：每次为 4 个架构各编译一遍 Go 内核和 C++，太慢；日常只用 arm64。
-- `.github/workflows/build-debug.yaml`：`Build` 命令加 `-Pandroid.injected.build.abi=arm64-v8a`；上传步骤只保留一个 arm64-v8a，匹配 `app/build/outputs/apk/alpha/release/*.apk`，找不到文件时报错。
+- `.github/workflows/build-debug.yaml`：`Build` 命令加 `-Pandroid.injected.build.abi=arm64-v8a`；上传步骤只保留一个 arm64-v8a，匹配 `app/build/outputs/**/*.apk`（递归，因为加了注入 ABI 参数后 APK 不在原来的 `apk/alpha/release/` 下），找不到文件时报错；上传前多一步 `List APK files` 用 `find` 打印 APK 实际位置。
 - 没改上游文件（`build.gradle.kts` 里写死的 4 个架构不动，用 Gradle 参数限制）。
 - 同步上游时若 `build-debug.yaml` 冲突，保留这两处即可。
 - 要出其他架构时，去掉该参数并把上传步骤加回来。
