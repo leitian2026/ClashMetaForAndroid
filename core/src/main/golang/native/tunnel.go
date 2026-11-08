@@ -15,9 +15,15 @@ import (
 func queryTunnelState() *C.char {
 	mode := tunnel.QueryMode()
 
+	node, ip, country := ipdelay.Current() // CUSTOM: CUSTOM.md #7
+
 	response := &struct {
 		Mode string `json:"mode"`
-	}{mode}
+
+		CurrentNode    string `json:"currentNode,omitempty"`    // CUSTOM
+		CurrentIP      string `json:"currentIp,omitempty"`      // CUSTOM
+		CurrentCountry string `json:"currentCountry,omitempty"` // CUSTOM
+	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country}
 
 	return marshalJson(response)
 }
