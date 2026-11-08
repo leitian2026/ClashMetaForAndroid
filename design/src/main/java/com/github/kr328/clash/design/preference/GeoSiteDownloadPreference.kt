@@ -15,14 +15,11 @@ import kotlinx.coroutines.launch
 
 // CUSTOM: always-visible URL box + "download and install" button for geosite.dat (see CUSTOM.md #6).
 
-private const val STORE_NAME = "custom_geosite"
-private const val KEY_URL = "url"
-
 fun PreferenceScreen.geoSiteDownload(): Preference {
     val binding = PreferenceGeositeDownloadBinding
         .inflate(context.layoutInflater, root, false)
 
-    val store = context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE)
+    val store = context.getSharedPreferences(GeoSiteDownloader.STORE_NAME, Context.MODE_PRIVATE)
     // Same directory as Context.clashDir in the app module (filesDir/clash).
     val clashDir = context.filesDir.resolve("clash")
 
@@ -33,7 +30,7 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
     fun saveUrl() {
         val url = currentUrl()
         if (url.isNotEmpty()) {
-            store.edit().putString(KEY_URL, url).apply()
+            store.edit().putString(GeoSiteDownloader.KEY_URL, url).apply()
         }
     }
 
@@ -45,7 +42,7 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
     }
 
     binding.urlField.setText(
-        store.getString(KEY_URL, null)?.takeIf { it.isNotBlank() }
+        store.getString(GeoSiteDownloader.KEY_URL, null)?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.geosite_download_default_url)
     )
     binding.urlField.doOnTextChanged { _, _, _, _ -> binding.urlLayout.error = null }
@@ -80,6 +77,13 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
                         )
                     }
                 }
+
+                store.edit()
+                    .putLong(
+                        GeoSiteDownloader.KEY_INSTALLED_AT,
+                        clashDir.resolve("geosite.dat").lastModified()
+                    )
+                    .apply()
 
                 binding.statusView.text = context.getString(
                     R.string.geosite_download_done,
