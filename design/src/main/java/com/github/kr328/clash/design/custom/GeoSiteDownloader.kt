@@ -17,6 +17,12 @@ import java.net.URL
 class GeoSiteDownloadException(message: String) : Exception(message)
 
 object GeoSiteDownloader {
+    const val STORE_NAME = "custom_geosite"
+    const val KEY_URL = "url"
+
+    // lastModified of the installed geosite.dat; used to tell when an app update replaced it.
+    const val KEY_INSTALLED_AT = "installed_at"
+
     private const val TARGET_NAME = "geosite.dat"
     private const val TEMP_NAME = "geosite.dat.download"
     private const val MIN_SIZE = 1024L
