@@ -1,11 +1,6 @@
 name: Build Debug
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  workflow_dispatch: # CUSTOM: manual only (push / pull_request triggers removed)
 
 jobs:
   BuildDebug:
