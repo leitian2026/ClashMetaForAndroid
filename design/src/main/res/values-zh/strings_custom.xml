@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ip_delay_timeout">超时</string>
+    <string name="geosite_download_title">GeoSite 下载地址</string>
+    <string name="geosite_download_hint">https://…/geosite.dat</string>
+    <string name="geosite_download_button">下载并安装</string>
+    <string name="geosite_download_cancel">取消</string>
+    <string name="geosite_download_notice">安装后需重新加载配置（或重启服务）才生效。更新应用后会恢复为内置的 geosite.dat，需要自己的版本请重新下载。</string>
+    <string name="geosite_download_progress">已下载 %1$s</string>
+    <string name="geosite_download_done">已安装 geosite.dat（%1$s）</string>
+    <string name="geosite_download_failed">失败：%1$s</string>
+    <string name="geosite_download_cancelled">已取消</string>
+    <string name="geosite_download_err_url">请输入以 https:// 开头的地址</string>
+    <string name="geosite_download_err_http">服务器返回 HTTP %1$d</string>
+    <string name="geosite_download_err_invalid">下载的文件不是有效的 geosite.dat</string>
 </resources>
