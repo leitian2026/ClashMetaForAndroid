@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.view.View
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.design.custom.CountryFlag
 import com.github.kr328.clash.design.store.UiStore
 
 class ProxyView(
@@ -226,14 +227,18 @@ class ProxyView(
                 val y = subtitleY + ipRowStep * (index + 1) - textOffset
                 val textWidth = paint.measureText(text)
 
+                // flag of the exit country in front of the address; "？" when it could not be found
+                val flag = if (item.delay > 0) CountryFlag.of(item.country).ifEmpty { "？" } else ""
+                val label = if (flag.isEmpty()) item.ip else "$flag ${item.ip}"
+
                 val ipCount = paint.breakText(
-                    item.ip,
+                    label,
                     false,
                     (right - left - textWidth - state.config.textMargin).coerceAtLeast(0f),
                     null,
                 )
 
-                canvas.drawText(item.ip, 0, ipCount, left, y, paint)
+                canvas.drawText(label, 0, ipCount, left, y, paint)
                 canvas.drawText(text, right - textWidth, y, paint)
             }
         }
