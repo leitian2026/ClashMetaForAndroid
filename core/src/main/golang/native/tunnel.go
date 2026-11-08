@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"cfa/native/app"
+	"cfa/native/ipdelay"
 	"cfa/native/tunnel"
 )
 
@@ -69,6 +70,7 @@ func queryGroup(name C.c_string, sortMode C.c_string) *C.char {
 func healthCheck(completable unsafe.Pointer, name C.c_string) {
 	go func(name string) {
 		tunnel.HealthCheck(name)
+		ipdelay.TestGroup(name) // CUSTOM: per-IP delay, only on user-triggered test
 
 		C.complete(completable, nil)
 	}(C.GoString(name))
