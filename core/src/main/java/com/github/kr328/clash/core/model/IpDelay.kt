@@ -10,4 +10,5 @@ import kotlinx.serialization.Serializable
 data class IpDelay(
     val ip: String,
     val delay: Int,
+    val country: String = "", // exit country code seen through this address, "" if unknown
 )
