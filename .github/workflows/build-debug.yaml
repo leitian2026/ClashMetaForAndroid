@@ -74,7 +74,7 @@ jobs:
         # CUSTOM: arm64-v8a only (skips Go/C++ builds for the other 3 ABIs)
         run: ./gradlew --no-daemon -Pandroid.injected.build.abi=arm64-v8a app:assembleAlphaRelease
           
-      # CUSTOM: show where the APK actually ended up (path changes with injected ABI)
+      # CUSTOM: show where the APK actually ended up (with injected ABI it stays under build/intermediates)
       - name: List APK files
         run: find app/build -name "*.apk" -print
 
@@ -85,5 +85,5 @@ jobs:
         with:
           name: CMFA Debug Unsigned APK (arm64-v8a)
           path: |
-            app/build/outputs/**/*.apk
+            app/build/intermediates/apk/alpha/release/*.apk
           if-no-files-found: error
