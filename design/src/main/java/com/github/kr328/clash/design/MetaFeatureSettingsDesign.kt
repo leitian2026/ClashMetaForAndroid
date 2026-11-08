@@ -341,6 +341,8 @@ class MetaFeatureSettingsDesign(
                     requests.trySend(Request.ImportASN)
                 }
             }
+
+            geoSiteDownload() // CUSTOM: GeoSite download by URL (CUSTOM.md #6)
         }
 
         binding.content.addView(screen.root)
