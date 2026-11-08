@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"cfa/native/app"
+	"cfa/native/ipdelay"
 
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
@@ -77,6 +78,8 @@ func Load(path string) error {
 
 	// like hub.Parse()
 	hub.ApplyConfig(cfg)
+
+	ipdelay.CaptureConfig(rawCfg.Proxy, rawCfg.Hosts) // CUSTOM
 
 	app.ApplySubtitlePattern(rawCfg.ClashForAndroid.UiSubtitlePattern)
 
