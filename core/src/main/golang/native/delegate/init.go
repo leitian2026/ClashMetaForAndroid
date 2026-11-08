@@ -10,6 +10,7 @@ import (
 	"github.com/metacubex/mihomo/log"
 
 	"cfa/native/app"
+	"cfa/native/ipdelay"
 	"cfa/native/platform"
 
 	"github.com/metacubex/mihomo/component/dialer"
@@ -56,4 +57,6 @@ func Init(home, versionName, gitVersion string, platformVersion int) {
 			app.MarkSocket(int(fd))
 		})
 	}
+
+	ipdelay.InstallSocketHook() // CUSTOM: remember which node IP is in use, CUSTOM.md #7
 }
