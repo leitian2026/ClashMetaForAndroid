@@ -17,6 +17,7 @@ import com.github.kr328.clash.core.util.trafficDownload
 import com.github.kr328.clash.core.util.trafficUpload
 import com.github.kr328.clash.service.R
 import com.github.kr328.clash.service.StatusProvider
+import com.github.kr328.clash.service.custom.NodeIpText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
@@ -44,21 +45,13 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
     private val notificationManager = NotificationManagerCompat.from(service)
 
     private fun update() {
-        val now = Clash.queryTrafficNow()
         val total = Clash.queryTrafficTotal()
 
-        val uploading = now.trafficUpload()
-        val downloading = now.trafficDownload()
         val uploaded = total.trafficUpload()
         val downloaded = total.trafficDownload()
 
         val notification = builder
-            .setContentText(
-                service.getString(
-                    R.string.clash_notification_content,
-                    "$uploading/s", "$downloading/s"
-                )
-            )
+            .setContentText(NodeIpText.get(service)) // CUSTOM: CUSTOM.md #7 (was: upload/download speed)
             .setSubText(
                 service.getString(
                     R.string.clash_notification_content,
