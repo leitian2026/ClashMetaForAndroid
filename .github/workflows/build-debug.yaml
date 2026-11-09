@@ -60,19 +60,41 @@ jobs:
           echo key.alias="$SIGNING_KEY_ALIAS" >> signing.properties
           echo key.password="$SIGNING_KEY_PASSWORD" >> signing.properties
 
-      # CUSTOM: retry wrapper download (services.gradle.org sometimes times out)
+      # CUSTOM: retry wrapper download (services.gradle.org / github releases sometimes time out or return 504)
       - name: Prefetch Gradle wrapper
         run: |
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3 4 5 6 7 8; do
             ./gradlew --no-daemon --version && exit 0
-            echo "Gradle wrapper download failed, retry $i/5"; sleep 15
+            echo "Gradle wrapper download failed, retry $i/8"; sleep 20
           done
           exit 1
+
+      # CUSTOM: download the geo files with retries. The upstream Gradle task `downloadGeoFiles` has
+      # none, so one 504 from GitHub fails the whole build; the Build step below skips that task.
+      - name: Prefetch geo files
+        run: |
+          mkdir -p app/src/main/assets
+          base=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest
+          fetch() {
+            for i in 1 2 3 4 5 6 7 8; do
+              if curl -fL --connect-timeout 20 --max-time 300 -o "app/src/main/assets/$2" "$base/$1" && [ -s "app/src/main/assets/$2" ]; then
+                return 0
+              fi
+              echo "$2 download failed, retry $i/8"; sleep 20
+            done
+            return 1
+          }
+          fetch geoip.metadb geoip.metadb
+          fetch geosite.dat geosite.dat
+          fetch GeoLite2-ASN.mmdb ASN.mmdb
+          fetch BundleMRS.7z BundleMRS.7z
+          ls -l app/src/main/assets
 
       - name: Build
         if: success()
         # CUSTOM: arm64-v8a only (skips Go/C++ builds for the other 3 ABIs)
-        run: ./gradlew --no-daemon -Pandroid.injected.build.abi=arm64-v8a app:assembleAlphaRelease
+        # CUSTOM: -x :app:downloadGeoFiles, the files were fetched (with retries) by "Prefetch geo files"
+        run: ./gradlew --no-daemon -Pandroid.injected.build.abi=arm64-v8a -x :app:downloadGeoFiles app:assembleAlphaRelease
           
       # CUSTOM: show where the APK actually ended up (with injected ABI it stays under build/intermediates)
       - name: List APK files

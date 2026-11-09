@@ -7,7 +7,7 @@
 ## 上游文件总表（同步上游时冲突只会出现在这里）
 | 上游文件 | 对应条目 | 冲突风险 | 冲突时怎么办 |
 |---|---|---|---|
-| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、签名步骤、arm64 参数与上传 |
+| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件（#14）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传 |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的三个 current 字段 |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
@@ -199,3 +199,9 @@
 - #6 的下载区在下载成功后显示"立即重载配置"按钮，点一下发 `ACTION_OVERRIDE_CHANGED` 自广播（服务里 `ConfigurationModule` 收到后重新加载当前配置，新 geosite.dat 即生效）。服务没运行时没人接收，下次启动自然会用新文件，界面会这样提示。
 - 开始新的下载时按钮隐藏。
 - 改动：`preference_geosite_download.xml`（`reload_button`）、`GeoSiteDownloadPreference.kt`、文案 `geosite_download_reload*`。没有新增上游文件改动。
+
+## 14. 构建前带重试地预下载 geo 文件（仅 build-debug）
+- 原因：上游 `app/build.gradle.kts` 的 `downloadGeoFiles` 任务从 GitHub 下载 4 个文件（`geoip.metadb`、`geosite.dat`、`ASN.mmdb`、`BundleMRS.7z`），没有重试，GitHub 返回一次 504 整个构建就失败（r11 第二次构建的失败原因）。
+- `.github/workflows/build-debug.yaml`：新增 `Prefetch geo files` 步骤，用 `curl` 下载到 `app/src/main/assets/`（上游任务本来写入的位置，已在 `.gitignore`），每个文件最多重试 8 次、间隔 20 秒，文件必须非空；`Build` 命令加 `-x :app:downloadGeoFiles` 跳过上游任务。`Prefetch Gradle wrapper` 的重试也加到 8 次、间隔 20 秒。
+- 没改任何上游文件（用 Gradle 命令行参数跳过任务）。下载地址、文件名要和上游 `downloadGeoFiles` 里的保持一致；上游增删文件时这里要同步。
+- 同步上游时 `build-debug.yaml` 冲突，保留这一步和 `-x` 参数即可。`build-pre-release.yaml` 没有加。
