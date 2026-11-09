@@ -17,7 +17,4 @@
     <string name="geosite_reset_title">GeoSite reset to built-in</string>
     <string name="geosite_reset_message">After the app update, the geosite.dat you downloaded was replaced by the built-in one. To use your own copy again, download it in Settings → Meta Features → Geo Files.</string>
     <string name="main_geosite_reset_notice">GeoSite was reset to the built-in version, tap to download again</string>
-    <string name="main_current_ip_none">No node connection yet</string>
-    <string name="main_current_ip_refresh">Tap to refresh</string>
-    <string name="main_current_ip_node">Node %1$s · tap to refresh</string>
 </resources>
