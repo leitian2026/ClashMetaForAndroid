@@ -13,8 +13,8 @@ import com.github.kr328.clash.design.R
 //    downloaded geosite.dat with the built-in one; tapping it opens the Meta feature settings
 //    (where the download is). It disappears once geosite is downloaded again.
 //  - Current node IP: update() returns the text appended to the subtext of the "Proxy" card
-//    (" · 🇺🇸 1.2.3.4"). Refreshed with every fetch and, while the page is open and Clash is
-//    running, by the page's existing 1-second ticker (every 3rd tick). No timer of our own.
+//    (" · 🇺🇸 1.2.3.4"). Refreshed with every fetch and whenever the core reports that the node
+//    IP in use changed (event, see CUSTOM.md #7). No timer, no polling.
 class MainCustomCards(
     private val context: Context,
     root: View,
