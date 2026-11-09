@@ -11,12 +11,14 @@ import com.github.kr328.clash.common.compat.getColorCompat
 import com.github.kr328.clash.common.compat.pendingIntentFlags
 import com.github.kr328.clash.common.constants.Components
 import com.github.kr328.clash.common.constants.Intents
+import com.github.kr328.clash.common.custom.CustomIntents
 import com.github.kr328.clash.common.util.ticker
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.util.trafficDownload
 import com.github.kr328.clash.core.util.trafficUpload
 import com.github.kr328.clash.service.R
 import com.github.kr328.clash.service.StatusProvider
+import com.github.kr328.clash.service.custom.NodeIpNotifier
 import com.github.kr328.clash.service.custom.NodeIpText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -75,6 +77,13 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             addAction(Intents.ACTION_PROFILE_LOADED)
         }
 
+        // CUSTOM: CUSTOM.md #7 - node IP changed (event from the core)
+        val nodeIpChanged = receiveBroadcast(capacity = Channel.CONFLATED) {
+            addAction(CustomIntents.ACTION_NODE_IP_CHANGED)
+        }
+
+        NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7
+
         val ticker = ticker(TimeUnit.SECONDS.toMillis(1))
 
         while (true) {
@@ -86,6 +95,9 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                         Intent.ACTION_SCREEN_OFF ->
                             shouldUpdate = false
                     }
+                }
+                nodeIpChanged.onReceive { // CUSTOM: CUSTOM.md #7
+                    if (shouldUpdate) update()
                 }
                 profileLoaded.onReceive {
                     builder.setContentTitle(StatusProvider.currentProfile ?: "Not selected")
