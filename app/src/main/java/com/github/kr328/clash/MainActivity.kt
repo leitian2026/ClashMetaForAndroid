@@ -15,6 +15,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.ticker
+import com.github.kr328.clash.custom.customNodeIpEvents
 import com.github.kr328.clash.custom.refreshCustom
 import com.github.kr328.clash.design.MainDesign
 import com.github.kr328.clash.design.ui.ToastDuration
@@ -39,7 +40,7 @@ class MainActivity : BaseActivity<MainDesign>() {
         design.fetch()
 
         val ticker = ticker(TimeUnit.SECONDS.toMillis(1))
-        var customTick = 0 // CUSTOM: CUSTOM.md #7
+        val customNodeIp = customNodeIpEvents() // CUSTOM: CUSTOM.md #7
 
         while (isActive) {
             select<Unit> {
@@ -81,10 +82,12 @@ class MainActivity : BaseActivity<MainDesign>() {
                             design.showAbout(queryAppVersionName())
                     }
                 }
+                customNodeIp.onReceive { // CUSTOM: CUSTOM.md #7
+                    design.refreshCustom(clashRunning)
+                }
                 if (clashRunning) {
                     ticker.onReceive {
                         design.fetchTraffic()
-                        if (++customTick % 3 == 0) design.refreshCustom(clashRunning) // CUSTOM: CUSTOM.md #7
                     }
                 }
             }
