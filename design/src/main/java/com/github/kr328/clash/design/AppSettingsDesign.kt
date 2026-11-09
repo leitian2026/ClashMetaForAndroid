@@ -98,6 +98,8 @@ class AppSettingsDesign(
             ) {
                 enabled = !running
             }
+
+            customBackup() // CUSTOM: backup / restore, CUSTOM.md #17
         }
 
         binding.content.addView(screen.root)

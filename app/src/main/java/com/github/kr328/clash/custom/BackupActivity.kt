@@ -1,0 +1,105 @@
+package com.github.kr328.clash.custom
+
+import androidx.activity.result.contract.ActivityResultContracts
+import com.github.kr328.clash.BaseActivity
+import com.github.kr328.clash.design.R as DesignR
+import com.github.kr328.clash.design.custom.BackupDesign
+import kotlinx.coroutines.CancellationException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+// CUSTOM (CUSTOM.md #17): picks the file for "export backup" / "import backup" (started from the
+// entries of the app settings page) and runs BackupManager. One action per start, then it finishes.
+class BackupActivity : BaseActivity<BackupDesign>() {
+    override suspend fun main() {
+        val design = BackupDesign(this)
+
+        setContentDesign(design)
+
+        try {
+            when (intent?.action) {
+                ACTION_EXPORT -> exportBackup(design)
+                ACTION_IMPORT -> importBackup(design)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.message(
+                getString(DesignR.string.backup_failed_title),
+                e.message ?: e.javaClass.simpleName,
+            )
+        } finally {
+            finish()
+        }
+    }
+
+    private suspend fun exportBackup(design: BackupDesign) {
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
+        val uri = startActivityForResult(
+            ActivityResultContracts.CreateDocument("application/zip"),
+            "ClashMeta-backup-$stamp.zip",
+        ) ?: return
+
+        design.setStatus(getString(DesignR.string.backup_working))
+
+        val count = BackupManager.export(this, uri)
+
+        design.message(
+            getString(DesignR.string.backup_export_done_title),
+            getString(DesignR.string.backup_export_done, count),
+        )
+    }
+
+    private suspend fun importBackup(design: BackupDesign) {
+        val uri = startActivityForResult(
+            ActivityResultContracts.OpenDocument(),
+            arrayOf("application/zip", "application/octet-stream", "*/*"),
+        ) ?: return
+
+        design.setStatus(getString(DesignR.string.backup_working))
+
+        val backup = BackupManager.open(this, uri)
+
+        val date = if (backup.createdAt > 0) {
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(backup.createdAt))
+        } else {
+            "-"
+        }
+
+        val ok = design.confirm(
+            getString(DesignR.string.backup_import_confirm_title),
+            getString(DesignR.string.backup_import_confirm, date, backup.profiles.length()),
+        )
+
+        if (!ok) {
+            BackupManager.discard(backup)
+
+            return
+        }
+
+        val result = BackupManager.restore(this, backup)
+
+        val lines = ArrayList<String>()
+
+        lines.add(getString(DesignR.string.backup_result_profiles, result.restored, result.skipped))
+
+        if (result.failed.isNotEmpty()) {
+            lines.add(getString(DesignR.string.backup_result_failed, result.failed.joinToString("、")))
+        }
+        if (result.settings) lines.add(getString(DesignR.string.backup_result_settings))
+        if (result.override) lines.add(getString(DesignR.string.backup_result_override))
+
+        lines.add(getString(DesignR.string.backup_result_hint))
+
+        design.message(
+            getString(DesignR.string.backup_import_done_title),
+            lines.joinToString("\n"),
+        )
+    }
+
+    companion object {
+        const val ACTION_EXPORT = "com.github.kr328.clash.custom.action.BACKUP_EXPORT"
+        const val ACTION_IMPORT = "com.github.kr328.clash.custom.action.BACKUP_IMPORT"
+    }
+}

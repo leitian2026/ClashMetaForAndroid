@@ -138,6 +138,12 @@
             android:exported="false"
             android:label="@string/providers" />
         <!-- CUSTOM (CUSTOM.md #8) -->
+        <!-- CUSTOM (CUSTOM.md #17): backup / restore -->
+        <activity
+            android:name=".custom.BackupActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/backup_category" />
         <activity
             android:name=".custom.ConnectionsActivity"
             android:configChanges="uiMode"

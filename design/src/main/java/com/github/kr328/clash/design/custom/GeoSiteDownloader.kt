@@ -11,8 +11,9 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-// CUSTOM: download geosite.dat from a user-supplied https URL (see CUSTOM.md #6).
-// Runs only when the user presses the button; no timers, no background work.
+// CUSTOM: download a geo file (geosite.dat, and since #16 geoip.metadb / ASN.mmdb) from a user-supplied
+// https URL (see CUSTOM.md #6, #16). Runs only when the user presses the button; no timers, no
+// background work.
 
 class GeoSiteDownloadException(message: String) : Exception(message)
 
@@ -20,32 +21,30 @@ object GeoSiteDownloader {
     const val STORE_NAME = "custom_geosite"
     const val KEY_URL = "url"
 
-    // lastModified of the installed geosite.dat; used to tell when an app update replaced it.
+    // lastModified of the installed geosite.dat; used to tell when an app update replaced it
+    // (GeoFile.GeoSite.installedKey, the same key).
     const val KEY_INSTALLED_AT = "installed_at"
 
-    private const val TARGET_NAME = "geosite.dat"
-    private const val TEMP_NAME = "geosite.dat.download"
     private const val MIN_SIZE = 1024L
     private const val PROGRESS_INTERVAL_MS = 300L
 
-    // geosite.dat is a protobuf GeoSiteList: its first byte is the tag of field 1 (0x0A).
-    private const val PROTOBUF_FIRST_BYTE = 0x0A
-
     /**
-     * Downloads [url] into [dir]/geosite.dat. The data goes to a temp file first and only
+     * Downloads [url] into [dir]/<name of [file]>. The data goes to a temp file first and only
      * replaces the old file after it passes the checks, so a failed download keeps the old file.
+     * A copy is kept for GeoFileKeeper, so the file survives an app update.
      * Returns the size in bytes of the installed file.
      */
     suspend fun download(
         context: Context,
         url: String,
         dir: File,
+        file: GeoFile,
         onProgress: (Long) -> Unit,
     ): Long = withContext(Dispatchers.IO) {
         dir.mkdirs()
 
-        val temp = File(dir, TEMP_NAME)
-        val target = File(dir, TARGET_NAME)
+        val temp = File(dir, file.fileName + ".download")
+        val target = File(dir, file.fileName)
         var connection: HttpURLConnection? = null
 
         try {
@@ -88,15 +87,17 @@ object GeoSiteDownloader {
                 }
             }
 
-            if (total < MIN_SIZE || temp.inputStream().use { it.read() } != PROTOBUF_FIRST_BYTE) {
+            if (total < MIN_SIZE || !file.looksValid(temp)) {
                 throw GeoSiteDownloadException(
-                    context.getString(R.string.geosite_download_err_invalid)
+                    context.getString(R.string.geofile_download_err_invalid, file.fileName)
                 )
             }
 
             if (!temp.renameTo(target)) {
                 temp.copyTo(target, overwrite = true)
             }
+
+            GeoFileKeeper.keep(context, file)
 
             total
         } finally {

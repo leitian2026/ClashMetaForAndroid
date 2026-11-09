@@ -7,8 +7,6 @@ import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.core.util.trafficTotal
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
 import com.github.kr328.clash.design.custom.MainCustomCards
-import com.github.kr328.clash.design.custom.ProfileUsage
-import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.design.databinding.DesignMainBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
@@ -41,13 +39,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     suspend fun setCustomCards(running: Boolean, state: TunnelState) {
         withContext(Dispatchers.Main) {
             binding.customIp = customCards.update(running, state)
-        }
-    }
-
-    // CUSTOM (CUSTOM.md #9): remaining data / expiry of the active subscription
-    suspend fun setCustomProfile(profile: Profile?) {
-        withContext(Dispatchers.Main) {
-            binding.customProfile = ProfileUsage.text(context, profile)
         }
     }
 

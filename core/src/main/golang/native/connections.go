@@ -10,8 +10,8 @@ import (
 // CUSTOM (CUSTOM.md #8): active connections for the app's connections page.
 
 //export queryCustomConnections
-func queryCustomConnections() *C.char {
-	return marshalJson(connlist.Query())
+func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
+	return marshalJson(connlist.Query(int(sortMode), C.GoString(filter)))
 }
 
 //export closeCustomConnection

@@ -2,6 +2,7 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.view.View
+import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.github.kr328.clash.core.custom.IpHistory
 import com.github.kr328.clash.core.model.ConnectionItem
@@ -27,6 +28,8 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
     sealed class Request {
         object Refresh : Request()
         object OpenHistory : Request()
+        object ToggleSort : Request() // CUSTOM #15
+        object CloseAll : Request() // CUSTOM #15
 
         data class Open(val item: ConnectionItem) : Request()
     }
@@ -40,8 +43,41 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
     override val root: View
         get() = binding.root
 
+    // CUSTOM #15: what the user asked to see; read by the activity for every query
+    @Volatile
+    var filter: String = ""
+        private set
+
+    @Volatile
+    var sortByTraffic: Boolean = false
+        private set
+
     fun request(request: Request) {
         requests.trySend(request)
+    }
+
+    // CUSTOM #15: flips between "newest first" and "most traffic first"
+    fun toggleSort() {
+        sortByTraffic = !sortByTraffic
+
+        binding.connectionsSortView.setText(
+            if (sortByTraffic) R.string.connections_sort_traffic else R.string.connections_sort_time
+        )
+    }
+
+    // CUSTOM #15
+    suspend fun confirmCloseAll(): Boolean {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine<Boolean> { ctx ->
+                MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.connections_close_all)
+                    .setMessage(R.string.connections_close_all_message)
+                    .setPositiveButton(R.string.ok) { _, _ -> ctx.resume(true) }
+                    .setNegativeButton(R.string.cancel) { _, _ -> }
+                    .show()
+                    .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(false) }
+            }
+        }
     }
 
     /** [snapshot] is null while the proxy is not running or the core could not be asked. */
@@ -50,29 +86,42 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
 
         adapter.patchDataSet(adapter::items, items, false, ConnectionItem::id)
 
+        val searching = filter.isNotBlank()
+
         val summary = when {
             !running -> context.getString(R.string.connections_not_running)
             snapshot == null || snapshot.total == 0 -> context.getString(R.string.connections_empty)
+            searching && snapshot.matched == 0 -> context.getString(R.string.connections_no_match)
             else -> {
                 val up = items.sumOf { it.upload }.toBytesString()
                 val down = items.sumOf { it.download }.toBytesString()
 
-                if (snapshot.total > items.size) {
-                    context.getString(
-                        R.string.connections_summary_more,
+                when {
+                    searching -> context.getString(
+                        R.string.connections_summary_filtered,
+                        snapshot.matched,
+                        snapshot.total,
+                        up,
+                        down,
+                    )
+                    snapshot.total > items.size -> context.getString(
+                        if (sortByTraffic) R.string.connections_summary_more_traffic
+                        else R.string.connections_summary_more,
                         snapshot.total,
                         items.size,
                         up,
                         down,
                     )
-                } else {
-                    context.getString(R.string.connections_summary, snapshot.total, up, down)
+                    else -> context.getString(R.string.connections_summary, snapshot.total, up, down)
                 }
             }
         }
 
         withContext(Dispatchers.Main) {
-            binding.connectionsSummaryView.text = summary
+            // CUSTOM #15: no write (and no relayout) when the text did not change
+            if (binding.connectionsSummaryView.text.toString() != summary) {
+                binding.connectionsSummaryView.text = summary
+            }
         }
     }
 
@@ -130,6 +179,13 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
         binding.self = this
 
         binding.activityBarLayout.applyFrom(context)
+
+        // CUSTOM #15: every change of the search text asks the core again (cheap, local call)
+        binding.connectionsSearchView.doOnTextChanged { text, _, _, _ ->
+            filter = text?.toString()?.trim().orEmpty()
+
+            requests.trySend(Request.Refresh)
+        }
 
         binding.recyclerList.applyLinearAdapter(context, adapter)
         // rows change on every refresh (traffic): no fade animation for that

@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"cfa/native/ipdelay"
@@ -20,6 +22,26 @@ import (
 
 // maxItems keeps the answer well below the size limit of one binder transaction.
 const maxItems = 300
+
+const (
+	// SortTime lists the newest connections first (the default).
+	SortTime = 0
+	// SortTraffic lists the connections that moved the most data (upload + download) first.
+	SortTraffic = 1
+)
+
+// CloseAll is the id Close accepts to close every connection at once.
+const CloseAll = "*"
+
+// startCache remembers the start time of the connections seen by the last Query, by id. A start time
+// never changes, so with the default order (newest first) only the connections that appeared since
+// the last Query and the ones that are going to be shown have to be converted; with thousands of
+// connections the rest costs one map lookup each. It is rebuilt on every Query, so it only ever
+// holds ids that were alive then.
+var (
+	cacheLock  sync.Mutex
+	startCache = map[string]int64{}
+)
 
 // Item is one connection. `Chains` is as the core keeps it: the node that really carries the
 // connection first, the groups it was selected through after it.
@@ -42,14 +64,18 @@ type Item struct {
 	NodeCountry string   `json:"nodeCountry,omitempty"`
 }
 
-// Snapshot is the answer of Query. Total counts every connection, Items only the newest ones.
+// Snapshot is the answer of Query. Total counts every connection, Matched those that pass the filter
+// (equal to Total without a filter), Items only the first maxItems of them.
 type Snapshot struct {
-	Total int    `json:"total"`
-	Items []Item `json:"items"`
+	Total   int    `json:"total"`
+	Matched int    `json:"matched"`
+	Items   []Item `json:"items"`
 }
 
-// Query returns the active connections, newest first.
-func Query() (result Snapshot) {
+// Query returns the active connections ordered by sortMode (SortTime or SortTraffic). A non-empty
+// filter keeps only the connections that contain every word of it (case-insensitive) in their host,
+// address, port, app, rule or any name of their route.
+func Query(sortMode int, filter string) (result Snapshot) {
 	result.Items = []Item{}
 
 	defer func() {
@@ -58,28 +84,89 @@ func Query() (result Snapshot) {
 		}
 	}()
 
-	items := make([]Item, 0, 64)
+	cacheLock.Lock()
+	defer cacheLock.Unlock()
+
+	words := strings.Fields(strings.ToLower(filter))
+
+	// the filter and the traffic order need the data of every connection, the time order does not
+	needAll := len(words) > 0 || sortMode == SortTraffic
+
+	type row struct {
+		id      string
+		tracker statistic.Tracker
+		start   int64
+		item    *Item // nil while the connection was not converted
+	}
+
+	rows := make([]row, 0, 64)
+	seen := make(map[string]int64, len(startCache))
 
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
-		if item, ok := convert(c); ok {
-			items = append(items, item)
+		r := row{id: c.ID(), tracker: c}
+
+		if start, ok := startCache[r.id]; ok && !needAll {
+			r.start = start
+		} else if item, ok := convert(c); ok {
+			r.item = &item
+			r.start = item.Start
+		} else {
+			return true
 		}
+
+		seen[r.id] = r.start
+		rows = append(rows, r)
 
 		return true
 	})
 
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Start != items[j].Start {
-			return items[i].Start > items[j].Start
+	startCache = seen
+
+	result.Total = len(rows)
+
+	if len(words) > 0 {
+		kept := rows[:0]
+
+		for _, r := range rows {
+			if r.item != nil && matches(r.item, words) {
+				kept = append(kept, r)
+			}
 		}
 
-		return items[i].ID < items[j].ID
+		rows = kept
+	}
+
+	result.Matched = len(rows)
+
+	sort.Slice(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+
+		if sortMode == SortTraffic && a.item != nil && b.item != nil {
+			ta, tb := a.item.Upload+a.item.Download, b.item.Upload+b.item.Download
+			if ta != tb {
+				return ta > tb
+			}
+		}
+
+		if a.start != b.start {
+			return a.start > b.start
+		}
+
+		return a.id < b.id
 	})
 
-	result.Total = len(items)
+	if len(rows) > maxItems {
+		rows = rows[:maxItems]
+	}
 
-	if len(items) > maxItems {
-		items = items[:maxItems]
+	items := make([]Item, 0, len(rows))
+
+	for _, r := range rows {
+		if r.item != nil {
+			items = append(items, *r.item)
+		} else if item, ok := convert(r.tracker); ok {
+			items = append(items, item)
+		}
 	}
 
 	// the address and exit country the core last used for a node, when they are known
@@ -108,7 +195,24 @@ func Query() (result Snapshot) {
 	return result
 }
 
-// Close closes the connection with that id. It reports false when it is already gone.
+// matches reports whether every word is part of the connection's searchable text.
+func matches(item *Item, words []string) bool {
+	text := strings.ToLower(strings.Join([]string{
+		item.Host, item.IP, item.Port, item.Network, item.Process, item.Rule, item.Payload,
+		strings.Join(item.Chains, " "),
+	}, " "))
+
+	for _, w := range words {
+		if !strings.Contains(text, w) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Close closes the connection with that id, or every connection for CloseAll. It reports false when
+// the connection is already gone (or, for CloseAll, when there was nothing to close).
 func Close(id string) (closed bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -117,11 +221,17 @@ func Close(id string) (closed bool) {
 		}
 	}()
 
-	var target statistic.Tracker
+	var targets []statistic.Tracker
 
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
+		if id == CloseAll {
+			targets = append(targets, c)
+
+			return true
+		}
+
 		if c.ID() == id {
-			target = c
+			targets = append(targets, c)
 
 			return false
 		}
@@ -129,13 +239,11 @@ func Close(id string) (closed bool) {
 		return true
 	})
 
-	if target == nil {
-		return false
+	for _, t := range targets {
+		_ = t.Close()
 	}
 
-	_ = target.Close()
-
-	return true
+	return len(targets) > 0
 }
 
 // convert reads the connection through its JSON form, which is the stable, documented shape of the

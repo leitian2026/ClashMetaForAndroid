@@ -13,11 +13,14 @@ Java_com_github_kr328_clash_core_custom_CustomBridge_nativeSubscribeNodeIp(JNIEn
     subscribeNodeIp(_callback);
 }
 
-// CUSTOM (CUSTOM.md #8): active connections of the core, as JSON.
+// CUSTOM (CUSTOM.md #8, #15): active connections of the core, as JSON (sort order and search text).
 JNIEXPORT jstring JNICALL
 Java_com_github_kr328_clash_core_custom_CustomBridge_nativeQueryConnections(JNIEnv *env,
-                                                                            jobject thiz) {
-    scoped_string response = queryCustomConnections();
+                                                                            jobject thiz,
+                                                                            jint sort,
+                                                                            jstring filter) {
+    scoped_string _filter = get_string(filter);
+    scoped_string response = queryCustomConnections(sort, _filter);
 
     return new_string(response);
 }

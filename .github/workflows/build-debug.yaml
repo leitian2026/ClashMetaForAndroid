@@ -69,6 +69,17 @@ jobs:
           done
           exit 1
 
+      # CUSTOM (CUSTOM.md #14, #18): keep the last downloaded geo files in the Actions cache. They are
+      # only a fallback: the files are still downloaded fresh on every run, but when GitHub keeps
+      # failing the build uses the cached copy instead of failing.
+      - name: Restore geo files cache
+        uses: actions/cache@v5
+        with:
+          path: app/src/main/assets
+          key: geo-files-${{ github.run_id }}
+          restore-keys: |
+            geo-files-
+
       # CUSTOM: download the geo files with retries. The upstream Gradle task `downloadGeoFiles` has
       # none, so one 504 from GitHub fails the whole build; the Build step below skips that task.
       - name: Prefetch geo files
@@ -76,12 +87,20 @@ jobs:
           mkdir -p app/src/main/assets
           base=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest
           fetch() {
+            out="app/src/main/assets/$2"
             for i in 1 2 3 4 5 6 7 8; do
-              if curl -fL --connect-timeout 20 --max-time 300 -o "app/src/main/assets/$2" "$base/$1" && [ -s "app/src/main/assets/$2" ]; then
+              # download next to the target, so a failed try never destroys a cached copy
+              if curl -fL --connect-timeout 20 --max-time 300 -o "$out.part" "$base/$1" && [ -s "$out.part" ]; then
+                mv -f "$out.part" "$out"
                 return 0
               fi
+              rm -f "$out.part"
               echo "$2 download failed, retry $i/8"; sleep 20
             done
+            if [ -s "$out" ]; then
+              echo "::warning::$2 download failed, using the copy from the Actions cache"
+              return 0
+            fi
             return 1
           }
           fetch geoip.metadb geoip.metadb

@@ -50,8 +50,7 @@ class MainActivity : BaseActivity<MainDesign>() {
                         Event.ActivityStart,
                         Event.ServiceRecreated,
                         Event.ClashStop, Event.ClashStart,
-                        Event.ProfileLoaded, Event.ProfileChanged,
-                        Event.ProfileUpdateCompleted -> design.fetch() // CUSTOM: usage/expiry (CUSTOM.md #9)
+                        Event.ProfileLoaded, Event.ProfileChanged -> design.fetch()
                         else -> Unit
                     }
                 }
@@ -113,10 +112,7 @@ class MainActivity : BaseActivity<MainDesign>() {
         setCustomCards(clashRunning, state) // CUSTOM: CUSTOM.md #6, #7
 
         withProfile {
-            val active = queryActive()
-
-            setProfileName(active?.name)
-            setCustomProfile(active) // CUSTOM: remaining data / expiry, CUSTOM.md #9
+            setProfileName(queryActive()?.name)
         }
     }
 

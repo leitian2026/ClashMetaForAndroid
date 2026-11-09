@@ -7,7 +7,7 @@
 ## 上游文件总表（同步上游时冲突只会出现在这里）
 | 上游文件 | 对应条目 | 冲突风险 | 冲突时怎么办 |
 |---|---|---|---|
-| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件（#14）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传 |
+| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传 |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的三个 current 字段 |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
@@ -16,17 +16,19 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #9 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签；#9 加变量 `customProfile`，配置卡片 `subtext` 改成带 `customProfile` 的表达式 |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #9 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）；加 `setCustomProfile()`（#9） |
-| `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 | 低 | 重加 `geoSiteDownload()` 一行 |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #9 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）；`fetch()` 里 `queryActive()` 结果同时给 `setCustomProfile`、事件列表加 `ProfileUpdateCompleted`（#9） |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签 |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8） |
+| `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
-| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections()` / `closeCustomConnection()` 两个实现（#8） |
-| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 | 低 | 末尾重加 `queryCustomConnections(): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity` 的 `<activity>` |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
+| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）和 `.custom.BackupActivity`（#17）的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
+| `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（及 import） |
+| `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 
-共 18 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`）。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 20 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -88,9 +90,9 @@
 
 ## 6. GeoSite 按地址下载并安装
 **效果：** "设置 → Meta 特性"页的"Geo 文件"区域最下方，多出一块常显的 GeoSite 下载区：地址输入框（常显，默认预填官方 `latest/geosite.dat` 地址，之后记住上次填的）、"下载并安装"按钮（下载中变"取消"）、进度/结果文字，以及一行常显提示。
-- 只接受 `https://` 地址。先下载到临时文件，检查大小 ≥ 1 KB 且首字节为 `0x0A`（geosite.dat 的 protobuf 头），通过后才替换 `geosite.dat`；失败或取消不会动原文件。
+- 只接受 `https://` 地址。先下载到临时文件，检查大小 ≥ 1 KB 且首字节为 `0x0A`（geosite.dat 的 protobuf 头；GeoIP / ASN 见 #16），通过后才替换 `geosite.dat`；失败或取消不会动原文件。
 - 安装后需重新加载配置（或重启服务）才生效（内核已把规则读进内存）。r11 起下载成功后出现"立即重载配置"按钮，见 #13。
-- **更新应用后不保留，但会在首页明确提示（常驻，直到重新下载）：** 上游 `MainApplication.extractGeoFiles()` 会在应用更新后把旧于安装时间的 `geosite.dat` 换回内置版本（这部分不改）。下载成功时记录文件修改时间（`installed_at`）；首页判断"记录时间早于应用最后更新时间"时，在首页顶部 App 名字下方显示一行红字"域名集已恢复为内置版本，点此重新下载"（不是卡片），点击跳到"设置 → Meta 特性"。重新下载成功后记录时间变新，红字自动消失；从未下载过（没有记录）则不显示。纯本地判断，只在首页显示 / 刷新时判断一次，无定时、无联网。设置页里的小字提示保留。
+- **更新应用后：** r12 起（#16）下载的文件会自动恢复，不再被换回内置版。下面是旧版（r11 及以前）下载、没有副本的文件的情况，首页仍会提示： 上游 `MainApplication.extractGeoFiles()` 会在应用更新后把旧于安装时间的 `geosite.dat` 换回内置版本（这部分不改）。下载成功时记录文件修改时间（`installed_at`）；首页判断"记录时间早于应用最后更新时间"时，在首页顶部 App 名字下方显示一行红字"域名集已恢复为内置版本，点此重新下载"（不是卡片），点击跳到"设置 → Meta 特性"。重新下载成功后记录时间变新，红字自动消失；从未下载过（没有记录）则不显示。纯本地判断，只在首页显示 / 刷新时判断一次，无定时、无联网。设置页里的小字提示保留。
 - 功耗：只在用户点按钮时联网，不轮询、不后台；退出页面会取消正在进行的下载。
 - 地址保存在独立的 SharedPreferences `custom_geosite`（键 `url`），不写入 override 配置。
 
@@ -155,6 +157,7 @@
 - 点一行弹出详情（目标、来源、网络和入站类型、从策略组到节点的完整链路、节点 IP、规则、应用、开始时间、流量），可"关闭连接"。弹窗打开期间列表不刷新。
 - 顶部栏右侧两个图标：刷新（手动）和 IP 切换历史（见 #10）。
 - **刷新时机：** 进入页面 / 回到页面、手动点刷新、Clash 启动停止、**节点 IP 变化广播**（和首页同一个事件，见 #7）、以及页面在前台且代理在运行时**每 2 秒**一次。2 秒这个定时只在页面 started 且代理运行时才参与 `select`；页面进入后台 / 息屏后不再有任何唤醒（和首页本来就有的 1 秒流量 ticker 同一类，且更严）。代理没运行时不查询，显示"代理未运行"。
+- r12 起（#15）：顶部有搜索框、按时间 / 按流量排序、"全部关闭"。查询带两个参数（排序、搜索词），见 #15。
 - 数据来源：内核 `statistic.DefaultManager.Range`，每个连接取 `Info()` 的 JSON（即 REST API `/connections` 的稳定格式）再取字段，不依赖内核内部结构体的字段名。内核只在被问到时才处理，没有后台任务。
 
 **新增文件**
@@ -170,12 +173,10 @@
 
 **依赖的 mihomo API：** `statistic.DefaultManager.Range`、`Tracker.ID()` / `Info()` / `Chains()` / `Close()`，以及 `Info()` 能被 `json.Marshal`（REST API 同款）。
 
-## 9. 首页配置卡片显示剩余流量和到期时间
-- 配置卡片副标题第二行：`剩余 xx GiB · yyyy-MM-dd 到期（剩 N 天）`。已用完显示"流量已用完"，已过期显示"yyyy-MM-dd 已过期"。
-- 数据是订阅服务器在更新订阅时返回的响应头 `subscription-userinfo`（上游本来就解析并存进配置数据库：`total` / `upload` / `download` / `expire`），这里只是读出来显示，**不联网、不新增任何后台工作**。它是上次更新订阅时的快照，不是实时值。
-- 服务器没返回这个头（`total` 和 `expire` 都是 0）时第二行不显示；只返回其中一项就只显示那一项。本地文件配置没有这些数据。
-- 刷新时机：首页本来就有的 `fetch()`（进入首页、配置切换 / 加载），另加订阅更新完成事件 `ProfileUpdateCompleted`。
-- 新增文件：`design/.../custom/ProfileUsage.kt`；文案 `main_profile_*`。上游文件改动见总表。
+## 9. （已删除）首页配置卡片显示剩余流量和到期时间
+- r12 起删除：这个信息上游本来就能看到（订阅页），不需要在首页重复。
+- 已还原的上游文件挂钩：`design_main.xml`（变量 `customProfile`、配置卡片 `subtext`）、`MainDesign.kt`（`setCustomProfile`）、`MainActivity.kt`（`setCustomProfile` 调用、`ProfileUpdateCompleted` 事件），并删除 `ProfileUsage.kt` 和 `main_profile_*` 文案。
+- 编号 9 不再使用，别的条目的编号不变。
 
 ## 10. IP 切换历史
 - 内核在"节点 / IP / 国家"变化并通知应用时（#7 的同一时机），把这次切换记到 `<filesDir>/custom/ip_history.json`，最多 50 条；同一节点 IP 连续出现不重复记，只是国家后来才查到时补全最后一条。
@@ -205,3 +206,54 @@
 - `.github/workflows/build-debug.yaml`：新增 `Prefetch geo files` 步骤，用 `curl` 下载到 `app/src/main/assets/`（上游任务本来写入的位置，已在 `.gitignore`），每个文件最多重试 8 次、间隔 20 秒，文件必须非空；`Build` 命令加 `-x :app:downloadGeoFiles` 跳过上游任务。`Prefetch Gradle wrapper` 的重试也加到 8 次、间隔 20 秒。
 - 没改任何上游文件（用 Gradle 命令行参数跳过任务）。下载地址、文件名要和上游 `downloadGeoFiles` 里的保持一致；上游增删文件时这里要同步。
 - 同步上游时 `build-debug.yaml` 冲突，保留这一步和 `-x` 参数即可。`build-pre-release.yaml` 没有加。
+
+## 15. 连接页：搜索、排序、全部关闭、少做无用功（r12）
+**效果：**
+- 搜索框：输入一个或多个词（空格分隔，全部要匹配，不分大小写），在域名、IP、端口、应用包名、规则、链路里所有节点 / 策略组名中查找。搜索覆盖**全部**连接，不只是显示的 300 条；摘要变成"匹配 N / 共 M 个连接"。
+- "按时间 / 按流量"按钮：切换排序（最新在前 / 上传加下载最多在前）。按流量时是在全部连接里取最多的 300 条。
+- "全部关闭"按钮：确认后关闭所有连接（节点或 IP 切换后常用，让应用重新连到新路径）。内核侧用特殊 id `*`（`CustomConnections.CLOSE_ALL`）表示全部，所以没有新增 IPC 方法。
+- **刷新少做无用功：** 答案（JSON 原文）和上次一样、且排序 / 搜索词 / 运行状态没变时，不解析、不 diff、不重画；摘要文字没变不重写。列表行本来就按连接 id 做 diff，只有流量变了的行才重绑。
+- **Go 侧成本：** 默认（按时间、无搜索）时只把"本次新出现的连接"和"要显示的 300 条"转成 JSON；其余连接只查一次开始时间缓存（`startCache`，每次查询重建，只含当时活着的 id）。连接数上千时比以前每条都 marshal 省很多。按流量或有搜索词时必须看全部连接，会全部转换（只在用户这样选时才发生）。
+- 功耗：没有新增定时器；每次输入搜索词会立即查询一次（本地调用）。
+
+**改了的文件（都是 #8 已有的挂钩，没有新增上游文件）**
+- `core/src/main/golang/native/connlist/connlist.go`（`Query(sortMode, filter)`、`Close` 支持 `*`）、`connections.go`、`core/src/main/cpp/custom_bridge.c`（`nativeQueryConnections(sort, filter)`）。
+- `core/.../custom/NodeIpWatcher.kt`（`CustomBridge`）、`CustomConnections.kt`、`ConnectionSnapshot.kt`（新增 `matched`）。
+- `IClashManager.kt` / `ClashManager.kt`：`queryCustomConnections` 多了 `sort`、`filter` 两个参数（总表已更新）。
+- `design/.../custom/ConnectionsDesign.kt`、`design/.../res/layout/design_connections.xml`、`app/.../custom/ConnectionsActivity.kt`、文案 `connections_*`。
+
+## 16. 下载的 geo 文件更新应用后自动恢复；GeoIP / ASN 也能按地址下载（r12）
+**效果：**
+- "设置 → Meta 特性 → Geo 文件"下面现在有三块：GeoSite（`geosite.dat`）、GeoIP（`geoip.metadb`）、ASN（`ASN.mmdb`），每块一个地址框、"下载并安装"、下载成功后"立即重载配置"。默认地址都是 MetaCubeX 的 latest 发布；GeoSite 保存地址的键不变，旧设置保留。
+- 校验：GeoSite 看首字节 `0x0A`；GeoIP / ASN 看文件尾 128 KiB 里有没有 MaxMind DB 的元数据标记 `\xAB\xCD\xEFMaxMind.com`。通过才替换，失败不动原文件。
+- **自动恢复：** 下载成功后另存一份副本到 `<filesDir>/custom/geo/`。应用更新后第一次启动，上游 `extractGeoFiles()` 照旧把文件换成内置版，紧接着挂钩 `GeoFileKeeper.restoreAfterUpdate()` 把副本放回（早于内核读 geo 文件）。恢复后的文件修改时间是"现在"，所以上游之后不会再删它。每次应用更新只处理一次（`handled_update` 记录应用的 `lastUpdateTime`），用文件锁防止 app 进程和服务进程同时恢复。
+- 从没下载过的人：`custom/geo/` 不存在，挂钩什么都不做（零成本）。
+- 首页红字提示：有 GeoSite 副本就不再显示。只有旧版（r11 及以前）下载、没有副本的文件，第一次更新后仍会被换回内置版，红字照旧提示，重新下载一次就有副本了。
+- 已知边界：如果用户下载后又用上游"导入 geo 文件"手动覆盖，再更新应用，恢复的是下载的那份副本，不是手动导入的。两个进程恰好在同一毫秒内一起启动时，理论上有极小概率被上游的解压覆盖一次（下次更新之前文件会是内置版，红字不会提示）。
+- 功耗：只在用户点下载时联网；启动时多一次读小文件，更新后第一次启动多拷贝几个文件。无定时器。
+
+**新增文件：** `design/.../custom/GeoFile.kt`（三种文件的名字、默认地址、校验）、`GeoFileKeeper.kt`（副本和恢复）。
+**改了的文件：** `GeoSiteDownloader.kt`（下载哪个文件由参数决定，成功后保存副本）、`GeoSiteResetNotice.kt`（有副本就不提示）、`GeoSiteDownloadPreference.kt`（`geoSiteDownload()` 一次加三块；标题、地址提示、说明文字在代码里设置）、`preference_geosite_download.xml`、文案 `geofile_*`；上游文件 `MainApplication.kt` 一行挂钩（见总表）。
+
+## 17. 备份与恢复（r12）
+**效果：** "设置 → 应用"最下面新增"备份与恢复"：
+- **导出备份：** 选保存位置，生成一个 zip：`backup.json`（订阅列表、当前启用的订阅、服务设置、界面设置、三个 geo 下载地址、覆盖设置原文）加 `profiles/<uuid>/` 下每个订阅的文件。`type` 为 External 的订阅（别的 App 创建的）不导出。**文件里有订阅地址和 age 密钥，要自己保管。**
+- **导入备份：** 选 zip，先显示备份时间和订阅数让用户确认，然后：恢复服务设置和界面设置（替换现在的）、写回覆盖设置、逐个添加订阅（名称 + 类型 + 地址都相同的已有订阅跳过）。订阅走上游自己的流程（`create` → 写入备份里的文件 → `patch` 设更新间隔 → `commit`），订阅类型的会**重新联网下载**；失败的留在订阅页，列在结果里，可手动更新。如果现在没有启用的订阅，才把备份里启用的那个设为启用。
+- 不在备份里：geo 文件（可重新下载）、每个订阅的节点选择记录、缓存、签名密钥。"隐藏应用图标"不恢复（它是启动器组件的开关，不只是一个设置项）。
+- 覆盖设置、服务相关设置需要重新加载配置或重启服务后生效（结果里会提示）。
+- zip 解压时检查路径，防止条目跳出临时目录（zip slip）；临时文件在 `cacheDir/custom_restore`，恢复完或取消后删除。
+- 功耗：只在用户点导出 / 导入时运行，无后台工作。
+
+**新增文件：** `app/.../custom/BackupActivity.kt`（选文件、确认、结果）、`BackupManager.kt`（导出 / 导入逻辑，JSON 用 `org.json`）、`design/.../custom/BackupDesign.kt`（几乎空白的页面，只显示状态和对话框）、`design/.../preference/BackupPreference.kt`（`PreferenceScreen.customBackup()`，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）、文案 `backup_*`。
+**改了上游文件：** `AppSettingsDesign.kt`（一行 `customBackup()`）、`AndroidManifest.xml`（`BackupActivity`）。
+**依赖的上游接口：** `IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`；`pendingDir` / `importedDir`；`ServiceStore` 的各个属性（上游新增设置项时可在 `BackupManager.serviceToJson` / `restoreSettings` 里加）；`override.json` 在 `filesDir/clash` 下（内核的 `OverrideSlotPersist` 路径）。
+
+## 18. 构建时 geo 文件缓存兜底（仅 build-debug）
+- 上游 workflow 本来就缓存了 Go 编译缓存和模块（`actions/cache`），`gradle/actions/setup-gradle` 也缓存 Gradle，这两处不用再加。
+- `build-debug.yaml`：新增 `Restore geo files cache` 步骤（缓存 `app/src/main/assets`，key `geo-files-<run_id>`，靠 `restore-keys` 取最近一次的）；`Prefetch geo files` 改成先下到 `.part` 再改名，重试 8 次都失败时，如果缓存里有旧文件就用旧文件并给出警告，而不是让整个构建失败。每次仍然先尝试下载最新的。
+- 没改上游文件。同步上游时 `build-debug.yaml` 冲突，保留这两个步骤即可。
+
+## 19. 自检脚本 `scripts/check-custom.sh`
+- 用法：`bash scripts/check-custom.sh`（在 git 仓库里、有 `main` 分支时最准；没有 `main` 分支时用宽松检查）。
+- 检查：① 带 `CUSTOM` 标记且存在于上游（`main` 分支里有）的文件，必须在本文件"上游文件总表"里；② 带标记的新文件，本文件里必须提到；③ 总表里的每个文件都还存在、还带 `CUSTOM` 标记（合并时挂钩没丢）。有问题时列出来并返回 1。
+- 每次改动后、同步上游后各跑一次。上游文件名、标记写法（`CUSTOM`）变了才需要改脚本。

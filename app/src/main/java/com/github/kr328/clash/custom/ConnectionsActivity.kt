@@ -3,6 +3,7 @@ package com.github.kr328.clash.custom
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.BaseActivity.Event
 import com.github.kr328.clash.common.util.ticker
+import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.ConnectionSnapshot
 import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.custom.ConnectionsDesign
@@ -43,6 +44,29 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
                     when (it) {
                         ConnectionsDesign.Request.Refresh -> design.refresh()
                         ConnectionsDesign.Request.OpenHistory -> design.showHistory()
+                        ConnectionsDesign.Request.ToggleSort -> {
+                            design.toggleSort()
+                            design.refresh()
+                        }
+                        ConnectionsDesign.Request.CloseAll -> {
+                            if (design.confirmCloseAll()) {
+                                val closed = try {
+                                    withClash { closeCustomConnection(CustomConnections.CLOSE_ALL) }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    false
+                                }
+
+                                design.showToast(
+                                    if (closed) DesignR.string.connections_all_closed
+                                    else DesignR.string.connections_nothing_to_close,
+                                    ToastDuration.Short,
+                                )
+
+                                design.refresh()
+                            }
+                        }
                         is ConnectionsDesign.Request.Open -> {
                             // the loop waits here, so the list does not change under the dialog
                             if (design.showDetail(it.item)) {
@@ -76,12 +100,19 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
         }
     }
 
+    // CUSTOM #15: what the page shows now; an unchanged answer (nothing moved, same question) is not
+    // parsed, diffed or drawn again
+    private var shownKey: String? = null
+    private var shownRaw: String? = null
+
     private suspend fun ConnectionsDesign.refresh() {
         val running = clashRunning
+        val sort = if (sortByTraffic) CustomConnections.SORT_TRAFFIC else CustomConnections.SORT_TIME
+        val search = filter
 
-        val snapshot = if (running) {
+        val raw = if (running) {
             try {
-                ConnectionSnapshot.parse(withClash { queryCustomConnections() })
+                withClash { queryCustomConnections(sort, search) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -89,6 +120,21 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
             }
         } else {
             null
+        }
+
+        val key = "$running|$sort|$search"
+
+        if (key == shownKey && raw == shownRaw) return
+
+        shownKey = key
+        shownRaw = raw
+
+        val snapshot = raw?.let {
+            try {
+                ConnectionSnapshot.parse(it)
+            } catch (e: Exception) {
+                null
+            }
         }
 
         patch(snapshot, running)

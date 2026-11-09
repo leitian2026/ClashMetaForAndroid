@@ -27,8 +27,8 @@ class ClashManager(private val context: Context) : IClashManager,
     }
 
     // CUSTOM: CUSTOM.md #8
-    override fun queryCustomConnections(): String {
-        return CustomConnections.query()
+    override fun queryCustomConnections(sort: Int, filter: String): String {
+        return CustomConnections.query(sort, filter)
     }
 
     // CUSTOM: CUSTOM.md #8

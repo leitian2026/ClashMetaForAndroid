@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ip_delay_timeout">超时</string>
-    <string name="geosite_download_title">GeoSite 下载地址</string>
-    <string name="geosite_download_hint">https://…/geosite.dat</string>
     <string name="geosite_download_button">下载并安装</string>
     <string name="geosite_download_cancel">取消</string>
-    <string name="geosite_download_notice">安装后需重新加载配置（或重启服务）才生效。更新应用后会恢复为内置的 geosite.dat，需要自己的版本请重新下载。</string>
     <string name="geosite_download_progress">已下载 %1$s</string>
-    <string name="geosite_download_done">已安装 geosite.dat（%1$s）</string>
     <string name="geosite_download_failed">失败：%1$s</string>
     <string name="geosite_download_cancelled">已取消</string>
     <string name="geosite_download_err_url">请输入以 https:// 开头的地址</string>
     <string name="geosite_download_err_http">服务器返回 HTTP %1$d</string>
-    <string name="geosite_download_err_invalid">下载的文件不是有效的 geosite.dat</string>
     <string name="geosite_reset_title">GeoSite 已恢复为内置版本</string>
     <string name="geosite_reset_message">应用更新后，你之前下载安装的 geosite.dat 已被内置版本替换。需要自己的版本，请到 设置 → Meta 特性 → Geo 文件 重新下载。</string>
     <string name="main_geosite_reset_notice">域名集已恢复为内置版本，点此重新下载</string>
@@ -22,11 +17,7 @@
     <string name="ip_delay_age_hours">%1$d 小时前测速</string>
     <string name="ip_delay_age_days">%1$d 天前测速</string>
     <string name="geosite_download_reload">立即重载配置</string>
-    <string name="geosite_download_reload_sent">已请求重载。服务未运行时，下次启动会使用新的 geosite.dat。</string>
-    <string name="main_profile_left">剩余 %1$s</string>
-    <string name="main_profile_used_up">流量已用完</string>
-    <string name="main_profile_expire">%1$s 到期（剩 %2$d 天）</string>
-    <string name="main_profile_expired">%1$s 已过期</string>
+    <string name="geosite_download_reload_sent">已请求重载。服务未运行时，下次启动会使用新文件。</string>
     <string name="connections">连接</string>
     <string name="connections_refresh">刷新</string>
     <string name="connections_history">IP 切换历史</string>
@@ -49,4 +40,44 @@
     <string name="connection_label_traffic">流量</string>
     <string name="ip_history_title">IP 切换历史</string>
     <string name="ip_history_empty">还没有切换记录</string>
+
+    <!-- CUSTOM #15: connections search / sort / close all -->
+    <string name="connections_search_hint">搜索域名、应用、节点、规则</string>
+    <string name="connections_sort_time">按时间</string>
+    <string name="connections_sort_traffic">按流量</string>
+    <string name="connections_close_all">全部关闭</string>
+    <string name="connections_close_all_message">关闭当前所有连接？应用会自动重连，此后的新连接会走最新的节点。</string>
+    <string name="connections_all_closed">已关闭所有连接</string>
+    <string name="connections_nothing_to_close">当前没有连接</string>
+    <string name="connections_no_match">没有匹配的连接</string>
+    <string name="connections_summary_more_traffic">%1$d 个连接（仅显示流量最大的 %2$d 个）· ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_filtered">匹配 %1$d / 共 %2$d 个连接 · ↑ %3$s · ↓ %4$s</string>
+
+    <!-- CUSTOM #16: geo file downloads (GeoSite / GeoIP / ASN) -->
+    <string name="geofile_download_title">%1$s 下载地址</string>
+    <string name="geofile_download_notice">安装后需重新加载配置（或重启服务）才生效。下载的文件会留一份副本，更新应用后自动恢复，不会被换回内置版。</string>
+    <string name="geofile_download_done">已安装 %1$s（%2$s）</string>
+    <string name="geofile_download_err_invalid">下载的文件不是有效的 %1$s</string>
+
+    <!-- CUSTOM #17: backup / restore -->
+    <string name="backup_category">备份与恢复</string>
+    <string name="backup_export_title">导出备份</string>
+    <string name="backup_export_summary">把订阅、应用设置、覆盖设置存成一个文件。文件里有订阅地址，请妥善保管</string>
+    <string name="backup_import_title">导入备份</string>
+    <string name="backup_import_summary">从备份文件恢复。已有的同名同地址订阅会跳过</string>
+    <string name="backup_working">请稍候…</string>
+    <string name="backup_failed_title">操作失败</string>
+    <string name="backup_export_done_title">备份完成</string>
+    <string name="backup_export_done">已保存 %1$d 个订阅，以及应用设置和覆盖设置。</string>
+    <string name="backup_import_confirm_title">恢复这个备份？</string>
+    <string name="backup_import_confirm">备份时间：%1$s
+订阅：%2$d 个
+
+将恢复应用设置和覆盖设置（会替换现在的），并添加备份里的订阅。订阅需要联网重新下载。</string>
+    <string name="backup_import_done_title">恢复完成</string>
+    <string name="backup_result_profiles">订阅：恢复 %1$d 个，跳过 %2$d 个（已存在）</string>
+    <string name="backup_result_failed">没有恢复成功（可到订阅页手动更新）：%1$s</string>
+    <string name="backup_result_settings">已恢复应用设置</string>
+    <string name="backup_result_override">已恢复覆盖设置</string>
+    <string name="backup_result_hint">覆盖设置和服务相关设置需要重新加载配置或重启服务后生效。</string>
 </resources>

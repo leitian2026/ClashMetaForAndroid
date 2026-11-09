@@ -14,7 +14,7 @@ object CustomBridge {
     external fun nativeSubscribeNodeIp(callback: FetchCallback)
 
     // CUSTOM (CUSTOM.md #8): active connections of the core (JSON) and closing one of them
-    external fun nativeQueryConnections(): String
+    external fun nativeQueryConnections(sort: Int, filter: String): String
     external fun nativeCloseConnection(id: String): Boolean
 }
 

@@ -5,6 +5,7 @@ import android.content.Context
 import com.github.kr328.clash.common.Global
 import com.github.kr328.clash.common.compat.currentProcessName
 import com.github.kr328.clash.common.log.Log
+import com.github.kr328.clash.design.custom.GeoFileKeeper
 import com.github.kr328.clash.remote.Remote
 import com.github.kr328.clash.service.util.sendServiceRecreated
 import com.github.kr328.clash.util.clashDir
@@ -25,6 +26,7 @@ class MainApplication : Application() {
 
         val processName = currentProcessName
         extractGeoFiles()
+        GeoFileKeeper.restoreAfterUpdate(this) // CUSTOM: CUSTOM.md #16
 
         Log.d("Process $processName started")
 

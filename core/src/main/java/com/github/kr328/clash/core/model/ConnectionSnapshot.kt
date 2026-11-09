@@ -27,10 +27,14 @@ data class ConnectionItem(
     val nodeCountry: String = "",
 )
 
-/** [total] counts every connection, [items] holds only the newest ones, newest first. */
+/**
+ * [total] counts every connection, [matched] those that pass the search text, [items] holds only the
+ * first ones of them in the requested order.
+ */
 @Serializable
 data class ConnectionSnapshot(
     val total: Int = 0,
+    val matched: Int = 0,
     val items: List<ConnectionItem> = emptyList(),
 ) {
     companion object {
