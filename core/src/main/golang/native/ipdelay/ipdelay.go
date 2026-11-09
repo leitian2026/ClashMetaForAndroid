@@ -81,7 +81,63 @@ var (
 	selfDialing int32
 
 	hookOnce sync.Once
+
+	// change notification (see SetOnChange); guarded by notifyLock, never held together with `lock`
+	notifyLock  sync.Mutex
+	onChange    func()
+	notifyTimer *time.Timer
+	notified    string // node|ip|country that the listener was last told about
 )
+
+// notifyDelay lets the new connection register itself (so that Current sees it) and merges bursts
+// of dials into one notification.
+const notifyDelay = 800 * time.Millisecond
+
+// SetOnChange registers the listener that is told when what Current() returns has changed
+// (another node IP in use, or its exit country became known). It is event driven: a single
+// delayed call is scheduled only when a dial to a different node IP is observed; nothing runs
+// while the node IP stays the same.
+func SetOnChange(f func()) {
+	notifyLock.Lock()
+	onChange = f
+	notified = ""
+	notifyLock.Unlock()
+}
+
+func scheduleNotify() {
+	notifyLock.Lock()
+	defer notifyLock.Unlock()
+
+	if onChange == nil || notifyTimer != nil {
+		return
+	}
+
+	notifyTimer = time.AfterFunc(notifyDelay, fireNotify)
+}
+
+func fireNotify() {
+	notifyLock.Lock()
+	notifyTimer = nil
+	f := onChange
+	notifyLock.Unlock()
+
+	if f == nil {
+		return
+	}
+
+	node, ip, country := Current() // also starts the country lookup when it is still unknown
+
+	key := node + "|" + ip + "|" + country
+
+	notifyLock.Lock()
+	same := key == notified
+	notified = key
+	notifyLock.Unlock()
+
+	if !same {
+		f()
+	}
+}
 
 // CaptureConfig stores the raw `proxies:` and `hosts:` of the loaded profile and
 // clears old results. Arguments are `any` on purpose so it does not depend on
@@ -223,9 +279,14 @@ func record(address string) {
 	}
 
 	lock.Lock()
+	changed := lastUsed.node != node || lastUsed.ip != ip
 	lastUsed = used{node: node, ip: ip}
 	lastByNode[node] = ip
 	lock.Unlock()
+
+	if changed {
+		scheduleNotify()
+	}
 }
 
 // Current returns the node IP in use and, if already known, the exit country behind it.
@@ -321,7 +382,6 @@ func probeCountry(key string, raw map[string]any, ip string) {
 	}
 
 	lock.Lock()
-	defer lock.Unlock()
 
 	delete(probing, key)
 
@@ -330,6 +390,12 @@ func probeCountry(key string, raw map[string]any, ip string) {
 		delete(failedAt, key)
 	} else {
 		failedAt[key] = time.Now()
+	}
+
+	lock.Unlock()
+
+	if country != "" {
+		scheduleNotify() // the flag can now be shown
 	}
 }
 
