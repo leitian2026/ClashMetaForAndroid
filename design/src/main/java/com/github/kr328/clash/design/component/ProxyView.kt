@@ -7,7 +7,7 @@ import android.graphics.Path
 import android.view.View
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.design.R
-import com.github.kr328.clash.design.custom.CountryFlag
+import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.design.store.UiStore
 
 class ProxyView(
