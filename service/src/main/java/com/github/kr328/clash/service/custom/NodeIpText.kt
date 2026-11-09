@@ -6,14 +6,21 @@ import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.service.R
 
 // CUSTOM (CUSTOM.md #7): text of the status-bar notification (replaces the upload/download speed):
-// "<flag> <ip> · <node>". Called from DynamicNotificationModule's existing 1-second update (which
-// already stops when the screen is off); the core is only asked every 3rd call.
+// "<flag> <ip> · <node>". It is rebuilt only after NodeIpNotifier marked it stale (the core told us
+// the node IP changed), otherwise the cached text is returned.
 object NodeIpText {
-    private var calls = 0
+    @Volatile
+    private var dirty = true
     private var cached = ""
 
+    fun invalidate() {
+        dirty = true
+    }
+
+    @Synchronized
     fun get(context: Context): String {
-        if (calls++ % 3 == 0 || cached.isEmpty()) {
+        if (dirty) {
+            dirty = false
             cached = build(context)
         }
 
