@@ -24,7 +24,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenSettings,
         OpenHelp,
         OpenAbout,
-        RefreshCustom, // CUSTOM: CUSTOM.md #6, #7
     }
 
     private val binding = DesignMainBinding
@@ -33,14 +32,12 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     override val root: View
         get() = binding.root
 
-    // CUSTOM: GeoSite reminder + "current node IP" cards, CUSTOM.md #6, #7
-    private val customCards = MainCustomCards(context, binding.customContainer) {
-        request(Request.RefreshCustom)
-    }
+    // CUSTOM: GeoSite reminder + current node IP on the proxy card, CUSTOM.md #6, #7
+    private val customCards = MainCustomCards(context, binding.root)
 
     suspend fun setCustomCards(running: Boolean, state: TunnelState) {
         withContext(Dispatchers.Main) {
-            customCards.update(running, state)
+            binding.customIp = customCards.update(running, state)
         }
     }
 
