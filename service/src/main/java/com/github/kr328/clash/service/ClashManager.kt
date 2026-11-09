@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.model.*
+import com.github.kr328.clash.service.custom.NodeIpNotifier
 import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.remote.IClashManager
@@ -19,6 +20,8 @@ class ClashManager(private val context: Context) : IClashManager,
     private var logReceiver: ReceiveChannel<LogMessage>? = null
 
     override fun queryTunnelState(): TunnelState {
+        NodeIpNotifier.start(context) // CUSTOM: CUSTOM.md #7
+
         return Clash.queryTunnelState()
     }
 
