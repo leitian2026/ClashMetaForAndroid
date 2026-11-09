@@ -12,19 +12,21 @@
 | `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的三个 current 字段 |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 | 低 | 重加 `ipdelay.CaptureConfig(...)` |
-| `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook()`（必须在上游给 `DefaultSocketHook` 赋值之后） |
+| `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
-| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility` |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 | 低 | 重加 `customCards`、`setCustomCards()` |
+| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #9 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签；#9 加变量 `customProfile`，配置卡片 `subtext` 改成带 `customProfile` 的表达式 |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #9 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）；加 `setCustomProfile()`（#9） |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 | 低 | 重加 `geoSiteDownload()` 一行 |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支 |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #9 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）；`fetch()` 里 `queryActive()` 结果同时给 `setCustomProfile`、事件列表加 `ProfileUpdateCompleted`（#9） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
-| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)` |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections()` / `closeCustomConnection()` 两个实现（#8） |
+| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 | 低 | 末尾重加 `queryCustomConnections(): String` 和 `closeCustomConnection(id: String): Boolean` |
+| `app/src/main/AndroidManifest.xml` | #8 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity` 的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 
-共 16 个上游文件（含 `ClashManager.kt`、`CMakeLists.txt`）。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 18 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`）。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -42,7 +44,7 @@
 
 **新增文件**
 - `core/src/main/golang/native/ipdelay/ipdelay.go`：逐 IP 测速逻辑（临时复制节点、把 server 换成该 IP、经节点拨号请求测速 URL）。
-- `core/src/main/java/com/github/kr328/clash/core/model/IpDelay.kt`：数据类（`ip`、`delay`、`country`）。
+- `core/src/main/java/com/github/kr328/clash/core/model/IpDelay.kt`：数据类（`ip`、`delay`、`country`、`at`）。
 - `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`：国家码转国旗 emoji（放在 core，design 和 service 都用）。
 - `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`：文案。
 
@@ -87,7 +89,7 @@
 ## 6. GeoSite 按地址下载并安装
 **效果：** "设置 → Meta 特性"页的"Geo 文件"区域最下方，多出一块常显的 GeoSite 下载区：地址输入框（常显，默认预填官方 `latest/geosite.dat` 地址，之后记住上次填的）、"下载并安装"按钮（下载中变"取消"）、进度/结果文字，以及一行常显提示。
 - 只接受 `https://` 地址。先下载到临时文件，检查大小 ≥ 1 KB 且首字节为 `0x0A`（geosite.dat 的 protobuf 头），通过后才替换 `geosite.dat`；失败或取消不会动原文件。
-- 安装后需重新加载配置（或重启服务）才生效（内核已把规则读进内存）。
+- 安装后需重新加载配置（或重启服务）才生效（内核已把规则读进内存）。r11 起下载成功后出现"立即重载配置"按钮，见 #13。
 - **更新应用后不保留，但会在首页明确提示（常驻，直到重新下载）：** 上游 `MainApplication.extractGeoFiles()` 会在应用更新后把旧于安装时间的 `geosite.dat` 换回内置版本（这部分不改）。下载成功时记录文件修改时间（`installed_at`）；首页判断"记录时间早于应用最后更新时间"时，在首页顶部 App 名字下方显示一行红字"域名集已恢复为内置版本，点此重新下载"（不是卡片），点击跳到"设置 → Meta 特性"。重新下载成功后记录时间变新，红字自动消失；从未下载过（没有记录）则不显示。纯本地判断，只在首页显示 / 刷新时判断一次，无定时、无联网。设置页里的小字提示保留。
 - 功耗：只在用户点按钮时联网，不轮询、不后台；退出页面会取消正在进行的下载。
 - 地址保存在独立的 SharedPreferences `custom_geosite`（键 `url`），不写入 override 配置。
@@ -135,7 +137,7 @@
 **改了上游文件（冲突只会出现在这里）**
 | 文件 | 改动 |
 |---|---|
-| `core/src/main/golang/native/delegate/init.go` | import 加 `cfa/native/ipdelay`；`Init` 末尾加 `ipdelay.InstallSocketHook()` |
+| `core/src/main/golang/native/delegate/init.go` | import 加 `cfa/native/ipdelay`；`Init` 末尾加 `ipdelay.InstallSocketHook(home)`（r11 起带 `home` 参数，见 #10 #11） |
 | `core/src/main/golang/native/tunnel.go` | `queryTunnelState` 里取 `ipdelay.Current()`，响应结构加 `currentNode` / `currentIp` / `currentCountry`（三个字段都带 `omitempty`） |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | 构造参数加 `currentNode` / `currentIp` / `currentCountry`（默认空串） |
 | `design/src/main/res/layout/design_main.xml` | 加变量 `customIp`；App 名字 `TextView` 外包一层竖向 `LinearLayout`，其下加红字 `custom_geosite_notice`（默认 gone）；代理卡片去掉 `visibility`，`subtext` 改为 `@{customIp == null ? mode : mode + customIp}` |
@@ -146,3 +148,54 @@
 | `core/src/main/cpp/CMakeLists.txt` | `add_library(bridge ...)` 源文件列表末尾加 `custom_bridge.c` |
 
 **依赖的上游接口：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）；`bridge.h` 里的 `fetch_report` / `release_object`、`main.c` 里 `JNI_OnLoad` 已注册的 `FetchCallback.report`；`Bridge` 的 `System.loadLibrary("bridge")` 库名；`DynamicNotificationModule` 的 `receiveBroadcast` / `select` 循环；`Clash.queryTunnelState()`；`libclash.h` 由 cgo 根据 `//export` 自动生成（新增导出函数会自动出现，不用改头文件）。
+
+## 8. 连接列表页（首页"连接"）
+**效果：** 首页"日志"上方多一个"连接"入口，打开后列出内核当前的连接（最新的在最上面，最多 300 条，超出时顶部写明）。
+- 每行三行字：目标 `域名:端口`；实际承载连接的节点（`国旗 节点名 · 节点 IP`，IP / 国旗只有内核已经知道时才有，不触发探测）；`TCP · 规则 · ↑上传 ↓下载 · 应用包名 · 开始时间`。
+- 点一行弹出详情（目标、来源、网络和入站类型、从策略组到节点的完整链路、节点 IP、规则、应用、开始时间、流量），可"关闭连接"。弹窗打开期间列表不刷新。
+- 顶部栏右侧两个图标：刷新（手动）和 IP 切换历史（见 #10）。
+- **刷新时机：** 进入页面 / 回到页面、手动点刷新、Clash 启动停止、**节点 IP 变化广播**（和首页同一个事件，见 #7）、以及页面在前台且代理在运行时**每 2 秒**一次。2 秒这个定时只在页面 started 且代理运行时才参与 `select`；页面进入后台 / 息屏后不再有任何唤醒（和首页本来就有的 1 秒流量 ticker 同一类，且更严）。代理没运行时不查询，显示"代理未运行"。
+- 数据来源：内核 `statistic.DefaultManager.Range`，每个连接取 `Info()` 的 JSON（即 REST API `/connections` 的稳定格式）再取字段，不依赖内核内部结构体的字段名。内核只在被问到时才处理，没有后台任务。
+
+**新增文件**
+- `core/src/main/golang/native/connlist/connlist.go`：取连接快照、按 id 关闭连接。
+- `core/src/main/golang/native/connections.go`：Go 导出 `queryCustomConnections` / `closeCustomConnection`。
+- `core/src/main/cpp/custom_bridge.c`：追加两个 JNI 函数 `nativeQueryConnections` / `nativeCloseConnection`；`CustomBridge`（`core/.../custom/NodeIpWatcher.kt`）里声明。
+- `core/src/main/java/com/github/kr328/clash/core/custom/CustomConnections.kt`：服务进程里的封装。
+- `core/src/main/java/com/github/kr328/clash/core/model/ConnectionSnapshot.kt`：`ConnectionItem` / `ConnectionSnapshot` 数据类和解析。
+- `design/.../custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`（含 `ConnectionText`）、`res/layout/design_connections.xml`、`res/layout/adapter_connection.xml`；文案 `connection*`。
+- `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`。
+
+**改了上游文件：** 见总表（`IClashManager.kt`、`ClashManager.kt`、`AndroidManifest.xml`、`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`）。app 进程通过 IClashManager 的两个新方法取 JSON（返回 `String`，Go 侧限制 300 条，远低于 binder 1 MB 上限）。
+
+**依赖的 mihomo API：** `statistic.DefaultManager.Range`、`Tracker.ID()` / `Info()` / `Chains()` / `Close()`，以及 `Info()` 能被 `json.Marshal`（REST API 同款）。
+
+## 9. 首页配置卡片显示剩余流量和到期时间
+- 配置卡片副标题第二行：`剩余 xx GiB · yyyy-MM-dd 到期（剩 N 天）`。已用完显示"流量已用完"，已过期显示"yyyy-MM-dd 已过期"。
+- 数据是订阅服务器在更新订阅时返回的响应头 `subscription-userinfo`（上游本来就解析并存进配置数据库：`total` / `upload` / `download` / `expire`），这里只是读出来显示，**不联网、不新增任何后台工作**。它是上次更新订阅时的快照，不是实时值。
+- 服务器没返回这个头（`total` 和 `expire` 都是 0）时第二行不显示；只返回其中一项就只显示那一项。本地文件配置没有这些数据。
+- 刷新时机：首页本来就有的 `fetch()`（进入首页、配置切换 / 加载），另加订阅更新完成事件 `ProfileUpdateCompleted`。
+- 新增文件：`design/.../custom/ProfileUsage.kt`；文案 `main_profile_*`。上游文件改动见总表。
+
+## 10. IP 切换历史
+- 内核在"节点 / IP / 国家"变化并通知应用时（#7 的同一时机），把这次切换记到 `<filesDir>/custom/ip_history.json`，最多 50 条；同一节点 IP 连续出现不重复记，只是国家后来才查到时补全最后一条。
+- 只在发生切换时写文件（先写临时文件再改名），没有定时写入。服务重启后历史仍在（文件）。
+- 查看：连接页右上角的历史图标，弹出列表（新的在上）。app 进程直接读这个文件，不走 IPC。
+- 文件：`core/src/main/golang/native/ipdelay/persist.go`（`recordHistory`）；`core/.../custom/IpHistory.kt`；弹窗在 `ConnectionsDesign.showHistory()`。目录来自 `InstallSocketHook(home)` 的 `home`（`filesDir/clash`）的上一级加 `custom`，和 Kotlin 侧 `filesDir/custom` 一致。
+
+## 11. 国家缓存持久化
+- 经节点 + IP 查到的出口国家（#1 测速、#7 探测得到的）存到 `<filesDir>/custom/country_cache.json`（键 `节点名|IP`）。重启 / 重载配置后直接用，不再重新探测，首页国旗马上就有。
+- 7 天内有效；最多 300 条（超出丢最旧的）。重新测速会刷新结果。查失败的不保存。
+- 写文件时机：一次手动测速结束后写一次；探测到新国家时写一次；内容没变（1 小时内同样的答案）不写。不用定时器。
+- 加载时只取当前配置里有的节点名。`CaptureConfig` 原来每次重载都清空国家表，现在改为用缓存填充。
+- 文件：`core/.../ipdelay/persist.go`（`savedCountries` / `rememberCountries`）、`ipdelay.go` 里的 `CaptureConfig` / `probeCountry` / `testProxy` / `TestGroup`。
+
+## 12. 测速结果标注时间
+- 代理页节点卡片的 IP 行最下面多一行小字"3 分钟前测速"（刚刚 / N 秒 / 分钟 / 小时 / 天前）。时间是该节点这次逐 IP 测速完成的时刻（`IPDelay.at`，毫秒）。
+- 文字在 View 绘制时按当前时间算，**不会自己走**；再次进入页面或重绘时更新。没有定时器。
+- 改动：`ipdelay.go`（`IPDelay.At`、`testProxy` 里写入）、`IpDelay.kt`（`at`）、`ProxyView.kt`（`onMeasure` 多一行高度、`onDraw` 画这一行）、文案 `ip_delay_age_*`。
+
+## 13. GeoSite 下载成功后一键重载
+- #6 的下载区在下载成功后显示"立即重载配置"按钮，点一下发 `ACTION_OVERRIDE_CHANGED` 自广播（服务里 `ConfigurationModule` 收到后重新加载当前配置，新 geosite.dat 即生效）。服务没运行时没人接收，下次启动自然会用新文件，界面会这样提示。
+- 开始新的下载时按钮隐藏。
+- 改动：`preference_geosite_download.xml`（`reload_button`）、`GeoSiteDownloadPreference.kt`、文案 `geosite_download_reload*`。没有新增上游文件改动。

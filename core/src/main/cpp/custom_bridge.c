@@ -12,3 +12,22 @@ Java_com_github_kr328_clash_core_custom_CustomBridge_nativeSubscribeNodeIp(JNIEn
 
     subscribeNodeIp(_callback);
 }
+
+// CUSTOM (CUSTOM.md #8): active connections of the core, as JSON.
+JNIEXPORT jstring JNICALL
+Java_com_github_kr328_clash_core_custom_CustomBridge_nativeQueryConnections(JNIEnv *env,
+                                                                            jobject thiz) {
+    scoped_string response = queryCustomConnections();
+
+    return new_string(response);
+}
+
+// CUSTOM (CUSTOM.md #8): close one connection by its id.
+JNIEXPORT jboolean JNICALL
+Java_com_github_kr328_clash_core_custom_CustomBridge_nativeCloseConnection(JNIEnv *env,
+                                                                           jobject thiz,
+                                                                           jstring id) {
+    scoped_string _id = get_string(id);
+
+    return closeCustomConnection(_id) != 0 ? JNI_TRUE : JNI_FALSE;
+}

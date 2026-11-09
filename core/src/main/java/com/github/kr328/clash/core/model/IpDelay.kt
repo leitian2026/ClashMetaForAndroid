@@ -11,4 +11,5 @@ data class IpDelay(
     val ip: String,
     val delay: Int,
     val country: String = "", // exit country code seen through this address, "" if unknown
+    val at: Long = 0, // CUSTOM.md #12: when the test finished (unix milliseconds), 0 if unknown
 )

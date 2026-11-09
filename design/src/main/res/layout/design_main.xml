@@ -29,6 +29,9 @@
         <variable
             name="customIp"
             type="String" /> <!-- CUSTOM (CUSTOM.md #7): " · flag ip", appended to the proxy card subtext -->
+        <variable
+            name="customProfile"
+            type="String" /> <!-- CUSTOM (CUSTOM.md #9): "\nremaining · expiry", appended to the profile card subtext -->
 
         <import type="android.view.View" />
         <import type="com.github.kr328.clash.design.MainDesign.Request" />
@@ -125,7 +128,7 @@
                     android:layout_marginVertical="@dimen/main_card_margin_vertical"
                     android:onClick="@{() -> self.request(Request.OpenProfiles)}"
                     app:icon="@drawable/ic_baseline_view_list"
-                    app:subtext="@{profileName != null ? @string/format_profile_activated(profileName) : @string/not_selected}"
+                    app:subtext="@{profileName != null ? (customProfile == null ? @string/format_profile_activated(profileName) : @string/format_profile_activated(profileName) + customProfile) : @string/not_selected}"
                     app:text="@string/profile" />
 
                 <com.github.kr328.clash.design.view.LargeActionLabel
@@ -136,6 +139,15 @@
                     android:visibility="@{clashRunning &amp;&amp; hasProviders ? View.VISIBLE : View.GONE}"
                     app:icon="@drawable/ic_baseline_swap_vertical_circle"
                     app:text="@string/providers" />
+
+                <!-- CUSTOM (CUSTOM.md #8): connections page -->
+                <com.github.kr328.clash.design.view.LargeActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
+                    android:onClick="@{() -> self.request(Request.OpenConnections)}"
+                    app:icon="@drawable/ic_baseline_swap_vert"
+                    app:text="@string/connections" />
 
                 <com.github.kr328.clash.design.view.LargeActionLabel
                     android:layout_width="match_parent"

@@ -23,4 +23,8 @@ interface IClashManager {
     fun clearOverride(slot: Clash.OverrideSlot)
 
     fun setLogObserver(observer: ILogObserver?)
+
+    // CUSTOM (CUSTOM.md #8): active connections (JSON, see ConnectionSnapshot) and closing one
+    fun queryCustomConnections(): String
+    fun closeCustomConnection(id: String): Boolean
 }

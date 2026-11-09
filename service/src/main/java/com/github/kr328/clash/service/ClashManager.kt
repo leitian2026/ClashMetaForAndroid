@@ -3,6 +3,7 @@ package com.github.kr328.clash.service
 import android.content.Context
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.core.Clash
+import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.*
 import com.github.kr328.clash.service.custom.NodeIpNotifier
 import com.github.kr328.clash.service.data.Selection
@@ -23,6 +24,16 @@ class ClashManager(private val context: Context) : IClashManager,
         NodeIpNotifier.start(context) // CUSTOM: CUSTOM.md #7
 
         return Clash.queryTunnelState()
+    }
+
+    // CUSTOM: CUSTOM.md #8
+    override fun queryCustomConnections(): String {
+        return CustomConnections.query()
+    }
+
+    // CUSTOM: CUSTOM.md #8
+    override fun closeCustomConnection(id: String): Boolean {
+        return CustomConnections.close(id)
     }
 
     override fun queryTrafficTotal(): Long {

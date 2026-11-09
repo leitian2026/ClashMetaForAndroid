@@ -31,6 +31,22 @@ class ProxyView(
     private var ipExtraHeight = 0
     private val ipTimeoutText by lazy { context.getString(R.string.ip_delay_timeout) }
 
+    // CUSTOM (CUSTOM.md #12): when the per-IP delays were measured (0 = unknown). The text under the
+    // IP rows is computed when the view is drawn; nothing ticks to keep it up to date.
+    private fun testedAt(): Long = state?.proxy?.ipDelays?.maxOfOrNull { it.at } ?: 0L
+
+    private fun ageText(at: Long): String {
+        val seconds = ((System.currentTimeMillis() - at) / 1000).coerceAtLeast(0)
+
+        return when {
+            seconds < 10 -> context.getString(R.string.ip_delay_age_now)
+            seconds < 60 -> context.getString(R.string.ip_delay_age_seconds, seconds.toInt())
+            seconds < 3600 -> context.getString(R.string.ip_delay_age_minutes, (seconds / 60).toInt())
+            seconds < 86400 -> context.getString(R.string.ip_delay_age_hours, (seconds / 3600).toInt())
+            else -> context.getString(R.string.ip_delay_age_days, (seconds / 86400).toInt())
+        }
+    }
+
     constructor(context: Context) : this(context, ProxyViewConfig(context, 2))
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val state = state ?: return super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -53,10 +69,11 @@ class ProxyView(
         }
 
         val textHeight = state.rect.height()
-        // CUSTOM: one extra row per tested IP
+        // CUSTOM: one extra row per tested IP, plus one row for "tested N min ago"
         val ipCount = state.proxy.ipDelays.size
+        val ipRows = if (ipCount > 0 && testedAt() > 0) ipCount + 1 else ipCount
         ipRowStep = textHeight + state.config.textMargin * 0.6f
-        ipExtraHeight = if (ipCount > 0) (ipRowStep * ipCount).toInt() else 0
+        ipExtraHeight = if (ipRows > 0) (ipRowStep * ipRows).toInt() else 0
 
         val exceptHeight = (state.config.layoutPadding * 2 +
                 state.config.contentPadding * 2 +
@@ -240,6 +257,20 @@ class ProxyView(
 
                 canvas.drawText(label, 0, ipCount, left, y, paint)
                 canvas.drawText(text, right - textWidth, y, paint)
+            }
+
+            // CUSTOM (CUSTOM.md #12): when these delays were measured
+            val at = testedAt()
+
+            if (at > 0) {
+                val age = ageText(at)
+                val ageSize = state.config.textSize * 0.85f
+                val y = subtitleY + ipRowStep * (ipDelays.size + 1) - textOffset
+
+                paint.textSize = ageSize
+                paint.alpha = 0x80
+
+                canvas.drawText(age, right - paint.measureText(age), y, paint)
             }
         }
     }

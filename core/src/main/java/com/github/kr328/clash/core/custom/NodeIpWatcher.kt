@@ -12,6 +12,10 @@ object CustomBridge {
     }
 
     external fun nativeSubscribeNodeIp(callback: FetchCallback)
+
+    // CUSTOM (CUSTOM.md #8): active connections of the core (JSON) and closing one of them
+    external fun nativeQueryConnections(): String
+    external fun nativeCloseConnection(id: String): Boolean
 }
 
 // Tells `onChange` (on a core thread) whenever the node IP in use changes. Event driven: the core

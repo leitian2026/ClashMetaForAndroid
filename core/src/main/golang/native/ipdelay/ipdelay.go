@@ -47,6 +47,7 @@ type IPDelay struct {
 	IP      string `json:"ip"`
 	Delay   int    `json:"delay"`
 	Country string `json:"country,omitempty"`
+	At      int64  `json:"at,omitempty"` // CUSTOM (CUSTOM.md #12): when the test finished, unix milliseconds
 }
 
 const (
@@ -75,6 +76,9 @@ var (
 	probing    = map[string]bool{}           // node + "|" + ip -> lookup running
 	failedAt   = map[string]time.Time{}      // node + "|" + ip -> last failed lookup
 	lastUsed   used
+
+	// exit countries learned by a running test, written to disk once the test is over (CUSTOM.md #11)
+	pending = map[string]string{}
 
 	// > 0 while our own temporary nodes dial, so that those sockets are not mistaken for
 	// real traffic by the socket hook.
@@ -135,6 +139,7 @@ func fireNotify() {
 	notifyLock.Unlock()
 
 	if !same {
+		recordHistory(node, ip, country) // CUSTOM.md #10
 		f()
 	}
 }
@@ -218,6 +223,14 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 		}
 	}
 
+	// CUSTOM.md #11: exit countries remembered from earlier runs, so no probe is needed for them
+	names := make(map[string]bool, len(newProxies))
+	for name := range newProxies {
+		names[name] = true
+	}
+
+	saved := savedCountries(names)
+
 	lock.Lock()
 	proxies = newProxies
 	hosts = newHosts
@@ -226,7 +239,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	nodeIPs = newNodeIPs
 	ambiguous = newAmbiguous
 	lastByNode = map[string]string{}
-	countries = map[string]string{}
+	countries = saved
+	pending = map[string]string{}
 	probing = map[string]bool{}
 	failedAt = map[string]time.Time{}
 	lastUsed = used{}
@@ -235,7 +249,10 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 
 // InstallSocketHook wraps the core's socket hook (set in delegate.Init) so that the node IP
 // of the most recent connection is remembered. The original hook is always called first.
-func InstallSocketHook() {
+// `home` is the core's home directory; it only tells where the persistent files go.
+func InstallSocketHook(home string) {
+	setDataDir(home) // CUSTOM.md #10, #11: where the small persistent files live
+
 	hookOnce.Do(func() {
 		prev := dialer.DefaultSocketHook
 
@@ -395,7 +412,8 @@ func probeCountry(key string, raw map[string]any, ip string) {
 	lock.Unlock()
 
 	if country != "" {
-		scheduleNotify() // the flag can now be shown
+		rememberCountries(map[string]string{key: country}) // CUSTOM.md #11
+		scheduleNotify()                                   // the flag can now be shown
 	}
 }
 
@@ -423,6 +441,8 @@ func TestGroup(groupName string) {
 			log.Warnln("IP delay test `%s`: %v", groupName, r)
 		}
 	}()
+
+	defer flushPending() // CUSTOM.md #11: write the countries learned by this test once
 
 	p := tunnel.Proxies()[groupName]
 	if p == nil {
@@ -527,15 +547,54 @@ func testProxy(name string, raw map[string]any, testURL string) {
 
 	wg.Wait()
 
+	now := time.Now().UnixMilli()
+
 	lock.Lock()
+
+	for i := range list {
+		list[i].At = now // CUSTOM.md #12
+	}
+
 	results[name] = list
 
 	for _, item := range list {
 		if item.Country != "" {
-			countries[name+"|"+item.IP] = item.Country
+			key := name + "|" + item.IP
+
+			countries[key] = item.Country
+			pending[key] = item.Country
 		}
 	}
 	lock.Unlock()
+}
+
+// flushPending writes the exit countries learned during a test (CUSTOM.md #11).
+func flushPending() {
+	lock.Lock()
+	found := pending
+	pending = map[string]string{}
+	lock.Unlock()
+
+	rememberCountries(found)
+}
+
+// Lookup returns the address the core most recently dialed for `node` (or its only address) and,
+// when already known, the exit country behind it. It never starts a probe (CUSTOM.md #8).
+func Lookup(node string) (ip, country string) {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	if last, ok := lastByNode[node]; ok {
+		ip = last
+	} else if list := nodeIPs[node]; len(list) == 1 {
+		ip = list[0]
+	}
+
+	if ip == "" {
+		return "", ""
+	}
+
+	return ip, countries[node+"|"+ip]
 }
 
 // candidateIPs returns the IPv4 addresses behind the node's server, or nil when

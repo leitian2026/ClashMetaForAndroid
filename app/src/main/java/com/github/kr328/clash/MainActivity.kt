@@ -15,6 +15,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.ticker
+import com.github.kr328.clash.custom.ConnectionsActivity
 import com.github.kr328.clash.custom.customNodeIpEvents
 import com.github.kr328.clash.custom.refreshCustom
 import com.github.kr328.clash.design.MainDesign
@@ -49,7 +50,8 @@ class MainActivity : BaseActivity<MainDesign>() {
                         Event.ActivityStart,
                         Event.ServiceRecreated,
                         Event.ClashStop, Event.ClashStart,
-                        Event.ProfileLoaded, Event.ProfileChanged -> design.fetch()
+                        Event.ProfileLoaded, Event.ProfileChanged,
+                        Event.ProfileUpdateCompleted -> design.fetch() // CUSTOM: usage/expiry (CUSTOM.md #9)
                         else -> Unit
                     }
                 }
@@ -74,6 +76,8 @@ class MainActivity : BaseActivity<MainDesign>() {
                                 startActivity(LogsActivity::class.intent)
                             }
                         }
+                        MainDesign.Request.OpenConnections -> // CUSTOM: CUSTOM.md #8
+                            startActivity(ConnectionsActivity::class.intent)
                         MainDesign.Request.OpenSettings ->
                             startActivity(SettingsActivity::class.intent)
                         MainDesign.Request.OpenHelp ->
@@ -109,7 +113,10 @@ class MainActivity : BaseActivity<MainDesign>() {
         setCustomCards(clashRunning, state) // CUSTOM: CUSTOM.md #6, #7
 
         withProfile {
-            setProfileName(queryActive()?.name)
+            val active = queryActive()
+
+            setProfileName(active?.name)
+            setCustomProfile(active) // CUSTOM: remaining data / expiry, CUSTOM.md #9
         }
     }
 

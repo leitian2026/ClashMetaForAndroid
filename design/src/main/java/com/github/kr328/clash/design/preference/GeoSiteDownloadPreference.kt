@@ -8,6 +8,7 @@ import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.custom.GeoSiteDownloader
 import com.github.kr328.clash.design.databinding.PreferenceGeositeDownloadBinding
 import com.github.kr328.clash.design.util.layoutInflater
+import com.github.kr328.clash.service.util.sendOverrideChanged
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +51,15 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
         if (!hasFocus) saveUrl()
     }
 
+    // CUSTOM (CUSTOM.md #13): the service reloads the profile when it gets this broadcast; with the
+    // service stopped nothing listens and the new file is simply used at the next start.
+    binding.reloadButton.setOnClickListener {
+        context.sendOverrideChanged()
+
+        binding.reloadButton.visibility = View.GONE
+        binding.statusView.text = context.getString(R.string.geosite_download_reload_sent)
+    }
+
     binding.downloadButton.setOnClickListener {
         val running = job
         if (running != null && running.isActive) {
@@ -65,6 +75,7 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
 
         saveUrl()
         binding.statusView.text = ""
+        binding.reloadButton.visibility = View.GONE
         setBusy(true)
 
         job = launch(Dispatchers.Main) {
@@ -89,6 +100,7 @@ fun PreferenceScreen.geoSiteDownload(): Preference {
                     R.string.geosite_download_done,
                     Formatter.formatShortFileSize(context, size)
                 )
+                binding.reloadButton.visibility = View.VISIBLE
             } catch (e: CancellationException) {
                 binding.statusView.text = context.getString(R.string.geosite_download_cancelled)
 

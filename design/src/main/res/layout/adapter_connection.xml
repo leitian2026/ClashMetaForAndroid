@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #8): one row of the connections page -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:paddingHorizontal="@dimen/item_tailing_margin"
+    android:paddingVertical="@dimen/item_padding_vertical">
+
+    <TextView
+        android:id="@+id/connection_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+
+    <TextView
+        android:id="@+id/connection_node"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/item_text_margin"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+
+    <TextView
+        android:id="@+id/connection_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/item_text_margin"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+</LinearLayout>

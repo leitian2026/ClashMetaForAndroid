@@ -55,6 +55,15 @@
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
         </LinearLayout>
 
+        <!-- CUSTOM (CUSTOM.md #13): shown after a successful download -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/reload_button"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/geosite_download_reload"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/notice_view"
             android:layout_width="match_parent"

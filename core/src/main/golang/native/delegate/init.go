@@ -58,5 +58,5 @@ func Init(home, versionName, gitVersion string, platformVersion int) {
 		})
 	}
 
-	ipdelay.InstallSocketHook() // CUSTOM: remember which node IP is in use, CUSTOM.md #7
+	ipdelay.InstallSocketHook(home) // CUSTOM: remember which node IP is in use, CUSTOM.md #7 (home: where the persistent files go, #10 #11)
 }
