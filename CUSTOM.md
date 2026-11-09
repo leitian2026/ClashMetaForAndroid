@@ -19,10 +19,12 @@
 | `design/src/main/res/layout/design_main.xml` | #7 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility` |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 | 低 | 重加 `customCards`、`setCustomCards()` |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 | 低 | 重加 `geoSiteDownload()` 一行 |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customTick` 变量和 ticker 里的 `refreshCustom` 一行 |
-| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow` |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支 |
+| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)` |
+| `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 
-共 14 个上游文件。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 16 个上游文件（含 `ClashManager.kt`、`CMakeLists.txt`）。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -113,13 +115,20 @@
 - **节点怎么定的（r10）：** 遍历内核当前连接（`statistic.DefaultManager.Range`），链路（`Chains()`）里出现的节点名（在配置 `proxies:` 里的）计数，连接数最多的就是"正在用的节点"；没有连接时退回最近一次拨号记录。
 - **IP 怎么定的：** 内核每建一个连接都会经过 `dialer.DefaultSocketHook`，这里包了一层，记下每个节点最近拨的 IP。节点只有一个地址就直接用它。`hosts:` 里不属于任何节点 server 的条目（例如 dns 里 DoH 域名映射的 IP）会让内核自己去连，这些 IP 不记入，避免把 DoH 的直连误当成节点使用（r9 的错误来源）。
 - **国旗怎么来的：** 该 IP 还没有国家时，查询会在后台起一次探测（经该节点、该 IP 请求同样的国家查询服务），结果缓存；探测中显示"？"，下一次刷新就有。失败 5 分钟内不重试。测速时测到的国家会直接复用。
-- **更新时机（自动刷新，不新增任何定时器）：** 首页：进入页面、Clash 启动 / 停止、配置变化，以及借用 `MainActivity` 上游本来就有的 1 秒 ticker（只在页面打开且 Clash 运行时跑）每 3 次触发一次读取；通知：借用 `DynamicNotificationModule` 上游本来就有的 1 秒更新（息屏时本来就停），每 3 次读取一次内核。
-- **功耗：** 没有新增 ticker / 定时器 / 轮询；通知里不再每秒查速度（少了一次 JNI）；hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次读取时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
+- **更新时机（事件触发，无定时器 / 轮询）：** 内核（`ipdelay.record`）发现拨号用的节点 IP 和上一次不同，或国家探测刚得到结果时，等 0.8 秒（让新连接登记、合并连续拨号）后调用一次 `Current()`，只有"节点 / IP / 国家"和上次通知的不一样才通知应用：Go → `fetch_report` 回调（复用上游的 FetchCallback JNI 通路）→ Kotlin `NodeIpWatcher` → 服务进程发自广播 `ACTION_NODE_IP_CHANGED` → 首页（`MainActivity` 只在页面 started 期间注册接收器）重新读一次、通知（`DynamicNotificationModule`）重建一次文本。IP 没变就什么都不做。另外照上游本来的事件刷新：进入首页、Clash 启动 / 停止、配置变化。
+- **订阅点：** 服务进程里 `NodeIpNotifier.start()` 只订阅一次（幂等），由 `DynamicNotificationModule.run()` 和 `ClashManager.queryTunnelState()` 触发。
+- **功耗：** 没有新增 ticker / 定时器 / 轮询（只有 IP 变化时才排一个 0.8 秒的一次性延时）；通知里不再每秒查速度（少了一次 JNI），文本只在 IP 变化后重建；息屏时通知不重建，亮屏后第一次更新才用新文本；hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次读取时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
 
 **新增文件**
 - `design/src/main/java/com/github/kr328/clash/design/custom/MainCustomCards.kt`：红字提示的显示控制，以及生成代理卡片副标题后缀。
-- `app/src/main/java/com/github/kr328/clash/custom/MainCustomRefresh.kt`：`MainDesign.refreshCustom()`，ticker 调用。
-- `service/src/main/java/com/github/kr328/clash/service/custom/NodeIpText.kt`：通知正文文本。
+- `app/src/main/java/com/github/kr328/clash/custom/MainCustomRefresh.kt`：`MainDesign.refreshCustom()`。
+- `app/src/main/java/com/github/kr328/clash/custom/NodeIpEvents.kt`：首页接收"IP 变化"广播（started 期间注册）。
+- `service/src/main/java/com/github/kr328/clash/service/custom/NodeIpText.kt`：通知正文文本（脏标记，变了才重建）。
+- `service/src/main/java/com/github/kr328/clash/service/custom/NodeIpNotifier.kt`：订阅内核事件并发广播。
+- `core/src/main/java/com/github/kr328/clash/core/custom/NodeIpWatcher.kt`：自己的 JNI 入口 `CustomBridge` + 订阅封装（不改上游 `Bridge.kt`）。
+- `core/src/main/cpp/custom_bridge.c`：JNI 函数 `nativeSubscribeNodeIp`（调用 Go 导出的 `subscribeNodeIp`）。
+- `core/src/main/golang/native/nodeip.go`：Go 导出 `subscribeNodeIp`，用 `fetch_report` 回调通知。
+- `common/src/main/java/com/github/kr328/clash/common/custom/CustomIntents.kt`：广播 action。
 - `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`（同 #1）。
 - 文案：`design/.../strings_custom.xml`（`main_*`）、`service/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`custom_notification_no_ip`）。
 
@@ -131,7 +140,9 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | 构造参数加 `currentNode` / `currentIp` / `currentCountry`（默认空串） |
 | `design/src/main/res/layout/design_main.xml` | 加变量 `customIp`；App 名字 `TextView` 外包一层竖向 `LinearLayout`，其下加红字 `custom_geosite_notice`（默认 gone）；代理卡片去掉 `visibility`，`subtext` 改为 `@{customIp == null ? mode : mode + customIp}` |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | import `MainCustomCards`；加 `customCards` 属性和 `setCustomCards()`（写 `binding.customIp`） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | import `refreshCustom`；`fetch()` 里加 `setCustomCards(clashRunning, state)`；加 `customTick` 变量；ticker 分支里加一行 `refreshCustom` |
-| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | import `NodeIpText`；`update()` 去掉 `queryTrafficNow` 及上传/下载速度变量；`setContentText` 改为 `NodeIpText.get(service)` |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | import `refreshCustom` / `customNodeIpEvents`；`fetch()` 里加 `setCustomCards(clashRunning, state)`；`main()` 里加 `val customNodeIp = customNodeIpEvents()` 和 `select` 里一个 `customNodeIp.onReceive { design.refreshCustom(clashRunning) }` 分支 |
+| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | import；`update()` 去掉 `queryTrafficNow` 及上传/下载速度变量，`setContentText` 改为 `NodeIpText.get(service)`；`run()` 里加 `nodeIpChanged` 广播通道、`NodeIpNotifier.start(service)` 和 `select` 里一个分支 |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | `queryTunnelState()` 里先调用 `NodeIpNotifier.start(context)`（幂等）；加 import |
+| `core/src/main/cpp/CMakeLists.txt` | `add_library(bridge ...)` 源文件列表末尾加 `custom_bridge.c` |
 
-**依赖的上游接口：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）；`MainActivity` 里的 1 秒 `ticker` 和 `DynamicNotificationModule` 的 1 秒更新；`Clash.queryTunnelState()`。
+**依赖的上游接口：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）；`bridge.h` 里的 `fetch_report` / `release_object`、`main.c` 里 `JNI_OnLoad` 已注册的 `FetchCallback.report`；`Bridge` 的 `System.loadLibrary("bridge")` 库名；`DynamicNotificationModule` 的 `receiveBroadcast` / `select` 循环；`Clash.queryTunnelState()`；`libclash.h` 由 cgo 根据 `//export` 自动生成（新增导出函数会自动出现，不用改头文件）。
