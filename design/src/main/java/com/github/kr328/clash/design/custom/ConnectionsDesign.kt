@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import android.text.method.ScrollingMovementMethod
 import android.view.View
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.SimpleItemAnimator
@@ -117,10 +118,18 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
             }
         }
 
+        // CUSTOM #20: underlying connections per node (is multiplexing working?)
+        val muxText = if (running) MuxText.build(context, snapshot?.mux ?: emptyList()) else ""
+
         withContext(Dispatchers.Main) {
             // CUSTOM #15: no write (and no relayout) when the text did not change
             if (binding.connectionsSummaryView.text.toString() != summary) {
                 binding.connectionsSummaryView.text = summary
+            }
+
+            if (binding.connectionsMuxView.text.toString() != muxText) {
+                binding.connectionsMuxView.text = muxText
+                binding.connectionsMuxView.visibility = if (muxText.isEmpty()) View.GONE else View.VISIBLE
             }
         }
     }
@@ -186,6 +195,9 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
 
             requests.trySend(Request.Refresh)
         }
+
+        // CUSTOM #20: the block is at most a few lines high and scrolls inside itself when longer
+        binding.connectionsMuxView.movementMethod = ScrollingMovementMethod()
 
         binding.recyclerList.applyLinearAdapter(context, adapter)
         // rows change on every refresh (traffic): no fade animation for that

@@ -597,6 +597,15 @@ func Lookup(node string) (ip, country string) {
 	return ip, countries[node+"|"+ip]
 }
 
+// CountryOf returns the exit country already known for that node and address, "" when it is not.
+// It never starts a probe (CUSTOM.md #20).
+func CountryOf(node, ip string) string {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	return countries[node+"|"+ip]
+}
+
 // candidateIPs returns the IPv4 addresses behind the node's server, or nil when
 // there is nothing to compare (server is already an IP, node is ipv6 only, ...).
 func candidateIPs(raw map[string]any) []string {

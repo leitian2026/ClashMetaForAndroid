@@ -1,0 +1,280 @@
+diff -ruN a/adapter/outbound/base.go b/adapter/outbound/base.go
+--- a/adapter/outbound/base.go
++++ b/adapter/outbound/base.go
+@@ -172,6 +172,8 @@
+ 		opts = append(opts, dialer.WithMPTCP(true))
+ 	}
+ 
++	opts = append(opts, dialer.WithOwner(b.name)) // CUSTOM (CUSTOM.md #20)
++
+ 	return opts
+ }
+ 
+diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
+--- a/component/dialer/conncount.go
++++ b/component/dialer/conncount.go
+@@ -0,0 +1,232 @@
++package dialer
++
++// CUSTOM (CUSTOM.md #20, not part of upstream): counts the sockets the core really has open to each
++// node, so the app can show how many underlying connections carry the requests (does multiplexing
++// work?). Every outbound socket is made by DialContext / ListenPacket below; the node that owns it
++// is the name Base.DialOptions() passes in with WithOwner.
++//
++// Nothing runs on its own: a socket is counted when it is created and uncounted when it is closed,
++// and ConnCounts is only called when the app asks.
++
++import (
++	"context"
++	"net"
++	"net/netip"
++	"runtime"
++	"strings"
++	"sync"
++)
++
++type connKey struct {
++	owner   string
++	network string // "tcp" or "udp"
++	ip      string // address of the peer, "" when not known when the socket was made
++}
++
++var (
++	countLock sync.Mutex
++	counts    = map[connKey]int{}
++)
++
++// ConnCount is the number of open sockets of one node to one address.
++type ConnCount struct {
++	Owner   string // node name, "" for sockets that belong to no node (DNS and the like)
++	Network string // "tcp" or "udp"
++	IP      string
++	Count   int
++}
++
++// ConnCounts returns the open sockets, grouped by node, network and peer address.
++func ConnCounts() []ConnCount {
++	countLock.Lock()
++	defer countLock.Unlock()
++
++	result := make([]ConnCount, 0, len(counts))
++	for k, n := range counts {
++		result = append(result, ConnCount{Owner: k.owner, Network: k.network, IP: k.ip, Count: n})
++	}
++
++	return result
++}
++
++// WithOwner marks the sockets made with this option as belonging to the node with that name.
++func WithOwner(name string) Option {
++	return func(opt *option) {
++		opt.owner = name
++	}
++}
++
++// releaser uncounts a socket exactly once, however many times it is closed (or forgotten).
++type releaser struct {
++	key  connKey
++	once sync.Once
++}
++
++func track(key connKey) *releaser {
++	countLock.Lock()
++	counts[key]++
++	countLock.Unlock()
++
++	return &releaser{key: key}
++}
++
++func (r *releaser) release() {
++	r.once.Do(func() {
++		countLock.Lock()
++		if n := counts[r.key] - 1; n > 0 {
++			counts[r.key] = n
++		} else {
++			delete(counts, r.key)
++		}
++		countLock.Unlock()
++	})
++}
++
++// The wrappers embed the concrete socket type, so every method of it (SyscallConn, ReadMsgUDP,
++// CloseWrite, ReadFrom, ...) is still there; only Close is added to. The finalizer uncounts a socket
++// that was dropped without being closed (the runtime closes its file descriptor then).
++
++type tcpConn struct {
++	*net.TCPConn
++	rel *releaser
++}
++
++func (c *tcpConn) Close() error {
++	c.rel.release()
++	return c.TCPConn.Close()
++}
++
++func (c *tcpConn) finalize() { c.rel.release() }
++
++type udpConn struct {
++	*net.UDPConn
++	rel *releaser
++}
++
++func (c *udpConn) Close() error {
++	c.rel.release()
++	return c.UDPConn.Close()
++}
++
++func (c *udpConn) finalize() { c.rel.release() }
++
++type otherConn struct {
++	net.Conn
++	rel *releaser
++}
++
++func (c *otherConn) Close() error {
++	c.rel.release()
++	return c.Conn.Close()
++}
++
++func (c *otherConn) finalize() { c.rel.release() }
++
++type otherPacketConn struct {
++	net.PacketConn
++	rel *releaser
++}
++
++func (c *otherPacketConn) Close() error {
++	c.rel.release()
++	return c.PacketConn.Close()
++}
++
++func (c *otherPacketConn) finalize() { c.rel.release() }
++
++// DialContext opens a connection like before and counts it for the node that owns it.
++func DialContext(ctx context.Context, network, address string, options ...Option) (net.Conn, error) {
++	conn, err := dialContextRaw(ctx, network, address, options...)
++	if err != nil || conn == nil {
++		return conn, err
++	}
++
++	opt := applyOptions(options...)
++
++	// a custom dialer (for example "dialer-proxy") hands back a stream through another proxy, not a
++	// socket of this process
++	if opt.netDialer != nil {
++		if _, plain := opt.netDialer.(*net.Dialer); !plain {
++			return conn, nil
++		}
++	}
++
++	ip := addrIP(conn.RemoteAddr())
++
++	switch c := conn.(type) {
++	case *net.TCPConn:
++		w := &tcpConn{TCPConn: c, rel: track(connKey{opt.owner, "tcp", ip})}
++		runtime.SetFinalizer(w, (*tcpConn).finalize)
++
++		return w, nil
++	case *net.UDPConn:
++		w := &udpConn{UDPConn: c, rel: track(connKey{opt.owner, "udp", ip})}
++		runtime.SetFinalizer(w, (*udpConn).finalize)
++
++		return w, nil
++	}
++
++	kind := "tcp"
++	if addr := conn.RemoteAddr(); addr != nil && strings.HasPrefix(addr.Network(), "udp") {
++		kind = "udp"
++	}
++
++	w := &otherConn{Conn: conn, rel: track(connKey{opt.owner, kind, ip})}
++	runtime.SetFinalizer(w, (*otherConn).finalize)
++
++	return w, nil
++}
++
++// ListenPacket opens a UDP socket like before and counts it for the node that owns it. The peer
++// address is the one the caller gave (rAddrPort), when it gave one.
++func ListenPacket(ctx context.Context, network, address string, rAddrPort netip.AddrPort, options ...Option) (net.PacketConn, error) {
++	pc, err := listenPacketRaw(ctx, network, address, rAddrPort, options...)
++	if err != nil || pc == nil {
++		return pc, err
++	}
++
++	opt := applyOptions(options...)
++
++	ip := ""
++	if rAddrPort.IsValid() {
++		ip = rAddrPort.Addr().Unmap().String()
++	}
++
++	rel := track(connKey{opt.owner, "udp", ip})
++
++	if c, ok := pc.(*net.UDPConn); ok {
++		w := &udpConn{UDPConn: c, rel: rel}
++		runtime.SetFinalizer(w, (*udpConn).finalize)
++
++		return w, nil
++	}
++
++	w := &otherPacketConn{PacketConn: pc, rel: rel}
++	runtime.SetFinalizer(w, (*otherPacketConn).finalize)
++
++	return w, nil
++}
++
++// addrIP returns the IP part of a socket address ("" when there is none).
++func addrIP(addr net.Addr) string {
++	switch a := addr.(type) {
++	case nil:
++		return ""
++	case *net.TCPAddr:
++		if ip, ok := netip.AddrFromSlice(a.IP); ok {
++			return ip.Unmap().String()
++		}
++	case *net.UDPAddr:
++		if ip, ok := netip.AddrFromSlice(a.IP); ok {
++			return ip.Unmap().String()
++		}
++	default:
++		if host, _, err := net.SplitHostPort(addr.String()); err == nil {
++			if ip, err := netip.ParseAddr(host); err == nil {
++				return ip.Unmap().String()
++			}
++		}
++	}
++
++	return ""
++}
+diff -ruN a/component/dialer/dialer.go b/component/dialer/dialer.go
+--- a/component/dialer/dialer.go
++++ b/component/dialer/dialer.go
+@@ -37,7 +37,7 @@
+ 	return tcpConcurrent.Load()
+ }
+ 
+-func DialContext(ctx context.Context, network, address string, options ...Option) (net.Conn, error) {
++func dialContextRaw(ctx context.Context, network, address string, options ...Option) (net.Conn, error) { // CUSTOM (CUSTOM.md #20): renamed, DialContext is in conncount.go
+ 	opt := applyOptions(options...)
+ 
+ 	if opt.network == 4 || opt.network == 6 {
+@@ -76,7 +76,7 @@
+ 	}
+ }
+ 
+-func ListenPacket(ctx context.Context, network, address string, rAddrPort netip.AddrPort, options ...Option) (net.PacketConn, error) {
++func listenPacketRaw(ctx context.Context, network, address string, rAddrPort netip.AddrPort, options ...Option) (net.PacketConn, error) { // CUSTOM (CUSTOM.md #20): renamed, ListenPacket is in conncount.go
+ 	opt := applyOptions(options...)
+ 
+ 	lc, address, err := listenConfig(network, address, rAddrPort, opt)
+diff -ruN a/component/dialer/options.go b/component/dialer/options.go
+--- a/component/dialer/options.go
++++ b/component/dialer/options.go
+@@ -41,6 +41,7 @@
+ 	mpTcp         bool
+ 	resolver      resolver.Resolver
+ 	netDialer     NetDialer
++	owner         string // CUSTOM (CUSTOM.md #20): name of the node that owns the socket
+ }
+ 
+ type Option func(opt *option)

@@ -80,4 +80,8 @@
     <string name="backup_result_settings">已恢复应用设置</string>
     <string name="backup_result_override">已恢复覆盖设置</string>
     <string name="backup_result_hint">覆盖设置和服务相关设置需要重新加载配置或重启服务后生效。</string>
+    <string name="connections_mux_node">%1$s · 底层 %2$d 条 / 请求 %3$d 个</string>
+    <string name="connections_mux_node_udp">%1$s · 底层 %2$d 条 / 请求 %3$d 个 · UDP %4$d 个</string>
+    <string name="connections_mux_ip">%1$s · %2$d 条</string>
+    <string name="connections_mux_other">其他（不属于任何节点）</string>
 </resources>

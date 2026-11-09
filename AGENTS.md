@@ -6,7 +6,7 @@
 ## 分支规则
 - `main`：只跟随官方上游，**不放任何自定义内容**。
 - `custom`：唯一的功能开发分支，也是默认分支。所有改动只提交到这里。
-- 子模块（`core/src/foss/golang/clash`，即 mihomo）只同步，**不要擅自修改**。
+- 子模块（`core/src/foss/golang/clash`，即 mihomo）只同步，**不要擅自修改**。确实要改内核时，只能写成 `patches/mihomo/*.patch`，由 `build-debug.yaml` 的 `Apply mihomo patches` 步骤在构建时应用（见 `CUSTOM.md` #20）；不要往 `.github/patch/` 放（那里的补丁是打到 Go 工具链上的）。
 
 ## 改代码时必须遵守（合并友好）
 1. 新功能优先**新增文件 / 类 / 页面**，不要重写上游已有逻辑。
@@ -25,6 +25,7 @@
 5. 合并后检查：
    - `grep -rn CUSTOM` 找到的挂钩数量和总表一致，没有丢；
    - 总表里每个"依赖的上游接口"（mihomo API、`dialer.DefaultSocketHook`、`statistic`、`PreferenceScreen` 等）在新版本里还在；
+   - 子模块提交号变了以后，`patches/mihomo/*.patch` 要还能打上（Actions 里 `Apply mihomo patches` 步骤通过）；打不上就对照 `CUSTOM.md` #20 在新内核上重做补丁，不要删掉步骤；
    - 手动触发一次 Actions 的 Build Debug，构建成功再认为同步完成（这里无法本地编译，只能靠它验证）。
 6. 同步后更新 `CUSTOM.md` 开头的基线提交号和版本号。
 

@@ -12,6 +12,18 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init --recursive --force
 
+      # CUSTOM (CUSTOM.md #20): patch for the mihomo core (counts the open sockets per node). The build
+      # stops here when a patch does not apply, so it is never silently left out.
+      - name: Apply mihomo patches
+        run: |
+          set -e
+          cd core/src/foss/golang/clash
+          for p in "$GITHUB_WORKSPACE"/patches/mihomo/*.patch; do
+            echo "applying $p"
+            patch -p1 --no-backup-if-mismatch --dry-run < "$p"
+            patch -p1 --no-backup-if-mismatch < "$p"
+          done
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
