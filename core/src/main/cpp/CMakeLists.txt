@@ -65,5 +65,5 @@ include_directories("${GO_SOURCE}")
 
 link_directories("${GO_OUTPUT_BASE}/${CMAKE_ANDROID_ARCH_ABI}")
 
-add_library(bridge SHARED main.c jni_helper.c bridge_helper.c)
+add_library(bridge SHARED main.c jni_helper.c bridge_helper.c custom_bridge.c) # CUSTOM: custom_bridge.c
 target_link_libraries(bridge log clash)
