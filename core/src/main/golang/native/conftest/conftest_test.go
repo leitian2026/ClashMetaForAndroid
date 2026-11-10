@@ -133,7 +133,7 @@ func TestPrepare(t *testing.T) {
 		"ech-opts":   map[string]any{"enable": true, "query-server-name": "cloudflare-ech.com"},
 	}
 
-	it, list, alpn := prepare("n", node, "x.workers.dev", nil)
+	it, list, alpn := prepare("n", node, "x.workers.dev", nil, fetch)
 	if it.Status != StatusTested || asked != "cloudflare-ech.com" || it.Source != "https://doh.example/dns-query" ||
 		len(list) != 1 || alpn[0] != "h3" || len(it.Targets) != 1 || it.Targets[0].Addr != "1.2.3.4:443" {
 		t.Fatalf("bad %+v %v %v asked=%s", it, list, alpn, asked)
@@ -143,7 +143,7 @@ func TestPrepare(t *testing.T) {
 	node["ech-opts"] = map[string]any{"enable": true}
 	delete(node, "alpn")
 
-	_, _, alpn = prepare("n", node, "x.workers.dev", nil)
+	_, _, alpn = prepare("n", node, "x.workers.dev", nil, fetch)
 	if asked != "inner.example" || alpn[0] != "h2" {
 		t.Fatalf("asked=%s alpn=%v", asked, alpn)
 	}
@@ -152,18 +152,18 @@ func TestPrepare(t *testing.T) {
 	asked = ""
 	node["ech-opts"] = map[string]any{"enable": true, "config": "AAEC"}
 
-	it, list, _ = prepare("n", node, "x.workers.dev", nil)
+	it, list, _ = prepare("n", node, "x.workers.dev", nil, fetch)
 	if it.Status != StatusTested || it.Source != "config" || asked != "" || len(list) != 3 {
 		t.Fatalf("bad %+v", it)
 	}
 
 	node["ech-opts"] = map[string]any{"enable": false}
-	if it, _, _ = prepare("n", node, "d", nil); it.Status != StatusDisabled {
+	if it, _, _ = prepare("n", node, "d", nil, fetch); it.Status != StatusDisabled {
 		t.Fatalf("disabled: %+v", it)
 	}
 
 	node["type"] = "hysteria2"
-	if it, _, _ = prepare("n", node, "d", nil); it.Status != StatusUnsupported {
+	if it, _, _ = prepare("n", node, "d", nil, fetch); it.Status != StatusUnsupported {
 		t.Fatalf("unsupported: %+v", it)
 	}
 
@@ -171,7 +171,77 @@ func TestPrepare(t *testing.T) {
 	node["ech-opts"] = map[string]any{"enable": true}
 	fetch = func(context.Context, string, []string) ([]byte, string, error) { return nil, "", errors.New("boom") }
 
-	if it, _, _ = prepare("n", node, "d", nil); it.Status != StatusFetchFailed || it.Error != "boom" {
+	if it, _, _ = prepare("n", node, "d", nil, fetch); it.Status != StatusFetchFailed || it.Error != "boom" {
 		t.Fatalf("fetchfailed: %+v", it)
+	}
+}
+
+func TestRunGroups(t *testing.T) {
+	// three nodes with the same config: one group, tested once, the config asked once
+	asked := 0
+	fetch = func(context.Context, string, []string) ([]byte, string, error) {
+		asked++
+		return []byte{1}, "doh", nil
+	}
+
+	get := cachedFetch(fetch)
+	mk := func(name, server string) (Item, []byte, []string) {
+		node := map[string]any{"type": "vless", "server": server, "port": 443,
+			"ech-opts": map[string]any{"enable": true, "query-server-name": "e.com"}}
+		return prepare(name, node, "x.dev", nil, get)
+	}
+
+	var items []Item
+	var lists [][]byte
+	var alpns [][]string
+
+	for _, n := range []struct{ name, server string }{{"a", "2606:4700::1"}, {"b", "1.1.1.1"}, {"c", "1.1.1.1"}} {
+		it, l, a := mk(n.name, n.server)
+		items, lists, alpns = append(items, it), append(lists, l), append(alpns, a)
+	}
+
+	items = append(items, Item{Node: "d", Status: StatusDisabled})
+	lists, alpns = append(lists, nil), append(alpns, nil)
+
+	if asked != 1 {
+		t.Fatalf("config asked %d times", asked)
+	}
+
+	batches, untested := groupNodes(items, lists, alpns)
+	if len(batches) != 1 || len(untested) != 1 || len(batches[0].group.Nodes) != 3 {
+		t.Fatalf("groups %+v untested %+v", batches, untested)
+	}
+
+	if got := batches[0].addrs; len(got) != 2 || got[0] != "1.1.1.1:443" {
+		t.Fatalf("IPv4 must come first: %v", got)
+	}
+
+	// the first (IPv4) address connects: the IPv6 one is never tried
+	handshake = func(_ context.Context, _, _ string, list []byte, _ []string) Attempt {
+		if list != nil {
+			return Attempt{OK: true, Accepted: true}
+		}
+
+		return Attempt{Code: "reset"}
+	}
+
+	batches[0].run("x.dev")
+
+	g := batches[0].group
+	if g.Verdict != VerdictEffective || len(g.Targets) != 1 {
+		t.Fatalf("group %+v", g)
+	}
+}
+
+func TestRunStopsAfterMaxTries(t *testing.T) {
+	handshake = func(context.Context, string, string, []byte, []string) Attempt {
+		return Attempt{Code: "network"}
+	}
+
+	b := &batch{addrs: []string{"1.1.1.1:443", "2.2.2.2:443", "3.3.3.3:443", "4.4.4.4:443"}}
+	b.run("x.dev")
+
+	if len(b.group.Targets) != maxTries || b.group.Verdict != VerdictUnknown {
+		t.Fatalf("group %+v", b.group)
 	}
 }

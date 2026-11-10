@@ -1,12 +1,14 @@
 // Package conftest is the "config check" of the app (CUSTOM.md #22, not upstream): it really connects, once,
 // when the user taps the button, to find out whether a field the user wrote in the config works.
 //
-// First item: ech-opts. Each item uses only the fields it needs (never the whole config). For every node
-// with `ech-opts` the TLS handshake to each address of the node's server is made twice with a domain the
-// user knows is blocked as the inner SNI: with ECH and without. The ECH config is the one written in
-// `ech-opts.config`, or, when there is none, the one in the HTTPS record of `query-server-name` (asked from
-// the DoH servers of the profile's `dns:` section, then a few public ones), like the core does. Go's own TLS
-// tells whether the server accepted ECH, and the pair of results shows whether the block was got around.
+// First item: ech-opts. Each item uses only the fields it needs (never the whole config). The ECH config is
+// the one written in `ech-opts.config`, or, when there is none, the one in the HTTPS record of
+// `query-server-name` (asked from the DoH servers of the profile's `dns:` section, then a few public ones),
+// like the core does. Nodes that end up with the same config are one group and are tested once, not once per
+// node: addresses are tried one at a time (IPv4 first) until one of them connects, and for that address the
+// TLS handshake is made twice with a domain the user knows is blocked as the inner SNI: with ECH and without.
+// Go's own TLS tells whether the server accepted ECH, and the pair of results shows whether the block was got
+// around.
 //
 // Power: nothing here runs on its own; one call is one test run.
 package conftest
@@ -37,6 +39,7 @@ const (
 	attemptTimeout = 6 * time.Second
 	parallel       = 4
 	maxAddresses   = 8
+	maxTries       = 3 // addresses tried per group when none of them connects
 
 	// Status of a node.
 	StatusTested      = "tested"      // the handshakes were made, see the targets
@@ -89,11 +92,23 @@ type Item struct {
 	Targets []Target `json:"targets"`
 }
 
-// Report is the answer of Run.
-type Report struct {
-	Domain string `json:"domain"`
-	Items  []Item `json:"items"`
+// Group is a set of nodes that share one ECH config. It is tested once.
+type Group struct {
+	Nodes   []string `json:"nodes"`
+	Source  string   `json:"source"` // "config" (written in ech-opts) or the DoH server that answered
+	Query   string   `json:"query"`  // the name whose HTTPS record was asked, when fetched
+	Verdict string   `json:"verdict"`
+	Targets []Target `json:"targets"` // the addresses tried, in order; the last one decides the verdict
 }
+
+// Report is the answer of Run. Items holds only the nodes that could not be tested.
+type Report struct {
+	Domain string  `json:"domain"`
+	Groups []Group `json:"groups"`
+	Items  []Item  `json:"items"`
+}
+
+type fetchFunc func(ctx context.Context, name string, servers []string) ([]byte, string, error)
 
 // Replaced in tests.
 var (
@@ -101,14 +116,13 @@ var (
 	fetch     = fetchECH
 )
 
-// Run tests every node that has ech-opts. It blocks until all attempts are over (at most a few
-// attempt timeouts per node, four at a time).
+// Run tests every node that has ech-opts. It blocks until all attempts are over.
 func Run(filter string) Report {
 	var req Request
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	req.Domain = strings.TrimSpace(req.Domain)
-	rep := Report{Domain: req.Domain, Items: []Item{}}
+	rep := Report{Domain: req.Domain, Groups: []Group{}, Items: []Item{}}
 
 	nodes := ipdelay.RawProxies()
 	names := make([]string, 0, len(nodes))
@@ -125,9 +139,10 @@ func Run(filter string) Report {
 	lists := make([][]byte, len(names))
 	alpns := make([][]string, len(names))
 	doh := ipdelay.DoHServers()
+	get := cachedFetch(fetch)
 	sem := make(chan struct{}, parallel)
 
-	// 1. what each node needs: the ECH config and its addresses
+	// 1. what each node needs: the ECH config (asked once per name) and its addresses
 	var wg sync.WaitGroup
 
 	for i, name := range names {
@@ -138,51 +153,186 @@ func Run(filter string) Report {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			items[i], lists[i], alpns[i] = prepare(name, nodes[name], req.Domain, doh)
+			items[i], lists[i], alpns[i] = prepare(name, nodes[name], req.Domain, doh, get)
 		}(i, name)
 	}
 
 	wg.Wait()
 
-	// 2. the handshakes, every address of every prepared node
-	for i := range items {
-		if items[i].Status != StatusTested {
-			continue
-		}
+	// 2. nodes with the same config are one group; each group is tested once
+	batches, untested := groupNodes(items, lists, alpns)
 
-		for j := range items[i].Targets {
-			wg.Add(1)
-			sem <- struct{}{}
+	for _, b := range batches {
+		wg.Add(1)
+		sem <- struct{}{}
 
-			go func(it *Item, t *Target, list []byte, alpn []string) {
-				defer wg.Done()
-				defer func() { <-sem }()
+		go func(b *batch) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-				ctx := context.Background()
-
-				var inner sync.WaitGroup
-
-				inner.Add(2)
-
-				go func() { defer inner.Done(); t.ECH = handshake(ctx, t.Addr, req.Domain, list, alpn) }()
-				go func() { defer inner.Done(); t.Plain = handshake(ctx, t.Addr, req.Domain, nil, alpn) }()
-
-				inner.Wait()
-
-				t.Verdict = verdict(t.ECH, t.Plain)
-			}(&items[i], &items[i].Targets[j], lists[i], alpns[i])
-		}
+			b.run(req.Domain)
+		}(b)
 	}
 
 	wg.Wait()
 
-	rep.Items = items
+	for _, b := range batches {
+		rep.Groups = append(rep.Groups, b.group)
+	}
+
+	if untested != nil {
+		rep.Items = untested
+	}
 
 	return rep
 }
 
+// batch is a group with what its test needs.
+type batch struct {
+	group Group
+	list  []byte
+	alpn  []string
+	addrs []string // every address of every node of the group, IPv4 first
+}
+
+// groupNodes puts the tested nodes with the same ECH config and ALPN into one batch (in the order of the
+// first node of each) and returns the others as they are.
+func groupNodes(items []Item, lists [][]byte, alpns [][]string) (batches []*batch, untested []Item) {
+	byKey := map[string]*batch{}
+
+	for i := range items {
+		it := items[i]
+
+		if it.Status != StatusTested {
+			untested = append(untested, it)
+			continue
+		}
+
+		key := string(lists[i]) + "\x00" + strings.Join(alpns[i], ",")
+
+		b := byKey[key]
+		if b == nil {
+			b = &batch{
+				group: Group{Source: it.Source, Query: it.Query, Targets: []Target{}},
+				list:  lists[i],
+				alpn:  alpns[i],
+			}
+			byKey[key] = b
+			batches = append(batches, b)
+		}
+
+		b.group.Nodes = append(b.group.Nodes, it.Node)
+
+		for _, t := range it.Targets {
+			if !hasString(b.addrs, t.Addr) {
+				b.addrs = append(b.addrs, t.Addr)
+			}
+		}
+	}
+
+	for _, b := range batches {
+		sort.SliceStable(b.addrs, func(i, j int) bool { return !isIPv6(b.addrs[i]) && isIPv6(b.addrs[j]) })
+	}
+
+	return batches, untested
+}
+
+// run tries the addresses one at a time and stops at the first one that gets an answer (see reached), or
+// after maxTries. An address that is unreachable costs a few milliseconds, so a network without IPv6 is
+// passed over quickly, and when an IPv4 address works the IPv6 ones are never touched.
+func (b *batch) run(domain string) {
+	ctx := context.Background()
+
+	for i, addr := range b.addrs {
+		if i >= maxTries {
+			break
+		}
+
+		t := Target{Addr: addr}
+
+		var inner sync.WaitGroup
+
+		inner.Add(2)
+
+		go func() { defer inner.Done(); t.ECH = handshake(ctx, t.Addr, domain, b.list, b.alpn) }()
+		go func() { defer inner.Done(); t.Plain = handshake(ctx, t.Addr, domain, nil, b.alpn) }()
+
+		inner.Wait()
+
+		t.Verdict = verdict(t.ECH, t.Plain)
+		b.group.Targets = append(b.group.Targets, t)
+
+		if reached(t) {
+			break
+		}
+	}
+
+	b.group.Verdict = VerdictUnknown
+
+	if n := len(b.group.Targets); n > 0 {
+		b.group.Verdict = b.group.Targets[n-1].Verdict
+	}
+}
+
+// reached tells whether the server answered at all: one of the handshakes went through, or the server
+// refused the ECH config. If both were cut or never connected, the next address is tried.
+func reached(t Target) bool {
+	return t.ECH.OK || t.Plain.OK || t.ECH.Code == "echrejected"
+}
+
+func isIPv6(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+
+	ip := net.ParseIP(host)
+
+	return ip != nil && ip.To4() == nil
+}
+
+func hasString(list []string, s string) bool {
+	for _, e := range list {
+		if e == s {
+			return true
+		}
+	}
+
+	return false
+}
+
+// cachedFetch asks each name once per test run, however many nodes need it.
+func cachedFetch(get fetchFunc) fetchFunc {
+	type result struct {
+		once sync.Once
+		list []byte
+		from string
+		err  error
+	}
+
+	var mu sync.Mutex
+
+	results := map[string]*result{}
+
+	return func(ctx context.Context, name string, servers []string) ([]byte, string, error) {
+		mu.Lock()
+
+		r := results[name]
+		if r == nil {
+			r = &result{}
+			results[name] = r
+		}
+
+		mu.Unlock()
+
+		r.once.Do(func() { r.list, r.from, r.err = get(ctx, name, servers) })
+
+		return r.list, r.from, r.err
+	}
+}
+
 // prepare reads only the fields the ECH test needs: type, server, port, alpn, servername / sni and ech-opts.
-func prepare(name string, raw map[string]any, domain string, doh []string) (Item, []byte, []string) {
+func prepare(name string, raw map[string]any, domain string, doh []string, get fetchFunc) (Item, []byte, []string) {
 	item := Item{Node: name, Targets: []Target{}}
 
 	server, _ := raw["server"].(string)
@@ -228,7 +378,7 @@ func prepare(name string, raw map[string]any, domain string, doh []string) (Item
 		query := firstString(opts["query-server-name"], raw["servername"], raw["sni"], domain)
 		item.Query = query
 
-		b, from, err := fetch(context.Background(), query, doh)
+		b, from, err := get(context.Background(), query, doh)
 		if err != nil {
 			item.Status = StatusFetchFailed
 			item.Error = err.Error()

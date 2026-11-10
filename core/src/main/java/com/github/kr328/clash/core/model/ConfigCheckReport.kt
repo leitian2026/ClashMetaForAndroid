@@ -37,11 +37,25 @@ data class ConfigCheckItem(
     val targets: List<ConfigCheckTarget> = emptyList(),
 )
 
+/**
+ * CUSTOM (CUSTOM.md #22): nodes that share one ECH config, tested once. [targets] are the addresses tried in order
+ * (the last one decides [verdict]); [source] / [query] as in [ConfigCheckItem].
+ */
+@Serializable
+data class ConfigCheckGroup(
+    val nodes: List<String> = emptyList(),
+    val source: String = "",
+    val query: String = "",
+    val verdict: String = "unknown",
+    val targets: List<ConfigCheckTarget> = emptyList(),
+)
+
 /** CUSTOM (CUSTOM.md #22): the answer of the core to a query with sort mode SORT_CHECK. */
 @Serializable
 data class ConfigCheckReport(
     val domain: String = "",
-    val items: List<ConfigCheckItem> = emptyList(),
+    val groups: List<ConfigCheckGroup> = emptyList(),
+    val items: List<ConfigCheckItem> = emptyList(), // nodes that could not be tested
 ) {
     companion object {
         private val json = Json {
