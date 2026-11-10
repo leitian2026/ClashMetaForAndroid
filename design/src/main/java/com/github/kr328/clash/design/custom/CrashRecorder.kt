@@ -53,7 +53,7 @@ object CrashRecorder {
         val now = System.currentTimeMillis()
 
         File(dir, "$now-${android.os.Process.myPid()}.txt")
-            .writeText("${currentProcessName}\n${thread.name}\n$version\n$trace")
+            .writeText("${context.currentProcessName}\n${thread.name}\n$version\n$trace")
 
         dir.listFiles()?.sortedByDescending { it.name }?.drop(KEEP)?.forEach { it.delete() }
     }
