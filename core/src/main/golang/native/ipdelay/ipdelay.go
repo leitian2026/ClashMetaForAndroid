@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -156,6 +157,78 @@ func RawProxies() map[string]map[string]any {
 	}
 
 	return out
+}
+
+// NodeAddresses returns every address the core may dial for a node (its literal server IP, or the
+// `hosts:` entry of its server name); empty when the server is a plain domain.
+func NodeAddresses(name string) []string {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	return append([]string(nil), nodeIPs[name]...)
+}
+
+var dohServers []string // DoH addresses written in the profile's `dns:` section
+
+// CaptureDNS remembers the `https://` DNS servers of the profile's `dns:` section (CUSTOM.md #22: the
+// config check asks them for ECH configs). The argument is `any` and is walked through JSON, so this does
+// not depend on the field names of the core's RawDNS.
+func CaptureDNS(rawDNS any) {
+	var found []string
+
+	if data, err := json.Marshal(rawDNS); err == nil {
+		var tree any
+
+		if json.Unmarshal(data, &tree) == nil {
+			collectHTTPS(tree, &found)
+		}
+	}
+
+	lock.Lock()
+	dohServers = found
+	lock.Unlock()
+}
+
+// DoHServers returns the DoH servers captured by CaptureDNS, `#options` suffixes removed.
+func DoHServers() []string {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	return append([]string(nil), dohServers...)
+}
+
+func collectHTTPS(v any, out *[]string) {
+	switch t := v.(type) {
+	case string:
+		if strings.HasPrefix(t, "https://") {
+			if i := strings.IndexByte(t, '#'); i >= 0 {
+				t = t[:i]
+			}
+
+			for _, e := range *out {
+				if e == t {
+					return
+				}
+			}
+
+			*out = append(*out, t)
+		}
+	case []any:
+		for _, e := range t {
+			collectHTTPS(e, out)
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys) // same order every time
+
+		for _, k := range keys {
+			collectHTTPS(t[k], out)
+		}
+	}
 }
 
 // CaptureConfig stores the raw `proxies:` and `hosts:` of the loaded profile and

@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.core.model.ConfigCheckAttempt
 import com.github.kr328.clash.core.model.ConfigCheckItem
 import com.github.kr328.clash.core.model.ConfigCheckReport
+import com.github.kr328.clash.core.model.ConfigCheckTarget
 import com.github.kr328.clash.design.R
 
 /** CUSTOM (CUSTOM.md #22, not upstream): the result text of the config check page. */
@@ -17,26 +18,46 @@ object ConfigCheckText {
 
         for (item in report.items) {
             lines += context.getString(R.string.check_node_head, item.node, item.server)
-            lines += "    " + verdict(context, item)
 
-            if (item.verdict != "noconfig" && item.verdict != "disabled") {
-                lines += "    " + context.getString(R.string.check_ech_line, attempt(context, item.ech, true))
-                lines += "    " + context.getString(R.string.check_plain_line, attempt(context, item.plain, false))
+            when (item.status) {
+                "tested" -> {
+                    lines += "    " + source(context, item)
+
+                    for (t in item.targets) {
+                        lines += "    " + context.getString(R.string.check_target_head, t.addr)
+                        lines += "        " + verdict(context, t)
+                        lines += "        " + context.getString(R.string.check_ech_line, attempt(context, t.ech, true))
+                        lines += "        " + context.getString(R.string.check_plain_line, attempt(context, t.plain, false))
+                    }
+                }
+                "disabled" -> lines += "    " + context.getString(R.string.check_status_disabled)
+                "unsupported" -> lines += "    " + context.getString(R.string.check_status_unsupported)
+                "badconfig" -> lines += "    " + context.getString(R.string.check_status_badconfig, item.error)
+                else -> lines += "    " + context.getString(R.string.check_status_fetchfailed, item.query, item.error)
             }
         }
+
+        lines += ""
+        lines += context.getString(R.string.check_footer)
 
         return lines.joinToString("\n")
     }
 
-    private fun verdict(context: Context, item: ConfigCheckItem): String {
+    private fun source(context: Context, item: ConfigCheckItem): String {
+        return if (item.source == "config") {
+            context.getString(R.string.check_source_config)
+        } else {
+            context.getString(R.string.check_source_dns, item.query, item.source)
+        }
+    }
+
+    private fun verdict(context: Context, t: ConfigCheckTarget): String {
         return context.getString(
-            when (item.verdict) {
+            when (t.verdict) {
                 "effective" -> R.string.check_verdict_effective
                 "accepted" -> R.string.check_verdict_accepted
                 "rejected" -> R.string.check_verdict_rejected
                 "failed" -> R.string.check_verdict_failed
-                "noconfig" -> R.string.check_verdict_noconfig
-                "disabled" -> R.string.check_verdict_disabled
                 else -> R.string.check_verdict_unknown
             }
         )

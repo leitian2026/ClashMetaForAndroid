@@ -144,6 +144,12 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_verdict_rejected">Result: ECH does not work, the server refused the config; it may be out of date or not match the server</string>
     <string name="check_verdict_failed">Result: ECH does not work: it connects without ECH but not with it; bad config or unsupported server</string>
     <string name="check_verdict_unknown">Result: cannot tell, neither way got through: the server may not host the domain, the node may be down, or the network is out; or it connected but the server did not accept ECH</string>
-    <string name="check_verdict_noconfig">Result: cannot test, ech-opts has no config written directly (or server / port missing); fetching the config from DNS is not supported yet</string>
-    <string name="check_verdict_disabled">Result: ech-opts is written but enable is not true, ECH is off</string>
+    <string name="check_source_config">ECH config: the config written in the file</string>
+    <string name="check_source_dns">ECH config: fetched from DNS (HTTPS record of %1$s, answered by %2$s)</string>
+    <string name="check_target_head">Address %1$s</string>
+    <string name="check_status_disabled">ech-opts is written but enable is not true, ECH is off</string>
+    <string name="check_status_unsupported">This node type (QUIC based, e.g. hysteria, tuic) does not use this TLS handshake, the test does not apply</string>
+    <string name="check_status_badconfig">Cannot test: %1$s</string>
+    <string name="check_status_fetchfailed">Could not get the ECH config (HTTPS record of %1$s): %2$s</string>
+    <string name="check_footer">Note: "works" only means the server accepted this ECH config; it does not mean the whole node path works (xhttp, gRPC, CDN settings are another layer). The test uses Go\'s own TLS, whose fingerprint differs from the node\'s client-fingerprint; certificates are not verified.</string>
 </resources>

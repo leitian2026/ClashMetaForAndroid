@@ -80,6 +80,7 @@ func Load(path string) error {
 	hub.ApplyConfig(cfg)
 
 	ipdelay.CaptureConfig(rawCfg.Proxy, rawCfg.Hosts) // CUSTOM
+	ipdelay.CaptureDNS(rawCfg.DNS)                    // CUSTOM (CUSTOM.md #22)
 
 	app.ApplySubtitlePattern(rawCfg.ClashForAndroid.UiSubtitlePattern)
 

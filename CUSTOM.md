@@ -11,7 +11,7 @@
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的三个 current 字段 |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
-| `core/src/main/golang/native/config/load.go` | #1 | 低 | 重加 `ipdelay.CaptureConfig(...)` |
+| `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
@@ -328,15 +328,18 @@
 ## 22. 配置检查页（r20）
 **效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"开始测试"才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；其余字段（DNS、规则、provider 等）以后逐项加。
 - **输入框：** 填一个确定被封的域名（例如 `xxx.workers.dev`），必须由节点的服务器（或它前面的 CDN）托管。只在测试里当内层 SNI 用，**不改配置**；最后填的域名记在页面自己的 SharedPreferences（`custom_config_check`）。
-- **怎么测：** 对每个写了 `ech-opts` 的节点，向它的 `server:port` 各做一次只到 TLS 握手为止的连接：开 ECH（用配置里写的 `config`）和关 ECH，内层 SNI 都是输入的域名。用 Go 标准库 TLS，所以"服务器是否接受了 ECH"是 TLS 自己报告的（`ConnectionState().ECHAccepted`），不是靠"连上了"去猜。拨号用内核的 `dialer.DialContext`（socket 不走 VPN）。不校验证书，只看握手能不能通过。每次握手最多等 6 秒，最多同时测 4 个节点。
-- **结论：** 生效且绕过封锁（开能连上、关被封）；生效但网络没封这个域名（无法证明绕过）；服务器拒绝了配置（`ECHRejectionError`，配置过期或不匹配）；开了不通而关了能通；两种都不通（无法判断，可能服务器不托管这个域名）；`ech-opts` 没写 `config`（本测试不支持从 DNS 取）；`enable` 不是 true。失败原因沿用 #21 的原因归类，另加 `echrejected`。
-- **局限：** ① 测的是"这份 ECH 配置 + 这个服务器在当前网络下能不能藏住 SNI"，不是节点完整协议的连接；② 只读 `ech-opts` 里直接写的 `config`；③ 代理没运行时没有已载入的配置，页面显示"代理未运行"；④ 取消只是不再等结果，核心里的握手会自己在超时内结束；⑤ 构建要用支持 ECH 的 Go（构建用 1.26，没问题；`go.mod` 写的 1.20 只影响 `go vet` 的版本提示，不影响编译）。
+- **每项只用自己需要的字段，不代入整个配置：** ECH 项只读节点的 `type`、`server`、`port`、`alpn`、`servername` / `sni`、`ech-opts`，不碰 xhttp 路径、Host、UUID 等。以后每一项都这样。
+- **ECH 配置从哪来：** `ech-opts.config` 写了就直接用（base64）；没写就和内核一样去 DNS 取：向 DoH 查某个域名的 HTTPS 记录（类型 65），取出里面的 `ech` 参数。查的域名依次是 `query-server-name`、节点的 `servername`、`sni`、输入框的域名。DoH 服务器依次是配置 `dns:` 里所有 `https://` 开头的地址（加载配置时 `ipdelay.CaptureDNS` 记下，`#` 后面的参数去掉；通过 JSON 遍历整个 `dns:`，不依赖内核结构体的字段名），再是三个公共 DoH（`223.5.5.5`、`1.12.12.12`、`1.1.1.1`）。DNS 报文自己拼、自己解析（`doh.go`），不引入新依赖。拨号都走内核的 `dialer.DialContext`，`hosts:` 映射生效，socket 不走 VPN。
+- **怎么测：** `server` 对应的每个地址（字面 IP，或 `hosts:` 里这个名字的各个 IP，最多 8 个；都没有就用 `server` 本身）各做两次只到 TLS 握手为止的连接：开 ECH 和关 ECH，内层 SNI 都是输入的域名，ALPN 用节点自己写的（没写默认 `h2`）。用 Go 标准库 TLS，所以"服务器是否接受了 ECH"是 TLS 自己报告的（`ConnectionState().ECHAccepted`）。不校验证书，只看握手能不能通过。每次握手最多等 6 秒，最多同时 4 路。
+- **节点状态：** 已测试；`enable` 不是 true；QUIC 系节点（hysteria、hysteria2、tuic、wireguard、ssh）不适用；`config` 不是合法 base64 或缺 server / port；没写 config 且从 DNS 取失败（列出每个 DoH 的失败原因）。
+- **每个地址的结论：** 生效且绕过封锁（开能连上、关被封）；生效但网络没封这个域名（无法证明绕过）；服务器拒绝了配置（`ECHRejectionError`，配置过期或不匹配）；开了不通而关了能通；无法判断（两种都不通，或连上了但服务器没接受 ECH）。失败原因沿用 #21 的原因归类，另加 `echrejected`。
+- **局限：** ① 测的是"这份 ECH 配置 + 这个服务器在当前网络下能不能藏住 SNI"，不是节点完整协议的连接（xhttp、gRPC、CDN 设置是另一层），页面底部有说明；② 握手用 Go 标准库 TLS，指纹不是节点的 `client-fingerprint`（uTLS 模拟的 Chrome 等），被封网络里指纹不同结果可能不同；③ 代理没运行时没有已载入的配置，页面显示"代理未运行"；④ 取消只是不再等结果，核心里的握手会自己在超时内结束；⑤ 构建要用支持 ECH 的 Go（构建用 1.26，没问题；`go.mod` 写的 1.20 只影响 `go vet` 的版本提示，不影响编译）。
 - **功耗：** 没有定时器，没有后台任务，点一次测一次。
 
 **新增文件**
-- `core/src/main/golang/native/conftest/conftest.go`、`conftest_test.go`（`Run`、判定逻辑、握手）；`ipdelay.go`（#1 #7 的文件）加 `RawProxies()`；`errlog.go`（#21）加 `Classify`；`connections.go`（#8 的文件）加 `SortCheck` 分支；`CustomConnections.kt` 加 `SORT_CHECK`。通道仍是 `queryCustomConnections`，`filter` 带请求 JSON `{"domain":"..."}`，没有新增 JNI 函数。
+- `core/src/main/golang/native/conftest/conftest.go`、`doh.go`（DNS 报文和 DoH 取配置）、`conftest_test.go`（`Run`、判定逻辑、握手）；`ipdelay.go`（#1 #7 的文件）加 `RawProxies()`、`NodeAddresses()`、`CaptureDNS()` / `DoHServers()`；`errlog.go`（#21）加 `Classify`；`connections.go`（#8 的文件）加 `SortCheck` 分支；`CustomConnections.kt` 加 `SORT_CHECK`。通道仍是 `queryCustomConnections`，`filter` 带请求 JSON `{"domain":"..."}`，没有新增 JNI 函数。
 - `core/.../model/ConfigCheckReport.kt`。
 - `design/.../custom/ConfigCheckDesign.kt`、`ConfigCheckText.kt`、`res/layout/design_config_check.xml`；文案 `check_*`、`errors_code_echrejected`；`ErrorsText.explain` 改为公开。
 - `app/.../custom/ConfigCheckActivity.kt`。
 
-**改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20 #21），见总表。
+**改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20 #21）、`config/load.go`（`CaptureConfig` 后面加一行 `ipdelay.CaptureDNS(rawCfg.DNS)`），见总表。

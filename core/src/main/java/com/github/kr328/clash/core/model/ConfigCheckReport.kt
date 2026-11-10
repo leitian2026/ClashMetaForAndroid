@@ -13,14 +13,28 @@ data class ConfigCheckAttempt(
     val reason: String = "",
 )
 
-/** CUSTOM (CUSTOM.md #22): the result for one node. [verdict]: effective, accepted, rejected, failed, unknown, noconfig, disabled. */
+/** CUSTOM (CUSTOM.md #22): the result for one address of a node's server. [verdict]: effective, accepted, rejected, failed, unknown. */
+@Serializable
+data class ConfigCheckTarget(
+    val addr: String = "",
+    val verdict: String = "unknown",
+    val ech: ConfigCheckAttempt = ConfigCheckAttempt(),
+    val plain: ConfigCheckAttempt = ConfigCheckAttempt(),
+)
+
+/**
+ * CUSTOM (CUSTOM.md #22): the result for one node. [status]: tested, disabled, unsupported, badconfig, fetchfailed.
+ * [source] is "config" (written in ech-opts) or the DNS server that gave the config for [query].
+ */
 @Serializable
 data class ConfigCheckItem(
     val node: String = "",
     val server: String = "",
-    val verdict: String = "unknown",
-    val ech: ConfigCheckAttempt = ConfigCheckAttempt(),
-    val plain: ConfigCheckAttempt = ConfigCheckAttempt(),
+    val status: String = "tested",
+    val source: String = "",
+    val query: String = "",
+    val error: String = "",
+    val targets: List<ConfigCheckTarget> = emptyList(),
 )
 
 /** CUSTOM (CUSTOM.md #22): the answer of the core to a query with sort mode SORT_CHECK. */

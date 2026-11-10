@@ -144,6 +144,12 @@
     <string name="check_verdict_rejected">结论：ECH 不生效，服务器拒绝了这份配置，配置可能已过期或与服务器不匹配</string>
     <string name="check_verdict_failed">结论：ECH 不生效，不开 ECH 能连上、开了连不上，配置有问题或服务器不支持</string>
     <string name="check_verdict_unknown">结论：无法判断，两种方式都没通过，可能服务器不托管这个域名、节点不可用或网络不通；或者连上了但服务器没有接受 ECH</string>
-    <string name="check_verdict_noconfig">结论：无法测试，ech-opts 没有直接写 config（或服务器、端口缺失），本测试暂不支持从 DNS 取配置</string>
-    <string name="check_verdict_disabled">结论：ech-opts 已写，但 enable 不是 true，ECH 没有启用</string>
+    <string name="check_source_config">ECH 配置：来自配置文件里写的 config</string>
+    <string name="check_source_dns">ECH 配置：从 DNS 取得（查询 %1$s 的 HTTPS 记录，由 %2$s 返回）</string>
+    <string name="check_target_head">地址 %1$s</string>
+    <string name="check_status_disabled">ech-opts 已写，但 enable 不是 true，ECH 没有启用</string>
+    <string name="check_status_unsupported">这类节点（QUIC 系，如 hysteria、tuic）不走这种 TLS 握手，本测试不适用</string>
+    <string name="check_status_badconfig">无法测试：%1$s</string>
+    <string name="check_status_fetchfailed">取 ECH 配置失败（查询 %1$s 的 HTTPS 记录）：%2$s</string>
+    <string name="check_footer">说明：“生效”只表示服务器接受了这份 ECH 配置，不等于节点整条链路能用（xhttp、gRPC、CDN 设置等是另一层）。测试用 Go 标准库的 TLS，指纹和节点的 client-fingerprint 不同；证书不校验。</string>
 </resources>
