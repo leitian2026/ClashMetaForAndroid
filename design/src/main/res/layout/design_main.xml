@@ -155,6 +155,15 @@
                     app:icon="@drawable/ic_baseline_stack"
                     app:text="@string/mux_title" />
 
+                <!-- CUSTOM (CUSTOM.md #21): errors and diagnostics -->
+                <com.github.kr328.clash.design.view.LargeActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
+                    android:onClick="@{() -> self.request(Request.OpenErrors)}"
+                    app:icon="@drawable/ic_baseline_info"
+                    app:text="@string/errors_title" />
+
                 <com.github.kr328.clash.design.view.LargeActionLabel
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

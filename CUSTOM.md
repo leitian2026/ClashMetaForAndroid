@@ -16,16 +16,16 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20） |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21） |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20） |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）和 `.custom.MuxActivity`（#20）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）、`.custom.MuxActivity`（#20）和 `.custom.ErrorsActivity`（#21）的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
-| `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（及 import） |
+| `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 
 共 20 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
@@ -300,3 +300,27 @@
 **改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 和它的缓存步骤之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
 **已知限制：** 补丁是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的，并确认能干净地打上；实际构建用的子模块提交是 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，**没有对照过它的源码**，也没有本地编译过（Go 代码只做了人工检查）。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
+
+## 21. 错误与诊断页（r18）
+**效果：** 首页"日志"上面多一个"错误与诊断"入口。页面把**已经存在的数据**排成文字，一页看清"哪里出错、什么原因"，四块（哪块没内容就不显示）：
+1. **软件崩溃 / 异常退出**：时间、进程、线程、版本和堆栈前 8 行（Java 崩溃，由 `CrashRecorder` 记录）；加上 Android 自己记录的"原生崩溃（内核异常退出）/ 无响应 ANR / 内存不足被系统结束 / 进程初始化失败"（Android 11 以上，`getHistoricalProcessExitReasons`）。
+2. **节点测速超时**：当前配置所有代理组里最近一次测速超时的节点（`delay` 大于 `Short.MAX_VALUE`，0 是没测过，不算）。
+3. **连接失败**（按节点分组，失败多的在前）：每条写时间、TCP/UDP、目标 `host:port`、命中的规则、次数 `×n`，下一行是"原因：<中文解释>（内核原文：…）"。网站打不开就在这里：内核每次拨号失败本来就写一行 `[TCP] dial <节点> (match <规则>) <源> --> <目标> error: <原因>`，这里只是把它拆开显示。
+4. **其他警告 / 错误**：内核的其他 WARNING / ERROR 日志原文（配置、DNS、订阅更新等），能识别原因时附一行中文解释。
+- 原因归类（`errlog.classify`）：超时、被拒绝、被重置、对方提前关闭、域名解析失败、网络不可达、TLS / 证书、认证失败、被拒绝（规则）、其他；中文 / 英文解释在 `strings_custom.xml` 的 `errors_code_*`。认不出的原因直接显示内核原文。
+- 右上角：复制全部、清除记录、刷新。文字可以长按选择。代理没运行时只显示崩溃记录，并说明连接失败和节点超时要代理运行时才能看。
+- **局限：** ① 连接失败记录在内核进程里，只保留最近 300 种（相同的合并计数），内核重启后重新计数；② 订阅更新失败、服务启动失败等 App 本来就弹提示的错误没有被另外保存，只有它们同时写进内核日志时才会出现在第 4 块；③ Go 内核自己崩溃时 Java 来不及记录，靠 Android 的退出记录（Android 11 以上）；④ 内核日志行格式没有逐版本核对，不符合的行会按"其他"显示原文，不会丢。
+
+**怎么做的（没有任何新采集）：**
+- Go：新包 `core/src/main/golang/native/errlog/`。`init()` 里订阅内核的 `log.Subscribe()`（和 `log.go` 同一个机制；订阅能收到所有等级，不受用户设的日志等级影响），只留 WARNING / ERROR，放进 300 条的环（相同的 种类 + 节点 + 目标 + 原因 合并，次数 +1，时间更新）。阻塞在 channel 上的一个 goroutine，没有日志就不占 CPU。
+- 通道：复用 #8 / #20 的 `queryCustomConnections(sort, filter)`：`sort` 取 3（`SORT_ERRORS`）时 `connections.go` 返回 `errlog.Query()`；`closeCustomConnection("!errors")`（`CLEAR_ERRORS`）清空记录。没有新增 JNI 函数，没有给 `IClashManager` 加方法。
+- 崩溃：`CrashRecorder.install()` 在 `MainApplication.onCreate()`（两个进程都会走）里设置默认未捕获异常处理器：真崩溃时写一个小文本文件到 `filesDir/custom/crash/`（最多 10 个），然后交给原来的处理器，崩溃行为不变。平时什么都不做。
+- 页面：`ErrorsActivity` 只在打开 / 回到页面、代理启动停止、配置加载、点刷新时读一次；**没有定时器**。答案不变时不重画。
+
+**新增文件**
+- `core/src/main/golang/native/errlog/errlog.go`、`errlog_test.go`。
+- `core/src/main/java/com/github/kr328/clash/core/model/ErrorSnapshot.kt`（`ErrorEntry` / `ErrorSnapshot` / `CrashRecord` / `ExitRecord`）；`core/.../custom/CustomConnections.kt`（#8 的文件）加 `SORT_ERRORS`、`CLEAR_ERRORS`；`connections.go`（#8 的文件）加 errors 分支和清除。
+- `design/.../custom/CrashRecorder.kt`、`ErrorsReport.kt`、`ErrorsText.kt`、`ErrorsDesign.kt`、`res/layout/design_errors.xml`；文案 `errors_*`。
+- `app/src/main/java/com/github/kr328/clash/custom/ErrorsActivity.kt`。
+
+**改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20）；`MainApplication.kt`（一行 `CrashRecorder.install(this)` 和 import），见总表。

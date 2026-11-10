@@ -5,6 +5,7 @@ import android.content.Context
 import com.github.kr328.clash.common.Global
 import com.github.kr328.clash.common.compat.currentProcessName
 import com.github.kr328.clash.common.log.Log
+import com.github.kr328.clash.design.custom.CrashRecorder // CUSTOM: CUSTOM.md #21
 import com.github.kr328.clash.design.custom.GeoFileKeeper
 import com.github.kr328.clash.remote.Remote
 import com.github.kr328.clash.service.util.sendServiceRecreated
@@ -24,6 +25,7 @@ class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        CrashRecorder.install(this) // CUSTOM: CUSTOM.md #21
         val processName = currentProcessName
         extractGeoFiles()
         GeoFileKeeper.restoreAfterUpdate(this) // CUSTOM: CUSTOM.md #16

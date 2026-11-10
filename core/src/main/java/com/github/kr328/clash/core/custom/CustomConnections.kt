@@ -6,6 +6,11 @@ object CustomConnections {
     const val SORT_TRAFFIC = 1 // most data (upload + download) first
     const val SORT_MUX = 2 // CUSTOM #20: not a list, the per-node socket summary (see MuxSnapshot)
 
+    const val SORT_ERRORS = 3 // CUSTOM #21: not a list, the recent warnings and errors (see ErrorSnapshot)
+
+    // id that close() takes to forget the recorded errors (CUSTOM #21)
+    const val CLEAR_ERRORS = "!errors"
+
     // id that close() takes to close every connection
     const val CLOSE_ALL = "*"
 

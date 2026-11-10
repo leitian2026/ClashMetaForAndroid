@@ -155,6 +155,12 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/mux_title" />
+        <!-- CUSTOM (CUSTOM.md #21) -->
+        <activity
+            android:name=".custom.ErrorsActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/errors_title" />
         <activity
             android:name=".LogsActivity"
             android:configChanges="uiMode"

@@ -5,6 +5,7 @@ import "C"
 
 import (
 	"cfa/native/connlist"
+	"cfa/native/errlog"
 )
 
 // CUSTOM (CUSTOM.md #8): active connections for the app's connections page.
@@ -15,11 +16,20 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 		return marshalJson(connlist.QueryMux())
 	}
 
+	if int(sortMode) == errlog.SortErrors { // CUSTOM.md #21: recent warnings and errors, not connections
+		return marshalJson(errlog.Query())
+	}
+
 	return marshalJson(connlist.Query(int(sortMode), C.GoString(filter)))
 }
 
 //export closeCustomConnection
 func closeCustomConnection(id C.c_string) C.int {
+	if C.GoString(id) == errlog.ClearID { // CUSTOM.md #21: forget the recorded errors
+		errlog.Clear()
+		return 1
+	}
+
 	if connlist.Close(C.GoString(id)) {
 		return 1
 	}

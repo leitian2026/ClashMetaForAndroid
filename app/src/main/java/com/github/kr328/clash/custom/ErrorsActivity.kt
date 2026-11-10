@@ -1,0 +1,108 @@
+package com.github.kr328.clash.custom
+
+import com.github.kr328.clash.BaseActivity
+import com.github.kr328.clash.BaseActivity.Event
+import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.core.model.ErrorSnapshot
+import com.github.kr328.clash.core.model.ProxySort
+import com.github.kr328.clash.design.custom.CrashRecorder
+import com.github.kr328.clash.design.custom.ErrorsDesign
+import com.github.kr328.clash.design.custom.ErrorsReport
+import com.github.kr328.clash.util.withClash
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
+
+// CUSTOM (CUSTOM.md #21): the errors and diagnostics page. It only shows data that already exists:
+// the core's own warnings / errors (failed connections with node, rule, destination and reason),
+// the speed-test result of each node, and the crash records of this app.
+//
+// Event driven, no timer: refreshed when the page opens or comes back, when the proxy starts / stops
+// or a profile loads, and by its refresh button. Nothing runs while the page is not on screen.
+class ErrorsActivity : BaseActivity<ErrorsDesign>() {
+    override suspend fun main() {
+        val design = ErrorsDesign(this)
+
+        setContentDesign(design)
+
+        while (isActive) {
+            select<Unit> {
+                events.onReceive {
+                    when (it) {
+                        Event.ActivityStart,
+                        Event.ServiceRecreated,
+                        Event.ClashStart, Event.ClashStop,
+                        Event.ProfileLoaded -> design.refresh()
+                        else -> Unit
+                    }
+                }
+                design.requests.onReceive {
+                    when (it) {
+                        ErrorsDesign.Request.Refresh -> design.refresh()
+                        ErrorsDesign.Request.Copy -> design.copyAll()
+                        ErrorsDesign.Request.Clear -> {
+                            if (clashRunning) {
+                                try {
+                                    withClash { closeCustomConnection(CustomConnections.CLEAR_ERRORS) }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    // the core could not be asked; the crash records are still cleared
+                                }
+                            }
+                            withContext(Dispatchers.IO) { CrashRecorder.clear(this@ErrorsActivity) }
+
+                            design.refresh()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun ErrorsDesign.refresh() {
+        val running = clashRunning
+
+        var snapshot: ErrorSnapshot? = null
+        var timeouts: List<String>? = null
+
+        if (running) {
+            try {
+                snapshot = ErrorSnapshot.parse(
+                    withClash { queryCustomConnections(CustomConnections.SORT_ERRORS, "") },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // shown as "not available": the other blocks still work
+            }
+
+            try {
+                timeouts = withClash {
+                    val names = LinkedHashSet<String>()
+
+                    for (group in queryProxyGroupNames(false)) {
+                        for (p in queryProxyGroup(group, ProxySort.Default).proxies) {
+                            // 0 = never tested; a value above Short.MAX_VALUE is how the core reports a timeout
+                            if (!p.isGroup && p.delay > Short.MAX_VALUE) names += p.name
+                        }
+                    }
+
+                    names.toList()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // no profile loaded yet
+            }
+        }
+
+        val (crashes, exits) = withContext(Dispatchers.IO) {
+            CrashRecorder.read(this@ErrorsActivity) to CrashRecorder.exitRecords(this@ErrorsActivity)
+        }
+
+        patch(ErrorsReport(running, snapshot, timeouts, crashes, exits))
+    }
+}
