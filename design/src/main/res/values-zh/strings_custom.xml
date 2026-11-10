@@ -162,4 +162,7 @@
     <string name="check_code_auth">认证失败</string>
     <string name="check_code_reject">被规则拒绝</string>
     <string name="check_code_echrejected">服务器拒绝 ECH 配置</string>
+    <string name="errors_section_folded">已折叠（不影响使用，只计数）</string>
+    <string name="errors_fold_noipv6">当前网络没有 IPv6：连 IPv6 地址失败 %1$d 次（最近 %2$s）</string>
+    <string name="errors_fold_closed">主动取消 / 连接已关闭：%1$d 次（最近 %2$s）</string>
 </resources>

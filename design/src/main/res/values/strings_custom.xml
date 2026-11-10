@@ -162,4 +162,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_code_auth">authentication failed</string>
     <string name="check_code_reject">rejected by a rule</string>
     <string name="check_code_echrejected">server refused the ECH config</string>
+    <string name="errors_section_folded">Folded (harmless, only counted)</string>
+    <string name="errors_fold_noipv6">This network has no IPv6: dialling an IPv6 address failed %1$d times (latest %2$s)</string>
+    <string name="errors_fold_closed">Cancelled / closed on purpose: %1$d times (latest %2$s)</string>
 </resources>

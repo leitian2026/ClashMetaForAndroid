@@ -27,11 +27,23 @@ data class ErrorEntry(
     val message: String = "",
 )
 
+/**
+ * CUSTOM (CUSTOM.md #21): lines the core only counts because they are no problem for the user. [kind]:
+ * noipv6 (an IPv6 address was dialled on a network without IPv6), closed (cancelled / closed on purpose).
+ */
+@Serializable
+data class ErrorFold(
+    val kind: String = "",
+    val count: Int = 0,
+    val time: Long = 0,
+)
+
 /** CUSTOM (CUSTOM.md #21): the answer of the core to a query with sort mode SORT_ERRORS. Newest first. */
 @Serializable
 data class ErrorSnapshot(
     val total: Int = 0,
     val items: List<ErrorEntry> = emptyList(),
+    val folded: List<ErrorFold> = emptyList(),
 ) {
     companion object {
         private val json = Json {

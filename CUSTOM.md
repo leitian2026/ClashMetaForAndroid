@@ -301,13 +301,14 @@
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
 **已知限制：** 补丁是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的，并确认能干净地打上；实际构建用的子模块提交是 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，**没有对照过它的源码**，也没有本地编译过（Go 代码只做了人工检查）。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
 
-## 21. 错误与诊断页（r18）
+## 21. 错误与诊断页（r18，r23 加折叠）
 **效果：** 首页"日志"上面多一个"错误与诊断"入口。页面把**已经存在的数据**排成文字，一页看清"哪里出错、什么原因"，四块（哪块没内容就不显示）：
 1. **软件崩溃 / 异常退出**：时间、进程、线程、版本和堆栈前 8 行（Java 崩溃，由 `CrashRecorder` 记录）；加上 Android 自己记录的"原生崩溃（内核异常退出）/ 无响应 ANR / 内存不足被系统结束 / 进程初始化失败"（Android 11 以上，`getHistoricalProcessExitReasons`）。
 2. **节点测速超时**：当前配置所有代理组里最近一次测速超时的节点（`delay` 大于 `Short.MAX_VALUE`，0 是没测过，不算）。
 3. **连接失败**（按节点分组，失败多的在前）：每条写时间、TCP/UDP、目标 `host:port`、命中的规则、次数 `×n`，下一行是"原因：<中文解释>（内核原文：…）"。网站打不开就在这里：内核每次拨号失败本来就写一行 `[TCP] dial <节点> (match <规则>) <源> --> <目标> error: <原因>`，这里只是把它拆开显示。
 4. **其他警告 / 错误**：内核的其他 WARNING / ERROR 日志原文（配置、DNS、订阅更新等），能识别原因时附一行中文解释。
 - 原因归类（`errlog.classify`）：超时、被拒绝、被重置、对方提前关闭、域名解析失败、网络不可达、TLS / 证书、认证失败、被拒绝（规则）、其他；中文 / 英文解释在 `strings_custom.xml` 的 `errors_code_*`。认不出的原因直接显示内核原文。
+- **折叠（r23）：** 不算问题的几类日志不再当条目记，只计数，页面末尾一个"已折叠"小块，每类一行（次数 + 最近时间）：① **当前网络没有 IPv6**：原因是"network is unreachable"，并且文字里的地址全是 IPv6（文字里只要有一个 IPv4 地址就不折，照常记录）；② **主动取消 / 连接已关闭**：`context canceled`、`use of closed network connection`、`broken pipe`。`connection reset by peer`、IPv4 下的不可达和超时都不折，因为可能是节点被封的真信号。折叠的不进"连接失败 / 其他警告"的次数，也不占 300 条的环；清除记录会一起清零。判断在 `errlog.record()` 里（`foldKind`），只做几次字符串判断，没有新的 goroutine 或定时器。
 - 右上角：复制全部、清除记录、刷新。文字可以长按选择。代理没运行时只显示崩溃记录，并说明连接失败和节点超时要代理运行时才能看。
 - **局限：** ① 连接失败记录在内核进程里，只保留最近 300 种（相同的合并计数），内核重启后重新计数；② 订阅更新失败、服务启动失败等 App 本来就弹提示的错误没有被另外保存，只有它们同时写进内核日志时才会出现在第 4 块；③ Go 内核自己崩溃时 Java 来不及记录，靠 Android 的退出记录（Android 11 以上）；④ 内核日志行格式没有逐版本核对，不符合的行会按"其他"显示原文，不会丢。
 
@@ -318,8 +319,8 @@
 - 页面：`ErrorsActivity` 只在打开 / 回到页面、代理启动停止、配置加载、点刷新时读一次；**没有定时器**。答案不变时不重画。
 
 **新增文件**
-- `core/src/main/golang/native/errlog/errlog.go`、`errlog_test.go`。
-- `core/src/main/java/com/github/kr328/clash/core/model/ErrorSnapshot.kt`（`ErrorEntry` / `ErrorSnapshot` / `CrashRecord` / `ExitRecord`）；`core/.../custom/CustomConnections.kt`（#8 的文件）加 `SORT_ERRORS`、`CLEAR_ERRORS`；`connections.go`（#8 的文件）加 errors 分支和清除。
+- `core/src/main/golang/native/errlog/errlog.go`、`errlog_test.go`（r23 加 `Fold`、`foldKind` 和 `TestFold`）。
+- `core/src/main/java/com/github/kr328/clash/core/model/ErrorSnapshot.kt`（`ErrorEntry` / `ErrorFold` / `ErrorSnapshot` / `CrashRecord` / `ExitRecord`）；`core/.../custom/CustomConnections.kt`（#8 的文件）加 `SORT_ERRORS`、`CLEAR_ERRORS`；`connections.go`（#8 的文件）加 errors 分支和清除。
 - `design/.../custom/CrashRecorder.kt`、`ErrorsReport.kt`、`ErrorsText.kt`、`ErrorsDesign.kt`、`res/layout/design_errors.xml`；文案 `errors_*`。
 - `app/src/main/java/com/github/kr328/clash/custom/ErrorsActivity.kt`。
 

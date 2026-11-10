@@ -5,6 +5,10 @@
 // update failure and so on. This package only listens to that log (a goroutine blocked on a channel, so it
 // costs nothing while nothing is logged), keeps WARNING and ERROR lines in a small ring and, for connection
 // failures, splits the line into node / rule / destination / reason.
+//
+// Lines that are not a problem for the user are not kept as entries but folded into a counter each
+// (see foldKind): connecting to an IPv6 address on a network that has no IPv6, and connections cancelled
+// or closed on purpose. The page shows one line per counter.
 package errlog
 
 import (
@@ -38,6 +42,10 @@ const (
 	CodeReject  = "reject"
 	CodeOther   = "other"
 
+	// Kinds of folded lines.
+	FoldNoIPv6 = "noipv6" // an IPv6 address was dialled on a network without IPv6
+	FoldClosed = "closed" // cancelled or closed on purpose (page closed, app switched away)
+
 	// SortErrors is not an order: asked with it, queryCustomConnections answers with Query instead.
 	SortErrors = 3
 	// ClearID is not a connection id: closeCustomConnection with it clears the recorded errors.
@@ -63,16 +71,25 @@ type Entry struct {
 	Message string `json:"message"`
 }
 
+// Fold counts the lines of one folded kind.
+type Fold struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+	Time  int64  `json:"time"` // unix milliseconds of the latest one
+}
+
 // Snapshot is the answer of Query.
 type Snapshot struct {
-	Total int     `json:"total"` // problems seen since the core started, repeats included
-	Items []Entry `json:"items"` // newest first
+	Total  int     `json:"total"`  // problems seen since the core started, repeats included, folded ones not
+	Items  []Entry `json:"items"`  // newest first
+	Folded []Fold  `json:"folded"` // the folded kinds that happened, in a fixed order
 }
 
 var (
 	mu      sync.Mutex
 	entries []Entry
 	total   int
+	folded  = map[string]*Fold{}
 )
 
 var (
@@ -81,6 +98,9 @@ var (
 	// the same without the rule part
 	reDial = regexp.MustCompile(`^\[(TCP|UDP)\] dial (.+?) (\S+) --> (\S+) error: (.*)$`)
 	reTag  = regexp.MustCompile(`^\[([A-Za-z0-9 _.-]{1,24})\]\s*`)
+
+	reIPv6 = regexp.MustCompile(`\[[0-9a-fA-F]*:[0-9a-fA-F:.]*\]`)
+	reIPv4 = regexp.MustCompile(`\b\d{1,3}(?:\.\d{1,3}){3}\b`)
 )
 
 func init() {
@@ -105,7 +125,15 @@ func Query() Snapshot {
 	copy(items, entries)
 	sort.SliceStable(items, func(i, j int) bool { return items[i].Time > items[j].Time })
 
-	return Snapshot{Total: total, Items: items}
+	snap := Snapshot{Total: total, Items: items, Folded: []Fold{}}
+
+	for _, kind := range []string{FoldNoIPv6, FoldClosed} {
+		if f := folded[kind]; f != nil {
+			snap.Folded = append(snap.Folded, *f)
+		}
+	}
+
+	return snap
 }
 
 // Clear forgets everything recorded.
@@ -115,6 +143,7 @@ func Clear() {
 
 	entries = nil
 	total = 0
+	folded = map[string]*Fold{}
 }
 
 func record(isError bool, payload string, now time.Time) {
@@ -128,6 +157,19 @@ func record(isError bool, payload string, now time.Time) {
 
 	mu.Lock()
 	defer mu.Unlock()
+
+	if kind := foldKind(e); kind != "" {
+		f := folded[kind]
+		if f == nil {
+			f = &Fold{Kind: kind}
+			folded[kind] = f
+		}
+
+		f.Count++
+		f.Time = ms
+
+		return
+	}
 
 	total++
 
@@ -156,6 +198,28 @@ func record(isError bool, payload string, now time.Time) {
 	}
 
 	entries = append(entries, e)
+}
+
+// foldKind tells whether a line is one that is only counted. Only what is certainly harmless is folded:
+// a network-unreachable failure whose addresses are all IPv6 (so the network just has no IPv6; one IPv4
+// address in the text keeps it as a normal entry), and cancelled / closed connections.
+func foldKind(e Entry) string {
+	text := e.Reason
+	if e.Kind != KindConnect {
+		text = e.Message
+	}
+
+	r := strings.ToLower(text)
+
+	switch {
+	case strings.Contains(r, "context canceled"), strings.Contains(r, "use of closed network connection"),
+		strings.Contains(r, "broken pipe"):
+		return FoldClosed
+	case strings.Contains(r, "network is unreachable") && reIPv6.MatchString(text) && !reIPv4.MatchString(text):
+		return FoldNoIPv6
+	}
+
+	return ""
 }
 
 func parse(payload string) Entry {

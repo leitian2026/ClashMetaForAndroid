@@ -9,7 +9,8 @@ import java.util.Locale
 
 /**
  * CUSTOM (CUSTOM.md #21, not upstream): the text of the errors page. Four blocks, each only when it has
- * something: app crashes, node speed-test timeouts, failed connections (per node) and other warnings.
+ * something: app crashes, node speed-test timeouts, failed connections (per node), other warnings and a
+ * short block of folded lines.
  */
 object ErrorsText {
     fun build(context: Context, report: ErrorsReport): String {
@@ -74,6 +75,18 @@ object ErrorsText {
             blocks += section(
                 context.getString(R.string.errors_section_other, others.sumOf { it.count }),
                 others.flatMap { otherLines(context, time, it) },
+            )
+        }
+
+        // 5. lines the core only counted (no IPv6 on this network, cancelled connections)
+        val folded = report.snapshot?.folded.orEmpty().filter { it.count > 0 }
+        if (folded.isNotEmpty()) {
+            blocks += section(
+                context.getString(R.string.errors_section_folded),
+                folded.map {
+                    val label = if (it.kind == "noipv6") R.string.errors_fold_noipv6 else R.string.errors_fold_closed
+                    context.getString(label, it.count, time.format(Date(it.time)))
+                },
             )
         }
 
