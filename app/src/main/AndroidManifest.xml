@@ -149,6 +149,12 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/connections" />
+        <!-- CUSTOM (CUSTOM.md #20) -->
+        <activity
+            android:name=".custom.MuxActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/mux_title" />
         <activity
             android:name=".LogsActivity"
             android:configChanges="uiMode"

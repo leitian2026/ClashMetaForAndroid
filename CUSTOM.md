@@ -16,14 +16,14 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签 |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8） |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20） |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8） |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）和 `.custom.BackupActivity`（#17）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）和 `.custom.MuxActivity`（#20）的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -258,15 +258,17 @@
 - 检查：① 带 `CUSTOM` 标记且存在于上游（`main` 分支里有）的文件，必须在本文件"上游文件总表"里；② 带标记的新文件，本文件里必须提到；③ 总表里的每个文件都还存在、还带 `CUSTOM` 标记（合并时挂钩没丢）。有问题时列出来并返回 1。
 - 每次改动后、同步上游后各跑一次。上游文件名、标记写法（`CUSTOM`）变了才需要改脚本。
 
-## 20. 连接页：每个节点的底层连接数（多路复用有没有生效）（r13）
-**效果：** 连接页概览行下面多一块（没有任何连接时隐藏，最多 8 行，更长时在块内滚动），每个节点一行，节点下面按对端 IP 拆开：
+## 20. 底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16）
+**效果：** 首页"连接"下面多一个"底层连接"入口，打开后是单独的一页（连接页本身不变）。页面里每个节点一行，节点下面按对端 IP 拆开，所有行一次显示（超出屏幕高度时整页滚动，没有行数上限），字号、颜色、行距和连接页的概览行一致：
 ```
 节点 A · 底层 5 条 / 请求 40 个
     🇺🇸 162.159.153.2 · 3 条
     104.18.2.5 · 2 条
 节点 B · 底层 1 条 / 请求 12 个 · UDP 2 个
 ```
-- **底层 N 条**：内核真正为这个节点开着的 TCP socket 数（和终端里 `ss` 看到的出站连接一致）；开了多路复用（smux 等）或 gRPC / h2 时，N 远小于请求数。**请求 M 个**：内核连接列表里由这个节点承载的连接数，按全部连接算（不受 300 条显示上限和搜索框影响）。
+- 页面顶部一行说明文字（小字）；右上角刷新按钮；代理没运行时显示"代理未运行"，没有连接时显示"当前没有连接"。
+- **刷新时机：** 打开 / 回到页面、点刷新、Clash 启动停止、以及页面在前台且代理在运行时每 2 秒一次（和连接页同一套：页面进入后台后定时分支不再参与 `select`，没有任何后台唤醒）。答案和上次一样就不解析、不重画。
+- **底层 N 条**：内核真正为这个节点开着的 TCP socket 数（和终端里 `ss` 看到的出站连接一致）；开了多路复用（smux 等）或 gRPC / h2 时，N 远小于请求数。**请求 M 个**：内核连接列表里由这个节点承载的连接数（连接的路径里第一个名字就是承载它的节点）。
 - 每个 IP 一行：该节点现在有几条连到这个 IP；国旗只有已经知道（测速或 #7 探测过）时才显示，不额外查询。没有连接的 IP 不列。
 - **UDP**：只在节点行末尾写 `UDP u 个`（该节点开着的 UDP socket 数，包括 QUIC 类节点）。UDP socket 创建时对端地址常常还不知道，所以不按 IP 拆。QUIC 类节点（hysteria、tuic）整个会话在一个 UDP socket 上，底层数本来就是 1 左右，不能用来判断复用。
 - 没有归属节点的 socket（DNS 等）归到"其他（不属于任何节点）"。链式代理（`dialer-proxy`）只算真正的物理 socket，算在第一跳节点上，里层节点会显示 `底层 0 条 / 请求 M 个`。
@@ -274,16 +276,18 @@
 - 打开了 smux 的 `statistic: true` 时，承载连接本身也会登记成内核连接，并算进"请求"数（也会让首页的流量统计翻倍，那个选项本来是调试用）。
 - **关闭网站后数字不会马上归零**：空闲的复用连接会保留一段时间才断开，不等于复用没生效。
 
-**怎么数的（改了内核，见下）：** 内核里所有出站 TCP / UDP 连接都经过 `component/dialer` 的 `DialContext` / `ListenPacket`。补丁在这两个函数外面各包一层：socket 建成时按"节点名 + 对端 IP + 网络"登记一次，关闭时注销一次（`Close` 里注销，幂等；没关就被回收时由 finalizer 注销）。节点名来自 `Base.DialOptions()` 新加的 `WithOwner(b.name)`，所有节点类型共用这一个入口，smux 的承载连接也是经节点自己的拨号建的，所以同样会被数到。经自定义拨号器（如 `dialer-proxy` 的 `netDialer`）得到的连接不是本进程的 socket，不计。读数只在连接页查询时做（`dialer.ConnCounts()`）。
-- **功耗：** 没有定时器、轮询、后台线程；建立和关闭 socket 时各一次带锁的 map 加减；数据只在连接页前台查询时读一次，并跟着连接页已有的刷新走。
+**怎么数的（改了内核，见下）：** 内核里所有出站 TCP / UDP 连接都经过 `component/dialer` 的 `DialContext` / `ListenPacket`。补丁在这两个函数外面各包一层：socket 建成时按"节点名 + 对端 IP + 网络"登记一次，关闭时注销一次（`Close` 里注销，幂等；没关就被回收时由 finalizer 注销）。节点名来自 `Base.DialOptions()` 新加的 `WithOwner(b.name)`，所有节点类型共用这一个入口，smux 的承载连接也是经节点自己的拨号建的，所以同样会被数到。经自定义拨号器（如 `dialer-proxy` 的 `netDialer`）得到的连接不是本进程的 socket，不计。读数只在这一页查询时做（`dialer.ConnCounts()`）。
+- **走的通道：** 复用 #8 的 `queryCustomConnections(sort, filter)`：`sort` 取 2（`SortMux`）时，`connections.go` 里的导出函数改为返回 `connlist.QueryMux()`（只数连接、不转换，也不碰连接页的缓存），所以没有新增 JNI 函数、没有给 `IClashManager` 加方法。
+- **功耗：** 没有定时器、轮询、后台线程；建立和关闭 socket 时各一次带锁的 map 加减；数据只在这一页前台查询时读一次。连接页不受影响（它的查询不带这些）。
 - 包装类型内嵌了真正的 `*net.TCPConn` / `*net.UDPConn`，所以它们的全部方法（`SyscallConn`、`ReadMsgUDP`、`CloseWrite`、`ReadFrom` 等）都还在，只有 `Close` 多做一步；唯一变化是类型断言 `.(*net.UDPConn)`，内核里对拨号结果这样断言的只有 `common/net/packet`，不是 `*net.UDPConn` 时它自己有通用后备。
 
 **新增文件**
 - `patches/mihomo/0001-conn-count.patch`：给 mihomo 打的补丁（**内核文件不直接改，构建时由 workflow 应用**）。内容：新文件 `component/dialer/conncount.go`（登记表、包装类型、`DialContext` / `ListenPacket`、`WithOwner`、`ConnCounts`）；`component/dialer/dialer.go` 里原来的 `DialContext` / `ListenPacket` 改名为 `dialContextRaw` / `listenPacketRaw`（各一行）；`component/dialer/options.go` 的 `option` 结构体加 `owner string`；`adapter/outbound/base.go` 的 `DialOptions()` 末尾加 `dialer.WithOwner(b.name)`。
-- `core/src/main/golang/native/connlist/connlist.go`（#8 的文件）：`Query` 里按节点数请求、调用 `dialer.ConnCounts()`，答案里多一个 `mux` 字段；`ipdelay.go` 加 `CountryOf(node, ip)`（只读缓存）。
-- `design/.../custom/MuxText.kt`（汇总文字）；`ConnectionSnapshot.kt` 加 `MuxNode` / `MuxIp` 和 `mux`；`ConnectionsDesign.kt`、`design_connections.xml`（`connections_mux_view`）；文案 `connections_mux_*`。
+- `core/src/main/golang/native/connlist/mux.go`：`QueryMux`、`MuxNode` / `MuxIp` / `MuxSnapshot`、`SortMux`；`ipdelay.go`（#1 #7 的文件）加 `CountryOf(node, ip)`（只读缓存）；`connections.go`（#8 的文件）里 `queryCustomConnections` 加一个 `SortMux` 分支；`core/.../custom/CustomConnections.kt` 加常量 `SORT_MUX`。
+- `core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`（`MuxNode` / `MuxIp` / `MuxSnapshot` 和解析）。
+- `design/.../custom/MuxDesign.kt`、`MuxText.kt`（把节点列表排成文字）、`res/layout/design_mux.xml`；文案 `mux_*`、`connections_mux_*`。
+- `app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`。
 
-**改了上游文件：** 只有 `.github/workflows/build-debug.yaml`（`Checkout submodules` 之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）。
+**改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
 **已知限制：** 补丁是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的，并确认能干净地打上；实际构建用的子模块提交是 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，**没有对照过它的源码**，也没有本地编译过（Go 代码只做了人工检查）。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
-

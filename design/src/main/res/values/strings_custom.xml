@@ -84,4 +84,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="connections_mux_node_udp">%1$s · underlying %2$d / requests %3$d · UDP %4$d</string>
     <string name="connections_mux_ip">%1$s · %2$d</string>
     <string name="connections_mux_other">Other (no node)</string>
+    <string name="mux_title">Underlying connections</string>
+    <string name="mux_hint">Underlying = connections the core really has open to the node (far fewer than requests when multiplexing works). Requests = connections carried by the node.</string>
 </resources>

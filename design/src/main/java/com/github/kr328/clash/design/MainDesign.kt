@@ -22,6 +22,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenProviders,
         OpenLogs,
         OpenConnections, // CUSTOM: CUSTOM.md #8
+        OpenMux, // CUSTOM: CUSTOM.md #20
         OpenSettings,
         OpenHelp,
         OpenAbout,

@@ -84,4 +84,6 @@
     <string name="connections_mux_node_udp">%1$s · 底层 %2$d 条 / 请求 %3$d 个 · UDP %4$d 个</string>
     <string name="connections_mux_ip">%1$s · %2$d 条</string>
     <string name="connections_mux_other">其他（不属于任何节点）</string>
+    <string name="mux_title">底层连接</string>
+    <string name="mux_hint">底层 = 内核真正为该节点开着的连接数（多路复用生效时应远少于请求数）；请求 = 经该节点的连接数。</string>
 </resources>

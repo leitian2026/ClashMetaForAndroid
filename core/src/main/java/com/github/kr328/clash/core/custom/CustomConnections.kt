@@ -4,6 +4,7 @@ package com.github.kr328.clash.core.custom
 object CustomConnections {
     const val SORT_TIME = 0 // newest first
     const val SORT_TRAFFIC = 1 // most data (upload + download) first
+    const val SORT_MUX = 2 // CUSTOM #20: not a list, the per-node socket summary (see MuxSnapshot)
 
     // id that close() takes to close every connection
     const val CLOSE_ALL = "*"

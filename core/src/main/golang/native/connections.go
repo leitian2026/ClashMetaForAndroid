@@ -11,6 +11,10 @@ import (
 
 //export queryCustomConnections
 func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
+	if int(sortMode) == connlist.SortMux { // CUSTOM.md #20: the per-node socket summary, not the list
+		return marshalJson(connlist.QueryMux())
+	}
+
 	return marshalJson(connlist.Query(int(sortMode), C.GoString(filter)))
 }
 
