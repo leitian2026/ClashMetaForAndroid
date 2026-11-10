@@ -4,6 +4,7 @@ package main
 import "C"
 
 import (
+	"cfa/native/conftest"
 	"cfa/native/connlist"
 	"cfa/native/errlog"
 )
@@ -18,6 +19,10 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 
 	if int(sortMode) == errlog.SortErrors { // CUSTOM.md #21: recent warnings and errors, not connections
 		return marshalJson(errlog.Query())
+	}
+
+	if int(sortMode) == conftest.SortCheck { // CUSTOM.md #22: runs the config check, the filter is its request
+		return marshalJson(conftest.Run(C.GoString(filter)))
 	}
 
 	return marshalJson(connlist.Query(int(sortMode), C.GoString(filter)))

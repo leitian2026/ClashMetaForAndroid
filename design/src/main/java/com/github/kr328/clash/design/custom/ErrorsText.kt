@@ -130,7 +130,7 @@ object ErrorsText {
         }
     }
 
-    private fun explain(context: Context, code: String): String {
+    fun explain(context: Context, code: String): String { // also used by ConfigCheckText (CUSTOM.md #22)
         return context.getString(
             when (code) {
                 "timeout" -> R.string.errors_code_timeout
@@ -142,6 +142,7 @@ object ErrorsText {
                 "tls" -> R.string.errors_code_tls
                 "auth" -> R.string.errors_code_auth
                 "reject" -> R.string.errors_code_reject
+                "echrejected" -> R.string.errors_code_echrejected
                 else -> R.string.errors_code_other
             }
         )

@@ -197,6 +197,9 @@ func connectEntry(payload, network, node, rule, src, dst, reason string) Entry {
 	}
 }
 
+// Classify is classify for other packages (the config check shows its failures the same way).
+func Classify(reason string) string { return classify(reason) }
+
 // classify maps the core's wording to a short code. The order matters: the first match wins.
 func classify(reason string) string {
 	r := strings.ToLower(reason)

@@ -16,14 +16,14 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21） |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22） |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21） |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）、`.custom.MuxActivity`（#20）和 `.custom.ErrorsActivity`（#21）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）和 `.custom.ConfigCheckActivity`（#22）的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -324,3 +324,19 @@
 - `app/src/main/java/com/github/kr328/clash/custom/ErrorsActivity.kt`。
 
 **改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20）；`MainApplication.kt`（一行 `CrashRecorder.install(this)` 和 import），见总表。
+
+## 22. 配置检查页（r20）
+**效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"开始测试"才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；其余字段（DNS、规则、provider 等）以后逐项加。
+- **输入框：** 填一个确定被封的域名（例如 `xxx.workers.dev`），必须由节点的服务器（或它前面的 CDN）托管。只在测试里当内层 SNI 用，**不改配置**；最后填的域名记在页面自己的 SharedPreferences（`custom_config_check`）。
+- **怎么测：** 对每个写了 `ech-opts` 的节点，向它的 `server:port` 各做一次只到 TLS 握手为止的连接：开 ECH（用配置里写的 `config`）和关 ECH，内层 SNI 都是输入的域名。用 Go 标准库 TLS，所以"服务器是否接受了 ECH"是 TLS 自己报告的（`ConnectionState().ECHAccepted`），不是靠"连上了"去猜。拨号用内核的 `dialer.DialContext`（socket 不走 VPN）。不校验证书，只看握手能不能通过。每次握手最多等 6 秒，最多同时测 4 个节点。
+- **结论：** 生效且绕过封锁（开能连上、关被封）；生效但网络没封这个域名（无法证明绕过）；服务器拒绝了配置（`ECHRejectionError`，配置过期或不匹配）；开了不通而关了能通；两种都不通（无法判断，可能服务器不托管这个域名）；`ech-opts` 没写 `config`（本测试不支持从 DNS 取）；`enable` 不是 true。失败原因沿用 #21 的原因归类，另加 `echrejected`。
+- **局限：** ① 测的是"这份 ECH 配置 + 这个服务器在当前网络下能不能藏住 SNI"，不是节点完整协议的连接；② 只读 `ech-opts` 里直接写的 `config`；③ 代理没运行时没有已载入的配置，页面显示"代理未运行"；④ 取消只是不再等结果，核心里的握手会自己在超时内结束；⑤ 构建要用支持 ECH 的 Go（构建用 1.26，没问题；`go.mod` 写的 1.20 只影响 `go vet` 的版本提示，不影响编译）。
+- **功耗：** 没有定时器，没有后台任务，点一次测一次。
+
+**新增文件**
+- `core/src/main/golang/native/conftest/conftest.go`、`conftest_test.go`（`Run`、判定逻辑、握手）；`ipdelay.go`（#1 #7 的文件）加 `RawProxies()`；`errlog.go`（#21）加 `Classify`；`connections.go`（#8 的文件）加 `SortCheck` 分支；`CustomConnections.kt` 加 `SORT_CHECK`。通道仍是 `queryCustomConnections`，`filter` 带请求 JSON `{"domain":"..."}`，没有新增 JNI 函数。
+- `core/.../model/ConfigCheckReport.kt`。
+- `design/.../custom/ConfigCheckDesign.kt`、`ConfigCheckText.kt`、`res/layout/design_config_check.xml`；文案 `check_*`、`errors_code_echrejected`；`ErrorsText.explain` 改为公开。
+- `app/.../custom/ConfigCheckActivity.kt`。
+
+**改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20 #21），见总表。

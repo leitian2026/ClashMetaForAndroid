@@ -24,6 +24,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenConnections, // CUSTOM: CUSTOM.md #8
         OpenMux, // CUSTOM: CUSTOM.md #20
         OpenErrors, // CUSTOM: CUSTOM.md #21
+        OpenConfigCheck, // CUSTOM: CUSTOM.md #22
         OpenSettings,
         OpenHelp,
         OpenAbout,

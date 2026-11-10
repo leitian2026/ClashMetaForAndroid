@@ -144,6 +144,20 @@ func fireNotify() {
 	}
 }
 
+// RawProxies returns a copy of the raw `proxies:` mappings of the loaded profile, keyed by name
+// (CUSTOM.md #22: the config check reads the fields the user wrote).
+func RawProxies() map[string]map[string]any {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	out := make(map[string]map[string]any, len(proxies))
+	for k, v := range proxies {
+		out[k] = v
+	}
+
+	return out
+}
+
 // CaptureConfig stores the raw `proxies:` and `hosts:` of the loaded profile and
 // clears old results. Arguments are `any` on purpose so it does not depend on
 // the exact field types of the core's RawConfig.

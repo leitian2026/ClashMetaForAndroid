@@ -161,6 +161,12 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/errors_title" />
+        <!-- CUSTOM (CUSTOM.md #22) -->
+        <activity
+            android:name=".custom.ConfigCheckActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/check_title" />
         <activity
             android:name=".LogsActivity"
             android:configChanges="uiMode"

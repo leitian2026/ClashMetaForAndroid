@@ -8,6 +8,8 @@ object CustomConnections {
 
     const val SORT_ERRORS = 3 // CUSTOM #21: not a list, the recent warnings and errors (see ErrorSnapshot)
 
+    const val SORT_CHECK = 4 // CUSTOM #22: not a list, runs the config check; the filter is its JSON request
+
     // id that close() takes to forget the recorded errors (CUSTOM #21)
     const val CLEAR_ERRORS = "!errors"
 

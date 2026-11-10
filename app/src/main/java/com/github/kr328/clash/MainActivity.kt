@@ -16,6 +16,7 @@ import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.ticker
 import com.github.kr328.clash.custom.ConnectionsActivity
+import com.github.kr328.clash.custom.ConfigCheckActivity // CUSTOM: CUSTOM.md #22
 import com.github.kr328.clash.custom.ErrorsActivity // CUSTOM: CUSTOM.md #21
 import com.github.kr328.clash.custom.MuxActivity
 import com.github.kr328.clash.custom.customNodeIpEvents
@@ -83,6 +84,8 @@ class MainActivity : BaseActivity<MainDesign>() {
                             startActivity(MuxActivity::class.intent)
                         MainDesign.Request.OpenErrors -> // CUSTOM: CUSTOM.md #21
                             startActivity(ErrorsActivity::class.intent)
+                        MainDesign.Request.OpenConfigCheck -> // CUSTOM: CUSTOM.md #22
+                            startActivity(ConfigCheckActivity::class.intent)
                         MainDesign.Request.OpenSettings ->
                             startActivity(SettingsActivity::class.intent)
                         MainDesign.Request.OpenHelp ->
