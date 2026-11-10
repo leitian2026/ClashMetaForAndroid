@@ -27,27 +27,6 @@ data class ConnectionItem(
     val nodeCountry: String = "",
 )
 
-/** CUSTOM (CUSTOM.md #20): open sockets of a node to one address. [country] only when already known. */
-@Serializable
-data class MuxIp(
-    val ip: String = "",
-    val count: Int = 0,
-    val country: String = "",
-)
-
-/**
- * CUSTOM (CUSTOM.md #20): [tcp] / [udp] are the sockets the core really has open to the node (with
- * multiplexing working, [tcp] stays far below [requests]). [node] is "" for sockets that belong to no node.
- */
-@Serializable
-data class MuxNode(
-    val node: String = "",
-    val tcp: Int = 0,
-    val udp: Int = 0,
-    val requests: Int = 0,
-    val ips: List<MuxIp> = emptyList(),
-)
-
 /**
  * [total] counts every connection, [matched] those that pass the search text, [items] holds only the
  * first ones of them in the requested order.
@@ -57,7 +36,6 @@ data class ConnectionSnapshot(
     val total: Int = 0,
     val matched: Int = 0,
     val items: List<ConnectionItem> = emptyList(),
-    val mux: List<MuxNode> = emptyList(), // CUSTOM #20
 ) {
     companion object {
         private val json = Json {

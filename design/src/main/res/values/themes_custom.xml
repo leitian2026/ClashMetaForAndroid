@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CUSTOM (CUSTOM.md #17): theme of BackupActivity. The activity has nothing to show except
+         dialogs, so its window is transparent and has no animation: the settings page stays on
+         screen while the file picker opens and closes, instead of flashing an empty page. The
+         activity itself switches to the light / dark app theme (BaseActivity.applyDayNight). -->
+    <style name="BackupTranslucentTheme" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

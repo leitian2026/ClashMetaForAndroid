@@ -9,8 +9,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
       
+      # CUSTOM (CUSTOM.md #18): the core source (submodule mihomo) is the biggest download of the build.
+      # Its git data is cached per pinned commit, and the checkout is retried when GitHub is busy.
+      - name: Submodule commit
+        id: submodule
+        run: echo "sha=$(git ls-tree HEAD core/src/foss/golang/clash | awk '{print $3}')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore submodule cache
+        id: submodule-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .git/modules
+          key: submodule-${{ steps.submodule.outputs.sha }}
+
       - name: Checkout submodules
-        run: git submodule update --init --recursive --force
+        run: |
+          for i in 1 2 3 4 5 6; do
+            git submodule update --init --recursive --force && exit 0
+            echo "submodule checkout failed, retry $i/6"
+            # a half-finished clone would make the next try fail too
+            git submodule deinit -f --all 2>/dev/null || true
+            rm -rf core/src/foss/golang/clash .git/modules/clash-foss
+            sleep 20
+          done
+          exit 1
+
+      - name: Save submodule cache
+        if: steps.submodule-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: .git/modules
+          key: submodule-${{ steps.submodule.outputs.sha }}
 
       # CUSTOM (CUSTOM.md #20): patch for the mihomo core (counts the open sockets per node). The build
       # stops here when a patch does not apply, so it is never silently left out.
@@ -33,6 +63,16 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      # CUSTOM (CUSTOM.md #18): the patched Go toolchain is cached (it is downloaded from a GitHub release
+      # and patched on every run otherwise). With the folder restored, setup-go finds the toolchain in
+      # the tool cache and downloads nothing. The key contains the hash of the patches.
+      - name: Restore Go toolchain cache
+        id: go-toolchain-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: /opt/hostedtoolcache/go-*
+          key: go-toolchain-1.26-${{ hashFiles('.github/patch/*.patch') }}
+
       - name: Setup Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
@@ -42,7 +82,22 @@ jobs:
       - name: Apply Patches
         run: |
           cd $(go env GOROOT)
-          for p in $GITHUB_WORKSPACE/.github/patch/*.patch; do patch --verbose -p 1 < "$p"; done
+          # CUSTOM: a toolchain restored from the cache is already patched
+          if [ -f .patched ]; then
+            echo "toolchain already patched"
+          else
+            for p in $GITHUB_WORKSPACE/.github/patch/*.patch; do patch --verbose -p 1 < "$p"; done
+            touch .patched
+          fi
+
+      - name: Save Go toolchain cache
+        if: steps.go-toolchain-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: /opt/hostedtoolcache/go-*
+          key: go-toolchain-1.26-${{ hashFiles('.github/patch/*.patch') }}
+
 
       - uses: actions/cache@v5
         with:
@@ -55,7 +110,8 @@ jobs:
 
       - name: Update CA
         run: |
-          sudo apt-get update && sudo apt-get install ca-certificates
+          # CUSTOM: the runner image already has the package; only install it when it is missing
+          dpkg -s ca-certificates >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y ca-certificates; }
           sudo update-ca-certificates
           cp -f /etc/ssl/certs/ca-certificates.crt core/src/foss/golang/clash/component/ca/ca-certificates.crt
 
@@ -121,12 +177,28 @@ jobs:
           fetch BundleMRS.7z BundleMRS.7z
           ls -l app/src/main/assets
 
+      # CUSTOM (CUSTOM.md #18): Gradle installs CMake 3.22.1 from Google on every run; keep it
+      - name: Restore CMake cache
+        id: cmake-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-cmake-3.22.1
+
       - name: Build
         if: success()
         # CUSTOM: arm64-v8a only (skips Go/C++ builds for the other 3 ABIs)
         # CUSTOM: -x :app:downloadGeoFiles, the files were fetched (with retries) by "Prefetch geo files"
         run: ./gradlew --no-daemon -Pandroid.injected.build.abi=arm64-v8a -x :app:downloadGeoFiles app:assembleAlphaRelease
           
+      - name: Save CMake cache
+        if: always() && steps.cmake-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-cmake-3.22.1
+
       # CUSTOM: show where the APK actually ended up (with injected ABI it stays under build/intermediates)
       - name: List APK files
         run: find app/build -name "*.apk" -print

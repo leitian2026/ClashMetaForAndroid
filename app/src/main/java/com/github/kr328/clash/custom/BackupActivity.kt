@@ -1,5 +1,7 @@
 package com.github.kr328.clash.custom
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import androidx.activity.result.contract.ActivityResultContracts
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.design.R as DesignR
@@ -13,6 +15,10 @@ import java.util.Locale
 // entries of the app settings page) and runs BackupManager. One action per start, then it finishes.
 class BackupActivity : BaseActivity<BackupDesign>() {
     override suspend fun main() {
+        // transparent window (see BackupTranslucentTheme): must be set before the content is installed,
+        // otherwise the theme's opaque app background is used and the page flashes
+        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
         val design = BackupDesign(this)
 
         setContentDesign(design)

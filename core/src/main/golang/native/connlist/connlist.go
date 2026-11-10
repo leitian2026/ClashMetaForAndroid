@@ -16,7 +16,6 @@ import (
 
 	"cfa/native/ipdelay"
 
-	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
@@ -68,10 +67,9 @@ type Item struct {
 // Snapshot is the answer of Query. Total counts every connection, Matched those that pass the filter
 // (equal to Total without a filter), Items only the first maxItems of them.
 type Snapshot struct {
-	Total   int       `json:"total"`
-	Matched int       `json:"matched"`
-	Items   []Item    `json:"items"`
-	Mux     []MuxNode `json:"mux,omitempty"` // CUSTOM.md #20
+	Total   int    `json:"total"`
+	Matched int    `json:"matched"`
+	Items   []Item `json:"items"`
 }
 
 // Query returns the active connections ordered by sortMode (SortTime or SortTraffic). A non-empty
@@ -104,15 +102,8 @@ func Query(sortMode int, filter string) (result Snapshot) {
 	rows := make([]row, 0, 64)
 	seen := make(map[string]int64, len(startCache))
 
-	// CUSTOM.md #20: requests per node, counted over every connection (not only the ones shown)
-	requests := map[string]int{}
-
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
 		r := row{id: c.ID(), tracker: c}
-
-		if chain := c.Chains(); len(chain) > 0 {
-			requests[chain[0]]++
-		}
 
 		if start, ok := startCache[r.id]; ok && !needAll {
 			r.start = start
@@ -200,7 +191,6 @@ func Query(sortMode int, filter string) (result Snapshot) {
 	}
 
 	result.Items = items
-	result.Mux = buildMux(requests)
 
 	return result
 }
@@ -336,106 +326,4 @@ func number(v any) int64 {
 	}
 
 	return 0
-}
-
-// MuxIP is the number of open sockets a node has to one address.
-type MuxIP struct {
-	IP      string `json:"ip"`
-	Count   int    `json:"count"`
-	Country string `json:"country,omitempty"` // only when already known, never looked up here
-}
-
-// MuxNode tells, for one node, how many sockets the core really has open to it (Tcp, and Udp) and
-// how many connections (requests) are carried by the node. With multiplexing working, Tcp stays far
-// below Requests. Node "" holds the sockets that belong to no node (DNS and the like). CUSTOM.md #20.
-type MuxNode struct {
-	Node     string  `json:"node"`
-	Tcp      int     `json:"tcp"`
-	Udp      int     `json:"udp"`
-	Requests int     `json:"requests"`
-	IPs      []MuxIP `json:"ips,omitempty"`
-}
-
-const (
-	maxMuxNodes = 30
-	maxMuxIPs   = 12
-)
-
-// buildMux joins the socket counts of the core (dialer.ConnCounts) with the request counts. The
-// order is fixed, so an unchanged state gives an unchanged answer.
-func buildMux(requests map[string]int) []MuxNode {
-	byNode := map[string]*MuxNode{}
-
-	get := func(name string) *MuxNode {
-		n, ok := byNode[name]
-		if !ok {
-			n = &MuxNode{Node: name}
-			byNode[name] = n
-		}
-
-		return n
-	}
-
-	for _, c := range dialer.ConnCounts() {
-		n := get(c.Owner)
-
-		if c.Network == "udp" {
-			n.Udp += c.Count
-
-			continue
-		}
-
-		n.Tcp += c.Count
-		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: ipdelay.CountryOf(c.Owner, c.IP)})
-	}
-
-	for name, count := range requests {
-		get(name).Requests = count
-	}
-
-	nodes := make([]MuxNode, 0, len(byNode))
-
-	for _, n := range byNode {
-		if n.Tcp == 0 && n.Udp == 0 && n.Requests == 0 {
-			continue
-		}
-
-		sort.Slice(n.IPs, func(i, j int) bool {
-			if n.IPs[i].Count != n.IPs[j].Count {
-				return n.IPs[i].Count > n.IPs[j].Count
-			}
-
-			return n.IPs[i].IP < n.IPs[j].IP
-		})
-
-		if len(n.IPs) > maxMuxIPs {
-			n.IPs = n.IPs[:maxMuxIPs]
-		}
-
-		nodes = append(nodes, *n)
-	}
-
-	sort.Slice(nodes, func(i, j int) bool {
-		a, b := nodes[i], nodes[j]
-
-		if a.Tcp != b.Tcp {
-			return a.Tcp > b.Tcp
-		}
-
-		if a.Udp != b.Udp {
-			return a.Udp > b.Udp
-		}
-
-		if a.Requests != b.Requests {
-			return a.Requests > b.Requests
-		}
-
-		return a.Node < b.Node
-	})
-
-	if len(nodes) > maxMuxNodes {
-		nodes = nodes[:maxMuxNodes]
-	}
-
-	return nodes
 }

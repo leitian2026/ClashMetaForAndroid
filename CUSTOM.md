@@ -243,15 +243,24 @@
 - 覆盖设置、服务相关设置需要重新加载配置或重启服务后生效（结果里会提示）。
 - zip 解压时检查路径，防止条目跳出临时目录（zip slip）；临时文件在 `cacheDir/custom_restore`，恢复完或取消后删除。
 - 功耗：只在用户点导出 / 导入时运行，无后台工作。
+- 不闪屏（r17）：`BackupActivity` 用透明、无动画的主题 `BackupTranslucentTheme`（`design/.../res/values/themes_custom.xml`），并在装内容前把窗口背景设成透明，所以文件选择器打开 / 关闭时设置页一直在后面，不会闪一个空白页。"请稍候"是个小黑条，有对话框时隐藏。
 
-**新增文件：** `app/.../custom/BackupActivity.kt`（选文件、确认、结果）、`BackupManager.kt`（导出 / 导入逻辑，JSON 用 `org.json`）、`design/.../custom/BackupDesign.kt`（几乎空白的页面，只显示状态和对话框）、`design/.../preference/BackupPreference.kt`（`PreferenceScreen.customBackup()`，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）、文案 `backup_*`。
+**新增文件：** `design/.../res/values/themes_custom.xml`（透明主题）、`app/.../custom/BackupActivity.kt`（选文件、确认、结果）、`BackupManager.kt`（导出 / 导入逻辑，JSON 用 `org.json`）、`design/.../custom/BackupDesign.kt`（几乎空白的页面，只显示状态和对话框）、`design/.../preference/BackupPreference.kt`（`PreferenceScreen.customBackup()`，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）、文案 `backup_*`。
 **改了上游文件：** `AppSettingsDesign.kt`（一行 `customBackup()`）、`AndroidManifest.xml`（`BackupActivity`）。
 **依赖的上游接口：** `IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`；`pendingDir` / `importedDir`；`ServiceStore` 的各个属性（上游新增设置项时可在 `BackupManager.serviceToJson` / `restoreSettings` 里加）；`override.json` 在 `filesDir/clash` 下（内核的 `OverrideSlotPersist` 路径）。
 
-## 18. 构建时 geo 文件缓存兜底（仅 build-debug）
+## 18. 构建时的下载：缓存和重试（仅 build-debug）
 - 上游 workflow 本来就缓存了 Go 编译缓存和模块（`actions/cache`），`gradle/actions/setup-gradle` 也缓存 Gradle，这两处不用再加。
 - `build-debug.yaml`：新增 `Restore geo files cache` 步骤（缓存 `app/src/main/assets`，key `geo-files-<run_id>`，靠 `restore-keys` 取最近一次的）；`Prefetch geo files` 改成先下到 `.part` 再改名，重试 8 次都失败时，如果缓存里有旧文件就用旧文件并给出警告，而不是让整个构建失败。每次仍然先尝试下载最新的。
-- 没改上游文件。同步上游时 `build-debug.yaml` 冲突，保留这两个步骤即可。
+- **r17 又加（构建日志里的其余下载）：**
+  - 子模块 mihomo（体积最大）：先按固定 commit 缓存 `.git/modules`（`Submodule commit` / `Restore submodule cache` / `Save submodule cache`）；检出失败重试 6 次，每次先清掉半截的克隆。
+  - Go 工具链：`Restore Go toolchain cache` / `Save Go toolchain cache` 缓存 `/opt/hostedtoolcache/go-*`（已打过补丁的版本，key 含补丁文件的哈希），命中时 `setup-go` 在工具缓存里直接找到，不再下载；`Apply Patches` 用 `.patched` 标记，缓存里的工具链不会重复打补丁。
+  - CMake 3.22.1：`Restore CMake cache` / `Save CMake cache`（构建失败时也保存，`if: always()`），省掉每次从 Google 现装。
+  - `Update CA`：runner 上已有 `ca-certificates` 时不再 `apt-get update / install`。
+  - 以前就有、没变：Go 模块和编译缓存（`actions/cache`，key 按 `go.sum`）；Gradle 依赖缓存（`setup-gradle`）；Gradle wrapper 预下载重试；geo 文件重试加缓存兜底。
+  - `Setup Go` 日志里的 `Restore cache failed: Dependencies file is not found` 警告是 `setup-go` 自带缓存找不到根目录的 `go.sum`，无害（Go 缓存由上面单独的 `actions/cache` 负责）。
+- 所有保存缓存的步骤都带 `continue-on-error: true`，缓存失败不会让构建失败。第一次运行时缓存都是空的，要成功构建一次后才有。
+- 没改上游文件。同步上游时 `build-debug.yaml` 冲突，保留这些步骤即可。
 
 ## 19. 自检脚本 `scripts/check-custom.sh`
 - 用法：`bash scripts/check-custom.sh`（在 git 仓库里、有 `main` 分支时最准；没有 `main` 分支时用宽松检查）。
@@ -288,6 +297,6 @@
 - `design/.../custom/MuxDesign.kt`、`MuxText.kt`（把节点列表排成文字）、`res/layout/design_mux.xml`；文案 `mux_*`、`connections_mux_*`。
 - `app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`。
 
-**改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
+**改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 和它的缓存步骤之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
 **已知限制：** 补丁是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的，并确认能干净地打上；实际构建用的子模块提交是 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，**没有对照过它的源码**，也没有本地编译过（Go 代码只做了人工检查）。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。

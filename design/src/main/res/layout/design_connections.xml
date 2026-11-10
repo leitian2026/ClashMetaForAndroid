@@ -115,19 +115,6 @@
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
                 android:textColor="?attr/colorControlActivated" />
 
-            <!-- CUSTOM (CUSTOM.md #20): underlying connections per node; hidden while empty -->
-            <TextView
-                android:id="@+id/connections_mux_view"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:maxLines="8"
-                android:paddingHorizontal="@dimen/item_tailing_margin"
-                android:paddingBottom="@dimen/item_padding_vertical"
-                android:scrollbars="vertical"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:textColor="?android:attr/textColorSecondary"
-                android:visibility="gone" />
-
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
