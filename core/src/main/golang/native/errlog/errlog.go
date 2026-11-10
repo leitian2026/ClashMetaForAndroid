@@ -94,9 +94,9 @@ var (
 
 var (
 	// "[TCP] dial <node> (match <rule>) <src> --> <dst> error: <reason>"; the node name may hold spaces.
-	reDialRule = regexp.MustCompile(`^\[(TCP|UDP)\] dial (.+?) \(match (.*?)\) (\S+) --> (\S+) error: (.*)$`)
-	// the same without the rule part
-	reDial = regexp.MustCompile(`^\[(TCP|UDP)\] dial (.+?) (\S+) --> (\S+) error: (.*)$`)
+	reDialRule = regexp.MustCompile(`(?s)^\[(TCP|UDP)\] dial (.+?) \(match (.*?)\) (\S+) --> (\S+) error: (.*)$`)
+	// the same without the rule part; (?s): the reason can have several lines (one per address tried)
+	reDial = regexp.MustCompile(`(?s)^\[(TCP|UDP)\] dial (.+?) (\S+) --> (\S+) error: (.*)$`)
 	reTag  = regexp.MustCompile(`^\[([A-Za-z0-9 _.-]{1,24})\]\s*`)
 
 	reIPv6 = regexp.MustCompile(`\[[0-9a-fA-F]*:[0-9a-fA-F:.]*\]`)

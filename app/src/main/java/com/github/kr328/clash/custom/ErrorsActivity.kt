@@ -22,6 +22,11 @@ import kotlinx.coroutines.withContext
 // Event driven, no timer: refreshed when the page opens or comes back, when the proxy starts / stops
 // or a profile loads, and by its refresh button. Nothing runs while the page is not on screen.
 class ErrorsActivity : BaseActivity<ErrorsDesign>() {
+    // The nodes whose timeout is on screen now: what "clear" hides.
+    private var shownTimeouts: List<String> = emptyList()
+
+    private val prefs by lazy { getSharedPreferences("custom_errors", MODE_PRIVATE) }
+
     override suspend fun main() {
         val design = ErrorsDesign(this)
 
@@ -53,6 +58,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                                 }
                             }
                             withContext(Dispatchers.IO) { CrashRecorder.clear(this@ErrorsActivity) }
+                            dismissTimeouts()
 
                             design.refresh()
                         }
@@ -91,7 +97,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                     }
 
                     names.toList()
-                }
+                }.let { filterDismissed(it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -103,6 +109,36 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
             CrashRecorder.read(this@ErrorsActivity) to CrashRecorder.exitRecords(this@ErrorsActivity)
         }
 
+        shownTimeouts = timeouts.orEmpty()
+
         patch(ErrorsReport(running, snapshot, timeouts, crashes, exits))
+    }
+
+    // A node's timeout is its latest speed-test result, not a log line, so "clear" cannot delete it. It
+    // hides the ones shown now instead: a node stays hidden until it tests fine once (then it drops out of
+    // the saved names, so a later timeout shows again). Read and written only when the page refreshes or
+    // "clear" is tapped.
+    private fun dismissTimeouts() {
+        if (shownTimeouts.isEmpty()) return
+
+        val saved = HashSet(prefs.getStringSet(KEY_DISMISSED, emptySet()).orEmpty())
+
+        if (saved.addAll(shownTimeouts)) prefs.edit().putStringSet(KEY_DISMISSED, saved).apply()
+    }
+
+    private fun filterDismissed(timingOut: List<String>): List<String> {
+        val saved = prefs.getStringSet(KEY_DISMISSED, emptySet()).orEmpty()
+
+        if (saved.isEmpty()) return timingOut
+
+        val still = saved.filterTo(HashSet()) { it in timingOut }
+
+        if (still.size != saved.size) prefs.edit().putStringSet(KEY_DISMISSED, still).apply()
+
+        return timingOut.filter { it !in still }
+    }
+
+    private companion object {
+        const val KEY_DISMISSED = "dismissed_timeouts"
     }
 }

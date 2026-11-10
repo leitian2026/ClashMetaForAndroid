@@ -102,6 +102,9 @@ func TestFold(t *testing.T) {
 	record(false, "[TCP] dial N (match M/) 1:1 --> h.com:443 error: context canceled", now)
 	record(false, "[TCP] dial N (match M/) 1:1 --> h.com:443 error: write tcp 1:2->3:4: write: broken pipe", now)
 
+	// several lines (one per address) and an IPv4 source address: still only IPv6 was dialled, so it folds
+	record(false, "[TCP] dial DIRECT (match DomainSuffix/challenges.cloudflare.com) 127.0.0.1:37410 --> b.challenges.cloudflare.com:443 error: dial tcp [2606:4700::6812:1092]:443: connect: network is unreachable\ndial tcp [2606:4700::6812:1192]:443: connect: network is unreachable", now.Add(2*time.Second))
+
 	// not folded: an IPv4 address in the same error, a plain IPv4 unreachable, and a reset
 	record(false, "[TCP] dial N (match M/) 1:1 --> h.com:443 error: dial tcp 1.2.3.4:443: i/o timeout\ndial tcp [2606:4700::1]:443: connect: network is unreachable", now)
 	record(false, "[TCP] dial N (match M/) 1:1 --> h.com:443 error: dial tcp 1.2.3.4:443: connect: network is unreachable", now)
@@ -112,8 +115,8 @@ func TestFold(t *testing.T) {
 		t.Fatalf("items=%d total=%d", len(s.Items), s.Total)
 	}
 
-	if len(s.Folded) != 2 || s.Folded[0].Kind != FoldNoIPv6 || s.Folded[0].Count != 2 ||
-		s.Folded[0].Time != now.Add(time.Second).UnixMilli() || s.Folded[1].Kind != FoldClosed || s.Folded[1].Count != 2 {
+	if len(s.Folded) != 2 || s.Folded[0].Kind != FoldNoIPv6 || s.Folded[0].Count != 3 ||
+		s.Folded[0].Time != now.Add(2*time.Second).UnixMilli() || s.Folded[1].Kind != FoldClosed || s.Folded[1].Count != 2 {
 		t.Fatalf("folded %+v", s.Folded)
 	}
 

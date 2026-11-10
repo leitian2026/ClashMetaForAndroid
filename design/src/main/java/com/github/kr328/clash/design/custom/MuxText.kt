@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import com.github.kr328.clash.core.model.MuxIp
 import com.github.kr328.clash.core.model.MuxNode
 import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.design.R
@@ -25,14 +26,21 @@ object MuxText {
             }
 
             for (ip in n.ips) {
-                val flag = CountryFlag.of(ip.country)
-                val text = ip.ip.ifEmpty { "?" }
-                val address = if (flag.isEmpty()) text else "$flag $text"
+                lines += "    " + context.getString(R.string.connections_mux_ip, address(context, ip), ip.count)
+            }
 
-                lines += "    " + context.getString(R.string.connections_mux_ip, address, ip.count)
+            for (ip in n.udpIps) {
+                lines += "    " + context.getString(R.string.connections_mux_udp_ip, address(context, ip), ip.count)
             }
         }
 
         return lines.joinToString("\n")
+    }
+
+    private fun address(context: Context, ip: MuxIp): String {
+        val flag = CountryFlag.of(ip.country)
+        val text = ip.ip.ifEmpty { context.getString(R.string.connections_mux_udp_unknown) }
+
+        return if (flag.isEmpty()) text else "$flag $text"
     }
 }

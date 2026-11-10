@@ -38,6 +38,7 @@ type MuxNode struct {
 	Udp      int     `json:"udp"`
 	Requests int     `json:"requests"`
 	IPs      []MuxIP `json:"ips,omitempty"`
+	UdpIPs   []MuxIP `json:"udpIps,omitempty"` // the addresses of the UDP sockets; IP "" when the socket was made without a peer
 }
 
 // MuxSnapshot is the answer of QueryMux. Total counts every connection of the core.
@@ -93,12 +94,13 @@ func buildMux(requests map[string]int) []MuxNode {
 
 		if c.Network == "udp" {
 			n.Udp += c.Count
+			n.UdpIPs = append(n.UdpIPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP)})
 
 			continue
 		}
 
 		n.Tcp += c.Count
-		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: ipdelay.CountryOf(c.Owner, c.IP)})
+		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP)})
 	}
 
 	for name, count := range requests {
@@ -112,17 +114,11 @@ func buildMux(requests map[string]int) []MuxNode {
 			continue
 		}
 
-		sort.Slice(n.IPs, func(i, j int) bool {
-			if n.IPs[i].Count != n.IPs[j].Count {
-				return n.IPs[i].Count > n.IPs[j].Count
-			}
+		sortIPs(n.IPs)
+		sortIPs(n.UdpIPs)
 
-			return n.IPs[i].IP < n.IPs[j].IP
-		})
-
-		if len(n.IPs) > maxMuxIPs {
-			n.IPs = n.IPs[:maxMuxIPs]
-		}
+		n.IPs = capIPs(n.IPs)
+		n.UdpIPs = capIPs(n.UdpIPs)
 
 		nodes = append(nodes, *n)
 	}
@@ -150,4 +146,31 @@ func buildMux(requests map[string]int) []MuxNode {
 	}
 
 	return nodes
+}
+
+// countryOf is the country of an address when the app already knows it; sockets without a peer have none.
+func countryOf(node, ip string) string {
+	if ip == "" {
+		return ""
+	}
+
+	return ipdelay.CountryOf(node, ip)
+}
+
+func sortIPs(list []MuxIP) {
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Count != list[j].Count {
+			return list[i].Count > list[j].Count
+		}
+
+		return list[i].IP < list[j].IP
+	})
+}
+
+func capIPs(list []MuxIP) []MuxIP {
+	if len(list) > maxMuxIPs {
+		return list[:maxMuxIPs]
+	}
+
+	return list
 }

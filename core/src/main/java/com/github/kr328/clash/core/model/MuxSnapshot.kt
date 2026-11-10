@@ -22,6 +22,7 @@ data class MuxNode(
     val udp: Int = 0,
     val requests: Int = 0,
     val ips: List<MuxIp> = emptyList(),
+    val udpIps: List<MuxIp> = emptyList(), // addresses of the UDP sockets; ip is "" when the socket was made without a peer
 )
 
 /** CUSTOM (CUSTOM.md #20): the answer of the core to a query with sort mode SORT_MUX. */

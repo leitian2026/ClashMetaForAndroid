@@ -165,4 +165,6 @@
     <string name="errors_section_folded">已折叠（不影响使用，只计数）</string>
     <string name="errors_fold_noipv6">当前网络没有 IPv6：连 IPv6 地址失败 %1$d 次（最近 %2$s）</string>
     <string name="errors_fold_closed">主动取消 / 连接已关闭：%1$d 次（最近 %2$s）</string>
+    <string name="connections_mux_udp_ip">UDP %1$s · %2$d 个</string>
+    <string name="connections_mux_udp_unknown">地址未知（没指定对端）</string>
 </resources>
