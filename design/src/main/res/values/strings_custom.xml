@@ -301,6 +301,10 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="eff_tag_kernel_ignored">(unknown to the core, ignored)</string>
     <string name="eff_tag_kernel_default">(core default)</string>
     <string name="eff_tag_kernel_changed">(changed by the core)</string>
+    <string name="eff_tail_title">Blocks the core added</string>
+    <string name="eff_tail_show">▸ Blocks the core added by itself (%1$d), tap to open</string>
+    <string name="eff_tail_hide">▾ Blocks the core added by itself (%1$d), tap to close</string>
+    <string name="eff_tail_empty">None of them was changed by a later step. To see all the defaults, tap the line at the top.</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>
     <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>

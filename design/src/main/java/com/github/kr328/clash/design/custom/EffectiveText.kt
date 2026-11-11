@@ -22,24 +22,30 @@ import com.github.kr328.clash.design.R
  * CUSTOM (CUSTOM.md #30, not upstream): the user's config with what the core and the app did to it marked in place.
  *
  *   plain line      nothing happened to it
- *   orange  ~       a value that was replaced: the old value struck through, the value that runs after it
+ *   blue    ~       a value that was replaced: the old value struck through, the value that runs after it
  *   red     -       a field the core dropped or the app removed, struck through where it stood
  *   green   +       a field that was added, put where it belongs in the config
  *
  * The marks ("~", "-", "+", the strike-through) say the same as the colors, so nothing depends on seeing colors.
  * Long runs of lines that did not change are folded into one line that opens on a tap; the lines that did change
  * keep the lines they sit under (their parents) and one line on each side. The fields the core added only because
- * the user did not write them (its defaults) are hidden until asked for. All of this happens in memory when the
- * page draws; nothing runs on its own.
+ * the user did not write them (its defaults) are hidden until asked for.
+ *
+ * The user's own blocks come first, in the order and with the indentation they wrote them; what was changed in them
+ * stays where it is. The top-level blocks the user did not write at all (the core filled in a whole `tun`, `ntp`,
+ * `profile` ...) are collected after the user's config in one section that is closed until tapped; in it only the
+ * values a later step changed are shown (with the lines they sit under), unless all the defaults are asked for.
+ * All of this happens in memory when the page draws; nothing runs on its own.
  */
 class EffectiveText(private val context: Context, private val config: EffectiveConfig) {
     private var showKernel = false
+    private var tailOpen = false // the section of the blocks the core added at the end
     private val expanded = HashSet<Int>() // folds the user opened, by the position of their first line
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
 
-    private val colorChanged = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
+    private val colorChanged = if (night) Color.parseColor("#64B5F6") else Color.parseColor("#1565C0")
     private val colorRemoved = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
     private val colorAdded = if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")
     private val colorMuted = Color.parseColor("#9E9E9E")
@@ -65,11 +71,35 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
         return parent
     }
 
+    // A top-level block the user did not write: the core (not the override, not the app) brought the whole of it.
+    private fun isKernelRoot(l: EffectiveLine): Boolean {
+        return l.indent == 0 && l.status == EffectiveLine.ADDED && l.source == EffectiveLine.SRC_KERNEL
+    }
+
+    // The user's blocks in the order they were written, and the blocks the core added by itself.
+    private val main: List<EffectiveLine>
+    private val tail: List<EffectiveLine>
+
+    init {
+        val m = ArrayList<EffectiveLine>()
+        val t = ArrayList<EffectiveLine>()
+        var inTail = false
+
+        for (l in config.lines) {
+            if (l.indent == 0) inTail = isKernelRoot(l)
+
+            if (inTail) t.add(l) else m.add(l)
+        }
+
+        main = m
+        tail = t
+    }
+
+    private val tailBlocks: Int = tail.count { it.indent == 0 }
+
     // The core's defaults are hidden, except a block that holds something a later step changed (a default of the
     // core that the app turned off): that value stays, and so do the lines it sits under.
-    private fun visible(): List<EffectiveLine> {
-        val lines = config.lines
-
+    private fun visibleOf(lines: List<EffectiveLine>): List<EffectiveLine> {
         if (showKernel) return lines
 
         val parent = parentsOf(lines)
@@ -118,7 +148,18 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
     fun plain(): String {
         val sb = StringBuilder()
 
-        for (l in visible()) {
+        plainLines(sb, visibleOf(main))
+
+        if (tail.isNotEmpty() && tailOpen) {
+            sb.append('\n').append("# ").append(context.getString(R.string.eff_tail_title)).append('\n')
+            plainLines(sb, visibleOf(tail))
+        }
+
+        return sb.toString()
+    }
+
+    private fun plainLines(sb: StringBuilder, lines: List<EffectiveLine>) {
+        for (l in lines) {
             sb.append(marker(l)).append(" ".repeat(l.indent)).append(l.pre)
 
             if (l.anchor) {
@@ -137,17 +178,26 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
 
             sb.append('\n')
         }
-
-        return sb.toString()
     }
 
     /** The page text. [onChange] is called after a tap changed what is shown; the caller draws again. */
     fun render(onChange: () -> Unit): CharSequence {
-        val lines = visible()
         val sb = SpannableStringBuilder()
 
         header(sb, onChange)
 
+        body(sb, visibleOf(main), 0, onChange)
+
+        if (tail.isNotEmpty()) tailSection(sb, onChange)
+
+        // the font is one for everything, so the indentation lines up
+        sb.setSpan(TypefaceSpan("monospace"), 0, sb.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+
+        return sb
+    }
+
+    // [foldBase] keeps the folds of the two parts apart: a fold is known by the position of its first line
+    private fun body(sb: SpannableStringBuilder, lines: List<EffectiveLine>, foldBase: Int, onChange: () -> Unit) {
         val parent = parentsOf(lines)
 
         // what stays visible: the changed lines, what they sit under, and one line on each side
@@ -185,19 +235,43 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
 
             val count = end - i
 
-            if (count < 3 || expanded.contains(i)) {
+            if (count < 3 || expanded.contains(foldBase + i)) {
                 for (k in i until end) line(sb, lines, parent, k)
             } else {
-                fold(sb, i, count, onChange)
+                fold(sb, foldBase + i, count, onChange)
             }
 
             i = end
         }
+    }
 
-        // the font is one for everything, so the indentation lines up
-        sb.setSpan(TypefaceSpan("monospace"), 0, sb.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+    // The blocks the core added by itself, after the user's config; closed until tapped.
+    private fun tailSection(sb: SpannableStringBuilder, onChange: () -> Unit) {
+        sb.append('\n')
 
-        return sb
+        val at = sb.length
+
+        sb.append(context.getString(if (tailOpen) R.string.eff_tail_hide else R.string.eff_tail_show, tailBlocks))
+        sb.setSpan(click {
+            tailOpen = !tailOpen
+            onChange()
+        }, at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.append('\n')
+
+        if (!tailOpen) return
+
+        val lines = visibleOf(tail)
+
+        if (lines.isEmpty()) {
+            val noteAt = sb.length
+
+            sb.append(context.getString(R.string.eff_tail_empty)).append('\n')
+            sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+            return
+        }
+
+        body(sb, lines, TAIL_FOLD_BASE, onChange)
     }
 
     private fun header(sb: SpannableStringBuilder, onChange: () -> Unit) {
@@ -231,6 +305,7 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
             )
             sb.setSpan(click {
                 showKernel = !showKernel
+                if (showKernel) tailOpen = true // the defaults it asks for are mostly in that section
                 expanded.clear()
                 onChange()
             }, at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -333,5 +408,9 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
                 ds.isUnderlineText = true
             }
         }
+    }
+
+    private companion object {
+        const val TAIL_FOLD_BASE = 1_000_000
     }
 }

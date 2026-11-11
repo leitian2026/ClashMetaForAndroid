@@ -452,10 +452,10 @@
 **新增文件：** `app/.../custom/DiagnosticBundle.kt`、`ConfigMask.kt`；`BackupActivity.kt`（#17）加 `ACTION_DIAG`；`BackupPreference.kt`（#17）加入口；文案 `diag_*`。
 **依赖：** `queryCustomConnections` 的 `SORT_ERRORS` / `SORT_MUX` / `SORT_CHECK`；`Bridge.nativeCoreVersion()`；`clashDir`。
 
-## 30. 最终生效配置：你的配置上直接标出内核和 App 改了什么（r28，r29 修正归属和锚点）
+## 30. 最终生效配置：你的配置上直接标出内核和 App 改了什么（r28，r29 修正归属和锚点，r31 改排序和颜色）
 **效果：** "配置检查"页（#22）第二排按钮多一个"最终生效配置"。点一次，对**正在使用的配置**（已保存的那份 `config.yaml`，不是没保存的编辑）做一次对比，结果显示在页面的文字区里：以**你写的配置为底**，差异直接标在原位，不另开一段：
 - 没变的行：普通颜色。
-- 被改写的值（橙色，行首 `~`）：旧值划线灰色，紧跟着是实际生效的值（加粗）。例：`~ external-controller: ~~127.0.0.1:9090~~ ""`。
+- 被改写的值（**蓝色**，行首 `~`；r31 起，原来是橙色，手机上和红色容易看混）：旧值划线灰色，紧跟着是实际生效的值（蓝色加粗）。例：`~ external-controller: ~~127.0.0.1:9090~~ ""`。
 - 被删除的字段（红色加删除线，行首 `-`）：留在原位。包括内核不认识的字段（行末写"内核不认识，已忽略"）、被 App 去掉的监听（tproxy / redir / tun）。
 - 被补上的字段（绿色，行首 `+`）：按层级放在它该在的位置（同一层的末尾；整段补上的顶层字段在文件末尾）。例：`dns.nameserver` 末尾补的 `system://`、没开 DNS 时整段换成的默认值。
 - **内核补的整块里，后面的步骤改了的值单独标**（r29）：例如你没写 `tun`，内核补上整段默认值，App 又把其中的 `auto-route`、`auto-detect-interface` 关掉。显示为 `+ tun:（内核默认值）`，里面只有被改的那两项显示成 `~ auto-route: ~~true~~ false（App 补丁）`，其余默认值照常隐藏。同样，覆写设置改了内核默认的 `log-level`，显示成 `~ log-level: ~~info~~ debug（覆写设置）`。
@@ -464,6 +464,7 @@
 - 颜色之外有 `~` `-` `+` 和删除线，不靠颜色也能分清；整页等宽字体，缩进对得齐。
 - **折叠：** 连续没变的行折成一行"… 共 N 行没变（点击展开）"，点一下展开。有差异的行会保留它所在的上层行（比如 `dns:`、`- name: xxx`）和上下各一行，所以能看出差异在哪。
 - **内核补的默认字段默认隐藏**（里面被后面步骤改过的值和它们所在的上层行除外，见上）： 你没写的字段内核会补上默认值（`tun`、`sniffer`、`ntp` ……），这些一般有几十上百行，只说明"内核有默认值"，所以默认只显示一行"内核补上的默认字段共 N 个，已隐藏，点这里显示"，点了才穿插显示出来。内核补的空值（`null`、空列表、空表）不算。
+- **排序（r31）：** 你写的配置原样排在前面（行序、缩进和你写的一样），改写（蓝）和删除（红）就在原位；App / 覆写设置在你写了的块里新补的键（例如 `dns.nameserver` 末尾的 `system://`）紧跟在它所属的块里。**内核自己整段补的顶层块**（`profile`、`ntp`、`tun` ……，判断：缩进 0、状态"补上"、来源"内核"）不再穿插，全部放到文件末尾单独一个折叠区"内核补充的默认块（N 个）"，默认收起，点开才看；点开后里面只显示被后面步骤改过的那几项（如 `~ tun.enable`）和它们所在的上层行，其余默认值仍然隐藏，要看全部就点顶部"显示"那一行（点它会同时展开这个折叠区）。你写了的块里内核补的默认子字段仍按原样隐藏，点顶部"显示"时显示在它所属的块里。复制按钮复制的文本同样是这个顺序，折叠区展开时才带上它（前面加一行 `# 内核补充的默认块`）。只改了 `EffectiveText.kt` 的显示顺序和颜色，对比计算（Go 侧、`EffectiveConfig`）没动。
 - 顶部一行汇总（改写 / 删除 / 补上各几处）和图例。复制按钮复制的是完整文本（含当前"是否显示内核默认值"的选择，不折叠）。
 
 **怎么做的：** 内核侧 `config.Effective(profileDir)`（新文件 `native/config/custom_effective.go`）：读 `config.yaml` → 用内核的 `UnmarshalRawConfig`（内核在这一步补默认值、丢掉不认识的字段）→ 按 `process.go` 里的 `processors` 顺序一步一步执行（覆写设置 `patchOverride` 和各个 App 补丁），每一步之后把整个 `RawConfig` 用 `yaml.Marshal` 写成 yaml 再读回成有序树。用户的原文也读成有序树（`custom_effective_yaml.go`：保留键的书写顺序，展开锚点、别名和 `<<` 合并）。然后 `effcfg.Diff`（新包 `native/effcfg`，纯标准库，有测试）逐层对比：
@@ -487,7 +488,7 @@
 - `core/src/main/golang/native/effcfg/effcfg.go`、`effcfg_test.go`（纯逻辑和测试）。
 - `core/src/main/golang/native/config/custom_effective.go`、`custom_effective_yaml.go`。
 - `core/.../core/model/EffectiveConfig.kt`；`design/.../custom/EffectiveText.kt`。
-- 文案 `eff_*`（`values/` 和 `values-zh/` 的 `strings_custom.xml`）。
+- 文案 `eff_*`（`values/` 和 `values-zh/` 的 `strings_custom.xml`；r31 加 `eff_tail_*` 四条）。
 
 **改了自己的文件（#8 #22 的）：** `connections.go`（加 `SortEffective` 分支）、`CustomConnections.kt`（加 `SORT_EFFECTIVE`）、`ConfigCheckDesign.kt`（`Request` 加 `Effective`、`showEffective()`、`showText` 里恢复可选择）、`design_config_check.xml`（加按钮）、`ConfigCheckActivity.kt`（`runEffective()`）。**没有改任何上游文件。**
 **依赖的上游接口：** `config.UnmarshalRawConfig`、`config.RawConfig`、`native/config/process.go` 里的 `processors` / `patchOverride` / `processor`、`yaml.Marshal`。
