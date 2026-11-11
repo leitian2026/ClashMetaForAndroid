@@ -123,7 +123,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_code_other">Other error</string>
     <string name="errors_code_echrejected">The server refused this ECH config; it may be out of date or not match the server</string>
     <string name="check_title">Config check</string>
-    <string name="check_hint">Tap Start to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through.</string>
+    <string name="check_hint">Tap Start to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through. “Check DNS” asks every DNS server of the profile about the same domain (only dns: and hosts: are read).</string>
     <string name="check_domain_hint">Blocked domain, e.g. xxx.workers.dev</string>
     <string name="check_start">Start</string>
     <string name="check_cancel">Cancel</string>
@@ -167,4 +167,42 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_fold_closed">Cancelled / closed on purpose: %1$d times (latest %2$s)</string>
     <string name="connections_mux_udp_ip">UDP %1$s · %2$d</string>
     <string name="connections_mux_udp_unknown">address unknown (no peer given)</string>
+
+    <!-- CUSTOM (CUSTOM.md #23 #24 #25) -->
+    <string name="errors_timeout_age">(%1$s)</string>
+    <string name="errors_timeout_stale">This speed test is older than the last network change, so the result may be out of date. Tap refresh, or test again on the proxy page.</string>
+    <string name="errors_fold_ipv6_nodes">This network has no IPv6: %1$d IPv6-only node(s) timed out in the speed test, which is expected and not counted as a timeout: %2$s</string>
+    <string name="check_dns_start">Check DNS</string>
+    <string name="check_dns_need_domain">Enter a domain to look up (any domain, e.g. the blocked one you use above)</string>
+    <string name="check_dns_section">DNS (domain %1$s)</string>
+    <string name="check_dns_range_default">the default pool</string>
+    <string name="check_dns_answer_hosts">Apps get: the hosts entry %1$s → %2$s; DNS servers are not asked for this domain</string>
+    <string name="check_dns_answer_fakeip">Apps get: a fake-ip from the pool %1$s (the real address is looked up when the connection is made). Judged from the profile</string>
+    <string name="check_dns_answer_real">Apps get: the real address (enhanced-mode is not fake-ip). Judged from the profile</string>
+    <string name="check_dns_answer_filtered">Apps get: the real address, the domain is covered by the fake-ip-filter entry %1$s. Judged from the profile</string>
+    <string name="check_dns_answer_whitelist">Apps get: the real address (fake-ip-filter-mode is whitelist and no entry covers the domain). Judged from the profile</string>
+    <string name="check_dns_answer_unknown">Cannot tell from the profile: fake-ip-filter has entries that cannot be judged here (e.g. %1$s)</string>
+    <string name="check_dns_answer_unknown_rule">Cannot tell from the profile: fake-ip-filter-mode is rule, each entry carries its own fake-ip / real-ip</string>
+    <string name="check_dns_kernel_fake">Real answer of the core's own DNS server (dns.listen %1$s): fake-ip %2$s</string>
+    <string name="check_dns_kernel_real">Real answer of the core's own DNS server (dns.listen %1$s): real address %2$s</string>
+    <string name="check_dns_kernel_none">dns.listen is %1$s, but the core's DNS server gave no answer (not listening there, or nothing to answer)</string>
+    <string name="check_dns_no_servers">The dns: section lists no DNS server (the core then uses its built-in defaults).</string>
+    <string name="check_dns_servers_head">DNS servers in the profile (%1$d), each asked directly for A and AAAA:</string>
+    <string name="check_dns_server_head">%1$s  [%2$s]</string>
+    <string name="check_dns_ok">answers (%1$d ms)</string>
+    <string name="check_dns_ok_nx">answers (%1$d ms): NXDOMAIN, the domain does not exist</string>
+    <string name="check_dns_records">A: %1$s;  AAAA: %2$s</string>
+    <string name="check_dns_none">none</string>
+    <string name="check_dns_fake_note">These addresses lie in the fake-ip pool: this server points back at the core itself</string>
+    <string name="check_dns_unsupported">This type of server (%1$s) cannot be checked here</string>
+    <string name="check_dns_via">The core reaches this server through “%1$s”; it was asked directly here, so the result may differ</string>
+    <string name="check_dns_h3">Written with h3=true; asked over HTTP/2 here</string>
+    <string name="check_dns_rcode">failed: the server answered %1$s</string>
+    <string name="check_dns_alias">hosts maps %1$s to the name %2$s, so everything below is about %2$s</string>
+    <string name="check_dns_aaaa_nopool6">For an IPv6 question (AAAA) the answer is empty: fake-ip is on but no fake-ip-range6 is set</string>
+    <string name="check_dns_aaaa_fake6">For an IPv6 question (AAAA) apps get a fake address from fake-ip-range6</string>
+    <string name="check_dns_aaaa_ipv6off">For an IPv6 question (AAAA) the answer is empty: dns.ipv6 is false</string>
+    <string name="check_dns_hosts_off">use-hosts is false: the DNS server ignores the hosts: section</string>
+    <string name="check_dns_respect_rules">respect-rules is true: the core\'s own DNS queries follow the rules, a server reached through a proxy may behave differently from the direct test below</string>
+    <string name="check_dns_footer">Note: only the dns: and hosts: sections are read. Every server is asked directly; which one the core really picks (nameserver / fallback, policies, fastest of several) is not simulated. A DoH server that answers something other than a DNS message (JSON, a web page) shows what it sent in the reason.</string>
 </resources>

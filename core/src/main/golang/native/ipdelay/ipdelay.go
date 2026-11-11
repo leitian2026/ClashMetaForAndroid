@@ -175,17 +175,20 @@ var dohServers []string // DoH addresses written in the profile's `dns:` section
 // not depend on the field names of the core's RawDNS.
 func CaptureDNS(rawDNS any) {
 	var found []string
+	var parsed any
 
 	if data, err := json.Marshal(rawDNS); err == nil {
 		var tree any
 
 		if json.Unmarshal(data, &tree) == nil {
 			collectHTTPS(tree, &found)
+			parsed = tree // CUSTOM.md #25: the DNS check reads the whole section
 		}
 	}
 
 	lock.Lock()
 	dohServers = found
+	dnsTree = parsed
 	lock.Unlock()
 }
 
@@ -530,6 +533,8 @@ func TestGroup(groupName string) {
 	}()
 
 	defer flushPending() // CUSTOM.md #11: write the countries learned by this test once
+
+	MarkTested() // CUSTOM.md #24: the core's own latency test of this group has just finished (the caller ran it first)
 
 	p := tunnel.Proxies()[groupName]
 	if p == nil {

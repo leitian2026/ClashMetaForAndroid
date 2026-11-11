@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 // written in the config work. The last domain typed is remembered in this page's own preferences.
 class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(context) {
     enum class Request {
-        Toggle, Copy,
+        Toggle, Dns, Copy,
     }
 
     private val binding = DesignConfigCheckBinding
@@ -50,9 +50,11 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
-    suspend fun setRunning(running: Boolean) {
+    // [dns]: the running test is the DNS check (CUSTOM.md #25); the button that started it turns into "cancel"
+    suspend fun setRunning(running: Boolean, dns: Boolean = false) {
         withContext(Dispatchers.Main) {
-            binding.checkToggleView.setText(if (running) R.string.check_cancel else R.string.check_start)
+            binding.checkToggleView.setText(if (running && !dns) R.string.check_cancel else R.string.check_start)
+            binding.checkDnsView.setText(if (running && dns) R.string.check_cancel else R.string.check_dns_start)
 
             if (running) {
                 binding.checkTextView.text = context.getString(R.string.check_running)

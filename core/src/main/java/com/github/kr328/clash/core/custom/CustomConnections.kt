@@ -10,6 +10,10 @@ object CustomConnections {
 
     const val SORT_CHECK = 4 // CUSTOM #22: not a list, runs the config check; the filter is its JSON request
 
+    const val SORT_NODEINFO = 5 // CUSTOM #23 #24: not a list, IPv6-only nodes and the last test / network change times (see NodeInfo)
+
+    const val SORT_RETEST = 6 // CUSTOM #24: not a list; the filter is "changed" (network changed) or "run" (latency test of every group)
+
     // id that close() takes to forget the recorded errors (CUSTOM #21)
     const val CLEAR_ERRORS = "!errors"
 

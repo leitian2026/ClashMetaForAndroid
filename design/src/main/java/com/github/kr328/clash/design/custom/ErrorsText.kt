@@ -43,10 +43,18 @@ object ErrorsText {
 
         // 2. nodes whose speed test timed out
         report.timeouts?.takeIf { it.isNotEmpty() }?.let { names ->
-            blocks += section(
-                context.getString(R.string.errors_section_timeout, names.size),
-                names.map { context.getString(R.string.errors_timeout_item, it) },
-            )
+            val lines = ArrayList<String>()
+
+            names.mapTo(lines) { context.getString(R.string.errors_timeout_item, it) }
+
+            // CUSTOM.md #24: how old the result is, and whether the network changed after it
+            if (report.testedAt > 0) {
+                lines += context.getString(R.string.errors_timeout_age, AgeText.testedAgo(context, report.testedAt))
+
+                if (report.networkChangedAt > report.testedAt) lines += context.getString(R.string.errors_timeout_stale)
+            }
+
+            blocks += section(context.getString(R.string.errors_section_timeout, names.size), lines)
         }
 
         val items = report.snapshot?.items.orEmpty()
@@ -80,14 +88,22 @@ object ErrorsText {
 
         // 5. lines the core only counted (no IPv6 on this network, cancelled connections)
         val folded = report.snapshot?.folded.orEmpty().filter { it.count > 0 }
-        if (folded.isNotEmpty()) {
-            blocks += section(
-                context.getString(R.string.errors_section_folded),
-                folded.map {
-                    val label = if (it.kind == "noipv6") R.string.errors_fold_noipv6 else R.string.errors_fold_closed
-                    context.getString(label, it.count, time.format(Date(it.time)))
-                },
+        val foldedLines = ArrayList<String>()
+
+        // CUSTOM.md #23: IPv6-only nodes cannot pass a speed test on a network without IPv6
+        if (report.ipv6Skipped.isNotEmpty()) {
+            foldedLines += context.getString(
+                R.string.errors_fold_ipv6_nodes, report.ipv6Skipped.size, report.ipv6Skipped.joinToString("、"),
             )
+        }
+
+        folded.mapTo(foldedLines) {
+            val label = if (it.kind == "noipv6") R.string.errors_fold_noipv6 else R.string.errors_fold_closed
+            context.getString(label, it.count, time.format(Date(it.time)))
+        }
+
+        if (foldedLines.isNotEmpty()) {
+            blocks += section(context.getString(R.string.errors_section_folded), foldedLines)
         }
 
         if (blocks.isEmpty()) {

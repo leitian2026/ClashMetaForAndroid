@@ -90,6 +90,17 @@
                     android:text="@string/check_start" />
             </LinearLayout>
 
+            <!-- CUSTOM (CUSTOM.md #25): the DNS check uses the same domain field -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/check_dns_view"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginHorizontal="@dimen/item_tailing_margin"
+                android:onClick="@{() -> self.request(Request.Dns)}"
+                android:text="@string/check_dns_start" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

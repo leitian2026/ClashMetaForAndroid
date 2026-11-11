@@ -3,7 +3,9 @@ package com.github.kr328.clash.custom
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.BaseActivity.Event
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.common.custom.NetworkIpv6
 import com.github.kr328.clash.core.model.ErrorSnapshot
+import com.github.kr328.clash.core.model.NodeInfo
 import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.design.custom.CrashRecorder
 import com.github.kr328.clash.design.custom.ErrorsDesign
@@ -73,6 +75,8 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
 
         var snapshot: ErrorSnapshot? = null
         var timeouts: List<String>? = null
+        var skipped: List<String> = emptyList() // CUSTOM.md #23
+        var info: NodeInfo? = null // CUSTOM.md #23 #24
 
         if (running) {
             try {
@@ -86,7 +90,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
             }
 
             try {
-                timeouts = withClash {
+                var timingOut = withClash {
                     val names = LinkedHashSet<String>()
 
                     for (group in queryProxyGroupNames(false)) {
@@ -97,7 +101,28 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                     }
 
                     names.toList()
-                }.let { filterDismissed(it) }
+                }
+
+                // CUSTOM.md #23 #24: IPv6-only nodes cannot pass a speed test on a network without IPv6, so their
+                // timeout is expected and is not listed as one; and the page says how old the test is.
+                info = try {
+                    NodeInfo.parse(withClash { queryCustomConnections(CustomConnections.SORT_NODEINFO, "") })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+
+                val ipv6Nodes = info?.ipv6.orEmpty()
+
+                if (ipv6Nodes.isNotEmpty() && timingOut.isNotEmpty() && !NetworkIpv6.hasIpv6(this@ErrorsActivity)) {
+                    val v6 = ipv6Nodes.toHashSet()
+
+                    skipped = timingOut.filter { it in v6 }
+                    timingOut = timingOut.filter { it !in v6 }
+                }
+
+                timeouts = filterDismissed(timingOut)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -111,7 +136,14 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
 
         shownTimeouts = timeouts.orEmpty()
 
-        patch(ErrorsReport(running, snapshot, timeouts, crashes, exits))
+        patch(
+            ErrorsReport(
+                running, snapshot, timeouts, crashes, exits,
+                ipv6Skipped = skipped,
+                testedAt = info?.testedAt ?: 0,
+                networkChangedAt = info?.networkChangedAt ?: 0,
+            ),
+        )
     }
 
     // A node's timeout is its latest speed-test result, not a log line, so "clear" cannot delete it. It

@@ -123,7 +123,7 @@
     <string name="errors_code_other">其他错误</string>
     <string name="errors_code_echrejected">服务器拒绝了这份 ECH 配置，配置可能已过期或与服务器不匹配</string>
     <string name="check_title">配置检查</string>
-    <string name="check_hint">点“开始测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。</string>
+    <string name="check_hint">点“开始测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。“检查 DNS”会用同一个域名，逐个查配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
     <string name="check_domain_hint">被封域名，例如 xxx.workers.dev</string>
     <string name="check_start">开始测试</string>
     <string name="check_cancel">取消</string>
@@ -167,4 +167,42 @@
     <string name="errors_fold_closed">主动取消 / 连接已关闭：%1$d 次（最近 %2$s）</string>
     <string name="connections_mux_udp_ip">UDP %1$s · %2$d 个</string>
     <string name="connections_mux_udp_unknown">地址未知（没指定对端）</string>
+
+    <!-- CUSTOM (CUSTOM.md #23 #24 #25) -->
+    <string name="errors_timeout_age">（%1$s）</string>
+    <string name="errors_timeout_stale">这次测速早于最近一次网络切换，结果可能已经不准。点右上角刷新，或到代理页重新测速。</string>
+    <string name="errors_fold_ipv6_nodes">当前网络没有 IPv6：%1$d 个只能走 IPv6 的节点测速超时，属于预期现象，没有计入超时：%2$s</string>
+    <string name="check_dns_start">检查 DNS</string>
+    <string name="check_dns_need_domain">请先填一个要查询的域名（任何域名都行，比如上面用的那个被封域名）</string>
+    <string name="check_dns_section">DNS（域名 %1$s）</string>
+    <string name="check_dns_range_default">默认地址池</string>
+    <string name="check_dns_answer_hosts">应用拿到的：hosts 条目 %1$s → %2$s；这个域名不会去问 DNS 服务器</string>
+    <string name="check_dns_answer_fakeip">应用拿到的：fake-ip 地址池 %1$s 里的一个假地址（真实地址在连接时才去解析）。按配置推断</string>
+    <string name="check_dns_answer_real">应用拿到的：真实地址（enhanced-mode 不是 fake-ip）。按配置推断</string>
+    <string name="check_dns_answer_filtered">应用拿到的：真实地址，域名命中 fake-ip-filter 条目 %1$s。按配置推断</string>
+    <string name="check_dns_answer_whitelist">应用拿到的：真实地址（fake-ip-filter-mode 是 whitelist，且没有条目命中这个域名）。按配置推断</string>
+    <string name="check_dns_answer_unknown">按配置判断不了：fake-ip-filter 里有这里无法判断的条目（例如 %1$s）</string>
+    <string name="check_dns_answer_unknown_rule">按配置判断不了：fake-ip-filter-mode 是 rule，每条条目自带 fake-ip / real-ip</string>
+    <string name="check_dns_kernel_fake">内核自己的 DNS 服务器（dns.listen %1$s）实际回答：fake-ip %2$s</string>
+    <string name="check_dns_kernel_real">内核自己的 DNS 服务器（dns.listen %1$s）实际回答：真实地址 %2$s</string>
+    <string name="check_dns_kernel_none">dns.listen 写了 %1$s，但内核的 DNS 服务器没有回答（没有监听这个端口，或这个域名没有可回答的内容）</string>
+    <string name="check_dns_no_servers">dns: 里没有写任何 DNS 服务器（内核会用内置默认值）。</string>
+    <string name="check_dns_servers_head">配置里的 DNS 服务器（%1$d 个），逐个直接查 A 和 AAAA：</string>
+    <string name="check_dns_server_head">%1$s  [%2$s]</string>
+    <string name="check_dns_ok">有应答（%1$d 毫秒）</string>
+    <string name="check_dns_ok_nx">有应答（%1$d 毫秒）：NXDOMAIN，这个域名不存在</string>
+    <string name="check_dns_records">A：%1$s；  AAAA：%2$s</string>
+    <string name="check_dns_none">无</string>
+    <string name="check_dns_fake_note">这些地址在 fake-ip 地址池里：这个服务器指回了内核自己</string>
+    <string name="check_dns_unsupported">这种类型的服务器（%1$s）这里没法检查</string>
+    <string name="check_dns_via">内核是经“%1$s”访问这个服务器的；这里是直接查的，结果可能不同</string>
+    <string name="check_dns_h3">写了 h3=true；这里用 HTTP/2 查</string>
+    <string name="check_dns_rcode">失败：服务器返回 %1$s</string>
+    <string name="check_dns_alias">hosts 把 %1$s 指向了域名 %2$s，下面都是针对 %2$s 的结果</string>
+    <string name="check_dns_aaaa_nopool6">IPv6 查询（AAAA）的应答为空：开了 fake-ip 但没有设置 fake-ip-range6</string>
+    <string name="check_dns_aaaa_fake6">IPv6 查询（AAAA）应用会拿到 fake-ip-range6 里的假地址</string>
+    <string name="check_dns_aaaa_ipv6off">IPv6 查询（AAAA）的应答为空：dns.ipv6 为 false</string>
+    <string name="check_dns_hosts_off">use-hosts 为 false：DNS 服务器不使用 hosts: 段</string>
+    <string name="check_dns_respect_rules">respect-rules 为 true：内核自己的 DNS 查询会走规则，经代理访问的服务器可能与下面的直连测试不一致</string>
+    <string name="check_dns_footer">说明：只读取 dns: 和 hosts: 两段。每个服务器都是直接查的；内核实际会选哪一个（nameserver / fallback、策略、多个里取最快）这里不模拟。DoH 服务器返回的不是 DNS 报文（JSON、网页）时，失败原因里会写它返回了什么。</string>
 </resources>

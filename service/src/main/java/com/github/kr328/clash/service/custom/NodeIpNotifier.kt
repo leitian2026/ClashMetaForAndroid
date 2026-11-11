@@ -12,6 +12,8 @@ object NodeIpNotifier {
     fun start(context: Context) {
         val app = context.applicationContext
 
+        NetworkRetest.start(app) // CUSTOM.md #24: same idempotent start, it only listens to the system's network events
+
         NodeIpWatcher.start {
             NodeIpText.invalidate()
 

@@ -62,6 +62,7 @@ var quicTypes = map[string]bool{"hysteria": true, "hysteria2": true, "tuic": tru
 // Request is what the app sends (as the filter of the query).
 type Request struct {
 	Domain string `json:"domain"`
+	Kind   string `json:"kind"` // CUSTOM.md #25: "dns" runs the DNS check (RunDNS) instead of the ECH check
 }
 
 // Attempt is one handshake.

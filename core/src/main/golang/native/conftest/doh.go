@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -180,6 +182,29 @@ func fetchECH(ctx context.Context, name string, servers []string) ([]byte, strin
 }
 
 func dohQuery(ctx context.Context, server string, query []byte) ([]byte, error) {
+	body, _, err := dohExchange(ctx, server, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseECH(body)
+}
+
+// dohExchange sends one DNS message to a DoH server and returns the raw reply and its Content-Type (CUSTOM.md
+// #25: the DNS check reads the answer records, the ECH lookup reads the HTTPS record).
+func dohExchange(ctx context.Context, server string, query []byte) ([]byte, string, error) {
+	return dohDo(ctx, server, query, false)
+}
+
+// dohExchangeLikeCore asks the way the core's own DoH client does (component/dialer... dns/doh.go in mihomo
+// 3f27ef39): GET ?dns=<base64url without padding>, message id 0, Accept: application/dns-message, empty
+// User-Agent. A server or Worker that only works for this shape works for the core and for nobody else, so the
+// DNS check must use it, not POST.
+func dohExchangeLikeCore(ctx context.Context, server string, query []byte) ([]byte, string, error) {
+	return dohDo(ctx, server, query, true)
+}
+
+func dohDo(ctx context.Context, server string, query []byte, like bool) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, dohTimeout)
 	defer cancel()
 
@@ -194,28 +219,56 @@ func dohQuery(ctx context.Context, server string, query []byte) ([]byte, error) 
 	}
 	defer client.CloseIdleConnections()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server, bytes.NewReader(query))
-	if err != nil {
-		return nil, err
-	}
+	var req *http.Request
 
-	req.Header.Set("Content-Type", "application/dns-message")
-	req.Header.Set("Accept", "application/dns-message")
+	var err error
+
+	if like {
+		u, perr := url.Parse(server)
+		if perr != nil {
+			return nil, "", perr
+		}
+
+		q := append([]byte(nil), query...)
+		if len(q) >= 2 {
+			q[0], q[1] = 0, 0
+		}
+
+		u.RawQuery = "dns=" + base64.RawURLEncoding.EncodeToString(q)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return nil, "", err
+		}
+
+		req.Header.Set("Accept", "application/dns-message")
+		req.Header.Set("User-Agent", "")
+	} else {
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, server, bytes.NewReader(query))
+		if err != nil {
+			return nil, "", err
+		}
+
+		req.Header.Set("Content-Type", "application/dns-message")
+		req.Header.Set("Accept", "application/dns-message")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
+	contentType := resp.Header.Get("Content-Type")
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, contentType, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxDNSReply))
 	if err != nil {
-		return nil, err
+		return nil, contentType, err
 	}
 
-	return parseECH(body)
+	return body, contentType, nil
 }

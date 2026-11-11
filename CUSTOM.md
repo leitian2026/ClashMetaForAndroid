@@ -330,7 +330,7 @@
 **改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20）；`MainApplication.kt`（一行 `CrashRecorder.install(this)` 和 import），见总表。
 
 ## 22. 配置检查页（r20，r22 改为同配置只测一次）
-**效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"开始测试"才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；其余字段（DNS、规则、provider 等）以后逐项加。
+**效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"开始测试"才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；r25 起另有"检查 DNS"按钮（见 #25）；其余字段（规则、provider 等）以后逐项加。
 - **输入框：** 填一个确定被封的域名（例如 `xxx.workers.dev`），必须由节点的服务器（或它前面的 CDN）托管。只在测试里当内层 SNI 用，**不改配置**；最后填的域名记在页面自己的 SharedPreferences（`custom_config_check`）。
 - **每项只用自己需要的字段，不代入整个配置：** ECH 项只读节点的 `type`、`server`、`port`、`alpn`、`servername` / `sni`、`ech-opts`，不碰 xhttp 路径、Host、UUID 等。以后每一项都这样。
 - **ECH 配置从哪来：** `ech-opts.config` 写了就直接用（base64）；没写就和内核一样去 DNS 取：向 DoH 查某个域名的 HTTPS 记录（类型 65），取出里面的 `ech` 参数。查的域名依次是 `query-server-name`、节点的 `servername`、`sni`、输入框的域名。DoH 服务器依次是配置 `dns:` 里所有 `https://` 开头的地址（加载配置时 `ipdelay.CaptureDNS` 记下，`#` 后面的参数去掉；通过 JSON 遍历整个 `dns:`，不依赖内核结构体的字段名），再是三个公共 DoH（`223.5.5.5`、`1.12.12.12`、`1.1.1.1`）。DNS 报文自己拼、自己解析（`doh.go`），不引入新依赖。拨号都走内核的 `dialer.DialContext`，`hosts:` 映射生效，socket 不走 VPN。
@@ -349,3 +349,47 @@
 - `app/.../custom/ConfigCheckActivity.kt`。
 
 **改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20 #21）、`config/load.go`（`CaptureConfig` 后面加一行 `ipdelay.CaptureDNS(rawCfg.DNS)`），见总表。
+
+## 23. 没有 IPv6 的网络里，IPv6 节点的测速超时不算错误（r25）
+**效果：** "错误与诊断"页的"节点测速超时"里，只能走 IPv6 的节点在当前网络没有 IPv6 时必然超时，这不是节点坏了。现在这些节点不再列进"测速超时"，改写进折叠块："当前网络没有 IPv6：N 个只能走 IPv6 的节点测速超时，属于预期现象，没有计入超时：节点名…"。网络有 IPv6 时一切照旧。代理页的延迟数字不变（内核照常测，只是错误页不当错误报）。
+- **哪些节点算 IPv6 节点：** 按配置里写的判断，不按名字：`ip-version: ipv6`；或 `server` 是字面 IPv6 地址；或 `server` 在 `hosts:` 里的地址**全部**是 IPv6。域名同时有 IPv4 和 IPv6 的节点不算（它可能走 IPv4 能通）。`ipv6-prefer` 不算（会退回 IPv4）。
+- **怎么知道当前网络有没有 IPv6：** `NetworkIpv6.hasIpv6()` 读系统对"VPN 之下那张网络"的描述（优先 Wi-Fi、有线，再其它，已验证的优先）：有全局 IPv6 地址（不含本地链路、唯一本地 fc00::/7、回环），并且有 IPv6 默认路由。**只在错误页刷新时读一次**，没有回调、没有轮询。读不出来（没网络、没权限、出异常）按"有 IPv6"算，宁可多报也不藏节点。
+- **通道：** `queryCustomConnections(SORT_NODEINFO = 5, "")` 返回 `NodeInfo`（`ipv6` 节点名、`testedAt`、`networkChangedAt`，后两个见 #24）。没有新增 JNI 函数。
+- **取消"已处理"的影响：** 被分流的节点不进"已处理"记录；网络恢复 IPv6 后如果仍然超时，会重新出现在"测速超时"里。
+
+**新增文件**
+- `core/src/main/golang/native/ipdelay/nodeinfo.go`（`IPv6Nodes()`、`NodeInfo()`、`MarkTested()`、`MarkNetworkChanged()`、`DNSTree()`、`RawHosts()`）、`nodeinfo_test.go`。
+- `core/.../model/NodeInfo.kt`；`common/.../custom/NetworkIpv6.kt`。
+- `ErrorsActivity.kt`（刷新时分流）、`ErrorsReport.kt`（加 `ipv6Skipped`）、`ErrorsText.kt`（折叠行）；文案 `errors_fold_ipv6_nodes`。
+
+## 24. 网络切换后自动重测一次，并标明结果新旧（r25）
+**效果：** 在 Wi-Fi 和移动数据之间切换、换了一个 Wi-Fi、或 IPv6 出现 / 消失之后，旧网络上的测速结果对新网络没有意义，却会一直留在页面上。现在网络稳定后自动做一次**只测延迟**的测速（内核自带的那种，不做 #1 的逐 IP 测试，也不发国家探测请求）；错误页的"节点测速超时"末尾写"（N 分钟前测速）"，如果网络在这次测速之后又换过，再加一行"这次测速早于最近一次网络切换，结果可能已经不准"。
+- **事件驱动：** `NetworkRetest`（服务进程）注册系统的网络回调（`NOT_VPN` + `INTERNET`），收到事件后先等一个**一次性**的 4 秒（`SETTLE_MS`，每来一个新事件重新计时，网络还在起来时不测半截），到点只看一次："VPN 之下那张网络"的特征（`NetworkIpv6.signature()`：哪张网络、什么类型、有没有 IPv6）有没有变，没变就什么都不做（链路属性反复上报很常见）。**特征里不含 IP 地址**：IPv6 隐私地址会不停轮换，那不值得重测。没有定时器，没有轮询。
+- **息屏：** 屏幕关着时不测（只会让射频白忙）。变化仍然记下，同时临时注册一个 `ACTION_SCREEN_ON` 接收器，屏幕亮起时测一次并立即注销。没有这件事要等的时候，没有注册任何东西。
+- **启动：** `NodeIpNotifier.start()` 里多一行 `NetworkRetest.start(app)`（它本来就是"每进程只启动一次"的入口，`DynamicNotificationModule` 和 `ClashManager.queryTunnelState` 已经会调它），所以**没有新增上游文件改动**。
+- **核心里怎么做：** `queryCustomConnections(SORT_RETEST = 6, "changed")` 只记下"网络变了"的时间；`"run"` 对所有代理组并发做一次 `tunnel.HealthCheck`，立刻返回，全部结束后记下 `testedAt`（`retest.go`；没载入配置时 `recover` 掉，什么都不测）。手动测速（#1 的 `TestGroup`）开头也会记 `testedAt`，所以"几分钟前"对手动测速同样成立。
+- **局限：** ① `testedAt` 只记**我们触发的**测速（手动或网络切换后）；url-test 组自己的定时健康检查不更新它，所以显示的时间可能比实际最近一次测速更早，不会更晚。② 没有为"测完了"发通知，页面要点刷新（或下次打开）才看到新结果。③ 代理没运行时没有回调要处理。
+- **功耗：** 只有系统网络事件才会走到这里；一次网络切换最多一次测速（息屏时推迟到亮屏）。
+
+**新增文件**
+- `service/.../custom/NetworkRetest.kt`；`core/src/main/golang/native/retest.go`；`ipdelay/nodeinfo.go`（同 #23）。
+- `design/.../custom/AgeText.kt`（"N 分钟前测速"，用 #12 的 `ip_delay_age_*` 文案）；文案 `errors_timeout_age`、`errors_timeout_stale`。
+- `ipdelay.go`（#1 #7 的文件）：`TestGroup` 开头加 `MarkTested()`。`connections.go`（#8 的文件）：加 `SortNodeInfo` / `SortRetest` 两个分支；`CustomConnections.kt` 加 `SORT_NODEINFO`、`SORT_RETEST`。
+
+## 25. 配置检查页的 DNS 检查（r25）
+**效果：** "配置检查"页（#22）在输入框下面多一个"检查 DNS"按钮，用输入框里的域名（任何域名都行）。点一次查一次，只读配置的 `dns:` 和 `hosts:` 两段，不代入整个配置。结果分三块：
+1. **应用拿到的是什么（按配置推断）：** `dns.use-hosts`（默认 true）为 true 时先看 `hosts:`：有条目盖住这个域名 → 直接用 hosts 的值，不问 DNS；条目的值是单个非 IP 的域名则是**别名**，改查那个域名（最多跟 8 跳，成环就停），下面的 fake-ip-filter 和服务器测试都针对别名；`use-hosts` 为 false 时 hosts 不参与，页面会写明。否则 `enhanced-mode` 是 fake-ip → 看 `fake-ip-filter`（和 `fake-ip-filter-mode`）：没被放行就是 fake-ip 地址池里的假地址，被放行是真实地址；不是 fake-ip 模式就是真实地址。另外按内核行为补一句 AAAA：fake-ip 但没有 `fake-ip-range6` → 应答为空；`dns.ipv6` 为 false → 应答为空；`respect-rules` 为 true 时提示内核自己的查询走规则、和下面的直连测试可能不同。`fake-ip-filter` 里有 `geosite:`、`rule-set:` 这类这里判断不了的条目，或 mode 是 `rule`，就明说"按配置判断不了"，不乱猜。
+2. **内核 DNS 服务器的实际回答：** 配置写了 `dns.listen` 时，向 `127.0.0.1:端口` 真的问一次（UDP），看内核自己给应用的答案是 fake-ip 还是真实地址。没写 `listen` 就不显示这一块；写了但没回答会提示。
+3. **每个 DNS 服务器：** `nameserver`、`fallback`、`default-nameserver`、`proxy-server-nameserver`、`direct-nameserver` 和各种 `nameserver-policy`（只取看起来像服务器的值）里的每个地址，**去重后各查一次 A 和 AAAA**（两个同时发，最多 6 个服务器并发，每次最多等 5 秒）：通不通、多少毫秒、返回的 IPv4 / IPv6 地址、返回地址是否落在 fake-ip 地址池（说明这个服务器指回了内核自己，形成环）、失败原因（超时、被拒绝、TLS 错误……或服务器返回码 `SERVFAIL` / `REFUSED`）。同一个地址写在几处就合并显示"[nameserver, fallback]"。
+- **支持的服务器写法：** 纯 IP / 域名（`223.5.5.5`、`223.5.5.5:53`、`udp://`）、`tcp://`、`tls://`（DoT，默认 853，校验证书）、`https://` 和 `http://`（DoH，HTTP/2）。**DoH 的请求形态照内核**：GET，`?dns=` 加无填充 base64url，报文 ID 为 0，`Accept: application/dns-message`，不带 User-Agent（只回应这种形态的 Worker 对内核有效、对别的客户端无效，所以检查必须同样发）；ECH 检查取配置仍用原来的 POST，没改。`quic://`、`h3://`、`dhcp://`、`system`、`rcode://` 这里查不了，会写"这种类型的服务器没法检查"。`#` 后面的参数：`#组名` 表示内核经那个代理组访问它，这里是**直接查**，页面会写明结果可能不同；`h3=true` 这里仍用 HTTP/2，也会写明。
+- **自建 DoH Worker 有用：** 能看到 HTTP 状态码，和"返回的不是 DNS 报文"（Worker 返回了 JSON / 网页 / 别的 Content-Type）时它返回了什么（Content-Type 和开头 60 个可见字符），用来确认它在内核里到底能不能用。
+- **对照内核源码（AGENTS.md 第 8 条）：** 对照的是 mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`（与子模块一致）。域名匹配是 `component/trie` 域名树的移植（精确 > `*` 单层通配 > `+` / `.` 后缀；带结尾点的写法会被内核拒绝）；hosts 查找与别名照 `component/resolver/host.go`；DNS 中间件顺序（hosts、fake-ip、映射、解析器）和 fake-ip 过滤的 blacklist / whitelist / rule 三种模式照 `dns/` 目录；DoH 请求形态照 `dns/doh.go`；`dns:` 配置键名是 kebab-case。内核升级后这些要重新对照。
+- **局限：** 每个服务器都是直接查的，内核实际会选哪一个（`nameserver` / `fallback` 的取舍、策略、多个里取最快）不模拟；DoH 服务器地址里的域名由内核的拨号器解析（和 ECH 检查一样，`hosts:` 生效）；`dns.listen` 只试 UDP。
+- **通道：** 还是 `queryCustomConnections(SORT_CHECK, 请求)`，请求 JSON 多一个 `"kind":"dns"`（没有这个字段就是原来的 ECH 检查）；`conftest.RunAny` 按它分派。没有新增 JNI 函数。
+- **功耗：** 没有定时器，没有后台任务，点一次查一次。
+
+**新增文件**
+- `core/src/main/golang/native/conftest/dnslogic.go`（纯逻辑：读 `dns:`、域名匹配、DNS 报文，只依赖标准库）、`dnslogic_test.go`、`dnscheck.go`（联网部分和 `RunDNS` / `RunAny`）；`doh.go` 把 `dohQuery` 拆成 `dohExchange`（POST，ECH 检查用，行为不变）+ `dohExchangeLikeCore`（内核式 GET，DNS 检查用）+ 解析，另有 `doh_test.go`；`conftest.go` 的 `Request` 加 `Kind`；`ipdelay/ipdelay.go` 的 `CaptureDNS` 多记一份 `dns:` 的 JSON 树（`DNSTree()`），另有 `RawHosts()`（在 `nodeinfo.go`）。
+- `core/.../model/DnsCheckReport.kt`。
+- `design/.../custom/DnsCheckText.kt`；`ConfigCheckDesign.kt` 的 `Request` 加 `Dns`，`setRunning(running, dns)`；`res/layout/design_config_check.xml` 加按钮；文案 `check_dns_*`。
+- `app/.../custom/ConfigCheckActivity.kt`：`runDns()`。
