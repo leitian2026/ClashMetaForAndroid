@@ -281,4 +281,23 @@
     <string name="diag_working">正在收集……</string>
     <string name="diag_done_title">诊断包已保存</string>
     <string name="diag_done">写入了 %1$d 个文件。发给别人之前请自己看一遍。</string>
+    <!-- CUSTOM (CUSTOM.md #30): the config the core really runs, over the user's -->
+    <string name="eff_start">最终生效配置</string>
+    <string name="eff_running">正在读取并对比……</string>
+    <string name="eff_no_profile">没有正在使用的配置。</string>
+    <string name="eff_error">无法生成：%1$s</string>
+    <string name="eff_summary">改写 %1$d 处 · 删除 %2$d 处 · 补上 %3$d 处</string>
+    <string name="eff_legend_changed">被改写（旧值划线）</string>
+    <string name="eff_legend_removed">被删除</string>
+    <string name="eff_legend_added">被补上</string>
+    <string name="eff_show_kernel">内核补上的默认字段共 %1$d 个，已隐藏，点这里显示</string>
+    <string name="eff_hide_kernel">内核补上的默认字段共 %1$d 个，已显示，点这里隐藏</string>
+    <string name="eff_no_diff">没有任何差异，内核跑的就是你写的。</string>
+    <string name="eff_fold">… 共 %1$d 行没变（点击展开）</string>
+    <string name="eff_note">显示的是正在使用、已保存的配置，按块写法重新排版，注释不保留；只比对载入时内核和 App 做的那几步。</string>
+    <string name="eff_tag_override">（覆写设置）</string>
+    <string name="eff_tag_app">（App 补丁）</string>
+    <string name="eff_tag_kernel_ignored">（内核不认识，已忽略）</string>
+    <string name="eff_tag_kernel_default">（内核默认值）</string>
+    <string name="eff_tag_kernel_changed">（内核改写）</string>
 </resources>

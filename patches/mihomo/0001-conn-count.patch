@@ -13,7 +13,7 @@ diff -ruN a/adapter/outbound/base.go b/adapter/outbound/base.go
 diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 --- a/component/dialer/conncount.go
 +++ b/component/dialer/conncount.go
-@@ -0,0 +1,232 @@
+@@ -0,0 +1,246 @@
 +package dialer
 +
 +// CUSTOM (CUSTOM.md #20, not part of upstream): counts the sockets the core really has open to each
@@ -31,6 +31,7 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +	"runtime"
 +	"strings"
 +	"sync"
++	"time"
 +)
 +
 +type connKey struct {
@@ -39,9 +40,16 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +	ip      string // address of the peer, "" when not known when the socket was made
 +}
 +
++// connEntry is the number of open sockets of one key, and when the first of them was opened (the
++// count went from 0 to 1, so it is when the node started to be connected to this address).
++type connEntry struct {
++	n     int
++	since int64 // unix milliseconds
++}
++
 +var (
 +	countLock sync.Mutex
-+	counts    = map[connKey]int{}
++	counts    = map[connKey]*connEntry{}
 +)
 +
 +// ConnCount is the number of open sockets of one node to one address.
@@ -50,6 +58,7 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +	Network string // "tcp" or "udp"
 +	IP      string
 +	Count   int
++	Since   int64 // unix milliseconds: when the node started to be connected to this address
 +}
 +
 +// ConnCounts returns the open sockets, grouped by node, network and peer address.
@@ -58,8 +67,8 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +	defer countLock.Unlock()
 +
 +	result := make([]ConnCount, 0, len(counts))
-+	for k, n := range counts {
-+		result = append(result, ConnCount{Owner: k.owner, Network: k.network, IP: k.ip, Count: n})
++	for k, e := range counts {
++		result = append(result, ConnCount{Owner: k.owner, Network: k.network, IP: k.ip, Count: e.n, Since: e.since})
 +	}
 +
 +	return result
@@ -80,7 +89,12 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +
 +func track(key connKey) *releaser {
 +	countLock.Lock()
-+	counts[key]++
++	e := counts[key]
++	if e == nil {
++		e = &connEntry{since: time.Now().UnixMilli()}
++		counts[key] = e
++	}
++	e.n++
 +	countLock.Unlock()
 +
 +	return &releaser{key: key}
@@ -89,10 +103,10 @@ diff -ruN a/component/dialer/conncount.go b/component/dialer/conncount.go
 +func (r *releaser) release() {
 +	r.once.Do(func() {
 +		countLock.Lock()
-+		if n := counts[r.key] - 1; n > 0 {
-+			counts[r.key] = n
-+		} else {
-+			delete(counts, r.key)
++		if e := counts[r.key]; e != nil {
++			if e.n--; e.n <= 0 {
++				delete(counts, r.key)
++			}
 +		}
 +		countLock.Unlock()
 +	})

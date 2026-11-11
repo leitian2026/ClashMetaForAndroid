@@ -4,11 +4,14 @@ import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.ConfigCheckReport
 import com.github.kr328.clash.core.model.DnsCheckReport
+import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
 import com.github.kr328.clash.design.custom.DnsCheckText
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
+import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -33,6 +36,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     when (it) {
                         ConfigCheckDesign.Request.Copy -> design.copyAll()
                         ConfigCheckDesign.Request.Flush -> flush(design) // CUSTOM.md #26
+                        ConfigCheckDesign.Request.Effective -> {
+                            // CUSTOM.md #30: ignored while a test is running (its button is the "cancel" one)
+                            if (job?.isActive != true) job = launch { runEffective(design) }
+
+                            Unit
+                        }
                         ConfigCheckDesign.Request.Toggle, ConfigCheckDesign.Request.Dns -> {
                             val running = job?.isActive == true
 
@@ -85,6 +94,43 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         design.setRunning(false)
         design.showText(text)
+    }
+
+    // CUSTOM (CUSTOM.md #30): the config of the profile in use, with what the core and the app changed marked in
+    // place. The core reads the config.yaml that is loaded (the saved one, not an unsaved edit), runs the same steps
+    // it runs on loading and compares; nothing is loaded or downloaded. Runs once per tap, nothing in the background.
+    private suspend fun runEffective(design: ConfigCheckDesign) {
+        if (!clashRunning) {
+            design.showText(getString(R.string.connections_not_running))
+            return
+        }
+
+        design.showText(getString(R.string.eff_running))
+
+        try {
+            val profile = withProfile { queryActive() }
+
+            if (profile == null) {
+                design.showText(getString(R.string.eff_no_profile))
+                return
+            }
+
+            val dir = importedDir.resolve(profile.uuid.toString())
+
+            val config = EffectiveConfig.parse(
+                withClash { queryCustomConnections(CustomConnections.SORT_EFFECTIVE, dir.absolutePath) },
+            )
+
+            if (config.ok) {
+                design.showEffective(config)
+            } else {
+                design.showText(getString(R.string.eff_error, config.error))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.showText(getString(R.string.eff_error, e.message ?: e.javaClass.simpleName))
+        }
     }
 
     // CUSTOM (CUSTOM.md #26): clears the core's DNS cache, or the DNS cache and the fake-ip map. Runs only when

@@ -9,6 +9,7 @@ data class MuxIp(
     val ip: String = "",
     val count: Int = 0,
     val country: String = "",
+    val since: Long = 0, // unix milliseconds: when the node started to be connected to this address; 0 = unknown (r27)
 )
 
 /**

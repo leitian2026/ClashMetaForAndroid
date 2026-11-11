@@ -100,6 +100,15 @@
                 android:orientation="horizontal"
                 android:paddingHorizontal="@dimen/item_tailing_margin">
 
+                <!-- CUSTOM (CUSTOM.md #30): the config the core really runs, over the user's -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_effective_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.Effective)}"
+                    android:text="@string/eff_start" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/check_flush_view"
                     style="@style/Widget.MaterialComponents.Button.TextButton"

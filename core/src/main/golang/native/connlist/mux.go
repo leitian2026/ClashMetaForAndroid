@@ -27,6 +27,7 @@ type MuxIP struct {
 	IP      string `json:"ip"`
 	Count   int    `json:"count"`
 	Country string `json:"country,omitempty"` // only when already known, never looked up here
+	Since   int64  `json:"since,omitempty"`   // unix milliseconds: when the node started to be connected to this address (r27)
 }
 
 // MuxNode tells, for one node, how many sockets the core really has open to it (Tcp, and Udp) and
@@ -94,13 +95,13 @@ func buildMux(requests map[string]int) []MuxNode {
 
 		if c.Network == "udp" {
 			n.Udp += c.Count
-			n.UdpIPs = append(n.UdpIPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP)})
+			n.UdpIPs = append(n.UdpIPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP), Since: c.Since})
 
 			continue
 		}
 
 		n.Tcp += c.Count
-		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP)})
+		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP), Since: c.Since})
 	}
 
 	for name, count := range requests {

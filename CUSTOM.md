@@ -268,20 +268,21 @@
 - 检查：① 带 `CUSTOM` 标记且存在于上游（`main` 分支里有）的文件，必须在本文件"上游文件总表"里；② 带标记的新文件，本文件里必须提到；③ 总表里的每个文件都还存在、还带 `CUSTOM` 标记（合并时挂钩没丢）。有问题时列出来并返回 1。
 - 每次改动后、同步上游后各跑一次。上游文件名、标记写法（`CUSTOM`）变了才需要改脚本。
 
-## 20. 底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16）
+## 20. 底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16，r27 加每个 IP 的开始时间）
 **效果：** 首页"连接"下面多一个"底层连接"入口，打开后是单独的一页（连接页本身不变）。页面里每个节点一行，节点下面按对端 IP 拆开，所有行一次显示（超出屏幕高度时整页滚动，没有行数上限），字号、颜色、行距和连接页的概览行一致：
 ```
 节点 A · 底层 5 条 / 请求 40 个
-    🇺🇸 162.159.153.2 · 3 条
-    104.18.2.5 · 2 条
+    🇺🇸 162.159.153.2 · 3 条 · 13:42:07
+    104.18.2.5 · 2 条 · 13:51:30
 节点 B · 底层 1 条 / 请求 12 个 · UDP 2 个
-    UDP 8.8.8.8 · 1 个
-    UDP 地址未知（没指定对端） · 1 个
+    UDP 8.8.8.8 · 1 个 · 13:40:03
+    UDP 地址未知（没指定对端） · 1 个 · 13:40:03
 ```
 - 页面顶部一行说明文字（小字）；右上角刷新按钮；代理没运行时显示"代理未运行"，没有连接时显示"当前没有连接"。
 - **刷新时机：** 打开 / 回到页面、点刷新、Clash 启动停止、以及页面在前台且代理在运行时每 2 秒一次（和连接页同一套：页面进入后台后定时分支不再参与 `select`，没有任何后台唤醒）。答案和上次一样就不解析、不重画。
 - **底层 N 条**：内核真正为这个节点开着的 TCP socket 数（和终端里 `ss` 看到的出站连接一致）；开了多路复用（smux 等）或 gRPC / h2 时，N 远小于请求数。**请求 M 个**：内核连接列表里由这个节点承载的连接数（连接的路径里第一个名字就是承载它的节点）。
 - 每个 IP 一行：该节点现在有几条连到这个 IP；国旗只有已经知道（测速或 #7 探测过）时才显示，不额外查询。没有连接的 IP 不列。
+- **每个 IP 的开始时间（r27）**：每个 IP 行（TCP 和 UDP 都有）末尾加该节点"开始连这个 IP"的时刻。含义：这个 IP 的底层连接数从 0 变成 1 的那一刻；之后只要还有连接活着就不变（其中一条断了、另一条还在，时间不变）；全部断开后再连上，算新的一次，时间重新记。显示成绝对时间 `13:42:07`，不是今天的写成 `11-10 23:08`；不写"几分钟前"，因为那要定时刷新才会准。时间在内核补丁里记（socket 登记表里每个"节点+网络+IP"除了计数多存一个毫秒时间，登记时顺带取一次 `time.Now()`，没有任何额外定时器或后台工作），随原来的查询一起带到界面，页面只在原来的刷新点（打开、点刷新、前台每 2 秒那一套）重画。退出 App / 内核重启后清空。开始时间是 socket 的创建时间，不是"请求"的开始时间（后者是内核连接列表里的 `start`，那一页用不上）。
 - **UDP（r24 起列地址）**：节点行末尾写 `UDP u 个`（该节点开着的 UDP socket 数，包括 QUIC 类节点），节点下面再按对端地址各列一行 `UDP 地址 · n 个`（和 TCP 的地址行同样的国旗规则，排序和 12 条上限也一样）。内核记录的就是 socket 创建时的对端地址；用 `ListenPacket` 创建、当时没指定对端的 socket 没有地址，显示"地址未知（没指定对端）"。数据本来就在 `dialer.ConnCounts` 里（补丁没改），只是以前没有显示。QUIC 类节点（hysteria、tuic）整个会话在一个 UDP socket 上，底层数本来就是 1 左右，不能用来判断复用。
 - 没有归属节点的 socket（DNS 等）归到"其他（不属于任何节点）"。链式代理（`dialer-proxy`）只算真正的物理 socket，算在第一跳节点上，里层节点会显示 `底层 0 条 / 请求 M 个`。
 - 节点按底层数从多到少排，最多 30 个节点、每个节点最多 12 个 IP（节点行的数字是全部的合计，不受截断影响）。
@@ -294,7 +295,7 @@
 - 包装类型内嵌了真正的 `*net.TCPConn` / `*net.UDPConn`，所以它们的全部方法（`SyscallConn`、`ReadMsgUDP`、`CloseWrite`、`ReadFrom` 等）都还在，只有 `Close` 多做一步；唯一变化是类型断言 `.(*net.UDPConn)`，内核里对拨号结果这样断言的只有 `common/net/packet`，不是 `*net.UDPConn` 时它自己有通用后备。
 
 **新增文件**
-- `patches/mihomo/0001-conn-count.patch`：给 mihomo 打的补丁（**内核文件不直接改，构建时由 workflow 应用**）。内容：新文件 `component/dialer/conncount.go`（登记表、包装类型、`DialContext` / `ListenPacket`、`WithOwner`、`ConnCounts`）；`component/dialer/dialer.go` 里原来的 `DialContext` / `ListenPacket` 改名为 `dialContextRaw` / `listenPacketRaw`（各一行）；`component/dialer/options.go` 的 `option` 结构体加 `owner string`；`adapter/outbound/base.go` 的 `DialOptions()` 末尾加 `dialer.WithOwner(b.name)`。
+- `patches/mihomo/0001-conn-count.patch`：给 mihomo 打的补丁（**内核文件不直接改，构建时由 workflow 应用**）。内容：新文件 `component/dialer/conncount.go`（登记表（r27 起每项除了计数还存"从 0 变 1 的时刻" `since`）、包装类型、`DialContext` / `ListenPacket`、`WithOwner`、`ConnCounts`（带 `Since`））；`component/dialer/dialer.go` 里原来的 `DialContext` / `ListenPacket` 改名为 `dialContextRaw` / `listenPacketRaw`（各一行）；`component/dialer/options.go` 的 `option` 结构体加 `owner string`；`adapter/outbound/base.go` 的 `DialOptions()` 末尾加 `dialer.WithOwner(b.name)`。
 - `core/src/main/golang/native/connlist/mux.go`：`QueryMux`、`MuxNode` / `MuxIp` / `MuxSnapshot`、`SortMux`；`ipdelay.go`（#1 #7 的文件）加 `CountryOf(node, ip)`（只读缓存）；`connections.go`（#8 的文件）里 `queryCustomConnections` 加一个 `SortMux` 分支；`core/.../custom/CustomConnections.kt` 加常量 `SORT_MUX`。
 - `core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`（`MuxNode` / `MuxIp` / `MuxSnapshot` 和解析）。
 - `design/.../custom/MuxDesign.kt`、`MuxText.kt`（把节点列表排成文字）、`res/layout/design_mux.xml`；文案 `mux_*`、`connections_mux_*`。
@@ -302,7 +303,7 @@
 
 **改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 和它的缓存步骤之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
-**已知限制：** 补丁是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的，并确认能干净地打上；实际构建用的子模块提交是 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，**没有对照过它的源码**，也没有本地编译过（Go 代码只做了人工检查）。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
+**已知限制：** 补丁最初是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的。r27 起已对照实际构建用的子模块提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的源码核对：`patch -p1` 能干净打上（`dialer.go` 的 `DialContext` / `ListenPacket`、`options.go` 的 `option`、`base.go` 的 `DialOptions()` 都在原位）；`conncount.go` 里计数和 `since` 的逻辑单独编译并跑过一个小测试（两条连接同 IP、断一条时间不变、全断后重连时间更新）。**但整个内核（含依赖）和 App 没有本地编译过**（这里没有网络，拉不下 Go 依赖），Kotlin 部分只做了人工检查。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
 
 ## 21. 错误与诊断页（r18，r23 加折叠，r24 修折叠和清除）
 **效果：** 首页"日志"上面多一个"错误与诊断"入口。页面把**已经存在的数据**排成文字，一页看清"哪里出错、什么原因"，四块（哪块没内容就不显示）：
@@ -447,6 +448,43 @@
 **功耗：** 点导出才读，没有后台。
 **新增文件：** `app/.../custom/DiagnosticBundle.kt`、`ConfigMask.kt`；`BackupActivity.kt`（#17）加 `ACTION_DIAG`；`BackupPreference.kt`（#17）加入口；文案 `diag_*`。
 **依赖：** `queryCustomConnections` 的 `SORT_ERRORS` / `SORT_MUX` / `SORT_CHECK`；`Bridge.nativeCoreVersion()`；`clashDir`。
+
+## 30. 最终生效配置：你的配置上直接标出内核和 App 改了什么（r28）
+**效果：** "配置检查"页（#22）第二排按钮多一个"最终生效配置"。点一次，对**正在使用的配置**（已保存的那份 `config.yaml`，不是没保存的编辑）做一次对比，结果显示在页面的文字区里：以**你写的配置为底**，差异直接标在原位，不另开一段：
+- 没变的行：普通颜色。
+- 被改写的值（橙色，行首 `~`）：旧值划线灰色，紧跟着是实际生效的值（加粗）。例：`~ external-controller: ~~127.0.0.1:9090~~ ""`。
+- 被删除的字段（红色加删除线，行首 `-`）：留在原位。包括内核不认识的字段（行末写"内核不认识，已忽略"）、被 App 去掉的监听（tproxy / redir / tun）。
+- 被补上的字段（绿色，行首 `+`）：按层级放在它该在的位置（同一层的末尾；整段补上的顶层字段在文件末尾）。例：`dns.nameserver` 末尾补的 `system://`、没开 DNS 时整段换成的默认值。
+- 每个差异块末尾有一个小灰字标签说明是谁做的：`（覆写设置）`、`（App 补丁）`、`（内核默认值）`、`（内核改写）`、`（内核不认识，已忽略）`。一个块只在第一行写一次（改写的值每行都写）。
+- 颜色之外有 `~` `-` `+` 和删除线，不靠颜色也能分清；整页等宽字体，缩进对得齐。
+- **折叠：** 连续没变的行折成一行"… 共 N 行没变（点击展开）"，点一下展开。有差异的行会保留它所在的上层行（比如 `dns:`、`- name: xxx`）和上下各一行，所以能看出差异在哪。
+- **内核补的默认字段默认隐藏：** 你没写的字段内核会补上默认值（`tun`、`sniffer`、`ntp` ……），这些一般有几十上百行，只说明"内核有默认值"，所以默认只显示一行"内核补上的默认字段共 N 个，已隐藏，点这里显示"，点了才穿插显示出来。内核补的空值（`null`、空列表、空表）不算。
+- 顶部一行汇总（改写 / 删除 / 补上各几处）和图例。复制按钮复制的是完整文本（含当前"是否显示内核默认值"的选择，不折叠）。
+
+**怎么做的：** 内核侧 `config.Effective(profileDir)`（新文件 `native/config/custom_effective.go`）：读 `config.yaml` → 用内核的 `UnmarshalRawConfig`（内核在这一步补默认值、丢掉不认识的字段）→ 按 `process.go` 里的 `processors` 顺序一步一步执行（覆写设置 `patchOverride` 和各个 App 补丁），每一步之后把整个 `RawConfig` 用 `yaml.Marshal` 写成 yaml 再读回成有序树。用户的原文也读成有序树（`custom_effective_yaml.go`：保留键的书写顺序，展开锚点、别名和 `<<` 合并）。然后 `effcfg.Diff`（新包 `native/effcfg`，纯标准库，有测试）逐层对比：
+- 键按用户写的顺序走；两边都有就比下去；只有用户有 → 删除；只有最终有 → 补上（空值不算）。
+- 列表按"条目内容"做最长公共子序列：不在两边的条目显示为删除 / 补上（所以被改了内容的条目显示为"删旧条目、补新条目"）。
+- 值的写法不同但意思一样不算差异（`true` / `True`、`1` / `1.0`、`"7890"` / `7890`、空列表 / 空表 / null）。
+- "谁做的"：取这个位置的值**最后一次变化**发生在哪一步（每一步之后都有一份完整快照）。内核那步（`UnmarshalRawConfig`）算"内核"，`patchOverride` 算"覆写设置"，其余算"App 补丁"。判断靠 `processors` 里函数的身份（`reflect`），不靠顺序。
+- 通道：`queryCustomConnections(SORT_EFFECTIVE = 8, 配置文件夹)`，返回 JSON（每行 `i` 缩进、`p` 前缀、`v` 值、`o` 旧值、`s` 状态、`r` 来源）。没有新增 JNI 函数。Kotlin 的 `EffectiveText`（design）把它排成带颜色的文字并处理折叠。
+
+**局限：**
+- 只比对"载入时内核和 App 做的那几步"（`UnmarshalRawConfig` + `processors`）。内核之后 `ParseRawConfig` 里再做的事（例如某些字段的二次处理）不在内，所以那里补的东西这里看不到。
+- 用户的原文按块写法重新排版：注释不保留，`{ ... }` 一行写法会展开成多行。
+- 缩进、引号是重新生成的，不一定和你原文一样；字符串只在必要时加引号。
+- 没载入的配置（没运行时）看不了，页面写"代理未运行"。看的是正在使用的那份已保存配置。
+- **整个内核和 App 没有本地编译过**（这里没有网络，拉不下 Go 依赖）。`effcfg` 单独编译并通过了测试；读 yaml 的部分和 `Effective` 用同名的替身包做过类型检查和小测试；Kotlin 只做了人工检查。第一次 Actions 构建出错时先看这几个文件。
+- 对照内核源码（AGENTS.md 第 8 条）：mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`：`config/config.go` 的 `RawConfig` 字段和 `UnmarshalRawConfig`（`DefaultRawConfig()` 先填默认值，再 `yaml.Unmarshal`）、`common/yaml/yaml.go`（`Marshal` / `Unmarshal`，实际用的是 `go.yaml.in/yaml/v3`）。`go.mod` 里已经有 `go.yaml.in/yaml/v3 v3.0.5 // indirect`，直接 import 它不用改 `go.mod`；如果 `go mod tidy` 把 `// indirect` 去掉也没关系。App 那几步对照的是 `native/config/process.go`（没有改动）。
+**功耗：** 点一次对比一次（读一次文件、做十来次内存里的序列化），没有定时器、后台任务；页面里的折叠和"显示内核默认值"只是在内存里重画。
+
+**新增文件**
+- `core/src/main/golang/native/effcfg/effcfg.go`、`effcfg_test.go`（纯逻辑和测试）。
+- `core/src/main/golang/native/config/custom_effective.go`、`custom_effective_yaml.go`。
+- `core/.../core/model/EffectiveConfig.kt`；`design/.../custom/EffectiveText.kt`。
+- 文案 `eff_*`（`values/` 和 `values-zh/` 的 `strings_custom.xml`）。
+
+**改了自己的文件（#8 #22 的）：** `connections.go`（加 `SortEffective` 分支）、`CustomConnections.kt`（加 `SORT_EFFECTIVE`）、`ConfigCheckDesign.kt`（`Request` 加 `Effective`、`showEffective()`、`showText` 里恢复可选择）、`design_config_check.xml`（加按钮）、`ConfigCheckActivity.kt`（`runEffective()`）。**没有改任何上游文件。**
+**依赖的上游接口：** `config.UnmarshalRawConfig`、`config.RawConfig`、`native/config/process.go` 里的 `processors` / `patchOverride` / `processor`、`yaml.Marshal`。
 
 ## 本版没做的（决定不做）
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。

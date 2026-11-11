@@ -281,4 +281,23 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="diag_working">Collecting…</string>
     <string name="diag_done_title">Diagnostic bundle saved</string>
     <string name="diag_done">%1$d files were written. Look through it before you send it to anyone.</string>
+    <!-- CUSTOM (CUSTOM.md #30): the config the core really runs, over the user's -->
+    <string name="eff_start">Effective config</string>
+    <string name="eff_running">Reading and comparing…</string>
+    <string name="eff_no_profile">No profile is in use.</string>
+    <string name="eff_error">Could not build it: %1$s</string>
+    <string name="eff_summary">%1$d replaced · %2$d removed · %3$d added</string>
+    <string name="eff_legend_changed">replaced (old value struck through)</string>
+    <string name="eff_legend_removed">removed</string>
+    <string name="eff_legend_added">added</string>
+    <string name="eff_show_kernel">%1$d fields the core added as defaults are hidden, tap here to show them</string>
+    <string name="eff_hide_kernel">%1$d fields the core added as defaults are shown, tap here to hide them</string>
+    <string name="eff_no_diff">No difference: the core runs what you wrote.</string>
+    <string name="eff_fold">… %1$d lines unchanged (tap to open)</string>
+    <string name="eff_note">This is the saved config in use, laid out again in block style (comments are not kept); only the steps the core and the app do on loading are compared.</string>
+    <string name="eff_tag_override">(override settings)</string>
+    <string name="eff_tag_app">(app patch)</string>
+    <string name="eff_tag_kernel_ignored">(unknown to the core, ignored)</string>
+    <string name="eff_tag_kernel_default">(core default)</string>
+    <string name="eff_tag_kernel_changed">(changed by the core)</string>
 </resources>

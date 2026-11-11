@@ -3,9 +3,11 @@ package com.github.kr328.clash.design.custom
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
+import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.databinding.DesignConfigCheckBinding
@@ -23,7 +25,7 @@ import kotlin.coroutines.resume
 // written in the config work. The last domain typed is remembered in this page's own preferences.
 class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(context) {
     enum class Request {
-        Toggle, Dns, Copy, Flush,
+        Toggle, Dns, Copy, Flush, Effective,
     }
 
     private val binding = DesignConfigCheckBinding
@@ -113,8 +115,37 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
     suspend fun showText(text: String) {
         withContext(Dispatchers.Main) {
+            if (linksOn) {
+                // back from the colored page (CUSTOM.md #30): the text can be selected again
+                binding.checkTextView.setTextIsSelectable(true)
+                linksOn = false
+            }
+
             binding.checkTextView.text = text
             shown = text
+        }
+    }
+
+    // CUSTOM.md #30: the page of the effective config is colored and has lines that open on a tap, so its taps go to
+    // the links in the text instead of selecting; the copy button still copies the whole text
+    private var linksOn = false
+
+    suspend fun showEffective(config: EffectiveConfig) {
+        withContext(Dispatchers.Main) {
+            val view = EffectiveText(context, config)
+
+            binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
+            linksOn = true
+
+            // a tap on a fold or on the defaults line changes what is shown and draws the text again
+            lateinit var draw: () -> Unit
+
+            draw = {
+                binding.checkTextView.text = view.render(draw)
+                shown = view.plain()
+            }
+
+            draw()
         }
     }
 
