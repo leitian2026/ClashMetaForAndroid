@@ -35,6 +35,10 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 		return marshalJson(config.Effective(C.GoString(filter)))
 	}
 
+	if int(sortMode) == config.SortLogLevel { // CUSTOM.md #31: change the core's log level now (the filter is the level)
+		return marshalJson(config.SetLogLevel(C.GoString(filter)))
+	}
+
 	if int(sortMode) == ipdelay.SortNodeInfo { // CUSTOM.md #23 #24: IPv6-only nodes, last test time, last network change
 		return marshalJson(ipdelay.NodeInfo())
 	}

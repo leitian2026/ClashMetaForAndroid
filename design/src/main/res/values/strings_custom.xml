@@ -301,4 +301,8 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="eff_tag_kernel_ignored">(unknown to the core, ignored)</string>
     <string name="eff_tag_kernel_default">(core default)</string>
     <string name="eff_tag_kernel_changed">(changed by the core)</string>
+    <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
+    <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>
+    <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>
+    <string name="log_level_failed">Could not save the log level</string>
 </resources>

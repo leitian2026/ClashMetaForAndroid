@@ -18,6 +18,8 @@ object CustomConnections {
 
     const val SORT_EFFECTIVE = 8 // CUSTOM #30: not a list; the filter is a profile folder, the answer is its config.yaml with what the core / the app changed marked in place (see EffectiveConfig)
 
+    const val SORT_LOG_LEVEL = 9 // CUSTOM #31: not a list; the filter is a log level ("debug" ...), the core takes it at once
+
     // ids that close() takes to clear the core's DNS cache / its fake-ip map (the latter also closes every connection) (CUSTOM #26)
     const val FLUSH_DNS = "!flush-dns"
     const val FLUSH_FAKEIP = "!flush-fakeip"

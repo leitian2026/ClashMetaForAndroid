@@ -36,7 +36,21 @@
                         android:layout_height="wrap_content"
                         android:layout_alignParentStart="true"
                         android:layout_centerVertical="true"
-                        android:layout_toStartOf="@id/delete_view" />
+                        android:layout_toStartOf="@id/log_level_view" />
+
+                    <!-- CUSTOM (CUSTOM.md #31): the log level (it used to be in the override settings) -->
+                    <ImageView
+                        android:id="@+id/log_level_view"
+                        android:layout_width="@dimen/item_tailing_component_size"
+                        android:layout_height="@dimen/item_tailing_component_size"
+                        android:layout_centerVertical="true"
+                        android:layout_toStartOf="@id/delete_view"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:contentDescription="@string/log_level"
+                        android:focusable="true"
+                        android:padding="@dimen/toolbar_image_action_padding"
+                        android:src="@drawable/ic_custom_tune" />
 
                     <ImageView
                         android:id="@+id/delete_view"

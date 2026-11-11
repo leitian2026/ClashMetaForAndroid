@@ -196,26 +196,7 @@ class OverrideSettingsDesign(
                 title = R.string.mode
             )
 
-            selectableList(
-                value = configuration::logLevel,
-                values = arrayOf(
-                    null,
-                    LogMessage.Level.Info,
-                    LogMessage.Level.Warning,
-                    LogMessage.Level.Error,
-                    LogMessage.Level.Debug,
-                    LogMessage.Level.Silent,
-                ),
-                valuesText = arrayOf(
-                    R.string.dont_modify,
-                    R.string.info,
-                    R.string.warning,
-                    R.string.error,
-                    R.string.debug,
-                    R.string.silent,
-                ),
-                title = R.string.log_level,
-            )
+            // CUSTOM (CUSTOM.md #31): "log level" moved to the logs page (the button next to "clear all")
 
             editableTextMap(
                 value = configuration::hosts,

@@ -301,4 +301,8 @@
     <string name="eff_tag_kernel_ignored">（内核不认识，已忽略）</string>
     <string name="eff_tag_kernel_default">（内核默认值）</string>
     <string name="eff_tag_kernel_changed">（内核改写）</string>
+    <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
+    <string name="log_level_live">日志级别已改为“%1$s”，立刻生效</string>
+    <string name="log_level_next">已保存：日志级别“%1$s”，下次载入配置时生效</string>
+    <string name="log_level_failed">保存日志级别失败</string>
 </resources>

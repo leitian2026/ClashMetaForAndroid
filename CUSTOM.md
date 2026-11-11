@@ -28,8 +28,11 @@
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `ConfigHistory.keep(context, snapshot.uuid)`（#28，记下被替换的和新的版本）；加两个 import |
+| `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
+| `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view` 按钮；标题栏的 `layout_toStartOf` 改指向它 |
+| `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
 
-共 21 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 24 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -488,6 +491,21 @@
 
 **改了自己的文件（#8 #22 的）：** `connections.go`（加 `SortEffective` 分支）、`CustomConnections.kt`（加 `SORT_EFFECTIVE`）、`ConfigCheckDesign.kt`（`Request` 加 `Effective`、`showEffective()`、`showText` 里恢复可选择）、`design_config_check.xml`（加按钮）、`ConfigCheckActivity.kt`（`runEffective()`）。**没有改任何上游文件。**
 **依赖的上游接口：** `config.UnmarshalRawConfig`、`config.RawConfig`、`native/config/process.go` 里的 `processors` / `patchOverride` / `processor`、`yaml.Marshal`。
+
+## 31. 日志级别搬到日志页（r30）
+
+**效果：** 日志页右上角、三横线（清空日志）左边多一个调节图标，点开是"消息 / 警告 / 错误 / 调试 / 停用 / 不修改"的文字单选（和原来覆写设置里的是同一组文字）。覆写设置页里不再有"日志级别"。
+- 存的还是覆写设置（持久槽，`override.json`），所以覆写页以前存的值保留、仍然生效。
+- 选了具体级别且内核在运行：马上交给内核（`SORT_LOG_LEVEL = 9`，Go 里 `log.SetLevel`），提示"立刻生效"；选"不修改"或内核没运行：只保存，提示"下次载入配置时生效"（"不修改"没有级别可给，要重新载入配置才回到配置文件里的级别）。
+- 功耗：只在点按时弹一次对话框、写一个小文件；没有定时器、没有轮询。
+
+**新增文件**
+- `app/src/main/java/com/github/kr328/clash/custom/LogLevelControl.kt`
+- `core/src/main/golang/native/config/custom_loglevel.go`
+- `design/src/main/res/drawable/ic_custom_tune.xml`
+- 字符串 `log_level_live / log_level_next / log_level_failed`（两个语言的 `strings_custom.xml`）
+
+**改的自有文件：** `native/connections.go`（`SortLogLevel` 分支）、`CustomConnections.kt`（`SORT_LOG_LEVEL`）。
 
 ## 本版没做的（决定不做）
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。

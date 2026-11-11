@@ -2,6 +2,7 @@ package com.github.kr328.clash
 
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.setFileName
+import com.github.kr328.clash.custom.LogLevelControl
 import com.github.kr328.clash.design.LogsDesign
 import com.github.kr328.clash.design.model.LogFile
 import com.github.kr328.clash.util.logsDir
@@ -16,6 +17,8 @@ class LogsActivity : BaseActivity<LogsDesign>() {
         val design = LogsDesign(this)
 
         setContentDesign(design)
+
+        LogLevelControl.attach(this, design) // CUSTOM.md #31: the log level button
 
         while (isActive) {
             select<Unit> {
