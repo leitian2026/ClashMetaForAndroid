@@ -183,9 +183,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_dns_answer_whitelist">Apps get: the real address (fake-ip-filter-mode is whitelist and no entry covers the domain). Judged from the profile</string>
     <string name="check_dns_answer_unknown">Cannot tell from the profile: fake-ip-filter has entries that cannot be judged here (e.g. %1$s)</string>
     <string name="check_dns_answer_unknown_rule">Cannot tell from the profile: fake-ip-filter-mode is rule, each entry carries its own fake-ip / real-ip</string>
-    <string name="check_dns_kernel_fake">Real answer of the core's own DNS server (dns.listen %1$s): fake-ip %2$s</string>
-    <string name="check_dns_kernel_real">Real answer of the core's own DNS server (dns.listen %1$s): real address %2$s</string>
-    <string name="check_dns_kernel_none">dns.listen is %1$s, but the core's DNS server gave no answer (not listening there, or nothing to answer)</string>
+    <string name="check_dns_kernel_fake">Real answer of the core\'s own DNS server (dns.listen %1$s): fake-ip %2$s</string>
+    <string name="check_dns_kernel_real">Real answer of the core\'s own DNS server (dns.listen %1$s): real address %2$s</string>
+    <string name="check_dns_kernel_none">dns.listen is %1$s, but the core\'s DNS server gave no answer (not listening there, or nothing to answer)</string>
     <string name="check_dns_no_servers">The dns: section lists no DNS server (the core then uses its built-in defaults).</string>
     <string name="check_dns_servers_head">DNS servers in the profile (%1$d), each asked directly for A and AAAA:</string>
     <string name="check_dns_server_head">%1$s  [%2$s]</string>
