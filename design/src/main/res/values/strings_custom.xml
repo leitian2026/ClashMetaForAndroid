@@ -204,5 +204,81 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_dns_aaaa_ipv6off">For an IPv6 question (AAAA) the answer is empty: dns.ipv6 is false</string>
     <string name="check_dns_hosts_off">use-hosts is false: the DNS server ignores the hosts: section</string>
     <string name="check_dns_respect_rules">respect-rules is true: the core\'s own DNS queries follow the rules, a server reached through a proxy may behave differently from the direct test below</string>
-    <string name="check_dns_footer">Note: only the dns: and hosts: sections are read. Every server is asked directly; which one the core really picks (nameserver / fallback, policies, fastest of several) is not simulated. A DoH server that answers something other than a DNS message (JSON, a web page) shows what it sent in the reason.</string>
+    <string name="check_dns_footer">Note: only the dns: and hosts: sections are read. Every server is asked directly; the “Core resolver” line is the answer of the core itself and shows what it really takes from them (it may come from the core’s DNS cache; use “Clear cache” first for a fresh one). A DoH server that answers something other than a DNS message (JSON, a web page) shows what it sent in the reason.</string>
+
+    <!-- CUSTOM.md #26: DNS check verdict, core answer, policy -->
+    <string name="check_dns_why_sep">, </string>
+    <string name="check_dns_why_bogon">the address cannot belong to a real site (private, reserved or Teredo range)</string>
+    <string name="check_dns_why_nx">it says NXDOMAIN while other servers resolve the name</string>
+    <string name="check_dns_why_differs">its addresses share no network with what the encrypted servers answered</string>
+    <string name="check_dns_flag_likely">⚠ Probably forged: %1$s</string>
+    <string name="check_dns_flag_suspect">⚠ Suspicious: %1$s</string>
+    <string name="check_dns_v_nxdomain_all">Verdict: every server that answered says NXDOMAIN. The name most likely does not exist, this is not a DNS fault.</string>
+    <string name="check_dns_v_suggest">The name may be mistyped, did you mean %1$s ?</string>
+    <string name="check_dns_v_single_label">The name has no dot, it looks like only a part of a domain was entered.</string>
+    <string name="check_dns_v_polluted">Verdict: %1$d server(s) gave answers that are very likely forged (DNS pollution / hijacking):</string>
+    <string name="check_dns_v_suspect">Verdict: %1$d server(s) disagree with the encrypted DNS servers. A CDN that hands out other addresses by region does that too, so this is only a suspicion:</string>
+    <string name="check_dns_v_flag_line">%1$s: %2$s</string>
+    <string name="check_dns_v_trusted">Addresses from the encrypted servers (DoH / DoT, they cannot be rewritten on the way): %1$s</string>
+    <string name="check_dns_v_consistent">Verdict: the servers agree, no sign of pollution.</string>
+    <string name="check_dns_v_single">Verdict: only one server gave addresses, there is nothing to compare with.</string>
+    <string name="check_dns_core_none">Core resolver: not available (no profile is loaded).</string>
+    <string name="check_dns_core_failed">Core resolver: failed (%1$s)</string>
+    <string name="check_dns_core_nx">Core resolver answers (%1$d ms): NXDOMAIN, the domain does not exist</string>
+    <string name="check_dns_core_ok">Core resolver, what it really answers (%1$d ms; after its nameserver / fallback / policy choice, without hosts and fake-ip):\n  A: %2$s;  AAAA: %3$s</string>
+    <string name="check_dns_core_match">  This matches the answer of: %1$s</string>
+    <string name="check_dns_core_nomatch">  It matches none of the servers below (the core\u2019s DNS cache, or it took another result).</string>
+    <string name="check_dns_policy_none_written">nameserver-policy: none written</string>
+    <string name="check_dns_policy_hit">nameserver-policy: the pattern %1$s covers this domain, so the core asks %2$s (not nameserver)</string>
+    <string name="check_dns_policy_entry">  (written in the entry %1$s)</string>
+    <string name="check_dns_policy_miss">nameserver-policy: none of its %1$d entries covers this domain, so nameserver / fallback answer</string>
+    <string name="check_dns_policy_unjudged">  These entries cannot be judged here and might cover it: %1$s</string>
+    <string name="check_dns_policy_unjudged_before">  These entries come first and cannot be judged here, one of them may cover the domain before that: %1$s</string>
+    <!-- CUSTOM.md #26: clear cache -->
+    <string name="check_flush_start">Clear cache</string>
+    <string name="check_flush_title">Clear what?</string>
+    <string name="check_flush_dns">DNS cache only</string>
+    <string name="check_flush_fakeip">DNS cache and fake-ip map (also closes every connection)</string>
+    <string name="check_flush_done_dns">The core’s DNS cache was cleared. The next lookup asks the servers again.</string>
+    <string name="check_flush_done_fakeip">The DNS cache and the fake-ip map were cleared and every connection was closed. Apps that kept an old fake address connect again with a new lookup.</string>
+    <string name="check_flush_failed">Clearing failed (the core has no resolver loaded).</string>
+    <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
+    <string name="history_entry_title">Config history and checks</string>
+    <string name="history_entry_summary">Go back to an earlier version of an edited profile, see what changed, or check a config for errors</string>
+    <string name="history_menu_title">Config history and checks</string>
+    <string name="history_no_profile">There is no imported profile yet.</string>
+    <string name="history_no_file_profile">Only profiles you edit yourself (not subscriptions) keep a history. A subscription is downloaded again on every save.</string>
+    <string name="history_menu_history">Versions and rollback</string>
+    <string name="history_menu_check">Check a config for errors</string>
+    <string name="history_pick_profile">Which profile?</string>
+    <string name="history_none">No earlier version is kept yet. A version is kept each time you save an edited profile.</string>
+    <string name="history_pick_version">Versions of %1$s</string>
+    <string name="history_version_first">%1$s · %2$d lines · earliest kept</string>
+    <string name="history_version_line">%1$s · %2$d lines · +%3$d −%4$d vs the one before</string>
+    <string name="history_in_use"> · in use</string>
+    <string name="history_action_diff">Compare with the version in use</string>
+    <string name="history_action_restore">Restore this version</string>
+    <string name="history_diff_title">Restoring %1$s would change</string>
+    <string name="history_diff_head">Removes %1$d line(s) of the version in use, adds %2$d line(s):</string>
+    <string name="history_diff_same">This version is identical to the one in use.</string>
+    <string name="history_diff_more">… %1$d more lines not shown</string>
+    <string name="history_restore_confirm">Restore the version of %1$s? The version in use stays in the history, so you can go back. Edits you have not saved are dropped.</string>
+    <string name="history_restoring">Restoring…</string>
+    <string name="history_restore_done">Restored and saved. If the profile is in use, the core loads it again.</string>
+    <string name="history_restore_failed">Not restored, the config in use stays as it is:
+%1$s</string>
+    <string name="history_checking">Checking…</string>
+    <string name="history_check_ok">No error found. The core can parse this config.</string>
+    <string name="history_check_pending">
+
+(This is the edit you have not saved yet.)</string>
+    <string name="history_check_bad">The core refuses this config:
+%1$s</string>
+    <string name="diag_entry_title">Export diagnostic bundle</string>
+    <string name="diag_entry_summary">One zip with the config (secrets masked), recent errors, node connections, crash records and a DNS check</string>
+    <string name="diag_confirm_title">Export diagnostic bundle</string>
+    <string name="diag_confirm">The zip holds the active config (passwords, ids and keys replaced by ***), recent errors and connection failures, the node connection summary, crash records and a DNS check of the domain last typed on the config check page. It still contains node server addresses and the domains of recent failed connections: look through it before you send it to anyone.</string>
+    <string name="diag_working">Collecting…</string>
+    <string name="diag_done_title">Diagnostic bundle saved</string>
+    <string name="diag_done">%1$d files were written. Look through it before you send it to anyone.</string>
 </resources>

@@ -71,11 +71,13 @@
                 android:orientation="horizontal"
                 android:paddingHorizontal="@dimen/item_tailing_margin">
 
-                <EditText
+                <!-- CUSTOM (CUSTOM.md #26): AutoCompleteTextView instead of EditText, it drops down the domains tested before -->
+                <AutoCompleteTextView
                     android:id="@+id/check_domain_view"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:completionThreshold="1"
                     android:hint="@string/check_domain_hint"
                     android:importantForAutofill="no"
                     android:inputType="textUri"
@@ -90,16 +92,30 @@
                     android:text="@string/check_start" />
             </LinearLayout>
 
-            <!-- CUSTOM (CUSTOM.md #25): the DNS check uses the same domain field -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/check_dns_view"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
+            <!-- CUSTOM (CUSTOM.md #25 #26): the DNS check uses the same domain field; next to it the cache clearing -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginHorizontal="@dimen/item_tailing_margin"
-                android:onClick="@{() -> self.request(Request.Dns)}"
-                android:text="@string/check_dns_start" />
+                android:gravity="end"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/item_tailing_margin">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_flush_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.Flush)}"
+                    android:text="@string/check_flush_start" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_dns_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.Dns)}"
+                    android:text="@string/check_dns_start" />
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"

@@ -2,6 +2,7 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import com.github.kr328.clash.core.model.DnsCheckReport
+import com.github.kr328.clash.core.model.DnsCheckFlag
 import com.github.kr328.clash.core.model.DnsCheckServer
 import com.github.kr328.clash.design.R
 
@@ -15,6 +16,9 @@ object DnsCheckText {
         if (report.aliasTo.isNotEmpty()) {
             out.append(context.getString(R.string.check_dns_alias, report.domain, report.aliasTo)).append('\n')
         }
+
+        // CUSTOM.md #26: the overall reading of the answers comes first, it is what the reader wants to know
+        verdict(context, report)?.let { out.append(it).append("\n\n") }
 
         // what an app gets for this domain: by the profile, and, when the core's DNS server answered, for real
         out.append(answer(context, report)).append('\n')
@@ -31,6 +35,10 @@ object DnsCheckText {
 
         kernel(context, report)?.let { out.append(it).append('\n') }
 
+        // CUSTOM.md #26
+        out.append('\n').append(core(context, report)).append('\n')
+        out.append(policy(context, report)).append('\n')
+
         out.append('\n')
 
         if (report.servers.isEmpty()) {
@@ -38,8 +46,10 @@ object DnsCheckText {
         } else {
             out.append(context.getString(R.string.check_dns_servers_head, report.servers.size)).append("\n\n")
 
+            val flags = report.verdict.flags.associateBy { it.address }
+
             for (item in report.servers) {
-                out.append(serverText(context, item)).append("\n\n")
+                out.append(serverText(context, item, flags[item.address])).append("\n\n")
             }
         }
 
@@ -89,7 +99,7 @@ object DnsCheckText {
         return context.getString(label, report.listen, addresses)
     }
 
-    private fun serverText(context: Context, s: DnsCheckServer): String {
+    private fun serverText(context: Context, s: DnsCheckServer, flag: DnsCheckFlag?): String {
         val out = StringBuilder()
 
         out.append(context.getString(R.string.check_dns_server_head, s.address, s.roles.joinToString(", "))).append('\n')
@@ -117,8 +127,117 @@ object DnsCheckText {
             else -> out.append("  ").append(failure(context, s))
         }
 
+        if (flag != null) {
+            val label = if (flag.level == "likely") R.string.check_dns_flag_likely else R.string.check_dns_flag_suspect
+
+            out.append('\n').append("  ").append(context.getString(label, whyText(context, flag)))
+        }
+
         if (s.via.isNotEmpty()) out.append('\n').append("  ").append(context.getString(R.string.check_dns_via, s.via))
         if (s.h3) out.append('\n').append("  ").append(context.getString(R.string.check_dns_h3))
+
+        return out.toString()
+    }
+
+    private fun whyText(context: Context, flag: DnsCheckFlag): String {
+        return flag.why.joinToString(context.getString(R.string.check_dns_why_sep)) {
+            when (it) {
+                "bogon" -> context.getString(R.string.check_dns_why_bogon)
+                "nx" -> context.getString(R.string.check_dns_why_nx)
+                "differs" -> context.getString(R.string.check_dns_why_differs)
+                else -> it
+            }
+        }
+    }
+
+    // CUSTOM.md #26: null when there is nothing to say (no server answered)
+    private fun verdict(context: Context, report: DnsCheckReport): String? {
+        val v = report.verdict
+        val out = StringBuilder()
+
+        when (v.kind) {
+            "nxdomain_all" -> {
+                out.append(context.getString(R.string.check_dns_v_nxdomain_all))
+
+                when {
+                    v.suggest.isNotEmpty() -> out.append('\n').append(context.getString(R.string.check_dns_v_suggest, v.suggest))
+                    v.hint == "single_label" -> out.append('\n').append(context.getString(R.string.check_dns_v_single_label))
+                }
+            }
+            "polluted", "suspect" -> {
+                out.append(
+                    context.getString(
+                        if (v.kind == "polluted") R.string.check_dns_v_polluted else R.string.check_dns_v_suspect,
+                        v.flags.size,
+                    ),
+                )
+
+                for (flag in v.flags) {
+                    out.append("\n  ").append(context.getString(R.string.check_dns_v_flag_line, flag.address, whyText(context, flag)))
+                }
+
+                if (v.trusted.isNotEmpty()) {
+                    out.append('\n').append(context.getString(R.string.check_dns_v_trusted, v.trusted.joinToString(", ")))
+                }
+            }
+            "consistent" -> out.append(context.getString(R.string.check_dns_v_consistent))
+            "single" -> out.append(context.getString(R.string.check_dns_v_single))
+            else -> return null
+        }
+
+        return out.toString()
+    }
+
+    // CUSTOM.md #26: what the core's own resolver answers, with the servers it agrees with
+    private fun core(context: Context, report: DnsCheckReport): String {
+        val c = report.core
+
+        return when {
+            !c.asked -> context.getString(R.string.check_dns_core_none)
+            !c.ok -> context.getString(R.string.check_dns_core_failed, c.reason.ifEmpty { "-" })
+            c.rname == "NXDOMAIN" -> context.getString(R.string.check_dns_core_nx, c.ms)
+            else -> {
+                val none = context.getString(R.string.check_dns_none)
+                val line = context.getString(
+                    R.string.check_dns_core_ok,
+                    c.ms,
+                    c.a.joinToString(", ").ifEmpty { none },
+                    c.aaaa.joinToString(", ").ifEmpty { none },
+                )
+
+                if (c.matches.isEmpty()) {
+                    line + "\n" + context.getString(R.string.check_dns_core_nomatch)
+                } else {
+                    line + "\n" + context.getString(R.string.check_dns_core_match, c.matches.joinToString(", "))
+                }
+            }
+        }
+    }
+
+    // CUSTOM.md #26: which nameserver-policy entry covers the domain
+    private fun policy(context: Context, report: DnsCheckReport): String {
+        val p = report.policy
+        val out = StringBuilder()
+
+        when {
+            p.total == 0 -> return context.getString(R.string.check_dns_policy_none_written)
+            p.key.isNotEmpty() -> {
+                out.append(context.getString(R.string.check_dns_policy_hit, p.pattern, p.servers.joinToString(", ").ifEmpty { "-" }))
+
+                if (p.pattern != p.key) {
+                    out.append('\n').append(context.getString(R.string.check_dns_policy_entry, p.key))
+                }
+            }
+            else -> out.append(context.getString(R.string.check_dns_policy_miss, p.total))
+        }
+
+        if (p.unjudged.isNotEmpty()) {
+            val shown = p.unjudged.take(5).joinToString(", ") + if (p.unjudged.size > 5) "…" else ""
+
+            out.append('\n').append(
+                context.getString(if (p.key.isNotEmpty()) R.string.check_dns_policy_unjudged_before else R.string.check_dns_policy_unjudged, shown),
+            )
+        }
 
         return out.toString()
     }

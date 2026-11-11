@@ -27,8 +27,9 @@
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
+| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `ConfigHistory.keep(context, snapshot.uuid)`（#28，记下被替换的和新的版本）；加两个 import |
 
-共 20 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 21 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -393,3 +394,59 @@
 - `core/.../model/DnsCheckReport.kt`。
 - `design/.../custom/DnsCheckText.kt`；`ConfigCheckDesign.kt` 的 `Request` 加 `Dns`，`setRunning(running, dns)`；`res/layout/design_config_check.xml` 加按钮；文案 `check_dns_*`。
 - `app/.../custom/ConfigCheckActivity.kt`：`runDns()`。
+
+## 26. DNS 检查的增强（r26）
+**效果：** "配置检查"页的 DNS 检查（#25）多了下面几样，都在同一份报告里：
+1. **污染判断（报告最上面的"结论"）：** 把所有服务器的答案放在一起读。DoH / DoT 的答案当作参照（链路上改不了）。明文（UDP / TCP）服务器如果：返回了不可能属于真实网站的地址（私有、回环、保留、CGNAT、测试网段、Teredo `2001::/32` 等）→ **很可能是假的**；返回 NXDOMAIN 而别的服务器能解析出地址 → 明文的算"很可能"，别的算"可疑"；地址和加密 DNS 的答案**没有任何共同网络**（IPv4 比前两段、IPv6 比前 32 位，只比两边都有的地址族）→ "可疑"；多个明文服务器都对不上、而且它们彼此的网络也互不相同 → 升级为"很可能"（CDN 按地区给不同地址时彼此通常还在同一网络）。结论分：`polluted` / `suspect` / `consistent` / `single`（只有一个服务器给了地址）/ `nxdomain_all` / `none`。被标记的服务器在自己那一段下面多一行 ⚠。**只是判断，不是证明**：文案里"可疑"明确写成怀疑。
+2. **全部 NXDOMAIN 时的提示：** 结论写"域名多半不存在，不是 DNS 故障"；域名最后一段是 `workers` / `pages`（建议补 `.dev`）、`trycloudflare`（补 `.com`），或常见的顶级域拼错（`con` `cmo` `ocm` `vom` `comm` → `com`，`ogr` `rog` → `org`，`nte` `ent` → `net`）时给出"是不是想查 …"；域名里没有点时提示"像是只写了一部分"。只是猜测，不会自动改。
+3. **内核解析器的实际答案：** 直接调内核自己的解析器（和控制接口 `/dns/query` 同一个调用：`resolver.DefaultResolver.ExchangeContext`，A 和 AAAA 各问一次，5 秒超时）。这是内核按 nameserver / fallback / nameserver-policy 选完之后真正拿到的答案（**不含 hosts 和 fake-ip**，那两样在解析器之前处理），并写出和哪些被检查的服务器**有共同地址**（找不到时说明可能来自内核的 DNS 缓存）。没载入配置时写"没有可用的"。
+4. **`nameserver-policy` 命中哪一条：** 加载配置时 `ipdelay.CaptureDNS` 另存一份**带顺序**的 policy（`ipdelay/policy.go`，用 JSON token 流读，因为通用的 map 树会丢顺序）。匹配照 `config/config.go` 的 `parseNameServerPolicy`（键里的逗号拆成多个模式，`geosite:` / `rule-set:` 后面的逗号拆名字）和 `dns/resolver.go` 的 `matchPolicy` / `makePolicy`（按顺序第一个命中的策略生效；连续的普通域名模式合成一棵域名树，树内取最具体的）。`geosite:` / `rule-set:` 这里判断不了，排在命中之前的会列成"可能先命中"。没写 policy 时写"没有写"。
+5. **清缓存按钮：** 输入框下面的"清缓存"，弹出两项：只清 DNS 缓存（`resolver.ClearCache`）；清 DNS 缓存和 fake-ip 映射（`resolver.FlushFakeIP`，和控制接口 `POST /cache/dns/flush`、`/cache/fakeip/flush` 同一个调用）。后者之后内核里"假地址 ↔ 域名"的对应没了，还拿着旧假地址的应用会对不上，所以**同时关闭所有连接**。通道：`closeCustomConnection` 的特殊 id `!flush-dns` / `!flush-fakeip`（`CustomConnections.FLUSH_DNS` / `FLUSH_FAKEIP`），没有新增 JNI 函数；`ConfigCheckActivity.flush()` 先弹选择框，选了才执行。
+6. **测试过的域名记在下拉里：** 域名输入框改成 `AutoCompleteTextView`，点一下输入框弹出最近 8 个测过的域名（存在页面自己的 SharedPreferences `custom_config_check` 的 `history`，每次点测试时更新，最新的在前）。
+
+**对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`（与子模块一致）。`hub/route/dns.go`（`queryDNS`）、`hub/route/cache.go`（两个 flush）、`component/resolver/resolver.go`（`DefaultResolver`、`ClearCache`、`DefaultDNSTimeout`）、`component/resolver/enhancer.go`（`FlushFakeIP`）、`dns/resolver.go`（`ExchangeContext`、`matchPolicy`、`makePolicy`）、`config/config.go`（`parseNameServerPolicy`、`NameServerPolicy` 是有序 map）。内核升级后这些要重新对照。
+**局限：** ① 污染判断靠"网络不同"这类规律，没有 IP 归属数据库，CDN 在不同地区给出差别很大的地址时可能被判成"可疑"，所以只有"很可能"才有把握；② 内核解析器的答案可能来自缓存；③ policy 里的 `geosite:` / `rule-set:` 只能列出，不能判断；④ `proxy-server-nameserver-policy` 只用于解析节点域名，没有做匹配。
+**功耗：** 点一次查一次 / 清一次，没有定时器、后台任务。
+**新增文件：** `core/src/main/golang/native/conftest/dnsextra.go`（纯逻辑：结论、拼写提示、policy 匹配，只依赖标准库）、`dnsextra_test.go`、`dnscore.go`（调内核解析器、清缓存）；`core/src/main/golang/native/ipdelay/policy.go`、`policy_test.go`；`core/.../model/DnsCheckReport.kt` 加 `DnsCheckVerdict` / `DnsCheckFlag` / `DnsCheckPolicy` / `DnsCheckCore`；文案 `check_dns_v_*` `check_dns_core_*` `check_dns_policy_*` `check_dns_why_*` `check_dns_flag_*` `check_flush_*`。
+**改了的自己的文件（#22 #25 的）：** `dnscheck.go`（`DNSReport` 加 `Verdict` / `Policy` / `Core`，`RunDNS` 里加三处调用）、`ipdelay.go`（`CaptureDNS` 里加 `setPolicy(parsePolicy(data))`）、`connections.go`、`CustomConnections.kt`、`DnsCheckText.kt`、`ConfigCheckDesign.kt`、`ConfigCheckActivity.kt`、`design_config_check.xml`（输入框改 `AutoCompleteTextView`，加"清缓存"按钮）。
+
+## 27. 保存配置时说清是哪一行，以及"检查配置有没有错"（r26）
+**效果：**
+- **保存时的错误：** 你在"文件"里用外部编辑器改了 `config.yaml`，回到配置页点保存，上游本来就会让内核先检查（`ProfileProcessor.apply` 里的 `fetchAndValid`），不合格就不替换正在用的配置。以前只弹内核的一句话，现在如果这句话里有"line N"，就在后面加上那一行和上下各一行（`> 12 | 内容`）。没提行号的错误原样抛出。
+- **"检查配置有没有错"：** "设置 → 应用 → 配置历史与检查 → 检查配置有没有错"。选一个配置，让内核读它的 `config.yaml`（有**还没保存的编辑**就读那一份，页面会说明）、套上 App 的补丁、解析一遍，但**不载入、不联网下载**，只告诉你能不能通过；不能通过就写原因和那一行。用来在点保存之前先查。
+- 外部编辑器是直接写文件的，App 没办法在编辑器"保存"的那一刻拦住它，所以"保存前"指的是：点"保存"时先检查、失败就不替换；以及上面这个随时可用的预检。
+
+**怎么做的：** Go 的 `config.Validate(dir)`（新文件 `native/config/custom_validate.go`）就是 `FetchAndValid` 的校验部分：`UnmarshalAndPatch` → `Parse` → `destroyProviders`，不下载、不 `hub.ApplyConfig`；错误里的 `line N` 用正则取出。通道：`queryCustomConnections(SORT_VALIDATE = 7, 文件夹路径)`，没有新增 JNI 函数、没有给 `IClashManager` 加方法。Kotlin 的 `ConfigErrorText`（service）负责取行号、读文件、拼出上下文，`ConfigTools.check()`（app）负责界面。
+**功耗：** 点一次查一次。
+**新增文件：** `core/src/main/golang/native/config/custom_validate.go`；`service/.../custom/ConfigErrorText.kt`；`app/.../custom/ConfigTools.kt`；文案 `history_check_*`、service 的 `custom_config_error`。
+**改了上游文件：** `ProfileProcessor.kt`（见总表）。
+**依赖的上游接口：** `config.UnmarshalAndPatch`、`config.Parse`、`config.destroyProviders`（`native/config` 包里的，和 `FetchAndValid` 用的同一组）。
+
+## 28. 配置历史：保留最近 10 个版本，对比，回滚（r26）
+**效果：** "设置 → 应用 → 配置历史与检查 → 历史版本与回滚"。
+- **什么时候记：** 点"保存"（`ProfileProcessor.apply`）成功检查之后、替换正在用的配置之前，把**被替换的版本**和**新版本**的 `config.yaml` 各存一份到 `<filesDir>/custom/config_history/<uuid>/<毫秒时间>.yaml`；和最新一份内容相同就不重复存；每个配置最多 10 个，多的删最旧的。只记 `config.yaml`，不记 provider 文件。2 MB 以上的 `config.yaml` 不记。
+- **只有"自己编辑的配置"（类型 File）有历史：** 订阅（URL）每次保存都会重新下载覆盖，回滚没有意义，所以不列。
+- **界面：** 选配置 → 版本列表（时间、行数、和前一版相比 `+增 −删`，正在使用的标出来）→ 选一个版本："和正在使用的版本对比"（只显示改动行和上下各 2 行，最多 300 行，是"恢复后会变成什么样"：`-` 是会被删掉的、`+` 是会增加的）/ "恢复这个版本"。
+- **恢复：** 确认后：`patch`（保证有一份待保存的副本）→ 把这个版本写进待保存的 `config.yaml` → `commit`。走上游的保存流程，所以内核照样先检查；通过才替换并通知重新载入，不通过就丢掉待保存的副本、正在用的配置不变，并显示上面 #27 那种带行号的错误。恢复本身也会被记成一个新版本（所以可以再退回来）。没保存的编辑会被丢弃（确认框里写明）。
+- 差异算法：先去掉头尾相同的行，中间用最长公共子序列；中间太大（行数乘积超过 600 万）时显示成"全删再全加"。
+
+**功耗：** 只在点保存、和你打开这个页面时才读写文件，没有后台工作。
+**新增文件：** `service/.../custom/ConfigHistory.kt`；`app/.../custom/LineDiff.kt`、`ConfigTools.kt`（同 #27）；`BackupDesign.kt`（#17 的文件）加 `pick()` / `showText()`；`BackupActivity.kt`（#17）加 `ACTION_HISTORY`；`BackupPreference.kt`（#17）加一项入口；文案 `history_*`。
+**改了上游文件：** `ProfileProcessor.kt`（见总表）。
+**依赖的上游接口：** `IProfileManager` 的 `patch` / `commit` / `release` / `queryAll`；`importedDir` / `pendingDir` / `processingDir`；`ProfileProcessor.apply` 里"确认待保存的还是同一份之后、替换 importedDir 之前"这个位置。
+
+## 29. 导出诊断包（r26）
+**效果：** "设置 → 应用 → 导出诊断包"。先弹确认框（写明里面有什么），再选保存位置，生成一个 zip：
+- `summary.txt`：应用版本、内核版本、Android 版本和机型、内核是否在运行、当前配置的名字和类型（不含订阅地址）；
+- `config.yaml`：当前启用配置的 `config.yaml`，**密钥已隐藏**（见下）；`override.json`：覆盖设置，同样隐藏；
+- `dns-check.txt`：对"配置检查"页上最后填的域名做一次 DNS 检查（#25 #26，只在内核运行、填过域名时有）；
+- `errors.json`：错误与诊断页（#21）的原始数据；`mux.json`：底层连接（#20）的原始数据；（这两样只在内核运行时有）
+- `ip_history.json`：节点 IP 切换历史（#10）；`crash/*.txt`：崩溃记录（#21）。
+某一项读不出来就跳过，其余照常写。
+- **隐藏的规则（`ConfigMask`）：** 下面这些键的值换成 `***`：`password`、`passwd`、`uuid`、`psk`、`private-key`、`pre-shared-key`、`public-key`、`auth-str`、`auth`、`obfs-password`、`token`、`secret`、`short-id`、`username`；`url:` 的值只留协议和域名（后面写 `/***`）。块写法和一行 `{...}` 写法都处理。**尽力而为**：节点服务器地址不隐藏，不在上面名单里的键下面的秘密也不会被隐藏，`errors.json` 里有最近连接失败的域名，所以确认框和 `summary.txt` 都提醒发给别人之前自己看一遍。
+**功耗：** 点导出才读，没有后台。
+**新增文件：** `app/.../custom/DiagnosticBundle.kt`、`ConfigMask.kt`；`BackupActivity.kt`（#17）加 `ACTION_DIAG`；`BackupPreference.kt`（#17）加入口；文案 `diag_*`。
+**依赖：** `queryCustomConnections` 的 `SORT_ERRORS` / `SORT_MUX` / `SORT_CHECK`；`Bridge.nativeCoreVersion()`；`clashDir`。
+
+## 本版没做的（决定不做）
+网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。

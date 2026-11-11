@@ -28,6 +28,53 @@ data class DnsCheckServer(
     val reason: String = "",
 )
 
+/** CUSTOM (CUSTOM.md #26): one server whose answer looks wrong. [level]: likely, suspect. [why]: bogon, nx, differs. */
+@Serializable
+data class DnsCheckFlag(
+    val address: String = "",
+    val level: String = "",
+    val why: List<String> = emptyList(),
+)
+
+/**
+ * CUSTOM (CUSTOM.md #26): the answers of all servers read together. [kind]: none, nxdomain_all, polluted, suspect,
+ * consistent, single. [trusted] are the addresses the encrypted (DoH / DoT) servers gave. [suggest] is a likelier
+ * spelling of the domain when every server said NXDOMAIN; [hint] is typo, single_label or empty.
+ */
+@Serializable
+data class DnsCheckVerdict(
+    val kind: String = "none",
+    val flags: List<DnsCheckFlag> = emptyList(),
+    val trusted: List<String> = emptyList(),
+    val suggest: String = "",
+    val hint: String = "",
+)
+
+/** CUSTOM (CUSTOM.md #26): the nameserver-policy entry that covers the domain ([total] = entries written, 0 = none). */
+@Serializable
+data class DnsCheckPolicy(
+    val total: Int = 0,
+    val key: String = "",
+    val pattern: String = "",
+    val servers: List<String> = emptyList(),
+    val unjudged: List<String> = emptyList(),
+)
+
+/** CUSTOM (CUSTOM.md #26): what the core's own resolver answers. [matches] are the checked servers that gave the same address. */
+@Serializable
+data class DnsCheckCore(
+    val asked: Boolean = false,
+    val ok: Boolean = false,
+    val ms: Int = 0,
+    val rcode: Int = 0,
+    val rname: String = "",
+    val a: List<String> = emptyList(),
+    val aaaa: List<String> = emptyList(),
+    val code: String = "",
+    val reason: String = "",
+    val matches: List<String> = emptyList(),
+)
+
 /**
  * CUSTOM (CUSTOM.md #25): the answer of the core to a check request of kind "dns". [inferred] is what the profile
  * alone says an app gets (hosts, fakeip, real, unknown); [kernel] / [kernelFinal] are what the core's own DNS
@@ -55,6 +102,9 @@ data class DnsCheckReport(
     val respectRules: Boolean = false,
     val aliasTo: String = "",
     val aaaa: String = "",
+    val verdict: DnsCheckVerdict = DnsCheckVerdict(),
+    val policy: DnsCheckPolicy = DnsCheckPolicy(),
+    val core: DnsCheckCore = DnsCheckCore(),
 ) {
     companion object {
         private val json = Json {

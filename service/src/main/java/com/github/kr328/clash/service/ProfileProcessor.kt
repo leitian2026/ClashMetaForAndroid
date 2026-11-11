@@ -10,6 +10,8 @@ import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.Pending
 import com.github.kr328.clash.service.data.PendingDao
 import com.github.kr328.clash.service.model.Profile
+import com.github.kr328.clash.service.custom.ConfigErrorText
+import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.remote.IFetchObserver
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.importedDir
@@ -48,10 +50,16 @@ object ProfileProcessor {
                 Clash.setAgeSecretKey(snapshot.ageSecretKey?.takeIf { it.isNotBlank() })
 
                 val force = snapshot.type != Profile.Type.File
-                val subscriptionInfo = fetchProfile(context, snapshot.source, force, callback)
+                val subscriptionInfo = try {
+                    fetchProfile(context, snapshot.source, force, callback)
+                } catch (e: Exception) {
+                    // CUSTOM (CUSTOM.md #27): say which line of config.yaml the core refused
+                    throw ConfigErrorText.explain(context, context.processingDir, e)
+                }
 
                 profileLock.withLock {
                     if (PendingDao().queryByUUID(snapshot.uuid) == snapshot) {
+                        ConfigHistory.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #28): keep the version being replaced and the new one
                         context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()
                         context.processingDir.copyRecursively(context.importedDir.resolve(snapshot.uuid.toString()))
 

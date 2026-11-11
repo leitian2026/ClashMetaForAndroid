@@ -32,6 +32,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 design.requests.onReceive {
                     when (it) {
                         ConfigCheckDesign.Request.Copy -> design.copyAll()
+                        ConfigCheckDesign.Request.Flush -> flush(design) // CUSTOM.md #26
                         ConfigCheckDesign.Request.Toggle, ConfigCheckDesign.Request.Dns -> {
                             val running = job?.isActive == true
 
@@ -84,6 +85,39 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         design.setRunning(false)
         design.showText(text)
+    }
+
+    // CUSTOM (CUSTOM.md #26): clears the core's DNS cache, or the DNS cache and the fake-ip map. Runs only when
+    // the user picks it in the dialog; the fake-ip map also closes every connection (the core does that).
+    private suspend fun flush(design: ConfigCheckDesign) {
+        if (!clashRunning) {
+            design.showText(getString(R.string.connections_not_running))
+            return
+        }
+
+        val choice = design.askFlush()
+
+        if (choice == 0) return
+
+        val id = if (choice == 2) CustomConnections.FLUSH_FAKEIP else CustomConnections.FLUSH_DNS
+
+        val ok = try {
+            withClash { closeCustomConnection(id) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+
+        design.showText(
+            getString(
+                when {
+                    !ok -> R.string.check_flush_failed
+                    choice == 2 -> R.string.check_flush_done_fakeip
+                    else -> R.string.check_flush_done_dns
+                },
+            ),
+        )
     }
 
     // CUSTOM (CUSTOM.md #25): the DNS check. Same rules as the ECH check: runs only when tapped, nothing in the background.

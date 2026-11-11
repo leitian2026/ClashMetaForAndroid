@@ -4,6 +4,7 @@ package main
 import "C"
 
 import (
+	"cfa/native/config"
 	"cfa/native/conftest"
 	"cfa/native/connlist"
 	"cfa/native/errlog"
@@ -26,6 +27,10 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 		return marshalJson(conftest.RunAny(C.GoString(filter)))
 	}
 
+	if int(sortMode) == config.SortValidate { // CUSTOM.md #27: check a profile folder (the filter), nothing is loaded
+		return marshalJson(config.Validate(C.GoString(filter)))
+	}
+
 	if int(sortMode) == ipdelay.SortNodeInfo { // CUSTOM.md #23 #24: IPv6-only nodes, last test time, last network change
 		return marshalJson(ipdelay.NodeInfo())
 	}
@@ -42,6 +47,24 @@ func closeCustomConnection(id C.c_string) C.int {
 	if C.GoString(id) == errlog.ClearID { // CUSTOM.md #21: forget the recorded errors
 		errlog.Clear()
 		return 1
+	}
+
+	if C.GoString(id) == conftest.FlushDNSID { // CUSTOM.md #26: clear the core's DNS cache
+		if conftest.FlushDNS() {
+			return 1
+		}
+
+		return 0
+	}
+
+	if C.GoString(id) == conftest.FlushFakeIPID { // CUSTOM.md #26: forget the fake-ip map and close every connection
+		if conftest.FlushFakeIP() {
+			connlist.Close(connlist.CloseAll)
+
+			return 1
+		}
+
+		return 0
 	}
 
 	if connlist.Close(C.GoString(id)) {

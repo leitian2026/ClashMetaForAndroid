@@ -31,7 +31,27 @@ fun PreferenceScreen.customBackup() {
     ) {
         clicked { start(ACTION_IMPORT) }
     }
+
+    clickable(
+        title = R.string.history_entry_title,
+        icon = R.drawable.ic_baseline_restore,
+        summary = R.string.history_entry_summary,
+    ) {
+        clicked { start(ACTION_HISTORY) }
+    }
+
+    clickable(
+        title = R.string.diag_entry_title,
+        icon = R.drawable.ic_baseline_save,
+        summary = R.string.diag_entry_summary,
+    ) {
+        clicked { start(ACTION_DIAG) }
+    }
 }
+
+// CUSTOM.md #27 #28 #29: same entries, same activity
+private const val ACTION_HISTORY = "com.github.kr328.clash.custom.action.CONFIG_HISTORY"
+private const val ACTION_DIAG = "com.github.kr328.clash.custom.action.DIAGNOSTIC_EXPORT"
 
 private fun PreferenceScreen.start(action: String) {
     context.startActivity(Intent(action).setClassName(context, BACKUP_ACTIVITY))

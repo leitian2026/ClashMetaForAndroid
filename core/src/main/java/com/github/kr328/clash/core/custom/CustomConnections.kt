@@ -14,6 +14,12 @@ object CustomConnections {
 
     const val SORT_RETEST = 6 // CUSTOM #24: not a list; the filter is "changed" (network changed) or "run" (latency test of every group)
 
+    const val SORT_VALIDATE = 7 // CUSTOM #27: not a list; the filter is a profile folder, the answer says whether its config.yaml parses
+
+    // ids that close() takes to clear the core's DNS cache / its fake-ip map (the latter also closes every connection) (CUSTOM #26)
+    const val FLUSH_DNS = "!flush-dns"
+    const val FLUSH_FAKEIP = "!flush-fakeip"
+
     // id that close() takes to forget the recorded errors (CUSTOM #21)
     const val CLEAR_ERRORS = "!errors"
 

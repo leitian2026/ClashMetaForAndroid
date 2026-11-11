@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="custom_notification_no_ip">No node connection</string>
+    <!-- CUSTOM.md #27 -->
+    <string name="custom_config_error">config.yaml has an error near line %1$d (nothing was saved): %2$s</string>
 </resources>

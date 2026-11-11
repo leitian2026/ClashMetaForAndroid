@@ -204,5 +204,81 @@
     <string name="check_dns_aaaa_ipv6off">IPv6 查询（AAAA）的应答为空：dns.ipv6 为 false</string>
     <string name="check_dns_hosts_off">use-hosts 为 false：DNS 服务器不使用 hosts: 段</string>
     <string name="check_dns_respect_rules">respect-rules 为 true：内核自己的 DNS 查询会走规则，经代理访问的服务器可能与下面的直连测试不一致</string>
-    <string name="check_dns_footer">说明：只读取 dns: 和 hosts: 两段。每个服务器都是直接查的；内核实际会选哪一个（nameserver / fallback、策略、多个里取最快）这里不模拟。DoH 服务器返回的不是 DNS 报文（JSON、网页）时，失败原因里会写它返回了什么。</string>
+    <string name="check_dns_footer">说明：只读取 dns: 和 hosts: 两段。每个服务器都是直接查的；“内核解析器”那一行是内核自己的答案，能看出它实际取了哪个（可能来自内核的 DNS 缓存，想要新的先点“清缓存”）。DoH 服务器返回的不是 DNS 报文（JSON、网页）时，失败原因里会写它返回了什么。</string>
+
+    <!-- CUSTOM.md #26: DNS check verdict, core answer, policy -->
+    <string name="check_dns_why_sep">、</string>
+    <string name="check_dns_why_bogon">返回了不可能属于真实网站的地址（私有、保留或 Teredo 段）</string>
+    <string name="check_dns_why_nx">返回 NXDOMAIN，而别的服务器能解析出地址</string>
+    <string name="check_dns_why_differs">地址和加密 DNS 给出的地址不在同一个网络</string>
+    <string name="check_dns_flag_likely">⚠ 很可能是假答案：%1$s</string>
+    <string name="check_dns_flag_suspect">⚠ 可疑：%1$s</string>
+    <string name="check_dns_v_nxdomain_all">结论：所有能回答的服务器都返回 NXDOMAIN，域名多半就是不存在，不是 DNS 故障。</string>
+    <string name="check_dns_v_suggest">域名可能写错了，是不是想查 %1$s ？</string>
+    <string name="check_dns_v_single_label">这个域名里没有点，像是只写了一部分。</string>
+    <string name="check_dns_v_polluted">结论：有 %1$d 个服务器的答案很可能是假的（DNS 污染 / 劫持）：</string>
+    <string name="check_dns_v_suspect">结论：有 %1$d 个服务器的答案和加密 DNS 对不上。CDN 按地区给出不同地址时也会这样，所以只算怀疑：</string>
+    <string name="check_dns_v_flag_line">%1$s：%2$s</string>
+    <string name="check_dns_v_trusted">加密 DNS（DoH / DoT）给出的地址（链路上改不了，以它们为准）：%1$s</string>
+    <string name="check_dns_v_consistent">结论：各服务器的答案一致，没有发现被污染的迹象。</string>
+    <string name="check_dns_v_single">结论：只有一个服务器给出了地址，没法互相对照。</string>
+    <string name="check_dns_core_none">内核解析器：没有可用的（没有载入配置）。</string>
+    <string name="check_dns_core_failed">内核解析器：解析失败（%1$s）</string>
+    <string name="check_dns_core_nx">内核解析器的答案（%1$d 毫秒）：NXDOMAIN，这个域名不存在</string>
+    <string name="check_dns_core_ok">内核解析器的实际答案（%1$d 毫秒；已按 nameserver / fallback / 策略选择，不含 hosts 和 fake-ip）：\n  A：%2$s；AAAA：%3$s</string>
+    <string name="check_dns_core_match">  和这些服务器的答案一致：%1$s</string>
+    <string name="check_dns_core_nomatch">  和下面任何一个服务器的答案都对不上（可能来自内核的 DNS 缓存，或内核取了别的结果）。</string>
+    <string name="check_dns_policy_none_written">nameserver-policy：没有写</string>
+    <string name="check_dns_policy_hit">nameserver-policy：命中 %1$s，内核用 %2$s 解析这个域名（不用 nameserver）</string>
+    <string name="check_dns_policy_entry">  （写在条目 %1$s 里）</string>
+    <string name="check_dns_policy_miss">nameserver-policy：%1$d 个条目都没有命中这个域名，由 nameserver / fallback 回答</string>
+    <string name="check_dns_policy_unjudged">  下面这些条目这里判断不了，也可能命中：%1$s</string>
+    <string name="check_dns_policy_unjudged_before">  下面这些条目排在前面但这里判断不了，也可能先命中它们：%1$s</string>
+    <!-- CUSTOM.md #26: clear cache -->
+    <string name="check_flush_start">清缓存</string>
+    <string name="check_flush_title">清除什么？</string>
+    <string name="check_flush_dns">只清 DNS 缓存</string>
+    <string name="check_flush_fakeip">清 DNS 缓存和 fake-ip 映射（同时关闭所有连接）</string>
+    <string name="check_flush_done_dns">已清除内核的 DNS 缓存，下一次解析会重新问服务器。</string>
+    <string name="check_flush_done_fakeip">已清除 DNS 缓存和 fake-ip 映射，并关闭了所有连接。还拿着旧假地址的应用会重新解析再连接。</string>
+    <string name="check_flush_failed">清除失败（内核没有载入解析器）。</string>
+    <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
+    <string name="history_entry_title">配置历史与检查</string>
+    <string name="history_entry_summary">把编辑过的订阅配置退回到以前的版本、查看改了什么，或检查配置有没有错</string>
+    <string name="history_menu_title">配置历史与检查</string>
+    <string name="history_no_profile">还没有导入的配置。</string>
+    <string name="history_no_file_profile">只有你自己编辑的配置（不是订阅）才有历史。订阅每次保存都会重新下载。</string>
+    <string name="history_menu_history">历史版本与回滚</string>
+    <string name="history_menu_check">检查配置有没有错</string>
+    <string name="history_pick_profile">哪个配置？</string>
+    <string name="history_none">还没有保存过历史版本。每次保存编辑过的配置时才会记一个版本。</string>
+    <string name="history_pick_version">%1$s 的历史版本</string>
+    <string name="history_version_first">%1$s · %2$d 行 · 最早的记录</string>
+    <string name="history_version_line">%1$s · %2$d 行 · 比前一版 +%3$d −%4$d</string>
+    <string name="history_in_use"> · 正在使用</string>
+    <string name="history_action_diff">和正在使用的版本对比</string>
+    <string name="history_action_restore">恢复这个版本</string>
+    <string name="history_diff_title">恢复 %1$s 会改动</string>
+    <string name="history_diff_head">会删掉正在使用版本的 %1$d 行，增加 %2$d 行：</string>
+    <string name="history_diff_same">这个版本和正在使用的完全一样。</string>
+    <string name="history_diff_more">…… 还有 %1$d 行没有显示</string>
+    <string name="history_restore_confirm">恢复 %1$s 的版本？正在使用的版本会留在历史里，可以再退回去。没有保存的编辑会被丢弃。</string>
+    <string name="history_restoring">正在恢复……</string>
+    <string name="history_restore_done">已恢复并保存。如果这个配置正在使用，内核会重新载入。</string>
+    <string name="history_restore_failed">没有恢复，正在使用的配置保持不变：
+%1$s</string>
+    <string name="history_checking">正在检查……</string>
+    <string name="history_check_ok">没有发现错误，内核能解析这份配置。</string>
+    <string name="history_check_pending">
+
+（检查的是你还没保存的编辑。）</string>
+    <string name="history_check_bad">内核不接受这份配置：
+%1$s</string>
+    <string name="diag_entry_title">导出诊断包</string>
+    <string name="diag_entry_summary">一个 zip：配置（已隐藏密钥）、最近的错误、节点连接、崩溃记录和一次 DNS 检查</string>
+    <string name="diag_confirm_title">导出诊断包</string>
+    <string name="diag_confirm">压缩包里有：当前配置（密码、id、密钥已替换为 ***）、最近的错误和连接失败、节点连接概况、崩溃记录，以及对“配置检查”页上最后填的域名做的一次 DNS 检查。里面仍然有节点服务器地址和最近连接失败的域名，发给别人之前请自己看一遍。</string>
+    <string name="diag_working">正在收集……</string>
+    <string name="diag_done_title">诊断包已保存</string>
+    <string name="diag_done">写入了 %1$d 个文件。发给别人之前请自己看一遍。</string>
 </resources>

@@ -78,6 +78,11 @@ type DNSReport struct {
 	RespectRules bool   `json:"respectRules"` // dns.respect-rules
 	AliasTo      string `json:"aliasTo"`      // a hosts entry points the domain at this other domain, which is what the rest looks at
 	AAAA         string `json:"aaaa"`         // what the core answers an AAAA question: fake6, nopool6, ipv6off or "" (real / hosts)
+
+	// CUSTOM.md #26
+	Verdict DNSVerdict  `json:"verdict"` // the answers of all servers read together
+	Policy  PolicyMatch `json:"policy"`  // the nameserver-policy entry that covers the domain
+	Core    CoreAnswer  `json:"core"`    // what the core's own resolver answers
 }
 
 // RunAny runs the check the request asks for: the DNS check for kind "dns", the ECH check otherwise.
@@ -159,6 +164,15 @@ func RunDNS(domain string) DNSReport {
 	}
 
 	rep.FilterHit, rep.FilterUnk = filterMatch(cfg.Filter, target)
+
+	// CUSTOM.md #26: which nameserver-policy entry covers the name the servers are asked about
+	var policies []policyEntry
+
+	for _, e := range ipdelay.PolicyEntries() {
+		policies = append(policies, policyEntry{Key: e.Key, Servers: e.Servers})
+	}
+
+	rep.Policy = matchPolicy(policies, target)
 	rep.Final = inferFinal(cfg, hostsKey, rep.FilterHit, rep.FilterUnk)
 
 	switch {
@@ -220,6 +234,15 @@ func RunDNS(domain string) DNSReport {
 		}(i, entries[addr])
 	}
 
+	// CUSTOM.md #26: what the core's own resolver answers (the controller's /dns/query)
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		rep.Core = askCore(context.Background(), target)
+	}()
+
 	// the core's own DNS server: what an app really gets (hosts, fake-ip and all)
 	if port := listenPort(cfg.Listen); port != "" {
 		wg.Add(1)
@@ -250,6 +273,10 @@ func RunDNS(domain string) DNSReport {
 	wg.Wait()
 
 	rep.Servers = append(rep.Servers, results...)
+
+	// CUSTOM.md #26
+	rep.Verdict = analyzeVerdict(results, target)
+	rep.Core.Matches = coreMatches(rep.Core, results)
 
 	return rep
 }

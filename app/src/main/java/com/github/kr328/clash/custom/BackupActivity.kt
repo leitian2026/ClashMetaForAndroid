@@ -27,6 +27,8 @@ class BackupActivity : BaseActivity<BackupDesign>() {
             when (intent?.action) {
                 ACTION_EXPORT -> exportBackup(design)
                 ACTION_IMPORT -> importBackup(design)
+                ACTION_HISTORY -> ConfigTools.run(this, design) // CUSTOM.md #27 #28
+                ACTION_DIAG -> exportDiagnostics(design) // CUSTOM.md #29
             }
         } catch (e: CancellationException) {
             throw e
@@ -54,6 +56,32 @@ class BackupActivity : BaseActivity<BackupDesign>() {
         design.message(
             getString(DesignR.string.backup_export_done_title),
             getString(DesignR.string.backup_export_done, count),
+        )
+    }
+
+    // CUSTOM (CUSTOM.md #29): the diagnostic bundle. Asks first, because the bundle holds node addresses and the
+    // domains of recent failed connections; the zip is written where the user picks.
+    private suspend fun exportDiagnostics(design: BackupDesign) {
+        val ok = design.confirm(
+            getString(DesignR.string.diag_confirm_title),
+            getString(DesignR.string.diag_confirm),
+        )
+
+        if (!ok) return
+
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
+        val uri = startActivityForResult(
+            ActivityResultContracts.CreateDocument("application/zip"),
+            "ClashMeta-diagnostic-$stamp.zip",
+        ) ?: return
+
+        design.setStatus(getString(DesignR.string.diag_working))
+
+        val count = DiagnosticBundle.export(this, uri, clashRunning)
+
+        design.message(
+            getString(DesignR.string.diag_done_title),
+            getString(DesignR.string.diag_done, count),
         )
     }
 
@@ -107,5 +135,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
     companion object {
         const val ACTION_EXPORT = "com.github.kr328.clash.custom.action.BACKUP_EXPORT"
         const val ACTION_IMPORT = "com.github.kr328.clash.custom.action.BACKUP_IMPORT"
+        const val ACTION_HISTORY = "com.github.kr328.clash.custom.action.CONFIG_HISTORY"
+        const val ACTION_DIAG = "com.github.kr328.clash.custom.action.DIAGNOSTIC_EXPORT"
     }
 }

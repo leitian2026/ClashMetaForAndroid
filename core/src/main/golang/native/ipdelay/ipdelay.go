@@ -176,6 +176,7 @@ var dohServers []string // DoH addresses written in the profile's `dns:` section
 func CaptureDNS(rawDNS any) {
 	var found []string
 	var parsed any
+	var policy []PolicyEntry // CUSTOM.md #26
 
 	if data, err := json.Marshal(rawDNS); err == nil {
 		var tree any
@@ -183,8 +184,11 @@ func CaptureDNS(rawDNS any) {
 		if json.Unmarshal(data, &tree) == nil {
 			collectHTTPS(tree, &found)
 			parsed = tree // CUSTOM.md #25: the DNS check reads the whole section
+			policy = parsePolicy(data)
 		}
 	}
+
+	setPolicy(policy) // CUSTOM.md #26: nameserver-policy with its order
 
 	lock.Lock()
 	dohServers = found
