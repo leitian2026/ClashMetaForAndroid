@@ -45,6 +45,10 @@ type Node struct {
 	Kids  []*Node  // Map: the values, aligned with Keys; Seq: the items
 	Value string   // Scalar
 	Tag   string   // Scalar: "str", "int", "float", "bool" or "null"
+
+	// Anchored: the user wrote an anchor (&name) on this value. A key that the core drops and that carries an anchor is
+	// only there to be pointed at (`<<: *name`), so it is not a difference.
+	Anchored bool
 }
 
 // Stage is the whole config after one step. Label is who did the step ("" for the config the user wrote).
@@ -62,6 +66,9 @@ type Line struct {
 	Old string `json:"o,omitempty"`
 	St  int    `json:"s,omitempty"`
 	Src string `json:"r,omitempty"`
+
+	// Anchor: this line is an anchor definition the core ignores; it is written as one line, its content is not shown
+	Anchor bool `json:"a,omitempty"`
 }
 
 // Report is the answer of Diff.
@@ -91,6 +98,7 @@ func Diff(stages []Stage) Report {
 	d.walkMap(nil, user, final, 0)
 
 	d.report.Lines = d.lines
+	d.recount()
 
 	if d.report.Lines == nil {
 		d.report.Lines = []Line{}
@@ -131,8 +139,14 @@ func (d *differ) walkMap(path []string, u, f *Node, ind int) {
 
 		j, ok := fIndex[key]
 		if !ok {
-			d.removedRoot()
-			d.emitEntry(key, uc, ind, "", ind+2, Removed, d.source(append(path, key)))
+			if uc.Anchored {
+				// only there to be pointed at; what it holds is already in the places that point at it
+				d.add(Line{Ind: ind, Pre: key + ":", Anchor: true})
+
+				continue
+			}
+
+			d.emitEntry(key, uc, ind, "", ind+2, Removed, d.source(append(path, key)), nil, nil)
 
 			continue
 		}
@@ -151,11 +165,32 @@ func (d *differ) walkMap(path []string, u, f *Node, ind int) {
 			continue // "nothing" the core filled in says nothing
 		}
 
-		src := d.source(append(path, key))
+		// who brought it in: the first step after which it is there. What a later step did to a value inside it is
+		// marked on that value (a default of the core that the app then turned off is still the core's default).
+		p := append(path, key)
+		at := d.introStage(p)
 
-		d.addedRoot(src)
-		d.emitEntry(key, fc, ind, "", ind+2, Added, src)
+		d.emitEntry(key, fc, ind, "", ind+2, Added, d.stageLabel(at), lookup(d.stages[at].Tree, p), p)
 	}
+}
+
+// introStage is the first step after which the value at path is there (and not empty).
+func (d *differ) introStage(path []string) int {
+	for i := 1; i < len(d.stages); i++ {
+		if n := lookup(d.stages[i].Tree, path); n != nil && !isEmpty(n) {
+			return i
+		}
+	}
+
+	return len(d.stages) - 1
+}
+
+func (d *differ) stageLabel(i int) string {
+	if l := d.stages[i].Label; l != "" {
+		return l
+	}
+
+	return SrcKernel
 }
 
 func indexKeys(n *Node) map[string]int {
@@ -174,7 +209,7 @@ func (d *differ) walkEntry(path []string, key string, u, f *Node, ind int) {
 
 	switch {
 	case isEmpty(u) && isEmpty(f):
-		d.emitEntry(key, u, ind, "", ind+2, Same, "")
+		d.emitEntry(key, u, ind, "", ind+2, Same, "", nil, nil)
 	case u.Kind == Scalar && f.Kind == Scalar:
 		if scalarEqual(u, f) {
 			d.add(Line{Ind: ind, Pre: pre + " ", Val: scalarText(u)})
@@ -182,7 +217,6 @@ func (d *differ) walkEntry(path []string, key string, u, f *Node, ind int) {
 			return
 		}
 
-		d.report.Changed++
 		d.add(Line{Ind: ind, Pre: pre + " ", Val: scalarText(f), Old: scalarText(u), St: Changed, Src: d.source(path)})
 	case u.Kind == Map && f.Kind == Map:
 		d.add(Line{Ind: ind, Pre: pre})
@@ -194,10 +228,8 @@ func (d *differ) walkEntry(path []string, key string, u, f *Node, ind int) {
 		// not the same kind of value any more: the old one goes out, the new one comes in
 		src := d.source(path)
 
-		d.removedRoot()
-		d.emitEntry(key, u, ind, "", ind+2, Removed, src)
-		d.addedRoot(src)
-		d.emitEntry(key, f, ind, "", ind+2, Added, src)
+		d.emitEntry(key, u, ind, "", ind+2, Removed, src, nil, nil)
+		d.emitEntry(key, f, ind, "", ind+2, Added, src, nil, nil)
 	}
 }
 
@@ -226,38 +258,73 @@ func (d *differ) walkSeq(path []string, u, f *Node, ind int) {
 				src = d.source(path)
 			}
 
-			d.removedRoot()
 			d.emitItem(u.Kids[op.ai], ind, Removed, src)
 		case opAdd:
 			if src == "" {
 				src = d.source(path)
 			}
 
-			d.addedRoot(src)
 			d.emitItem(f.Kids[op.bi], ind, Added, src)
 		}
 	}
 }
 
-func (d *differ) removedRoot() { d.report.Removed++ }
+// recount counts what the page says in its summary, from the lines: a replaced value, the root of a block that was
+// dropped, the root of a block that was added (a block is rooted where the line above it, one level up, is not part
+// of the same block).
+func (d *differ) recount() {
+	var stack []int
 
-func (d *differ) addedRoot(src string) {
-	d.report.Added++
+	for i := range d.lines {
+		l := d.lines[i]
 
-	if src == SrcKernel {
-		d.report.AddedKernel++
+		for len(stack) > 0 && d.lines[stack[len(stack)-1]].Ind >= l.Ind {
+			stack = stack[:len(stack)-1]
+		}
+
+		var p *Line
+
+		if len(stack) > 0 {
+			p = &d.lines[stack[len(stack)-1]]
+		}
+
+		stack = append(stack, i)
+
+		switch l.St {
+		case Changed:
+			d.report.Changed++
+		case Removed:
+			if p == nil || p.St != Removed {
+				d.report.Removed++
+			}
+		case Added:
+			if p == nil || p.St != Added || p.Src != l.Src {
+				d.report.Added++
+
+				if l.Src == SrcKernel {
+					d.report.AddedKernel++
+				}
+			}
+		}
 	}
 }
 
 // ---- writing a value out -------------------------------------------------------------------------
 
 // emitEntry writes "key: value" (a block for a map or a list). lead is "- " when the entry is the first one of a
-// list item; childInd is the indent of what is nested under it.
-func (d *differ) emitEntry(key string, n *Node, ind int, lead string, childInd int, st int, src string) {
+// list item; childInd is the indent of what is nested under it. For a block that was added, base is how the step that
+// brought it in left it and path is where it is: a value that a later step changed is written as replaced.
+func (d *differ) emitEntry(key string, n *Node, ind int, lead string, childInd int, st int, src string, base *Node, path []string) {
 	pre := lead + key + ":"
 
 	switch {
 	case n.Kind == Scalar:
+		if st == Added && base != nil && base.Kind == Scalar && !scalarEqual(base, n) {
+			d.add(Line{Ind: ind, Pre: pre + " ", Val: scalarText(n), Old: scalarText(base), St: Changed, Src: d.source(path)})
+
+			return
+		}
+
 		d.add(Line{Ind: ind, Pre: pre + " ", Val: scalarText(n), St: st, Src: src})
 	case isEmpty(n):
 		d.add(Line{Ind: ind, Pre: pre + " ", Val: emptyText(n), St: st, Src: src})
@@ -265,13 +332,34 @@ func (d *differ) emitEntry(key string, n *Node, ind int, lead string, childInd i
 		d.add(Line{Ind: ind, Pre: pre, St: st, Src: src})
 
 		for i, k := range n.Keys {
-			d.emitEntry(k, n.Kids[i], childInd, "", childInd+2, st, src)
+			var cb *Node
+
+			csrc := src
+			cp := path
+
+			if st == Added && base != nil && base.Kind == Map {
+				cp = append(path, k)
+
+				if x := lookup(base, []string{k}); x != nil {
+					cb = x
+				} else {
+					csrc = d.source(cp) // not there when the block came in: a later step added it
+				}
+			}
+
+			d.emitEntry(k, n.Kids[i], childInd, "", childInd+2, st, csrc, cb, cp)
 		}
 	default:
 		d.add(Line{Ind: ind, Pre: pre, St: st, Src: src})
 
+		isrc := src
+
+		if st == Added && base != nil && base.Kind == Seq && canon(base) != canon(n) {
+			isrc = d.source(path) // a later step changed the list
+		}
+
 		for _, it := range n.Kids {
-			d.emitItem(it, childInd, st, src)
+			d.emitItem(it, childInd, st, isrc)
 		}
 	}
 }
@@ -286,9 +374,9 @@ func (d *differ) emitItem(n *Node, ind int, st int, src string) {
 	case n.Kind == Map:
 		for i, k := range n.Keys {
 			if i == 0 {
-				d.emitEntry(k, n.Kids[i], ind, "- ", ind+4, st, src)
+				d.emitEntry(k, n.Kids[i], ind, "- ", ind+4, st, src, nil, nil)
 			} else {
-				d.emitEntry(k, n.Kids[i], ind+2, "", ind+4, st, src)
+				d.emitEntry(k, n.Kids[i], ind+2, "", ind+4, st, src, nil, nil)
 			}
 		}
 	default:

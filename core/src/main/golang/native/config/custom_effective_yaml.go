@@ -37,8 +37,21 @@ func resolveAlias(n *yamlv3.Node) *yamlv3.Node {
 }
 
 func convertTree(n *yamlv3.Node, depth int) *effcfg.Node {
+	// a value that carries an anchor (&name) where the user wrote it, not one that is only a reference (*name)
+	isRef := n != nil && n.Kind == yamlv3.AliasNode
+
 	n = resolveAlias(n)
 
+	out := convertNode(n, depth)
+
+	if !isRef && n != nil && n.Anchor != "" {
+		out.Anchored = true
+	}
+
+	return out
+}
+
+func convertNode(n *yamlv3.Node, depth int) *effcfg.Node {
 	if n == nil || depth > maxYamlDepth {
 		return nullTree()
 	}

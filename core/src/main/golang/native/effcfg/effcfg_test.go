@@ -111,8 +111,8 @@ func TestDiffMarksEveryKind(t *testing.T) {
      port: 1
 -  - type: tun  <app>
 -    name: t  <app>
-+profile:  <app>
-+  store-fake-ip: true  <app>
++profile:  <kernel>
+~  store-fake-ip: [false] true  <app>
 +ntp:  <kernel>
 +  enable: false  <kernel>
 `
@@ -124,8 +124,9 @@ func TestDiffMarksEveryKind(t *testing.T) {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 
-	if r.Changed != 2 || r.Removed != 2 || r.Added != 4 || r.AddedKernel != 2 {
-		// changed: external-controller, tun.enable; removed: foo, listener; added: mtu, "system://", profile, ntp
+	if r.Changed != 3 || r.Removed != 2 || r.Added != 4 || r.AddedKernel != 3 {
+		// changed: external-controller, tun.enable, profile.store-fake-ip; removed: foo, listener;
+		// added: mtu (core), "system://" (app), profile (core), ntp (core)
 		t.Fatalf("counts %+v", r)
 	}
 }
@@ -233,5 +234,63 @@ func TestEmptyConfigs(t *testing.T) {
 
 	if len(Diff(nil).Lines) != 0 {
 		t.Fatal("nil stages")
+	}
+}
+
+func TestKernelDefaultBlockTheAppTweaked(t *testing.T) {
+	user := m("port", num("1"))
+	kernel := m("port", num("1"), "tun", m("enable", boo("false"), "auto-route", boo("true"), "mtu", num("0"), "dns", m("a", num("1"))))
+	app := m("port", num("1"), "tun", m("enable", boo("false"), "auto-route", boo("false"), "mtu", num("0"), "extra", num("5"), "dns", m("a", num("1"))))
+
+	r := Diff([]Stage{{"", user}, {SrcKernel, kernel}, {SrcApp, app}})
+
+	want := ` port: 1
++tun:  <kernel>
++  enable: false  <kernel>
+~  auto-route: [true] false  <app>
++  mtu: 0  <kernel>
++  extra: 5  <app>
++  dns:  <kernel>
++    a: 1  <kernel>
+`
+
+	if normalize(render(r)) != normalize(want) {
+		t.Fatalf("got:\n%s", render(r))
+	}
+
+	// the block is the core's: one block added by the core; the app's two touches are a replaced value and an added one
+	if r.Changed != 1 || r.Added != 2 || r.AddedKernel != 1 || r.Removed != 0 {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestAnchorDefinitionIsNotADifference(t *testing.T) {
+	defs := m("type", str("vless"), "port", num("443"))
+	defs.Anchored = true
+
+	user := m("proxy-defaults", defs, "port", num("1"))
+	final := m("port", num("1"))
+
+	r := Diff([]Stage{{"", user}, {SrcKernel, final}})
+
+	if r.Removed != 0 || r.Added != 0 || r.Changed != 0 || len(r.Lines) != 2 || !r.Lines[0].Anchor || r.Lines[0].Pre != "proxy-defaults:" || r.Lines[0].St != Same {
+		t.Fatalf("%+v\n%s", r, render(r))
+	}
+}
+
+func TestOverrideOfACoreDefault(t *testing.T) {
+	// the override changes a value the core had filled in: shown as replaced, by the override settings
+	user := m("port", num("1"))
+	kernel := m("port", num("1"), "log-level", str("info"))
+	override := m("port", num("1"), "log-level", str("debug"))
+
+	r := Diff([]Stage{{"", user}, {SrcKernel, kernel}, {SrcOverride, override}})
+
+	if len(r.Lines) != 2 || r.Lines[1].St != Changed || r.Lines[1].Old != "info" || r.Lines[1].Val != "debug" || r.Lines[1].Src != SrcOverride {
+		t.Fatalf("%s", render(r))
+	}
+
+	if r.Added != 0 || r.Changed != 1 {
+		t.Fatalf("%+v", r)
 	}
 }

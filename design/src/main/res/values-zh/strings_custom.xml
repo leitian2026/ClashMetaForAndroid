@@ -123,9 +123,9 @@
     <string name="errors_code_other">其他错误</string>
     <string name="errors_code_echrejected">服务器拒绝了这份 ECH 配置，配置可能已过期或与服务器不匹配</string>
     <string name="check_title">配置检查</string>
-    <string name="check_hint">点“开始测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。“检查 DNS”会用同一个域名，逐个查配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
+    <string name="check_hint">点“ECH测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。“检查 DNS”会用同一个域名，逐个查配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
     <string name="check_domain_hint">被封域名，例如 xxx.workers.dev</string>
-    <string name="check_start">开始测试</string>
+    <string name="check_start">ECH测试</string>
     <string name="check_cancel">取消</string>
     <string name="check_running">测试中…每个节点最多等几秒</string>
     <string name="check_cancelled">已取消</string>
@@ -295,6 +295,7 @@
     <string name="eff_no_diff">没有任何差异，内核跑的就是你写的。</string>
     <string name="eff_fold">… 共 %1$d 行没变（点击展开）</string>
     <string name="eff_note">显示的是正在使用、已保存的配置，按块写法重新排版，注释不保留；只比对载入时内核和 App 做的那几步。</string>
+    <string name="eff_anchor">（锚点定义，内核不认识，只靠引用生效，不算差异）</string>
     <string name="eff_tag_override">（覆写设置）</string>
     <string name="eff_tag_app">（App 补丁）</string>
     <string name="eff_tag_kernel_ignored">（内核不认识，已忽略）</string>

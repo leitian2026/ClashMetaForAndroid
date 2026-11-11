@@ -123,9 +123,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_code_other">Other error</string>
     <string name="errors_code_echrejected">The server refused this ECH config; it may be out of date or not match the server</string>
     <string name="check_title">Config check</string>
-    <string name="check_hint">Tap Start to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through. “Check DNS” asks every DNS server of the profile about the same domain (only dns: and hosts: are read).</string>
+    <string name="check_hint">Tap ECH test to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through. “Check DNS” asks every DNS server of the profile about the same domain (only dns: and hosts: are read).</string>
     <string name="check_domain_hint">Blocked domain, e.g. xxx.workers.dev</string>
-    <string name="check_start">Start</string>
+    <string name="check_start">ECH test</string>
     <string name="check_cancel">Cancel</string>
     <string name="check_running">Testing… each node waits a few seconds at most</string>
     <string name="check_cancelled">Cancelled</string>
@@ -295,6 +295,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="eff_no_diff">No difference: the core runs what you wrote.</string>
     <string name="eff_fold">… %1$d lines unchanged (tap to open)</string>
     <string name="eff_note">This is the saved config in use, laid out again in block style (comments are not kept); only the steps the core and the app do on loading are compared.</string>
+    <string name="eff_anchor">(anchor definition: unknown to the core, only used through references, not a difference)</string>
     <string name="eff_tag_override">(override settings)</string>
     <string name="eff_tag_app">(app patch)</string>
     <string name="eff_tag_kernel_ignored">(unknown to the core, ignored)</string>

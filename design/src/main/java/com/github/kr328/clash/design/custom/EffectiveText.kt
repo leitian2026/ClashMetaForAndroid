@@ -48,8 +48,47 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
         return l.status == EffectiveLine.ADDED && l.source == EffectiveLine.SRC_KERNEL
     }
 
+    // who is under whom: the nearest line before this one that is indented less (-1: nobody)
+    private fun parentsOf(lines: List<EffectiveLine>): IntArray {
+        val parent = IntArray(lines.size) { -1 }
+        val stack = ArrayList<Int>()
+
+        for (i in lines.indices) {
+            while (stack.isNotEmpty() && lines[stack[stack.size - 1]].indent >= lines[i].indent) {
+                stack.removeAt(stack.size - 1)
+            }
+
+            parent[i] = if (stack.isEmpty()) -1 else stack[stack.size - 1]
+            stack.add(i)
+        }
+
+        return parent
+    }
+
+    // The core's defaults are hidden, except a block that holds something a later step changed (a default of the
+    // core that the app turned off): that value stays, and so do the lines it sits under.
     private fun visible(): List<EffectiveLine> {
-        return if (showKernel) config.lines else config.lines.filter { !hiddenByDefault(it) }
+        val lines = config.lines
+
+        if (showKernel) return lines
+
+        val parent = parentsOf(lines)
+        val show = BooleanArray(lines.size)
+
+        for (i in lines.indices) {
+            if (hiddenByDefault(lines[i])) continue
+
+            show[i] = true
+
+            var p = parent[i]
+
+            while (p >= 0 && !show[p]) {
+                show[p] = true
+                p = parent[p]
+            }
+        }
+
+        return lines.filterIndexed { i, _ -> show[i] }
     }
 
     private fun marker(l: EffectiveLine): String {
@@ -82,6 +121,12 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
         for (l in visible()) {
             sb.append(marker(l)).append(" ".repeat(l.indent)).append(l.pre)
 
+            if (l.anchor) {
+                sb.append("  ").append(context.getString(R.string.eff_anchor)).append('\n')
+
+                continue
+            }
+
             if (l.status == EffectiveLine.CHANGED) {
                 sb.append(l.old).append(" -> ")
             }
@@ -103,18 +148,7 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
 
         header(sb, onChange)
 
-        // who is under whom: the nearest line before this one that is indented less
-        val parent = IntArray(lines.size) { -1 }
-        val stack = ArrayList<Int>()
-
-        for (i in lines.indices) {
-            while (stack.isNotEmpty() && lines[stack[stack.size - 1]].indent >= lines[i].indent) {
-                stack.removeAt(stack.size - 1)
-            }
-
-            parent[i] = if (stack.isEmpty()) -1 else stack[stack.size - 1]
-            stack.add(i)
-        }
+        val parent = parentsOf(lines)
 
         // what stays visible: the changed lines, what they sit under, and one line on each side
         val keep = BooleanArray(lines.size)
@@ -233,6 +267,16 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
         val start = sb.length
 
         sb.append(marker(l)).append(" ".repeat(l.indent)).append(l.pre)
+
+        if (l.anchor) {
+            // an anchor definition the core ignores: one muted line, what it holds is used where it is pointed at
+            val noteAt = sb.length
+
+            sb.append("  ").append(context.getString(R.string.eff_anchor)).append('\n')
+            sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+            return
+        }
 
         when (l.status) {
             EffectiveLine.CHANGED -> {

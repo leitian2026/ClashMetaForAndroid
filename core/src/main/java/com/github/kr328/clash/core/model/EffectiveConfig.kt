@@ -17,6 +17,7 @@ data class EffectiveLine(
     @SerialName("o") val old: String = "",
     @SerialName("s") val status: Int = 0,
     @SerialName("r") val source: String = "",
+    @SerialName("a") val anchor: Boolean = false, // an anchor definition (&name) the core ignores: one line, not a difference
 ) {
     companion object {
         const val SAME = 0
