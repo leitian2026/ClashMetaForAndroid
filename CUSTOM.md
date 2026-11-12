@@ -23,7 +23,7 @@
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）和 `.custom.ConfigCheckActivity`（#22）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）和 `.custom.ConfigCheckActivity`（#22）的 `<activity>` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -265,6 +265,8 @@
 **依赖的上游接口：** `IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`；`pendingDir` / `importedDir`；`ServiceStore` 的各个属性（上游新增设置项时可在 `BackupManager.serviceToJson` / `restoreSettings` 里加）；`override.json` 在 `filesDir/clash` 下（内核的 `OverrideSlotPersist` 路径）。
 
 **r34：四个入口的图标各不相同。** 原来导出备份和导出诊断包都是保存图标，导入备份和配置历史都是还原图标。现在：导出备份 = 保存（`ic_baseline_save`），导入备份 = 下载（`ic_baseline_get_app`），配置历史 = 还原（`ic_baseline_restore`），导出诊断包 = 信息（`ic_baseline_info`）。只换图标，`BackupPreference.kt` 里四个 `icon =`。
+
+**r37：补上了丢失的透明主题。** `AndroidManifest.xml` 里 `BackupActivity` 的 `<activity>` 没有 `android:theme`，所以上面"不闪屏"那条实际没生效：本页是不透明的，所有对话框（本地导出 / 导入、坚果云设置、云端备份 / 恢复）后面是黑底。现在加上 `android:theme="@style/BackupTranslucentTheme"`，对话框盖在首页（或设置页）上。
 
 **r35：导出备份 / 导入备份的入口搬到了首页右上角菜单**（见 #32）。"设置 → 应用"的"备份与恢复"里只剩"配置历史"和"导出诊断包"；`BackupPreference.kt` 删了导出 / 导入两项，逻辑（`BackupActivity` 的 `ACTION_EXPORT` / `ACTION_IMPORT`）没动。
 
