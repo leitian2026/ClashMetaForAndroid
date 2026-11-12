@@ -2,11 +2,10 @@ package com.github.kr328.clash.service.custom
 
 import android.content.Context
 import com.github.kr328.clash.core.Clash
-import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.service.R
 
 // CUSTOM (CUSTOM.md #7): text of the status-bar notification (replaces the upload/download speed):
-// "<flag> <ip> · <node>". It is rebuilt only after NodeIpNotifier marked it stale (the core told us
+// "<flag> <ip> [· <flag> <ip> ...] · <node>" (every address in use, CUSTOM.md #7). It is rebuilt only after NodeIpNotifier marked it stale (the core told us
 // the node IP changed), otherwise the cached text is returned.
 object NodeIpText {
     @Volatile
@@ -34,10 +33,10 @@ object NodeIpText {
             return context.getString(R.string.custom_notification_no_ip)
         }
 
-        if (state.currentIp.isEmpty()) return context.getString(R.string.custom_notification_no_ip)
+        val ips = state.ipsText { context.getString(R.string.custom_ips_more, it) }
 
-        val flag = CountryFlag.of(state.currentCountry).ifEmpty { "？" }
+        if (ips.isEmpty()) return context.getString(R.string.custom_notification_no_ip)
 
-        return "$flag ${state.currentIp} · ${state.currentNode}"
+        return "$ips · ${state.currentNode}"
     }
 }

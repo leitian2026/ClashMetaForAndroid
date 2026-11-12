@@ -9,12 +9,12 @@
 |---|---|---|---|
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
-| `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的三个 current 字段 |
+| `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`） |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
-| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加三个 `current*` 参数 |
+| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()` |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`） |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22） |
@@ -115,7 +115,7 @@
 
 **依赖的上游约定（上游改动后先查这些）：** geo 文件目录为 `filesDir/clash`（与 app 模块 `Context.clashDir` 一致，这里直接写成 `context.filesDir.resolve("clash")`）；`PreferenceScreen`/`addElement`/`Preference` 这套设置页接口。
 
-## 7. 当前节点 IP + 国旗（首页代理卡片、状态栏通知）
+## 7. 当前节点 IP + 国旗（首页代理卡片、状态栏通知；r32 起显示一次访问实际用到的所有 IP）
 **效果：**
 - 首页"代理"卡片改为**常显**（停止时也显示），副标题在原来的模式后面加 ` · 🇺🇸 45.139.193.125`（正在承载流量的节点所用 IP 和出口国旗）。没有连接 / 未运行时只显示模式。国旗查不到显示"？"。没有单独的 IP 卡片，也没有点击刷新。
 - 状态栏通知正文由"上传/下载速度"改为 `🇺🇸 IP · 节点名`（没有连接时显示"暂无节点连接"）；副标题（累计流量）保持上游原样。
@@ -127,6 +127,15 @@
 - **订阅点：** 服务进程里 `NodeIpNotifier.start()` 只订阅一次（幂等），由 `DynamicNotificationModule.run()` 和 `ClashManager.queryTunnelState()` 触发。
 - **功耗：** 没有新增 ticker / 定时器 / 轮询（只有 IP 变化时才排一个 0.8 秒的一次性延时）；通知里不再每秒查速度（少了一次 JNI），文本只在 IP 变化后重建；息屏时通知不重建，亮屏后第一次更新才用新文本；hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次读取时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
 
+- **r32：显示的是"请求实际走过的 IP"，可以是几个。** 旧做法（上面"IP 怎么定的"）记的是内核**拨号**的 IP：多路复用时新请求直接放在已经开着的连接上，不会拨号，首页就不变；`tcp-concurrent` 并发拨号时输掉的那几个 IP 也被记进去。新做法：内核的 xhttp 客户端给每个请求（新连接和复用的连接一样）都有一次 `GotConn` 回调，里面能拿到**这个请求实际用的那条连接的对端地址**；补丁 `patches/mihomo/0002-request-remote.patch` 在三个 `GotConn` 里加一行，把它报给应用（`dialer.NoteUse` → `dialer.SetUseHook`）。应用（`ipdelay/inuse.go`）按节点记下"每个 IP 最近一次被请求用到的时刻"，**显示的是最近一个请求之前 1.5 秒内（`useWindow`）所有请求用到的 IP，去重，最近用的排前面，最多 3 个，再多写"等 N 个"**（例：`规则模式 · 🇺🇸 104.17.146.59 · 🇺🇸 172.64.79.23`）。窗口以最近一次请求的时刻为准，不是以"现在"为准：没有新请求时一直保持上一批，不会清空；下一个请求出现才重新算。一个网站的请求陆续用了两个 IP 就显示两个；一直在连续请求时只显示最近 1.5 秒里的。
+  - **通知栏**用同一份文本：`🇺🇸 IP · 🇺🇸 IP · 节点名`（TunnelState.ipsText）。
+  - **更新时机：** 只有"这一批 IP（排序后的集合）"和上次不同才排一个 0.8 秒的一次性通知（和原来合并拨号用的是同一个 `scheduleNotify`），两个 IP 轮流做"最近一个"不算变化；国家探测完成时照旧通知。没有新增定时器 / 后台任务；钩子在请求本来就要做的 `GotConn` 里被调用，没人监听时只是一次原子读取，有人监听时一次带锁的小 map 更新。我们自己的测速 / 国家探测（`selfDialing`）不计入。
+  - **非 xhttp 的节点**（一个请求一条连接）没有这个回调，仍然用拨号记录（`record`）：没有任何请求记录时退回"最近拨的 IP"，和 r31 之前一样。
+  - **IP 切换历史（#10）**：一个 IP 第一次进入这一批、或节点换了，才记一条；两个 IP 轮流做最近一个不会每次都记。
+  - **连接页每条连接的"节点 IP"（#8）**（`ipdelay.Lookup`）也优先取"请求最近走过的 IP"，没有记录才退回拨号记录。注意：它仍然是节点级的一个 IP，不是每条连接各自的（内核没有给连接记下它走的哪条底层连接）。
+  - **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。`transport/xhttp/reuse.go`（`ReuseManager.GetTransport` 给每个新请求挑一个已有的传输或新建；这里每个传输是一条 h2 连接）、`transport/xhttp/client.go`（`DialStreamOne` / `DialStreamUp` / `DialPacketUp` 里已有的 `httptrace.ClientTrace.GotConn`，`httputils.NewAddrContext` 也是靠它记 `conn.NetAddr`，所以复用的连接上 `GotConn` 也会触发）、`adapter/outbound/vless.go`（`xhttp.NewClient` 之后设 `OnRemote`）。补丁只加一个字段 `Client.OnRemote`、三处调用、一处赋值和新文件 `component/dialer/usehook.go`。内核升级后这几处要重新对照。
+  - **局限：** ① 这里没有 Go / Kotlin 编译环境，补丁用 `patch --dry-run` 在内核源码上按顺序（0001、0002）试打通过，Go / Kotlin 部分没有编译过，要靠 Actions 构建验证；② `stream-up` / `packet-up` 模式里单独的下载请求（GET）没有挂钩，只有主请求；你用的 `stream-one` 不受影响；③ `GotConn` 可能对一个请求回调多次，集合去重所以没有影响；④ 1.5 秒是按"一次访问"估的，间隔取小了一个网站的请求会被拆成几批，取大了连着打开两个网站会并成一批，要调改 `useWindow`。
+
 **新增文件**
 - `design/src/main/java/com/github/kr328/clash/design/custom/MainCustomCards.kt`：红字提示的显示控制，以及生成代理卡片副标题后缀。
 - `app/src/main/java/com/github/kr328/clash/custom/MainCustomRefresh.kt`：`MainDesign.refreshCustom()`。
@@ -136,6 +145,8 @@
 - `core/src/main/java/com/github/kr328/clash/core/custom/NodeIpWatcher.kt`：自己的 JNI 入口 `CustomBridge` + 订阅封装（不改上游 `Bridge.kt`）。
 - `core/src/main/cpp/custom_bridge.c`：JNI 函数 `nativeSubscribeNodeIp`（调用 Go 导出的 `subscribeNodeIp`）。
 - `core/src/main/golang/native/nodeip.go`：Go 导出 `subscribeNodeIp`，用 `fetch_report` 回调通知。
+- `core/src/main/golang/native/ipdelay/inuse.go`（r32）：请求实际走过的 IP 的记录、`CurrentSet()`（首页 / 通知用）、`Current()`（取第一个）、集合的比较键。
+- `patches/mihomo/0002-request-remote.patch`（r32）：内核补丁，新文件 `component/dialer/usehook.go`（`SetUseHook` / `NoteUse`）；改 `transport/xhttp/client.go`（`Client.OnRemote` 字段，三个 `GotConn` 里各一行）和 `adapter/outbound/vless.go`（import 一行、`NewClient` 之后一行）。由 `build-debug.yaml` 的 `Apply mihomo patches` 按文件名顺序在 0001 之后应用。
 - `common/src/main/java/com/github/kr328/clash/common/custom/CustomIntents.kt`：广播 action。
 - `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`（同 #1）。
 - 文案：`design/.../strings_custom.xml`（`main_*`）、`service/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`custom_notification_no_ip`）。
@@ -144,8 +155,8 @@
 | 文件 | 改动 |
 |---|---|
 | `core/src/main/golang/native/delegate/init.go` | import 加 `cfa/native/ipdelay`；`Init` 末尾加 `ipdelay.InstallSocketHook(home)`（r11 起带 `home` 参数，见 #10 #11） |
-| `core/src/main/golang/native/tunnel.go` | `queryTunnelState` 里取 `ipdelay.Current()`，响应结构加 `currentNode` / `currentIp` / `currentCountry`（三个字段都带 `omitempty`） |
-| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | 构造参数加 `currentNode` / `currentIp` / `currentCountry`（默认空串） |
+| `core/src/main/golang/native/tunnel.go` | `queryTunnelState` 里取 `ipdelay.CurrentSet()`（r32 前是 `Current()`），响应结构加 `currentNode` / `currentIp` / `currentCountry`，r32 起再加 `currentIps`（每个 IP 和国家）/ `currentMore`（都带 `omitempty`） |
+| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | 构造参数加 `currentNode` / `currentIp` / `currentCountry`（默认空串），r32 起再加 `currentIps: List<CurrentIp>` / `currentMore`，内嵌类 `CurrentIp`，函数 `ipsText()`（拼"国旗 IP · 国旗 IP 等 N 个"） |
 | `design/src/main/res/layout/design_main.xml` | 加变量 `customIp`；App 名字 `TextView` 外包一层竖向 `LinearLayout`，其下加红字 `custom_geosite_notice`（默认 gone）；代理卡片去掉 `visibility`，`subtext` 改为 `@{customIp == null ? mode : mode + customIp}` |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | import `MainCustomCards`；加 `customCards` 属性和 `setCustomCards()`（写 `binding.customIp`） |
 | `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | import `refreshCustom` / `customNodeIpEvents`；`fetch()` 里加 `setCustomCards(clashRunning, state)`；`main()` 里加 `val customNodeIp = customNodeIpEvents()` 和 `select` 里一个 `customNodeIp.onReceive { design.refreshCustom(clashRunning) }` 分支 |
@@ -399,7 +410,7 @@
 - `design/.../custom/DnsCheckText.kt`；`ConfigCheckDesign.kt` 的 `Request` 加 `Dns`，`setRunning(running, dns)`；`res/layout/design_config_check.xml` 加按钮；文案 `check_dns_*`。
 - `app/.../custom/ConfigCheckActivity.kt`：`runDns()`。
 
-## 26. DNS 检查的增强（r26）
+## 26. DNS 检查的增强（r26，r32 重排显示）
 **效果：** "配置检查"页的 DNS 检查（#25）多了下面几样，都在同一份报告里：
 1. **污染判断（报告最上面的"结论"）：** 把所有服务器的答案放在一起读。DoH / DoT 的答案当作参照（链路上改不了）。明文（UDP / TCP）服务器如果：返回了不可能属于真实网站的地址（私有、回环、保留、CGNAT、测试网段、Teredo `2001::/32` 等）→ **很可能是假的**；返回 NXDOMAIN 而别的服务器能解析出地址 → 明文的算"很可能"，别的算"可疑"；地址和加密 DNS 的答案**没有任何共同网络**（IPv4 比前两段、IPv6 比前 32 位，只比两边都有的地址族）→ "可疑"；多个明文服务器都对不上、而且它们彼此的网络也互不相同 → 升级为"很可能"（CDN 按地区给不同地址时彼此通常还在同一网络）。结论分：`polluted` / `suspect` / `consistent` / `single`（只有一个服务器给了地址）/ `nxdomain_all` / `none`。被标记的服务器在自己那一段下面多一行 ⚠。**只是判断，不是证明**：文案里"可疑"明确写成怀疑。
 2. **全部 NXDOMAIN 时的提示：** 结论写"域名多半不存在，不是 DNS 故障"；域名最后一段是 `workers` / `pages`（建议补 `.dev`）、`trycloudflare`（补 `.com`），或常见的顶级域拼错（`con` `cmo` `ocm` `vom` `comm` → `com`，`ogr` `rog` → `org`，`nte` `ent` → `net`）时给出"是不是想查 …"；域名里没有点时提示"像是只写了一部分"。只是猜测，不会自动改。
@@ -407,6 +418,14 @@
 4. **`nameserver-policy` 命中哪一条：** 加载配置时 `ipdelay.CaptureDNS` 另存一份**带顺序**的 policy（`ipdelay/policy.go`，用 JSON token 流读，因为通用的 map 树会丢顺序）。匹配照 `config/config.go` 的 `parseNameServerPolicy`（键里的逗号拆成多个模式，`geosite:` / `rule-set:` 后面的逗号拆名字）和 `dns/resolver.go` 的 `matchPolicy` / `makePolicy`（按顺序第一个命中的策略生效；连续的普通域名模式合成一棵域名树，树内取最具体的）。`geosite:` / `rule-set:` 这里判断不了，排在命中之前的会列成"可能先命中"。没写 policy 时写"没有写"。
 5. **清缓存按钮：** 输入框下面的"清缓存"，弹出两项：只清 DNS 缓存（`resolver.ClearCache`）；清 DNS 缓存和 fake-ip 映射（`resolver.FlushFakeIP`，和控制接口 `POST /cache/dns/flush`、`/cache/fakeip/flush` 同一个调用）。后者之后内核里"假地址 ↔ 域名"的对应没了，还拿着旧假地址的应用会对不上，所以**同时关闭所有连接**。通道：`closeCustomConnection` 的特殊 id `!flush-dns` / `!flush-fakeip`（`CustomConnections.FLUSH_DNS` / `FLUSH_FAKEIP`），没有新增 JNI 函数；`ConfigCheckActivity.flush()` 先弹选择框，选了才执行。
 6. **测试过的域名记在下拉里：** 域名输入框改成 `AutoCompleteTextView`，点一下输入框弹出最近 8 个测过的域名（存在页面自己的 SharedPreferences `custom_config_check` 的 `history`，每次点测试时更新，最新的在前）。
+
+7. **r32：报告重排，只改显示，查询和判断逻辑（Go 侧、`DnsCheckReport`）没动。** 原来是一长串：开头一份"哪几个服务器对不上"的列表，中间一堆说明，后面每个服务器的全部地址铺开，最后又标一遍"可疑"，同一件事说三遍，最重要的"内核实际用的答案和谁一致"埋在中间。现在是：
+   - **第一行结论（粗体）：** 内核解析器有答案且和被检查的某些服务器一致 → "可用。内核实际用的答案和 N 个服务器一致"；有答案但谁都对不上 → "不确定……可能来自内核的 DNS 缓存"；内核没问 / 失败 → 按原来的 `verdict.kind` 给一句（一致 / 只有一个 / 很可能被污染 / 疑似 / 没有答案）；全部 NXDOMAIN 沿用原来的话和"是不是想查……"。接着一行内核的答案（A / AAAA / 毫秒）。
+   - **哪几个有问题、影不影响：** 把被标记的服务器按组分开。内核真正在问的（`nameserver`、`fallback`、`nameserver-policy`）里有问题 → 红字"会直接影响解析"；只用于特定场景的（`direct-nameserver`、`default-nameserver`、`proxy-server-nameserver` 等）有问题 → 橙字"疑似被污染，它们不是主 DNS，只在直连域名或解析 DoH 服务器自己的域名时才用到"。这只说它们是干什么的，不替你判断这个域名受不受影响（域名走不走直连，这个报告不知道）。
+   - **服务器按这两组列，每个一行**：标记（✓ 正常 / ⚠ 有问题 / ✗ 没应答 / · 不支持或域名不存在）、地址、结果一个词（和内核一致 / 有应答 / 没应答 / 不支持 / 域名不存在 / 很可能是假的 / 疑似被污染）和毫秒数。**点一行**才展开它的 A / AAAA、失败原因、h3 等细节（`DnsCheckText.serverDetail`）。
+   - **"详情"折叠区默认收起：** 应用拿到的地址（hosts / fake-ip）、内核解析器完整答案、`nameserver-policy`、AAAA 说明、说明文字（`DnsCheckText.details`，内容和以前中间那段一样）。
+   - 新文件 `design/.../custom/DnsCheckView.kt`；`DnsCheckText.build()` 改成 `DnsCheckView(...).plain()`（全部展开的文本，复制按钮和诊断包用它，`DiagnosticBundle` 不用改）；`ConfigCheckDesign.showDns()`（和最终生效配置页一样，点击交给文本里的链接）；`ConfigCheckActivity.runDns()` 改调 `showDns`；文案 `check_dns_c_*` `check_dns_g_*` `check_dns_r_*` `check_dns_fold_*` `check_dns_tap_hint`。点一下只重画，不再查询；没有新增定时器。
+   - **局限：** 服务器按"角色名"分组，角色名就是 `dns:` 里的键名；`dns.listen` 那一项（内核自己的 DNS 服务器）不在列表里，仍在详情里；没有编译过，要靠 Actions 构建验证。
 
 **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`（与子模块一致）。`hub/route/dns.go`（`queryDNS`）、`hub/route/cache.go`（两个 flush）、`component/resolver/resolver.go`（`DefaultResolver`、`ClearCache`、`DefaultDNSTimeout`）、`component/resolver/enhancer.go`（`FlushFakeIP`）、`dns/resolver.go`（`ExchangeContext`、`matchPolicy`、`makePolicy`）、`config/config.go`（`parseNameServerPolicy`、`NameServerPolicy` 是有序 map）。内核升级后这些要重新对照。
 **局限：** ① 污染判断靠"网络不同"这类规律，没有 IP 归属数据库，CDN 在不同地区给出差别很大的地址时可能被判成"可疑"，所以只有"很可能"才有把握；② 内核解析器的答案可能来自缓存；③ policy 里的 `geosite:` / `rule-set:` 只能列出，不能判断；④ `proxy-server-nameserver-policy` 只用于解析节点域名，没有做匹配。

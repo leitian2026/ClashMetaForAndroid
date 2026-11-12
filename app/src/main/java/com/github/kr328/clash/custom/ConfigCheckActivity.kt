@@ -7,7 +7,6 @@ import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
-import com.github.kr328.clash.design.custom.DnsCheckText
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
@@ -182,20 +181,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         design.setRunning(true, dns = true)
 
-        val text = try {
+        var failure = ""
+
+        val report = try {
             val request = JSONObject().put("domain", domain).put("kind", "dns").toString()
 
-            DnsCheckText.build(
-                this,
-                DnsCheckReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }),
-            )
+            DnsCheckReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
+            failure = getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
+
+            null
         }
 
         design.setRunning(false)
-        design.showText(text)
+
+        // CUSTOM.md #26 (r32): the page has lines that open on a tap
+        if (report != null) design.showDns(report) else design.showText(failure)
     }
 }

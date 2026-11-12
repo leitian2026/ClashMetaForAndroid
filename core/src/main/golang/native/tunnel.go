@@ -15,15 +15,23 @@ import (
 func queryTunnelState() *C.char {
 	mode := tunnel.QueryMode()
 
-	node, ip, country := ipdelay.Current() // CUSTOM: CUSTOM.md #7
+	node, ips, more := ipdelay.CurrentSet() // CUSTOM: CUSTOM.md #7
+
+	var ip, country string
+
+	if len(ips) > 0 {
+		ip, country = ips[0].IP, ips[0].Country
+	}
 
 	response := &struct {
 		Mode string `json:"mode"`
 
-		CurrentNode    string `json:"currentNode,omitempty"`    // CUSTOM
-		CurrentIP      string `json:"currentIp,omitempty"`      // CUSTOM
-		CurrentCountry string `json:"currentCountry,omitempty"` // CUSTOM
-	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country}
+		CurrentNode    string           `json:"currentNode,omitempty"`    // CUSTOM
+		CurrentIP      string           `json:"currentIp,omitempty"`      // CUSTOM: the most recently used one
+		CurrentCountry string           `json:"currentCountry,omitempty"` // CUSTOM
+		CurrentIPs     []ipdelay.NodeIP `json:"currentIps,omitempty"`     // CUSTOM: every address in use (CUSTOM.md #7)
+		CurrentMore    int              `json:"currentMore,omitempty"`    // CUSTOM: how many more were left out
+	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country, CurrentIPs: ips, CurrentMore: more}
 
 	return marshalJson(response)
 }

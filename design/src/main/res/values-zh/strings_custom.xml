@@ -309,4 +309,27 @@
     <string name="log_level_live">日志级别已改为“%1$s”，立刻生效</string>
     <string name="log_level_next">已保存：日志级别“%1$s”，下次载入配置时生效</string>
     <string name="log_level_failed">保存日志级别失败</string>
+    <string name="custom_ips_more">等 %d 个</string>
+    <string name="check_dns_c_ok">结论：可用。内核实际用的答案和 %1$d 个服务器一致。</string>
+    <string name="check_dns_c_nomatch">结论：不确定。内核的答案和被检查的服务器都对不上，可能来自内核的 DNS 缓存（想要新的先点“清缓存”）。</string>
+    <string name="check_dns_c_core_line">内核的答案：A %1$s；AAAA %2$s（%3$d 毫秒）</string>
+    <string name="check_dns_c_polluted">结论：有答案很可能是假的（DNS 污染 / 劫持），见下面标 ⚠ 的行。</string>
+    <string name="check_dns_c_suspect">结论：有服务器的答案和加密 DNS 不一致，疑似被污染（CDN 按地区给不同地址时也会这样），见下面标 ⚠ 的行。</string>
+    <string name="check_dns_c_none">结论：没有服务器给出答案。</string>
+    <string name="check_dns_c_flag_primary">⚠ 内核真正在问的 DNS 里有 %1$d 个答案可疑，会直接影响解析，见下面。</string>
+    <string name="check_dns_c_flag_secondary">%1$d 个只用于特定场景的 DNS 答案和加密 DNS 不同，疑似被污染。它们不是主 DNS（nameserver），只在直连域名或解析 DoH 服务器自己的域名时才用到。</string>
+    <string name="check_dns_g_primary">内核真正在问的 DNS（nameserver、fallback、nameserver-policy）</string>
+    <string name="check_dns_g_secondary">只用于特定场景的 DNS（直连域名、解析 DoH 地址、节点域名）</string>
+    <string name="check_dns_r_same">和内核一致</string>
+    <string name="check_dns_r_ok">有应答</string>
+    <string name="check_dns_r_none">没应答</string>
+    <string name="check_dns_r_unsupported">不支持</string>
+    <string name="check_dns_r_nx">域名不存在</string>
+    <string name="check_dns_r_likely">很可能是假的</string>
+    <string name="check_dns_r_suspect">疑似被污染</string>
+    <string name="check_dns_r_ms">%1$d 毫秒</string>
+    <string name="check_dns_tap_hint">点一行看它的地址和细节。</string>
+    <string name="check_dns_fold_closed">▸ 详情：应用拿到的地址、内核解析器、nameserver-policy、说明（点开）</string>
+    <string name="check_dns_fold_open">▾ 详情（点这里收起）</string>
+    <string name="check_dns_fold_plain">详情</string>
 </resources>

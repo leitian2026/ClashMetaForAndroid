@@ -1,0 +1,114 @@
+diff -ruN a/adapter/outbound/vless.go b/adapter/outbound/vless.go
+--- a/adapter/outbound/vless.go
++++ b/adapter/outbound/vless.go
+@@ -14,6 +14,7 @@
+ 	N "github.com/metacubex/mihomo/common/net"
+ 	"github.com/metacubex/mihomo/common/utils"
+ 	"github.com/metacubex/mihomo/component/ca"
++	customdialer "github.com/metacubex/mihomo/component/dialer" // CUSTOM (CUSTOM.md #7)
+ 	"github.com/metacubex/mihomo/component/ech"
+ 	tlsC "github.com/metacubex/mihomo/component/tls"
+ 	C "github.com/metacubex/mihomo/constant"
+@@ -912,6 +913,7 @@
+ 		if err != nil {
+ 			return nil, err
+ 		}
++		v.xhttpClient.OnRemote = func(addr net.Addr) { customdialer.NoteUse(v.Name(), addr) } // CUSTOM (CUSTOM.md #7)
+ 	}
+ 
+ 	return v, nil
+diff -ruN a/component/dialer/usehook.go b/component/dialer/usehook.go
+--- a/component/dialer/usehook.go
++++ b/component/dialer/usehook.go
+@@ -0,0 +1,47 @@
++package dialer
++
++// CUSTOM (CUSTOM.md #7, not part of upstream): tells the app which address of a node a request really
++// goes through. The xhttp client calls NoteUse for every request (a new connection and a reused one
++// alike, from the GotConn trace); the app listens through SetUseHook.
++//
++// Nothing runs on its own: NoteUse is called when a request is made anyway, and does one atomic
++// load when nobody listens.
++
++import (
++	"net"
++	"net/netip"
++	"sync/atomic"
++)
++
++var useHook atomic.Pointer[func(owner, ip string)]
++
++// SetUseHook sets the listener; nil removes it.
++func SetUseHook(f func(owner, ip string)) {
++	if f == nil {
++		useHook.Store(nil)
++
++		return
++	}
++
++	useHook.Store(&f)
++}
++
++// NoteUse reports that a request of the node `owner` goes through the peer address `addr`.
++func NoteUse(owner string, addr net.Addr) {
++	p := useHook.Load()
++	if p == nil || addr == nil {
++		return
++	}
++
++	host, _, err := net.SplitHostPort(addr.String())
++	if err != nil {
++		return
++	}
++
++	a, err := netip.ParseAddr(host)
++	if err != nil {
++		return
++	}
++
++	(*p)(owner, a.Unmap().String())
++}
+diff -ruN a/transport/xhttp/client.go b/transport/xhttp/client.go
+--- a/transport/xhttp/client.go
++++ b/transport/xhttp/client.go
+@@ -240,6 +240,10 @@
+ 	makeDownloadTransport TransportMaker
+ 	uploadManager         *ReuseManager
+ 	downloadManager       *ReuseManager
++
++	// CUSTOM (CUSTOM.md #7): told the address of the connection every request really goes through
++	// (new or reused), set by the adapter. nil: nobody listens.
++	OnRemote func(addr net.Addr)
+ }
+ 
+ func NewClient(cfg *Config, makeTransport TransportMaker, makeDownloadTransport TransportMaker, hasReality bool) (*Client, error) {
+@@ -368,6 +372,9 @@
+ 	addrCtx := httputils.NewAddrContext(&conn.NetAddr, reqCtx)
+ 	streamCtx := httptrace.WithClientTrace(addrCtx, &httptrace.ClientTrace{
+ 		GotConn: func(info httptrace.GotConnInfo) {
++			if f := c.OnRemote; f != nil { // CUSTOM (CUSTOM.md #7)
++				f(info.Conn.RemoteAddr())
++			}
+ 			select {
+ 			case gotConn <- true:
+ 			default: // GotConn maybe called multiple times, ignore the second and later calls
+@@ -469,6 +476,9 @@
+ 	addrCtx := httputils.NewAddrContext(&conn.NetAddr, reqCtx)
+ 	downloadCtx := httptrace.WithClientTrace(addrCtx, &httptrace.ClientTrace{
+ 		GotConn: func(info httptrace.GotConnInfo) {
++			if f := c.OnRemote; f != nil { // CUSTOM (CUSTOM.md #7)
++				f(info.Conn.RemoteAddr())
++			}
+ 			select {
+ 			case gotConn <- true:
+ 			default: // GotConn maybe called multiple times, ignore the second and later calls
+@@ -616,6 +626,9 @@
+ 	addrCtx := httputils.NewAddrContext(&conn.NetAddr, reqCtx)
+ 	downloadCtx := httptrace.WithClientTrace(addrCtx, &httptrace.ClientTrace{
+ 		GotConn: func(info httptrace.GotConnInfo) {
++			if f := c.OnRemote; f != nil { // CUSTOM (CUSTOM.md #7)
++				f(info.Conn.RemoteAddr())
++			}
+ 			select {
+ 			case gotConn <- true:
+ 			default: // GotConn maybe called multiple times, ignore the second and later calls

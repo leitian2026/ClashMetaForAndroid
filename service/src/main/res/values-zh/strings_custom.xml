@@ -3,4 +3,5 @@
     <string name="custom_notification_no_ip">暂无节点连接</string>
     <!-- CUSTOM.md #27 -->
     <string name="custom_config_error">config.yaml 第 %1$d 行附近有错误（没有保存）：%2$s</string>
+    <string name="custom_ips_more">等 %d 个</string>
 </resources>

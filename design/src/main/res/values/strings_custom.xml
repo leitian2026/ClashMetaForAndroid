@@ -309,4 +309,27 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>
     <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>
     <string name="log_level_failed">Could not save the log level</string>
+    <string name="custom_ips_more">+%d more</string>
+    <string name="check_dns_c_ok">Result: OK. The answer the core really uses matches %1$d server(s).</string>
+    <string name="check_dns_c_nomatch">Result: not sure. The core\'s answer matches none of the checked servers; it may come from the core\'s DNS cache.</string>
+    <string name="check_dns_c_core_line">The core\'s answer: A %1$s; AAAA %2$s (%3$d ms)</string>
+    <string name="check_dns_c_polluted">Result: some answers are very likely fake (DNS pollution / hijacking), see the lines marked ⚠ below.</string>
+    <string name="check_dns_c_suspect">Result: some servers answer differently from the encrypted DNS and may be polluted (a CDN giving different addresses by region does that too), see the lines marked ⚠ below.</string>
+    <string name="check_dns_c_none">Result: no server gave an answer.</string>
+    <string name="check_dns_c_flag_primary">⚠ %1$d of the DNS servers the core really asks give a doubtful answer; this affects resolving directly, see below.</string>
+    <string name="check_dns_c_flag_secondary">%1$d server(s) that only serve a special purpose answer differently from the encrypted DNS and may be polluted. They are not the main DNS (nameserver); they are only used for direct domains or for resolving the DoH servers themselves.</string>
+    <string name="check_dns_g_primary">DNS the core really asks (nameserver, fallback, nameserver-policy)</string>
+    <string name="check_dns_g_secondary">DNS for a special purpose only (direct domains, DoH addresses, node domains)</string>
+    <string name="check_dns_r_same">same as the core</string>
+    <string name="check_dns_r_ok">answered</string>
+    <string name="check_dns_r_none">no answer</string>
+    <string name="check_dns_r_unsupported">not supported</string>
+    <string name="check_dns_r_nx">domain does not exist</string>
+    <string name="check_dns_r_likely">very likely fake</string>
+    <string name="check_dns_r_suspect">may be polluted</string>
+    <string name="check_dns_r_ms">%1$d ms</string>
+    <string name="check_dns_tap_hint">Tap a line to see its addresses and details.</string>
+    <string name="check_dns_fold_closed">▸ Details: what an app gets, the core\'s resolver, nameserver-policy, notes (tap to open)</string>
+    <string name="check_dns_fold_open">▾ Details (tap to close)</string>
+    <string name="check_dns_fold_plain">Details</string>
 </resources>

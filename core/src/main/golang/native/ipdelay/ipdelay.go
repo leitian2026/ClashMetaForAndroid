@@ -92,6 +92,11 @@ var (
 	onChange    func()
 	notifyTimer *time.Timer
 	notified    string // node|ip|country that the listener was last told about
+
+	// CUSTOM.md #7, #10: the set the listener was last told about, and the last address put in the history
+	notifiedNode string
+	notifiedIPs  map[string]bool
+	histLast     string
 )
 
 // notifyDelay lets the new connection register itself (so that Current sees it) and merges bursts
@@ -106,6 +111,7 @@ func SetOnChange(f func()) {
 	notifyLock.Lock()
 	onChange = f
 	notified = ""
+	notifiedNode, notifiedIPs, histLast = "", nil, ""
 	notifyLock.Unlock()
 }
 
@@ -130,19 +136,42 @@ func fireNotify() {
 		return
 	}
 
-	node, ip, country := Current() // also starts the country lookup when it is still unknown
+	node, ips, more := CurrentSet() // also starts the country lookups that are still missing
 
-	key := node + "|" + ip + "|" + country
+	key := setKey(node, ips, more)
 
 	notifyLock.Lock()
 	same := key == notified
 	notified = key
+	prevNode, prevIPs := notifiedNode, notifiedIPs
+	notifiedNode, notifiedIPs = node, make(map[string]bool, len(ips))
+
+	for _, e := range ips {
+		notifiedIPs[e.IP] = true
+	}
+
+	last := histLast
 	notifyLock.Unlock()
 
-	if !same {
-		recordHistory(node, ip, country) // CUSTOM.md #10
-		f()
+	if same {
+		return
 	}
+
+	// CUSTOM.md #10: the history gets an address when it first shows up in the set (or the node changed),
+	// not every time the addresses take turns as the most recent one.
+	for i := len(ips) - 1; i >= 0; i-- {
+		e := ips[i]
+
+		if node != prevNode || !prevIPs[e.IP] || node+"|"+e.IP == last {
+			recordHistory(node, e.IP, e.Country)
+
+			notifyLock.Lock()
+			histLast = node + "|" + e.IP
+			notifyLock.Unlock()
+		}
+	}
+
+	f()
 }
 
 // RawProxies returns a copy of the raw `proxies:` mappings of the loaded profile, keyed by name
@@ -333,6 +362,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	nodeIPs = newNodeIPs
 	ambiguous = newAmbiguous
 	lastByNode = map[string]string{}
+	recent = map[string][]useRec{} // CUSTOM (CUSTOM.md #7)
+	shown = map[string]string{}
 	countries = saved
 	pending = map[string]string{}
 	probing = map[string]bool{}
@@ -346,6 +377,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 // `home` is the core's home directory; it only tells where the persistent files go.
 func InstallSocketHook(home string) {
 	setDataDir(home) // CUSTOM.md #10, #11: where the small persistent files live
+
+	installUseHook() // CUSTOM.md #7: which address each request really goes through
 
 	hookOnce.Do(func() {
 		prev := dialer.DefaultSocketHook
@@ -398,57 +431,6 @@ func record(address string) {
 	if changed {
 		scheduleNotify()
 	}
-}
-
-// Current returns the node IP in use and, if already known, the exit country behind it.
-// The node is the one carrying the most active connections (matched through their chains); with
-// no active connection the most recently dialed node IP is used. When the country is unknown a
-// single lookup is started in the background; ask again later (the UI does that on refresh).
-func Current() (node, ip, country string) {
-	active := activeNodes() // before taking our lock: it walks the core's connection list
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	best := ""
-
-	for name, count := range active {
-		if best == "" || count > active[best] || (count == active[best] && name < best) {
-			best = name
-		}
-	}
-
-	switch {
-	case best != "":
-		node = best
-
-		if list := nodeIPs[best]; len(list) == 1 {
-			ip = list[0] // a single address: nothing to choose from
-		} else if last, ok := lastByNode[best]; ok {
-			ip = last
-		} else if len(list) > 0 {
-			ip = list[0]
-		}
-	case lastUsed.ip != "":
-		node, ip = lastUsed.node, lastUsed.ip
-	}
-
-	if ip == "" {
-		return "", "", ""
-	}
-
-	key := node + "|" + ip
-	country = countries[key]
-
-	if country == "" && !probing[key] && time.Since(failedAt[key]) > retryAfter {
-		if raw := proxies[node]; raw != nil {
-			probing[key] = true
-
-			go probeCountry(key, raw, ip)
-		}
-	}
-
-	return node, ip, country
 }
 
 // activeNodes counts the active connections per node, by looking for node names in the chains.
@@ -680,7 +662,9 @@ func Lookup(node string) (ip, country string) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	if last, ok := lastByNode[node]; ok {
+	if rec := recent[node]; len(rec) > 0 { // CUSTOM.md #7: the address a request went through last
+		ip = rec[0].ip
+	} else if last, ok := lastByNode[node]; ok {
 		ip = last
 	} else if list := nodeIPs[node]; len(list) == 1 {
 		ip = list[0]

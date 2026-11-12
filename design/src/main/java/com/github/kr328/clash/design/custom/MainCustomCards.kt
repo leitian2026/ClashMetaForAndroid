@@ -5,7 +5,6 @@ import android.content.Intent
 import android.view.View
 import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
-import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.design.R
 
 // CUSTOM (CUSTOM.md #6, #7) on the home page:
@@ -13,7 +12,7 @@ import com.github.kr328.clash.design.R
 //    downloaded geosite.dat with the built-in one; tapping it opens the Meta feature settings
 //    (where the download is). It disappears once geosite is downloaded again.
 //  - Current node IP: update() returns the text appended to the subtext of the "Proxy" card
-//    (" · 🇺🇸 1.2.3.4"). Refreshed with every fetch and whenever the core reports that the node
+//    (" · 🇺🇸 1.2.3.4 · 🇯🇵 5.6.7.8": every address in use). Refreshed with every fetch and whenever the core reports that the node
 //    IP in use changed (event, see CUSTOM.md #7). No timer, no polling.
 class MainCustomCards(
     private val context: Context,
@@ -26,11 +25,12 @@ class MainCustomCards(
     fun update(running: Boolean, state: TunnelState): String? {
         geoSiteNotice?.visibility = if (GeoSiteResetNotice.isPending(context)) View.VISIBLE else View.GONE
 
-        if (!running || state.currentIp.isEmpty()) return null
+        if (!running) return null
 
-        val flag = CountryFlag.of(state.currentCountry).ifEmpty { "？" }
+        // every address the requests went through most recently (CUSTOM.md #7)
+        val text = state.ipsText { context.getString(R.string.custom_ips_more, it) }
 
-        return " · $flag ${state.currentIp}"
+        return if (text.isEmpty()) null else " · $text"
     }
 
     private fun openGeoSiteSettings() {

@@ -7,6 +7,7 @@ import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
+import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
@@ -138,6 +139,26 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             linksOn = true
 
             // a tap on a fold or on the defaults line changes what is shown and draws the text again
+            lateinit var draw: () -> Unit
+
+            draw = {
+                binding.checkTextView.text = view.render(draw)
+                shown = view.plain()
+            }
+
+            draw()
+        }
+    }
+
+    // CUSTOM.md #26 (r32): the DNS check page has lines that open on a tap (a server's details, the fold of the
+    // rest), so like the effective config its taps go to the links; the copy button copies the whole text
+    suspend fun showDns(report: DnsCheckReport) {
+        withContext(Dispatchers.Main) {
+            val view = DnsCheckView(context, report)
+
+            binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
+            linksOn = true
+
             lateinit var draw: () -> Unit
 
             draw = {

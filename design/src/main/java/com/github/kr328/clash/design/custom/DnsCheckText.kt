@@ -8,19 +8,16 @@ import com.github.kr328.clash.design.R
 
 // CUSTOM (CUSTOM.md #25): turns the answer of the DNS check into the text of the config check page.
 object DnsCheckText {
+    // CUSTOM.md #26 (r32): the page is laid out by DnsCheckView; this is its text with everything open
     fun build(context: Context, report: DnsCheckReport): String {
+        return DnsCheckView(context, report).plain()
+    }
+
+    // what an app gets for this domain (by the profile and, when the core's DNS server answered, for real), the
+    // core's own resolver, nameserver-policy and the notes: the fold of the page
+    fun details(context: Context, report: DnsCheckReport): String {
         val out = StringBuilder()
 
-        out.append(context.getString(R.string.check_dns_section, report.domain)).append("\n\n")
-
-        if (report.aliasTo.isNotEmpty()) {
-            out.append(context.getString(R.string.check_dns_alias, report.domain, report.aliasTo)).append('\n')
-        }
-
-        // CUSTOM.md #26: the overall reading of the answers comes first, it is what the reader wants to know
-        verdict(context, report)?.let { out.append(it).append("\n\n") }
-
-        // what an app gets for this domain: by the profile, and, when the core's DNS server answered, for real
         out.append(answer(context, report)).append('\n')
 
         when (report.aaaa) {
@@ -35,27 +32,17 @@ object DnsCheckText {
 
         kernel(context, report)?.let { out.append(it).append('\n') }
 
-        // CUSTOM.md #26
         out.append('\n').append(core(context, report)).append('\n')
-        out.append(policy(context, report)).append('\n')
-
-        out.append('\n')
-
-        if (report.servers.isEmpty()) {
-            out.append(context.getString(R.string.check_dns_no_servers)).append('\n')
-        } else {
-            out.append(context.getString(R.string.check_dns_servers_head, report.servers.size)).append("\n\n")
-
-            val flags = report.verdict.flags.associateBy { it.address }
-
-            for (item in report.servers) {
-                out.append(serverText(context, item, flags[item.address])).append("\n\n")
-            }
-        }
+        out.append(policy(context, report)).append("\n\n")
 
         out.append(context.getString(R.string.check_dns_footer))
 
         return out.toString()
+    }
+
+    // the lines of one server without its head line (address and sections): the addresses, the reason of a failure...
+    fun serverDetail(context: Context, s: DnsCheckServer, flag: DnsCheckFlag?): String {
+        return serverText(context, s, flag).substringAfter('\n', "")
     }
 
     private fun answer(context: Context, report: DnsCheckReport): String {
@@ -151,7 +138,7 @@ object DnsCheckText {
     }
 
     // CUSTOM.md #26: null when there is nothing to say (no server answered)
-    private fun verdict(context: Context, report: DnsCheckReport): String? {
+    fun verdict(context: Context, report: DnsCheckReport): String? {
         val v = report.verdict
         val out = StringBuilder()
 
