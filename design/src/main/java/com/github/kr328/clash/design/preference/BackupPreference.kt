@@ -10,6 +10,7 @@ import com.github.kr328.clash.design.R
 private const val BACKUP_ACTIVITY = "com.github.kr328.clash.custom.BackupActivity"
 
 // same strings as BackupActivity.ACTION_EXPORT / ACTION_IMPORT
+// (r34: the four entries have four different icons: save, download, restore (history), info)
 private const val ACTION_EXPORT = "com.github.kr328.clash.custom.action.BACKUP_EXPORT"
 private const val ACTION_IMPORT = "com.github.kr328.clash.custom.action.BACKUP_IMPORT"
 
@@ -26,7 +27,7 @@ fun PreferenceScreen.customBackup() {
 
     clickable(
         title = R.string.backup_import_title,
-        icon = R.drawable.ic_baseline_restore,
+        icon = R.drawable.ic_baseline_get_app,
         summary = R.string.backup_import_summary,
     ) {
         clicked { start(ACTION_IMPORT) }
@@ -42,7 +43,7 @@ fun PreferenceScreen.customBackup() {
 
     clickable(
         title = R.string.diag_entry_title,
-        icon = R.drawable.ic_baseline_save,
+        icon = R.drawable.ic_baseline_info,
         summary = R.string.diag_entry_summary,
     ) {
         clicked { start(ACTION_DIAG) }

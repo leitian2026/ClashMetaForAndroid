@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- CUSTOM: geo file download-by-URL row (see CUSTOM.md #6, #16); title, hint and notice are set in code -->
+<!-- CUSTOM: geo file download-by-URL row (see CUSTOM.md #6, #16); title, hint and notice are set in code.
+     r34: lined up with the text of the rows around it (the same left edge, the same text styles) -->
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="@dimen/item_tailing_margin"
+        android:paddingStart="@dimen/geosite_download_indent"
+        android:paddingEnd="@dimen/item_tailing_margin"
         android:paddingVertical="@dimen/item_padding_vertical">
 
         <TextView
@@ -17,7 +19,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/url_layout"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/item_midden_margin"
@@ -40,7 +42,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/download_button"
-                style="@style/Widget.MaterialComponents.Button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/geosite_download_button" />
@@ -67,6 +69,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/item_midden_margin"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
     </LinearLayout>
 </layout>

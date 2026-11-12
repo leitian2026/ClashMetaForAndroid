@@ -29,7 +29,7 @@
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `ConfigHistory.keep(context, snapshot.uuid)`（#28，记下被替换的和新的版本）；加两个 import |
 | `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
-| `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view` 按钮；标题栏的 `layout_toStartOf` 改指向它 |
+| `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view`（r34 起是显示当前级别文字的 `TextView`，原来是图标 `ImageView`）；标题栏的 `layout_toStartOf` 改指向它 |
 | `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
 
 共 24 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
@@ -104,7 +104,7 @@
 - `design/src/main/java/com/github/kr328/clash/design/custom/GeoSiteDownloader.kt`：下载、校验、替换逻辑。
 - `design/src/main/java/com/github/kr328/clash/design/custom/GeoSiteResetNotice.kt`：判断"更新应用后下载的 GeoSite 是否被换回内置版"（`isPending`），不再弹窗、不再清记录。
 - `design/src/main/java/com/github/kr328/clash/design/preference/GeoSiteDownloadPreference.kt`：设置页里的这一块界面（`PreferenceScreen.geoSiteDownload()`）。
-- `design/src/main/res/layout/preference_geosite_download.xml`：布局。
+- `design/src/main/res/layout/preference_geosite_download.xml`：布局。r34：和上下的设置行对齐——左边距改成设置行文字的起点（`@dimen/geosite_download_indent` = 65dp，新文件 `values/dimens_custom.xml`，等于图标宽度加两边的间距），输入框用 `OutlinedBox.Dense`（矮一点），下载按钮用 `OutlinedButton`（不再是实心大按钮），说明文字用和别的行说明一样的 `Body2`（原来是更小的 `Caption`）。只改布局，下载逻辑没动。
 - 文案追加在 `design/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`geosite_download_*`）。
 
 **改了上游文件（冲突只会出现在这里）**
@@ -263,6 +263,8 @@
 **新增文件：** `design/.../res/values/themes_custom.xml`（透明主题）、`app/.../custom/BackupActivity.kt`（选文件、确认、结果）、`BackupManager.kt`（导出 / 导入逻辑，JSON 用 `org.json`）、`design/.../custom/BackupDesign.kt`（几乎空白的页面，只显示状态和对话框）、`design/.../preference/BackupPreference.kt`（`PreferenceScreen.customBackup()`，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）、文案 `backup_*`。
 **改了上游文件：** `AppSettingsDesign.kt`（一行 `customBackup()`）、`AndroidManifest.xml`（`BackupActivity`）。
 **依赖的上游接口：** `IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`；`pendingDir` / `importedDir`；`ServiceStore` 的各个属性（上游新增设置项时可在 `BackupManager.serviceToJson` / `restoreSettings` 里加）；`override.json` 在 `filesDir/clash` 下（内核的 `OverrideSlotPersist` 路径）。
+
+**r34：四个入口的图标各不相同。** 原来导出备份和导出诊断包都是保存图标，导入备份和配置历史都是还原图标。现在：导出备份 = 保存（`ic_baseline_save`），导入备份 = 下载（`ic_baseline_get_app`），配置历史 = 还原（`ic_baseline_restore`），导出诊断包 = 信息（`ic_baseline_info`）。只换图标，`BackupPreference.kt` 里四个 `icon =`。
 
 ## 18. 构建时的下载：缓存和重试（仅 build-debug）
 - 上游 workflow 本来就缓存了 Go 编译缓存和模块（`actions/cache`），`gradle/actions/setup-gradle` 也缓存 Gradle，这两处不用再加。
@@ -524,6 +526,8 @@
 - `core/src/main/golang/native/config/custom_loglevel.go`
 - `design/src/main/res/drawable/ic_custom_tune.xml`
 - 字符串 `log_level_live / log_level_next / log_level_failed`（两个语言的 `strings_custom.xml`）
+
+**r34：按钮显示当前级别的文字，不再用图标。** 日志页工具栏里原来是一个小图标（`ic_custom_tune`），现在是一个 `TextView`，直接显示设置的级别：停用 / 调试 / 信息 / 警告 / 错误，没有设置（"不修改"）时显示"不修改"，读不到时显示"日志级别"。点它还是弹出选择框，选完立刻换成新的字。打开页面时读一次覆盖设置文件（`LogLevelControl.currentIndex`），之后只在选择后更新，没有新增定时器。最多宽 120dp，超出省略号。`ic_custom_tune.xml` 不再被用，留着没删。
 
 **改的自有文件：** `native/connections.go`（`SortLogLevel` 分支）、`CustomConnections.kt`（`SORT_LOG_LEVEL`）。
 

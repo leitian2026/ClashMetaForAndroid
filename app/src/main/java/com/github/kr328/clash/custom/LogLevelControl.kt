@@ -1,6 +1,6 @@
 package com.github.kr328.clash.custom
 
-import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.Clash
@@ -17,11 +17,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * CUSTOM (CUSTOM.md #31, not upstream): the log level, on the logs page next to the "clear all" button. It is the same
+ * CUSTOM (CUSTOM.md #31, not upstream): the log level, on the logs page next to the "clear all" button. The button
+ * shows the word of the level that is set (r34), not an icon. It is the same
  * setting as the old "log level" entry of the override settings (override.json, persisted); the choices are the same
  * words. A level that is chosen is also given to the running core at once, so the next lines already follow it.
  *
- * Power: a tap shows a dialog and writes one small file; nothing runs on its own.
+ * Power: the word is read once from the small override file when the page opens; a tap shows a dialog and writes
+ * one small file; nothing runs on its own.
  */
 object LogLevelControl {
     // the same order and words as the old override entry: "do not modify" first
@@ -47,12 +49,33 @@ object LogLevelControl {
     private val names = arrayOf("", "info", "warning", "error", "debug", "silent")
 
     fun attach(activity: BaseActivity<LogsDesign>, design: LogsDesign) {
-        design.root.findViewById<View>(R.id.log_level_view).setOnClickListener {
-            activity.launch { choose(activity) }
+        val view = design.root.findViewById<TextView>(R.id.log_level_view)
+
+        view.setText(R.string.log_level) // until the real one is read
+
+        view.setOnClickListener {
+            activity.launch { choose(activity, view) }
+        }
+
+        activity.launch {
+            val index = currentIndex()
+
+            if (index >= 0) view.setText(texts[index])
         }
     }
 
-    private suspend fun choose(activity: BaseActivity<LogsDesign>) {
+    // the index (in levels) of the level that is set, -1 when it cannot be read
+    private suspend fun currentIndex(): Int {
+        return try {
+            levels.indexOf(withClash { queryOverride(Clash.OverrideSlot.Persist) }.logLevel).coerceAtLeast(0)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    private suspend fun choose(activity: BaseActivity<LogsDesign>, view: TextView) {
         val current = try {
             withClash { queryOverride(Clash.OverrideSlot.Persist) }.logLevel
         } catch (e: CancellationException) {
@@ -98,6 +121,8 @@ object LogLevelControl {
 
             return
         }
+
+        view.setText(texts[picked]) // the button shows the level that is set now
 
         // "do not modify" has no level to give: the profile's own level comes back when it is loaded again
         val live = levels[picked] != null && Remote.broadcasts.clashRunning && try {

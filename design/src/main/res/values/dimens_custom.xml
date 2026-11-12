@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CUSTOM (CUSTOM.md #6, r34): the left edge of the text of a preference row:
+         @dimen/item_header_component_size + 2 x @dimen/item_header_margin. The geo download blocks use it so that
+         their title lines up with the rows around them. -->
+    <dimen name="geosite_download_indent">65dp</dimen>
+</resources>

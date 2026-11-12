@@ -38,19 +38,24 @@
                         android:layout_centerVertical="true"
                         android:layout_toStartOf="@id/log_level_view" />
 
-                    <!-- CUSTOM (CUSTOM.md #31): the log level (it used to be in the override settings) -->
-                    <ImageView
+                    <!-- CUSTOM (CUSTOM.md #31, r34): the log level; it shows the word of the level that is set
+                         (a tap opens the choice), not an icon -->
+                    <TextView
                         android:id="@+id/log_level_view"
-                        android:layout_width="@dimen/item_tailing_component_size"
+                        android:layout_width="wrap_content"
                         android:layout_height="@dimen/item_tailing_component_size"
                         android:layout_centerVertical="true"
                         android:layout_toStartOf="@id/delete_view"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:contentDescription="@string/log_level"
+                        android:ellipsize="end"
                         android:focusable="true"
-                        android:padding="@dimen/toolbar_image_action_padding"
-                        android:src="@drawable/ic_custom_tune" />
+                        android:gravity="center"
+                        android:maxWidth="120dp"
+                        android:paddingHorizontal="12dp"
+                        android:singleLine="true"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2" />
 
                     <ImageView
                         android:id="@+id/delete_view"
