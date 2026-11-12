@@ -351,16 +351,14 @@
     <string name="cloud_pushing">正在加密并上传…</string>
     <string name="cloud_pulling">正在连接坚果云…</string>
     <string name="cloud_push_done_title">已备份</string>
-    <string name="cloud_push_done">已加密上传：%1$d 个订阅、应用设置和覆盖设置（%2$d KB，来自 %3$s）。本机的\"访问控制\"应用名单不在备份里。</string>
+    <string name="cloud_push_done">已加密上传：%1$d 个订阅、应用设置和覆盖设置（%2$d KB，设备名 \"%3$s\"）。本机的\"访问控制\"应用名单不在备份里。每台设备只保留自己最新的 5 份。</string>
     <string name="cloud_pick_title">恢复哪一份？</string>
-    <string name="cloud_pick_latest">最新的备份</string>
     <string name="cloud_pick_this_device">（本机）</string>
     <string name="cloud_nothing_there">坚果云上还没有备份，请先在某台设备上备份一次。</string>
     <string name="cloud_wrong_password">备份密码不对，或者文件已损坏。请检查\"坚果云设置\"里的备份密码（必须和做这份备份时用的一样）。</string>
     <string name="cloud_not_a_backup">这个文件不是本应用的加密备份。</string>
     <string name="cloud_pull_confirm_title">恢复这份备份？</string>
-    <string name="cloud_pull_confirm">备份时间：%1$s（%2$d 个订阅）%3$s\n\n本机会变成和备份一致：应用设置、覆盖设置被替换（本机的\"访问控制\"应用名单保留），备份里的订阅加入本机（名称和地址相同的保留本机的；文件类订阅用备份里的内容替换）。订阅会重新联网下载。\n\n恢复前会先存一份本机现状，菜单里的\"撤销上次云端恢复\"可以回去。</string>
-    <string name="cloud_pull_from">，来自 %1$s</string>
+    <string name="cloud_pull_confirm">%1$s 的备份，来自 %2$s（%3$d 个订阅）。\n\n备份里的订阅会加进本机，不会删除任何东西；名称和地址相同的保留本机的（文件类订阅用备份里的内容替换）。订阅会重新联网下载。\n\n恢复前会先存一份本机现状，菜单里的\"撤销上次云端恢复\"可以回去。</string>
     <string name="cloud_confirm_deletes">本机有、备份里没有的订阅会被删除：%1$s</string>
     <string name="cloud_result_deleted">已删除（备份里没有）：%1$s</string>
     <string name="cloud_result_undo_hint">不是想要的结果？用菜单里的\"撤销上次云端恢复\"。</string>
@@ -369,4 +367,6 @@
     <string name="cloud_undo_confirm">回到上次云端恢复之前（%1$s）本机的样子？</string>
     <string name="cloud_undo_done_title">已撤销</string>
     <string name="cloud_network_error">网络出错：%1$s</string>
+    <string name="cloud_pull_option_settings">同时替换本机设置（应用设置、IPv6 等服务设置、覆盖设置）</string>
+    <string name="cloud_result_settings_kept">本机的设置没有改动。</string>
 </resources>

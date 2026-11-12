@@ -73,7 +73,7 @@ object CloudBackupFlow {
                 DesignR.string.cloud_push_done,
                 pushed.profiles,
                 (pushed.bytes + 1023) / 1024,
-                pushed.device,
+                pushed.deviceName,
             ),
         )
     }
@@ -84,23 +84,30 @@ object CloudBackupFlow {
         design.setStatus(context.getString(DesignR.string.cloud_pulling))
 
         val history = CloudBackup.history(settings)
-        val own = CloudBackup.deviceName(context)
 
-        // 0 = the newest, then the history (newest first): going back = picking an older one
-        val labels = ArrayList<CharSequence>()
+        if (history.isEmpty()) {
+            design.message(
+                context.getString(DesignR.string.backup_failed_title),
+                context.getString(DesignR.string.cloud_nothing_there),
+            )
 
-        labels.add(context.getString(DesignR.string.cloud_pick_latest))
-        history.forEach {
-            val mark = if (it.device == own) context.getString(DesignR.string.cloud_pick_this_device) else ""
+            return
+        }
 
-            labels.add("${format(it.time)} · ${it.device}$mark")
+        val ownId = CloudBackup.deviceId(context)
+
+        // newest first; "time · device name", this phone marked
+        val labels = history.map {
+            val mark = if (it.deviceId == ownId) context.getString(DesignR.string.cloud_pick_this_device) else ""
+
+            "${format(it.time)} · ${it.deviceName}$mark"
         }
 
         val index = design.pick(context.getString(DesignR.string.cloud_pick_title), labels)
 
         if (index < 0) return
 
-        val entry = history.getOrNull(index - 1)
+        val entry = history[index]
 
         design.setStatus(context.getString(DesignR.string.cloud_pulling))
 
@@ -135,7 +142,49 @@ object CloudBackupFlow {
 
         val backup = BackupManager.open(context, zip)
 
-        replaceWith(context, design, backup, from = entry?.device)
+        val text = context.getString(
+            DesignR.string.cloud_pull_confirm,
+            format(entry.time),
+            entry.deviceName,
+            backup.profiles.length(),
+        )
+
+        // the box: also replace the settings of this device (not checked: subscriptions only)
+        val withSettings = design.confirmWithOption(
+            context.getString(DesignR.string.cloud_pull_confirm_title),
+            text,
+            context.getString(DesignR.string.cloud_pull_option_settings),
+        )
+
+        if (withSettings == null) {
+            BackupManager.discard(backup)
+
+            return
+        }
+
+        design.setStatus(context.getString(DesignR.string.backup_working))
+
+        // the safety copy first: if it cannot be made, nothing is changed
+        try {
+            CloudBackup.snapshot(context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            BackupManager.discard(backup)
+
+            throw e
+        }
+
+        // subscriptions are added (nothing is deleted); a file subscription gets the backup's content
+        val result = BackupManager.restore(
+            context,
+            backup,
+            replace = false,
+            applySettings = withSettings,
+            replaceFiles = true,
+        )
+
+        showResult(context, design, DesignR.string.backup_import_done_title, result, withSettings)
     }
 
     /** "Undo last restore": goes back to the safety copy that was made before the last cloud restore. */
@@ -174,7 +223,7 @@ object CloudBackupFlow {
 
         file.delete() // used once
 
-        showResult(context, design, DesignR.string.cloud_undo_done_title, result)
+        showResult(context, design, DesignR.string.cloud_undo_done_title, result, true)
     }
 
     // ---- shared -------------------------------------------------------------------------------
@@ -186,45 +235,13 @@ object CloudBackupFlow {
         return if (settings.complete) settings else settings(context, design)
     }
 
-    private suspend fun replaceWith(context: Context, design: BackupDesign, backup: BackupManager.Backup, from: String?) {
-        val deletes = BackupManager.planDeletes(backup)
-
-        var text = context.getString(
-            DesignR.string.cloud_pull_confirm,
-            if (backup.createdAt > 0) format(backup.createdAt) else "-",
-            backup.profiles.length(),
-            from?.let { context.getString(DesignR.string.cloud_pull_from, it) } ?: "",
-        )
-
-        if (deletes.isNotEmpty()) {
-            text += "\n\n" + context.getString(DesignR.string.cloud_confirm_deletes, deletes.joinToString("、"))
-        }
-
-        if (!design.confirm(context.getString(DesignR.string.cloud_pull_confirm_title), text)) {
-            BackupManager.discard(backup)
-
-            return
-        }
-
-        design.setStatus(context.getString(DesignR.string.backup_working))
-
-        // the safety copy first: if it cannot be made, nothing is replaced
-        try {
-            CloudBackup.snapshot(context)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            BackupManager.discard(backup)
-
-            throw e
-        }
-
-        val result = BackupManager.restore(context, backup, replace = true)
-
-        showResult(context, design, DesignR.string.backup_import_done_title, result)
-    }
-
-    private suspend fun showResult(context: Context, design: BackupDesign, title: Int, result: BackupManager.RestoreResult) {
+    private suspend fun showResult(
+        context: Context,
+        design: BackupDesign,
+        title: Int,
+        result: BackupManager.RestoreResult,
+        settingsApplied: Boolean,
+    ) {
         val lines = ArrayList<String>()
 
         lines.add(context.getString(DesignR.string.backup_result_profiles, result.restored, result.skipped))
@@ -238,7 +255,11 @@ object CloudBackupFlow {
         if (result.settings) lines.add(context.getString(DesignR.string.backup_result_settings))
         if (result.override) lines.add(context.getString(DesignR.string.backup_result_override))
 
-        lines.add(context.getString(DesignR.string.backup_result_hint))
+        lines.add(
+            context.getString(
+                if (settingsApplied) DesignR.string.backup_result_hint else DesignR.string.cloud_result_settings_kept,
+            ),
+        )
         lines.add(context.getString(DesignR.string.cloud_result_undo_hint))
 
         design.message(context.getString(title), lines.joinToString("\n"))

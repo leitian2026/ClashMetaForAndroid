@@ -351,16 +351,14 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_pushing">Encrypting and uploading…</string>
     <string name="cloud_pulling">Contacting Jianguoyun…</string>
     <string name="cloud_push_done_title">Backed up</string>
-    <string name="cloud_push_done">%1$d subscriptions, the app settings and the override settings were encrypted and uploaded (%2$d KB, from %3$s). The access-control app list of this device is not part of it.</string>
+    <string name="cloud_push_done">%1$d subscriptions, the app settings and the override settings were encrypted and uploaded (%2$d KB, as \"%3$s\"). The access-control app list of this device is not part of it. This device keeps its newest 5 backups.</string>
     <string name="cloud_pick_title">Restore which backup?</string>
-    <string name="cloud_pick_latest">Newest backup</string>
     <string name="cloud_pick_this_device"> (this device)</string>
     <string name="cloud_nothing_there">There is no backup on Jianguoyun yet. Back up from a device first.</string>
     <string name="cloud_wrong_password">The backup password is wrong, or the file is damaged. Check the backup password in the Jianguoyun settings (it must be the one used when the backup was made).</string>
     <string name="cloud_not_a_backup">That file is not an encrypted backup of this app.</string>
     <string name="cloud_pull_confirm_title">Restore this backup?</string>
-    <string name="cloud_pull_confirm">Created: %1$s (%2$d subscriptions)%3$s\n\nThis device is made the same as the backup: the app settings and override settings are replaced (the access-control app list of this device is kept), and the backup\'s subscriptions are added (same name and address: the one on this device stays; a file subscription is replaced by the backup\'s copy). Subscriptions are downloaded again, which needs network.\n\nThis device is saved first; \"Undo last cloud restore\" in the menu goes back.</string>
-    <string name="cloud_pull_from">, from %1$s</string>
+    <string name="cloud_pull_confirm">Backup of %1$s from %2$s (%3$d subscriptions).\n\nThe subscriptions of the backup are added to this device. Nothing is deleted; with the same name and address the one on this device stays (a file subscription is replaced by the backup\'s copy). Subscriptions are downloaded again, which needs network.\n\nThis device is saved first; \"Undo last cloud restore\" in the menu goes back.</string>
     <string name="cloud_confirm_deletes">Subscriptions on this device that are not in the backup will be DELETED: %1$s</string>
     <string name="cloud_result_deleted">Deleted (not in the backup): %1$s</string>
     <string name="cloud_result_undo_hint">If this is not what you wanted, use \"Undo last cloud restore\" in the menu.</string>
@@ -369,4 +367,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_undo_confirm">Go back to this device as it was at %1$s, before the last cloud restore?</string>
     <string name="cloud_undo_done_title">Undone</string>
     <string name="cloud_network_error">Network error: %1$s</string>
+    <string name="cloud_pull_option_settings">Also replace the settings of this device (app settings, service settings such as IPv6, override settings)</string>
+    <string name="cloud_result_settings_kept">The settings of this device were not changed.</string>
 </resources>

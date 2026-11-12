@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.graphics.Typeface
 import android.text.InputType
 import android.view.View
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -162,6 +163,43 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                     .setPositiveButton(android.R.string.ok) { _, _ ->
                         ctx.resume(inputs.map { it.text.toString() })
                     }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> }
+                    .show()
+                    .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(null) }
+            }
+        }
+    }
+
+    /**
+     * CUSTOM.md #32: a confirmation with one check box (not checked at first). Returns whether the box was
+     * checked, or null when the user cancelled.
+     */
+    suspend fun confirmWithOption(title: CharSequence, message: CharSequence, option: CharSequence): Boolean? {
+        return withContext(Dispatchers.Main) {
+            statusView.visibility = View.GONE
+
+            val density = context.resources.displayMetrics.density
+            val pad = (20 * density).toInt()
+
+            val box = CheckBox(context).apply { text = option }
+
+            val body = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(pad, (8 * density).toInt(), pad, 0)
+
+                addView(TextView(context).apply {
+                    text = message
+                    textSize = 14f
+                    setPadding(0, 0, 0, (12 * density).toInt())
+                })
+                addView(box)
+            }
+
+            suspendCancellableCoroutine<Boolean?> { ctx ->
+                MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setView(ScrollView(context).apply { addView(body) })
+                    .setPositiveButton(android.R.string.ok) { _, _ -> ctx.resume(box.isChecked) }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
                     .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(null) }

@@ -215,10 +215,22 @@ object BackupManager {
     }
 
     /** Puts the backup back. Subscriptions that already exist on this device are skipped. */
-    suspend fun restore(context: Context, backup: Backup, replace: Boolean = false): RestoreResult {
-        val settings = withContext(Dispatchers.IO) { restoreSettings(context, backup.manifest) }
+    // CUSTOM.md #32: [replace] makes this device the same as the backup (subscriptions that are not in the backup
+    // are deleted, the backup's choice of the active subscription wins); [applySettings] = false leaves the app,
+    // service and override settings of this device alone (subscriptions only); [replaceFiles]: a file subscription
+    // of this device that is also in the backup gets the backup's content.
+    suspend fun restore(
+        context: Context,
+        backup: Backup,
+        replace: Boolean = false,
+        applySettings: Boolean = true,
+        replaceFiles: Boolean = replace,
+    ): RestoreResult {
+        val settings = withContext(Dispatchers.IO) {
+            applySettings && restoreSettings(context, backup.manifest)
+        }
         val override = withContext(Dispatchers.IO) {
-            if (backup.manifest.isNull("override")) {
+            if (!applySettings || backup.manifest.isNull("override")) {
                 false
             } else {
                 writeOverride(context, backup.manifest.getString("override"))
@@ -266,7 +278,7 @@ object BackupManager {
             }
 
             // a replace: a file subscription has no address to download from again, so the backup's copy wins
-            if (same != null && replace && type == Profile.Type.File) {
+            if (same != null && replaceFiles && type == Profile.Type.File) {
                 val sameId = same.uuid
 
                 try {

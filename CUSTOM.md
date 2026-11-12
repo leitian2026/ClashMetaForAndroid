@@ -533,15 +533,15 @@
 
 **改的自有文件：** `native/connections.go`（`SortLogLevel` 分支）、`CustomConnections.kt`（`SORT_LOG_LEVEL`）。
 
-## 32. 首页右上角菜单：备份到坚果云 / 从坚果云恢复（多设备共用）（r35）
+## 32. 首页右上角菜单：备份到坚果云 / 从坚果云恢复（多设备共用）（r35，r36 改）
 **效果：** 首页顶部（logo 和 App 名字那一行）最右边加一个"⋮"，点开是：
 - **备份到坚果云：** 导出和 #17 一样的内容（订阅列表和各订阅文件、当前启用的订阅、服务设置、界面设置、geo 下载地址、覆盖设置），在内存里打成 zip，用"备份密码"加密后上传。**设备专属的内容不进云端备份：** 服务设置里的"访问控制"模式和应用名单（每台设备装的应用不同）。本来就不在备份里的还有节点选择记录、geo 文件、缓存、"隐藏应用图标"。
-- **从坚果云恢复：** 先弹出列表：第一项"最新的备份"，下面是历史（新的在前，每项显示时间和设备名，本机的标"（本机）"），选哪份恢复哪份，所以可以回退。选完下载、解密，显示备份时间和订阅数让用户确认；确认里会列出**本机有、备份里没有、将被删除的订阅**。确认后：① 先把本机现状完整存一份（`filesDir/custom_backups/pre-restore-<毫秒>.zip`，保留最近 3 份，存不成功就不往下做）；② 整体覆盖：设置替换（云端备份里没有访问控制，所以本机的保留），备份里没有的本机订阅（imported 且不是 External 类型）删除，名称 + 类型 + 地址相同的订阅保留本机的（文件类订阅没有地址可重新下载，用备份里的内容替换），其余的按 #17 的流程添加（订阅类会重新联网下载，失败的留在订阅页），备份里启用的订阅设为启用。
+- **从坚果云恢复（r36 改）：** 先弹出列表：云端所有备份，新的在前，每项"时间 · 设备名"，本机的标"（本机）"，选哪份恢复哪份（可回退）。选完下载、解密，显示备份时间、设备名和订阅数，确认框里有一个**"同时替换本机设置"勾选项，默认不勾**。确认后：① 先把本机现状完整存一份（`filesDir/custom_backups/pre-restore-<毫秒>.zip`，保留最近 3 份，存不成功就不往下做）；② 备份里的订阅按 #17 的流程加入本机（名称 + 类型 + 地址相同的保留本机的，文件类订阅没有地址可重新下载，用备份里的内容替换；订阅类会重新联网下载，失败的留在订阅页）；**不删除任何本机订阅**，只有本机没有启用的订阅时才把备份里启用的那个设为启用；③ 只有勾了那个选项，才替换应用设置、服务设置（IPv6、系统代理等）、覆盖设置和 geo 下载地址，不勾则一个设置都不动（结果里写"本机的设置没有改动"）。（r35 是整体覆盖：设置替换、备份里没有的本机订阅会被删除。别的手机开了 IPv6 而本机不想开，所以改成了这样。）
 - **坚果云设置：** 三项：坚果云账号（邮箱）、第三方应用密码（坚果云网页端 账户信息 → 安全选项 → 第三方应用管理 → 添加应用 生成，不是登录密码）、备份密码（加密用，忘记就打不开备份，每台共用的设备要填同一个）。保存后立刻连一次坚果云，告诉用户账号和应用密码对不对。第一次点备份 / 恢复时没设置会先弹这个。三项存在 `custom_cloud_backup` 私有偏好文件里（只在本机，不在任何备份里；备份密码和应用密码是明文存的，和订阅地址一样靠 App 私有目录保护）。输入框是明文显示（不是圆点），免得备份密码打错到另一台设备才发现。
 - **本地导出备份 / 本地导入备份：** 从"设置 → 应用"搬到这里（#17 的功能没改）。
 - **撤销上次云端恢复：** 回到上面第 ① 步存的那份（同样是整体覆盖，同样先列出会删除的订阅并确认），用完删掉那份。
 
-**坚果云上的结构**（一个账号下所有设备共用一个文件夹）：`CMFA-backup/latest.enc`（最新一份，谁推的都是它）和 `CMFA-backup/history/<UTC 时间 yyyyMMdd-HHmmss>_<设备名>.enc`（每次推送一份，只留最新 30 份，推送成功后顺手删多的，删失败不算推送失败）。设备名 = 机型 + 本机随机 4 位（存在 `custom_cloud_backup` 里，同机型的两台手机也分得开）。
+**坚果云上的结构**（一个账号下所有设备共用一个文件夹）：`CMFA-backup/history/<UTC 时间 yyyyMMdd-HHmmss>_<设备编号>_<设备名>.enc`，每次推送一份。**每台设备各留自己最新的 5 份**（推送成功后顺手删本机多出来的旧份，删失败不算推送失败），所以一台手机备份得勤也不会挤掉别的手机的。没有 `latest.enc` 了（r35 写过，r36 起每次推送顺手把旧的删掉）。设备名读系统设置里的"设备名称"（`Settings.Global` 的 `device_name`），读不到用机型；文件名里不能有的字符换成 `-`，最长 40 个字，放进网址时百分号编码（`CloudBackup.path`），列表时解码。设备编号 = 本机随机 4 位（存在 `custom_cloud_backup` 里），用来区分同名的两台手机、也是"各留 5 份"的依据。r35 的旧文件（`<时间>_<机型-编号>.enc`）仍然能列出和恢复，设备名显示为那串机型-编号。
 
 **加密：** `BackupCrypto`。文件格式 `CMFAENC1`（8 字节）｜迭代次数（4）｜盐（16）｜IV（12）｜AES-256-GCM 密文和标签；密钥 = PBKDF2-HMAC-SHA256（迭代 60000，自己写了一遍，因为系统自带的 `PBKDF2WithHmacSHA256` 要 Android 8 才有，本 App 支持 Android 5）；头部（到盐为止）作为附加认证数据。密码不对或文件被改过，GCM 校验失败，提示"备份密码不对，或者文件已损坏"。坚果云上只有密文。
 
@@ -550,7 +550,7 @@
 **功耗：** 全部只在用户点菜单项时运行（连一次网、做一次加密），没有定时器、轮询、后台任务、广播接收器。
 
 **新增文件：** `app/.../custom/WebDavClient.kt`（WebDAV 请求）、`BackupCrypto.kt`（加密）、`CloudBackup.kt`（设置、坚果云上的读写、历史、恢复前的本机存档）、`CloudBackupFlow.kt`（设置对话框、选历史、确认、结果、撤销）；`design/.../custom/MainCustomMenu.kt`（右上角菜单，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）；文案 `cloud_*`、`custom_menu_title`（`strings_custom.xml` 中英文）。
-**改了自己的文件：** `BackupManager.kt`（`export` 拆出 `write`；新增 `exportBytes` / `exportFile` / `open(bytes)` / `open(file)`；`restore` 加 `replace` 参数；新增 `planDeletes`；`RestoreResult` 加 `deleted`；`serviceToJson` 加 `sync` 参数）、`BackupActivity.kt`（四个新 action 和网络错误提示）、`BackupDesign.kt`（新增 `form(...)` 输入对话框）、`BackupPreference.kt`（去掉导出 / 导入两项）。
+**改了自己的文件：** `BackupManager.kt`（`export` 拆出 `write`；新增 `exportBytes` / `exportFile` / `open(bytes)` / `open(file)`；`restore` 加 `replace` / `applySettings` / `replaceFiles` 三个参数（本地导入不传，行为和 #17 一样；云端恢复传 `replace=false, applySettings=勾选项, replaceFiles=true`；撤销传 `replace=true`）；新增 `planDeletes`（只有撤销用）；`RestoreResult` 加 `deleted`；`serviceToJson` 加 `sync` 参数）、`BackupActivity.kt`（四个新 action 和网络错误提示）、`BackupDesign.kt`（新增 `form(...)` 输入对话框和 `confirmWithOption(...)` 带勾选项的确认框）、`BackupPreference.kt`（去掉导出 / 导入两项）。
 **改了上游文件：** `design_main.xml`（右上角 `custom_more`）、`MainDesign.kt`（一行 `customMenu` 加一个 import）。`AndroidManifest.xml` 没有新增 Activity（沿用 `BackupActivity`）。
 **依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
 
