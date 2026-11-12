@@ -130,11 +130,11 @@
 - **r32：显示的是"请求实际走过的 IP"，可以是几个。** 旧做法（上面"IP 怎么定的"）记的是内核**拨号**的 IP：多路复用时新请求直接放在已经开着的连接上，不会拨号，首页就不变；`tcp-concurrent` 并发拨号时输掉的那几个 IP 也被记进去。新做法：内核的 xhttp 客户端给每个请求（新连接和复用的连接一样）都有一次 `GotConn` 回调，里面能拿到**这个请求实际用的那条连接的对端地址**；补丁 `patches/mihomo/0002-request-remote.patch` 在三个 `GotConn` 里加一行，把它报给应用（`dialer.NoteUse` → `dialer.SetUseHook`）。应用（`ipdelay/inuse.go`）按节点记下"每个 IP 最近一次被请求用到的时刻"，**显示的是最近一个请求之前 1.5 秒内（`useWindow`）所有请求用到的 IP，去重，最近用的排前面，最多 3 个，再多写"等 N 个"**（例：`规则模式 · 🇺🇸 104.17.146.59 · 🇺🇸 172.64.79.23`）。窗口以最近一次请求的时刻为准，不是以"现在"为准：没有新请求时一直保持上一批，不会清空；下一个请求出现才重新算。一个网站的请求陆续用了两个 IP 就显示两个；一直在连续请求时只显示最近 1.5 秒里的。
   - **通知栏**用同一份文本：`🇺🇸 IP · 🇺🇸 IP · 节点名`（TunnelState.ipsText）。
   - **更新时机：** 只有"这一批 IP（排序后的集合）"和上次不同才排一个 0.8 秒的一次性通知（和原来合并拨号用的是同一个 `scheduleNotify`），两个 IP 轮流做"最近一个"不算变化；国家探测完成时照旧通知。没有新增定时器 / 后台任务；钩子在请求本来就要做的 `GotConn` 里被调用，没人监听时只是一次原子读取，有人监听时一次带锁的小 map 更新。我们自己的测速 / 国家探测（`selfDialing`）不计入。
-  - **非 xhttp 的节点**（一个请求一条连接）没有这个回调，仍然用拨号记录（`record`）：没有任何请求记录时退回"最近拨的 IP"，和 r31 之前一样。
+  - **非 xhttp 的节点（r33）：** ws、普通 tcp 这类"一个请求一条自己的连接"的传输，补丁 0002 在 `component/dialer/conncount.go` 的 `DialContext`（0001 加的拨号包装）里，拨号成功后把**赢家连接**（`tcp-concurrent` 竞速赢的那个）的对端 IP 也报给同一个钩子（`opt.owner` 非空才报，`dialer-proxy` 之类不是本进程 socket 的不报）。这样 ws 节点显示的是真正连上的 IP，不再是竞速输掉的那几个（socket 钩子 `record` 会把每个并发 socket 都记下，那是 r32 之前 ws 显示不准的原因）。xhttp 新建连接时这里也会报一次，和 `GotConn` 报的重复，集合去重所以没有影响。没有任何请求记录时仍退回"最近拨的 IP"。
   - **IP 切换历史（#10）**：一个 IP 第一次进入这一批、或节点换了，才记一条；两个 IP 轮流做最近一个不会每次都记。
   - **连接页每条连接的"节点 IP"（#8）**（`ipdelay.Lookup`）也优先取"请求最近走过的 IP"，没有记录才退回拨号记录。注意：它仍然是节点级的一个 IP，不是每条连接各自的（内核没有给连接记下它走的哪条底层连接）。
   - **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。`transport/xhttp/reuse.go`（`ReuseManager.GetTransport` 给每个新请求挑一个已有的传输或新建；这里每个传输是一条 h2 连接）、`transport/xhttp/client.go`（`DialStreamOne` / `DialStreamUp` / `DialPacketUp` 里已有的 `httptrace.ClientTrace.GotConn`，`httputils.NewAddrContext` 也是靠它记 `conn.NetAddr`，所以复用的连接上 `GotConn` 也会触发）、`adapter/outbound/vless.go`（`xhttp.NewClient` 之后设 `OnRemote`）。补丁只加一个字段 `Client.OnRemote`、三处调用、一处赋值和新文件 `component/dialer/usehook.go`。内核升级后这几处要重新对照。
-  - **局限：** ① 这里没有 Go / Kotlin 编译环境，补丁用 `patch --dry-run` 在内核源码上按顺序（0001、0002）试打通过，Go / Kotlin 部分没有编译过，要靠 Actions 构建验证；② `stream-up` / `packet-up` 模式里单独的下载请求（GET）没有挂钩，只有主请求；你用的 `stream-one` 不受影响；③ `GotConn` 可能对一个请求回调多次，集合去重所以没有影响；④ 1.5 秒是按"一次访问"估的，间隔取小了一个网站的请求会被拆成几批，取大了连着打开两个网站会并成一批，要调改 `useWindow`。
+  - **局限：** ⓪ 会复用连接的其他传输（grpc、h2、smux 多路复用）没有挂钩：新请求放在已开的连接上，不会拨号，只能显示最近一次拨号的 IP；① 这里没有 Go / Kotlin 编译环境，补丁用 `patch --dry-run` 在内核源码上按顺序（0001、0002）试打通过，Go / Kotlin 部分没有编译过，要靠 Actions 构建验证；② `stream-up` / `packet-up` 模式里单独的下载请求（GET）没有挂钩，只有主请求；你用的 `stream-one` 不受影响；③ `GotConn` 可能对一个请求回调多次，集合去重所以没有影响；④ 1.5 秒是按"一次访问"估的，间隔取小了一个网站的请求会被拆成几批，取大了连着打开两个网站会并成一批，要调改 `useWindow`。
 
 **新增文件**
 - `design/src/main/java/com/github/kr328/clash/design/custom/MainCustomCards.kt`：红字提示的显示控制，以及生成代理卡片副标题后缀。
@@ -146,7 +146,7 @@
 - `core/src/main/cpp/custom_bridge.c`：JNI 函数 `nativeSubscribeNodeIp`（调用 Go 导出的 `subscribeNodeIp`）。
 - `core/src/main/golang/native/nodeip.go`：Go 导出 `subscribeNodeIp`，用 `fetch_report` 回调通知。
 - `core/src/main/golang/native/ipdelay/inuse.go`（r32）：请求实际走过的 IP 的记录、`CurrentSet()`（首页 / 通知用）、`Current()`（取第一个）、集合的比较键。
-- `patches/mihomo/0002-request-remote.patch`（r32）：内核补丁，新文件 `component/dialer/usehook.go`（`SetUseHook` / `NoteUse`）；改 `transport/xhttp/client.go`（`Client.OnRemote` 字段，三个 `GotConn` 里各一行）和 `adapter/outbound/vless.go`（import 一行、`NewClient` 之后一行）。由 `build-debug.yaml` 的 `Apply mihomo patches` 按文件名顺序在 0001 之后应用。
+- `patches/mihomo/0002-request-remote.patch`（r32，r33 加第 4 处）：内核补丁，新文件 `component/dialer/usehook.go`（`SetUseHook` / `NoteUse`）；改 `transport/xhttp/client.go`（`Client.OnRemote` 字段，三个 `GotConn` 里各一行）、`adapter/outbound/vless.go`（import 一行、`NewClient` 之后一行）和 `component/dialer/conncount.go`（`DialContext` 里 `NoteUse` 一处，这个文件是 0001 新建的，所以 0002 必须在 0001 之后应用）。由 `build-debug.yaml` 的 `Apply mihomo patches` 按文件名顺序在 0001 之后应用。
 - `common/src/main/java/com/github/kr328/clash/common/custom/CustomIntents.kt`：广播 action。
 - `core/src/main/java/com/github/kr328/clash/core/util/CountryFlag.kt`（同 #1）。
 - 文案：`design/.../strings_custom.xml`（`main_*`）、`service/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（`custom_notification_no_ip`）。

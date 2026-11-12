@@ -1,4 +1,4 @@
-diff -ruN a/adapter/outbound/vless.go b/adapter/outbound/vless.go
+diff -ruN -x '*.orig' base1/adapter/outbound/vless.go after/adapter/outbound/vless.go
 --- a/adapter/outbound/vless.go
 +++ b/adapter/outbound/vless.go
 @@ -14,6 +14,7 @@
@@ -17,7 +17,23 @@ diff -ruN a/adapter/outbound/vless.go b/adapter/outbound/vless.go
  	}
  
  	return v, nil
-diff -ruN a/component/dialer/usehook.go b/component/dialer/usehook.go
+diff -ruN -x '*.orig' base1/component/dialer/conncount.go after/component/dialer/conncount.go
+--- a/component/dialer/conncount.go
++++ b/component/dialer/conncount.go
+@@ -167,6 +167,12 @@
+ 
+ 	ip := addrIP(conn.RemoteAddr())
+ 
++	// CUSTOM (CUSTOM.md #7): a request of a node that opens its own connection (ws, plain tcp, ...) goes through
++	// the address that really connected, the winner of tcp-concurrent, not one of the sockets that lost
++	if opt.owner != "" {
++		NoteUse(opt.owner, conn.RemoteAddr())
++	}
++
+ 	switch c := conn.(type) {
+ 	case *net.TCPConn:
+ 		w := &tcpConn{TCPConn: c, rel: track(connKey{opt.owner, "tcp", ip})}
+diff -ruN -x '*.orig' base1/component/dialer/usehook.go after/component/dialer/usehook.go
 --- a/component/dialer/usehook.go
 +++ b/component/dialer/usehook.go
 @@ -0,0 +1,47 @@
@@ -68,7 +84,7 @@ diff -ruN a/component/dialer/usehook.go b/component/dialer/usehook.go
 +
 +	(*p)(owner, a.Unmap().String())
 +}
-diff -ruN a/transport/xhttp/client.go b/transport/xhttp/client.go
+diff -ruN -x '*.orig' base1/transport/xhttp/client.go after/transport/xhttp/client.go
 --- a/transport/xhttp/client.go
 +++ b/transport/xhttp/client.go
 @@ -240,6 +240,10 @@
