@@ -5,8 +5,11 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.graphics.Typeface
+import android.text.InputType
 import android.view.View
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.github.kr328.clash.design.Design
@@ -106,6 +109,62 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                     .setPositiveButton(android.R.string.ok, null)
                     .show()
                     .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(Unit) }
+            }
+        }
+    }
+
+    /** CUSTOM.md #32: one line of a [form]; [email] gives the keyboard for an address. */
+    class Field(val hint: CharSequence, val value: String, val email: Boolean = false)
+
+    /**
+     * CUSTOM.md #32: a dialog with a few text fields. Returns the texts in the order of [fields], or null when
+     * the user cancelled. The text is shown as typed (no dots): these are passwords that are typed twice at most
+     * (once per device) and a typo in the backup password would only show up on the other device.
+     */
+    suspend fun form(title: CharSequence, message: CharSequence, fields: List<Field>): List<String>? {
+        return withContext(Dispatchers.Main) {
+            statusView.visibility = View.GONE
+
+            val density = context.resources.displayMetrics.density
+            val pad = (20 * density).toInt()
+
+            val inputs = fields.map { field ->
+                EditText(context).apply {
+                    hint = field.hint
+                    setText(field.value)
+                    setSingleLine()
+                    inputType = if (field.email) {
+                        InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                    } else {
+                        InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+                            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    }
+                }
+            }
+
+            val body = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(pad, (8 * density).toInt(), pad, 0)
+
+                addView(TextView(context).apply {
+                    text = message
+                    textSize = 13f
+                    setPadding(0, 0, 0, (8 * density).toInt())
+                })
+
+                inputs.forEach { addView(it) }
+            }
+
+            suspendCancellableCoroutine<List<String>?> { ctx ->
+                MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setView(ScrollView(context).apply { addView(body) })
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        ctx.resume(inputs.map { it.text.toString() })
+                    }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> }
+                    .show()
+                    .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(null) }
             }
         }
     }

@@ -7,6 +7,7 @@ import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.core.util.trafficTotal
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
 import com.github.kr328.clash.design.custom.MainCustomCards
+import com.github.kr328.clash.design.custom.MainCustomMenu // CUSTOM: CUSTOM.md #32
 import com.github.kr328.clash.design.databinding.DesignMainBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
@@ -38,6 +39,9 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
     // CUSTOM: GeoSite reminder + current node IP on the proxy card, CUSTOM.md #6, #7
     private val customCards = MainCustomCards(context, binding.root)
+
+    // CUSTOM: top-right menu (cloud backup, local export / import), CUSTOM.md #32
+    private val customMenu = MainCustomMenu(context, binding.root)
 
     suspend fun setCustomCards(running: Boolean, state: TunnelState) {
         withContext(Dispatchers.Main) {

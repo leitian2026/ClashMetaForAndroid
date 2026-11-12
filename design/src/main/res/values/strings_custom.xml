@@ -332,4 +332,41 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_dns_fold_closed">▸ Details: what an app gets, the core\'s resolver, nameserver-policy, notes (tap to open)</string>
     <string name="check_dns_fold_open">▾ Details (tap to close)</string>
     <string name="check_dns_fold_plain">Details</string>
+
+    <!-- CUSTOM #32: top-right menu, cloud backup (Jianguoyun) -->
+    <string name="custom_menu_title">Backup menu</string>
+    <string name="cloud_menu_push">Back up to Jianguoyun</string>
+    <string name="cloud_menu_pull">Restore from Jianguoyun</string>
+    <string name="cloud_menu_settings">Jianguoyun settings</string>
+    <string name="cloud_menu_undo">Undo last cloud restore</string>
+    <string name="cloud_settings_title">Jianguoyun settings</string>
+    <string name="cloud_settings_message">In the Jianguoyun web page open Account info → Security → Third-party apps → Add app, and use the generated password below (not your login password). Use the same three values on every device that shares the backup. The backup is encrypted with the backup password before it is uploaded; if you forget it the backup cannot be opened. The values are kept on this device only.</string>
+    <string name="cloud_field_account">Jianguoyun account (e-mail)</string>
+    <string name="cloud_field_app_password">Third-party app password</string>
+    <string name="cloud_field_backup_password">Backup password (encrypts the backup)</string>
+    <string name="cloud_settings_incomplete">All three fields are needed.</string>
+    <string name="cloud_settings_saved_title">Saved</string>
+    <string name="cloud_settings_saved_ok">Connected to Jianguoyun.</string>
+    <string name="cloud_settings_saved_bad">Saved, but the connection failed:\n%1$s</string>
+    <string name="cloud_pushing">Encrypting and uploading…</string>
+    <string name="cloud_pulling">Contacting Jianguoyun…</string>
+    <string name="cloud_push_done_title">Backed up</string>
+    <string name="cloud_push_done">%1$d subscriptions, the app settings and the override settings were encrypted and uploaded (%2$d KB, from %3$s). The access-control app list of this device is not part of it.</string>
+    <string name="cloud_pick_title">Restore which backup?</string>
+    <string name="cloud_pick_latest">Newest backup</string>
+    <string name="cloud_pick_this_device"> (this device)</string>
+    <string name="cloud_nothing_there">There is no backup on Jianguoyun yet. Back up from a device first.</string>
+    <string name="cloud_wrong_password">The backup password is wrong, or the file is damaged. Check the backup password in the Jianguoyun settings (it must be the one used when the backup was made).</string>
+    <string name="cloud_not_a_backup">That file is not an encrypted backup of this app.</string>
+    <string name="cloud_pull_confirm_title">Restore this backup?</string>
+    <string name="cloud_pull_confirm">Created: %1$s (%2$d subscriptions)%3$s\n\nThis device is made the same as the backup: the app settings and override settings are replaced (the access-control app list of this device is kept), and the backup\'s subscriptions are added (same name and address: the one on this device stays; a file subscription is replaced by the backup\'s copy). Subscriptions are downloaded again, which needs network.\n\nThis device is saved first; \"Undo last cloud restore\" in the menu goes back.</string>
+    <string name="cloud_pull_from">, from %1$s</string>
+    <string name="cloud_confirm_deletes">Subscriptions on this device that are not in the backup will be DELETED: %1$s</string>
+    <string name="cloud_result_deleted">Deleted (not in the backup): %1$s</string>
+    <string name="cloud_result_undo_hint">If this is not what you wanted, use \"Undo last cloud restore\" in the menu.</string>
+    <string name="cloud_undo_title">Undo last cloud restore</string>
+    <string name="cloud_undo_none">There is nothing to undo.</string>
+    <string name="cloud_undo_confirm">Go back to this device as it was at %1$s, before the last cloud restore?</string>
+    <string name="cloud_undo_done_title">Undone</string>
+    <string name="cloud_network_error">Network error: %1$s</string>
 </resources>

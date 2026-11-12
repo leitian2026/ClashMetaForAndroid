@@ -95,6 +95,21 @@
                             android:textSize="12sp"
                             android:visibility="gone" />
                     </LinearLayout>
+
+                    <!-- CUSTOM (CUSTOM.md #32): top-right menu (cloud backup, local export / import), set up by MainCustomMenu -->
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/custom_more"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/custom_menu_title"
+                        android:padding="12dp"
+                        android:src="@drawable/ic_baseline_more_vert" />
                 </LinearLayout>
 
                 <com.github.kr328.clash.design.view.LargeActionCard

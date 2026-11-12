@@ -16,8 +16,8 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()` |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22） |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加一个撑开的空 `View`（`layout_weight=1`）和右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
 | `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22） |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
@@ -265,6 +265,8 @@
 **依赖的上游接口：** `IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`；`pendingDir` / `importedDir`；`ServiceStore` 的各个属性（上游新增设置项时可在 `BackupManager.serviceToJson` / `restoreSettings` 里加）；`override.json` 在 `filesDir/clash` 下（内核的 `OverrideSlotPersist` 路径）。
 
 **r34：四个入口的图标各不相同。** 原来导出备份和导出诊断包都是保存图标，导入备份和配置历史都是还原图标。现在：导出备份 = 保存（`ic_baseline_save`），导入备份 = 下载（`ic_baseline_get_app`），配置历史 = 还原（`ic_baseline_restore`），导出诊断包 = 信息（`ic_baseline_info`）。只换图标，`BackupPreference.kt` 里四个 `icon =`。
+
+**r35：导出备份 / 导入备份的入口搬到了首页右上角菜单**（见 #32）。"设置 → 应用"的"备份与恢复"里只剩"配置历史"和"导出诊断包"；`BackupPreference.kt` 删了导出 / 导入两项，逻辑（`BackupActivity` 的 `ACTION_EXPORT` / `ACTION_IMPORT`）没动。
 
 ## 18. 构建时的下载：缓存和重试（仅 build-debug）
 - 上游 workflow 本来就缓存了 Go 编译缓存和模块（`actions/cache`），`gradle/actions/setup-gradle` 也缓存 Gradle，这两处不用再加。
@@ -530,6 +532,27 @@
 **r34：按钮显示当前级别的文字，不再用图标。** 日志页工具栏里原来是一个小图标（`ic_custom_tune`），现在是一个 `TextView`，直接显示设置的级别：停用 / 调试 / 信息 / 警告 / 错误，没有设置（"不修改"）时显示"不修改"，读不到时显示"日志级别"。点它还是弹出选择框，选完立刻换成新的字。打开页面时读一次覆盖设置文件（`LogLevelControl.currentIndex`），之后只在选择后更新，没有新增定时器。最多宽 120dp，超出省略号。`ic_custom_tune.xml` 不再被用，留着没删。
 
 **改的自有文件：** `native/connections.go`（`SortLogLevel` 分支）、`CustomConnections.kt`（`SORT_LOG_LEVEL`）。
+
+## 32. 首页右上角菜单：备份到坚果云 / 从坚果云恢复（多设备共用）（r35）
+**效果：** 首页顶部（logo 和 App 名字那一行）最右边加一个"⋮"，点开是：
+- **备份到坚果云：** 导出和 #17 一样的内容（订阅列表和各订阅文件、当前启用的订阅、服务设置、界面设置、geo 下载地址、覆盖设置），在内存里打成 zip，用"备份密码"加密后上传。**设备专属的内容不进云端备份：** 服务设置里的"访问控制"模式和应用名单（每台设备装的应用不同）。本来就不在备份里的还有节点选择记录、geo 文件、缓存、"隐藏应用图标"。
+- **从坚果云恢复：** 先弹出列表：第一项"最新的备份"，下面是历史（新的在前，每项显示时间和设备名，本机的标"（本机）"），选哪份恢复哪份，所以可以回退。选完下载、解密，显示备份时间和订阅数让用户确认；确认里会列出**本机有、备份里没有、将被删除的订阅**。确认后：① 先把本机现状完整存一份（`filesDir/custom_backups/pre-restore-<毫秒>.zip`，保留最近 3 份，存不成功就不往下做）；② 整体覆盖：设置替换（云端备份里没有访问控制，所以本机的保留），备份里没有的本机订阅（imported 且不是 External 类型）删除，名称 + 类型 + 地址相同的订阅保留本机的（文件类订阅没有地址可重新下载，用备份里的内容替换），其余的按 #17 的流程添加（订阅类会重新联网下载，失败的留在订阅页），备份里启用的订阅设为启用。
+- **坚果云设置：** 三项：坚果云账号（邮箱）、第三方应用密码（坚果云网页端 账户信息 → 安全选项 → 第三方应用管理 → 添加应用 生成，不是登录密码）、备份密码（加密用，忘记就打不开备份，每台共用的设备要填同一个）。保存后立刻连一次坚果云，告诉用户账号和应用密码对不对。第一次点备份 / 恢复时没设置会先弹这个。三项存在 `custom_cloud_backup` 私有偏好文件里（只在本机，不在任何备份里；备份密码和应用密码是明文存的，和订阅地址一样靠 App 私有目录保护）。输入框是明文显示（不是圆点），免得备份密码打错到另一台设备才发现。
+- **本地导出备份 / 本地导入备份：** 从"设置 → 应用"搬到这里（#17 的功能没改）。
+- **撤销上次云端恢复：** 回到上面第 ① 步存的那份（同样是整体覆盖，同样先列出会删除的订阅并确认），用完删掉那份。
+
+**坚果云上的结构**（一个账号下所有设备共用一个文件夹）：`CMFA-backup/latest.enc`（最新一份，谁推的都是它）和 `CMFA-backup/history/<UTC 时间 yyyyMMdd-HHmmss>_<设备名>.enc`（每次推送一份，只留最新 30 份，推送成功后顺手删多的，删失败不算推送失败）。设备名 = 机型 + 本机随机 4 位（存在 `custom_cloud_backup` 里，同机型的两台手机也分得开）。
+
+**加密：** `BackupCrypto`。文件格式 `CMFAENC1`（8 字节）｜迭代次数（4）｜盐（16）｜IV（12）｜AES-256-GCM 密文和标签；密钥 = PBKDF2-HMAC-SHA256（迭代 60000，自己写了一遍，因为系统自带的 `PBKDF2WithHmacSHA256` 要 Android 8 才有，本 App 支持 Android 5）；头部（到盐为止）作为附加认证数据。密码不对或文件被改过，GCM 校验失败，提示"备份密码不对，或者文件已损坏"。坚果云上只有密文。
+
+**传输：** `WebDavClient`，对 `https://dav.jianguoyun.com/dav/` 发 MKCOL / PUT / GET / PROPFIND / DELETE，Basic 认证。不用 `HttpURLConnection`（它不认 MKCOL 和 PROPFIND），也不加 OkHttp 依赖，所以是自己在 `SSLSocket` 上写的最小 HTTP/1.1（`Connection: close`，支持 Content-Length、chunked、读到连接关闭；证书主机名用 `HttpsURLConnection.getDefaultHostnameVerifier()` 检查）。文件都很小，全放内存。
+
+**功耗：** 全部只在用户点菜单项时运行（连一次网、做一次加密），没有定时器、轮询、后台任务、广播接收器。
+
+**新增文件：** `app/.../custom/WebDavClient.kt`（WebDAV 请求）、`BackupCrypto.kt`（加密）、`CloudBackup.kt`（设置、坚果云上的读写、历史、恢复前的本机存档）、`CloudBackupFlow.kt`（设置对话框、选历史、确认、结果、撤销）；`design/.../custom/MainCustomMenu.kt`（右上角菜单，用类名启动 `BackupActivity`，因为 design 模块看不到 app 模块）；文案 `cloud_*`、`custom_menu_title`（`strings_custom.xml` 中英文）。
+**改了自己的文件：** `BackupManager.kt`（`export` 拆出 `write`；新增 `exportBytes` / `exportFile` / `open(bytes)` / `open(file)`；`restore` 加 `replace` 参数；新增 `planDeletes`；`RestoreResult` 加 `deleted`；`serviceToJson` 加 `sync` 参数）、`BackupActivity.kt`（四个新 action 和网络错误提示）、`BackupDesign.kt`（新增 `form(...)` 输入对话框）、`BackupPreference.kt`（去掉导出 / 导入两项）。
+**改了上游文件：** `design_main.xml`（右上角 `custom_more`）、`MainDesign.kt`（一行 `customMenu` 加一个 import）。`AndroidManifest.xml` 没有新增 Activity（沿用 `BackupActivity`）。
+**依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
 
 ## 本版没做的（决定不做）
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。

@@ -29,9 +29,23 @@ class BackupActivity : BaseActivity<BackupDesign>() {
                 ACTION_IMPORT -> importBackup(design)
                 ACTION_HISTORY -> ConfigTools.run(this, design) // CUSTOM.md #27 #28
                 ACTION_DIAG -> exportDiagnostics(design) // CUSTOM.md #29
+                ACTION_CLOUD_PUSH -> CloudBackupFlow.push(this, design) // CUSTOM.md #32
+                ACTION_CLOUD_PULL -> CloudBackupFlow.pull(this, design)
+                ACTION_CLOUD_SETTINGS -> CloudBackupFlow.settings(this, design)
+                ACTION_RESTORE_UNDO -> CloudBackupFlow.undo(this, design)
             }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: java.io.IOException) {
+            // CUSTOM.md #32: the network (or the server) said no; the text of a WebDAV answer is already readable
+            design.message(
+                getString(DesignR.string.backup_failed_title),
+                if (e is WebDavClient.DavException) {
+                    e.message ?: ""
+                } else {
+                    getString(DesignR.string.cloud_network_error, e.message ?: e.javaClass.simpleName)
+                },
+            )
         } catch (e: Exception) {
             design.message(
                 getString(DesignR.string.backup_failed_title),
@@ -137,5 +151,10 @@ class BackupActivity : BaseActivity<BackupDesign>() {
         const val ACTION_IMPORT = "com.github.kr328.clash.custom.action.BACKUP_IMPORT"
         const val ACTION_HISTORY = "com.github.kr328.clash.custom.action.CONFIG_HISTORY"
         const val ACTION_DIAG = "com.github.kr328.clash.custom.action.DIAGNOSTIC_EXPORT"
+        // CUSTOM.md #32: same strings as in MainCustomMenu (design module)
+        const val ACTION_CLOUD_PUSH = "com.github.kr328.clash.custom.action.CLOUD_PUSH"
+        const val ACTION_CLOUD_PULL = "com.github.kr328.clash.custom.action.CLOUD_PULL"
+        const val ACTION_CLOUD_SETTINGS = "com.github.kr328.clash.custom.action.CLOUD_SETTINGS"
+        const val ACTION_RESTORE_UNDO = "com.github.kr328.clash.custom.action.RESTORE_UNDO"
     }
 }

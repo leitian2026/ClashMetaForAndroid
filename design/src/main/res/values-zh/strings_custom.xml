@@ -332,4 +332,41 @@
     <string name="check_dns_fold_closed">▸ 详情：应用拿到的地址、内核解析器、nameserver-policy、说明（点开）</string>
     <string name="check_dns_fold_open">▾ 详情（点这里收起）</string>
     <string name="check_dns_fold_plain">详情</string>
+
+    <!-- CUSTOM #32: top-right menu, cloud backup (Jianguoyun) -->
+    <string name="custom_menu_title">备份菜单</string>
+    <string name="cloud_menu_push">备份到坚果云</string>
+    <string name="cloud_menu_pull">从坚果云恢复</string>
+    <string name="cloud_menu_settings">坚果云设置</string>
+    <string name="cloud_menu_undo">撤销上次云端恢复</string>
+    <string name="cloud_settings_title">坚果云设置</string>
+    <string name="cloud_settings_message">在坚果云网页端打开 账户信息 → 安全选项 → 第三方应用管理 → 添加应用，把生成的密码填在下面（不是登录密码）。要共用备份的每台设备都填同样的三项。备份上传前会用\"备份密码\"加密，忘记备份密码就无法打开备份。这三项只保存在本机。</string>
+    <string name="cloud_field_account">坚果云账号（邮箱）</string>
+    <string name="cloud_field_app_password">第三方应用密码</string>
+    <string name="cloud_field_backup_password">备份密码（用来加密备份）</string>
+    <string name="cloud_settings_incomplete">三项都要填。</string>
+    <string name="cloud_settings_saved_title">已保存</string>
+    <string name="cloud_settings_saved_ok">已连上坚果云。</string>
+    <string name="cloud_settings_saved_bad">已保存，但连接失败：\n%1$s</string>
+    <string name="cloud_pushing">正在加密并上传…</string>
+    <string name="cloud_pulling">正在连接坚果云…</string>
+    <string name="cloud_push_done_title">已备份</string>
+    <string name="cloud_push_done">已加密上传：%1$d 个订阅、应用设置和覆盖设置（%2$d KB，来自 %3$s）。本机的\"访问控制\"应用名单不在备份里。</string>
+    <string name="cloud_pick_title">恢复哪一份？</string>
+    <string name="cloud_pick_latest">最新的备份</string>
+    <string name="cloud_pick_this_device">（本机）</string>
+    <string name="cloud_nothing_there">坚果云上还没有备份，请先在某台设备上备份一次。</string>
+    <string name="cloud_wrong_password">备份密码不对，或者文件已损坏。请检查\"坚果云设置\"里的备份密码（必须和做这份备份时用的一样）。</string>
+    <string name="cloud_not_a_backup">这个文件不是本应用的加密备份。</string>
+    <string name="cloud_pull_confirm_title">恢复这份备份？</string>
+    <string name="cloud_pull_confirm">备份时间：%1$s（%2$d 个订阅）%3$s\n\n本机会变成和备份一致：应用设置、覆盖设置被替换（本机的\"访问控制\"应用名单保留），备份里的订阅加入本机（名称和地址相同的保留本机的；文件类订阅用备份里的内容替换）。订阅会重新联网下载。\n\n恢复前会先存一份本机现状，菜单里的\"撤销上次云端恢复\"可以回去。</string>
+    <string name="cloud_pull_from">，来自 %1$s</string>
+    <string name="cloud_confirm_deletes">本机有、备份里没有的订阅会被删除：%1$s</string>
+    <string name="cloud_result_deleted">已删除（备份里没有）：%1$s</string>
+    <string name="cloud_result_undo_hint">不是想要的结果？用菜单里的\"撤销上次云端恢复\"。</string>
+    <string name="cloud_undo_title">撤销上次云端恢复</string>
+    <string name="cloud_undo_none">没有可撤销的恢复。</string>
+    <string name="cloud_undo_confirm">回到上次云端恢复之前（%1$s）本机的样子？</string>
+    <string name="cloud_undo_done_title">已撤销</string>
+    <string name="cloud_network_error">网络出错：%1$s</string>
 </resources>

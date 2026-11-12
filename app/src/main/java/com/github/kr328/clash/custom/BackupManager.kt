@@ -15,7 +15,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -52,12 +56,38 @@ object BackupManager {
         val failed: List<String>, // names; kept as pending profiles, can be updated by hand
         val settings: Boolean,
         val override: Boolean,
+        val deleted: List<String> = emptyList(), // CUSTOM.md #32: removed by a replace
     )
 
     // ---- export -------------------------------------------------------------------------------
 
     /** Writes the backup into [uri]; returns the number of subscriptions it holds. */
     suspend fun export(context: Context, uri: Uri): Int {
+        return write(context, sync = false) {
+            context.contentResolver.openOutputStream(uri, "w")
+                ?: throw BackupException("cannot open $uri")
+        }
+    }
+
+    /**
+     * CUSTOM.md #32: the backup for the cloud, in memory, without the settings that belong to this device
+     * only (the access control mode and its app list). Returns the zip bytes and the number of subscriptions.
+     */
+    suspend fun exportBytes(context: Context): Pair<ByteArray, Int> {
+        val bytes = ByteArrayOutputStream()
+        val count = write(context, sync = true) { bytes }
+
+        return bytes.toByteArray() to count
+    }
+
+    /** CUSTOM.md #32: the full backup (nothing left out) into a file; used as the safety copy before a restore. */
+    suspend fun exportFile(context: Context, file: File): Int {
+        file.parentFile?.mkdirs()
+
+        return write(context, sync = false) { file.outputStream() }
+    }
+
+    private suspend fun write(context: Context, sync: Boolean, open: () -> OutputStream): Int {
         val profiles = withProfile { queryAll() }
             .filter { it.imported && it.type != Profile.Type.External }
         val active = withProfile { queryActive() }
@@ -79,7 +109,8 @@ object BackupManager {
                         })
                     }
                 })
-                put("service", serviceToJson(ServiceStore(context)))
+                put("sync", sync)
+                put("service", serviceToJson(ServiceStore(context), sync))
                 put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
                 put("geoUrls", JSONObject().apply {
                     val store = context.getSharedPreferences(
@@ -94,8 +125,7 @@ object BackupManager {
                 put("override", readOverride(context) ?: JSONObject.NULL)
             }
 
-            val output = context.contentResolver.openOutputStream(uri, "w")
-                ?: throw BackupException("cannot open $uri")
+            val output = open()
 
             ZipOutputStream(output.buffered()).use { zip ->
                 zip.putNextEntry(ZipEntry(MANIFEST))
@@ -125,14 +155,29 @@ object BackupManager {
     // ---- import -------------------------------------------------------------------------------
 
     /** Unpacks the backup in [uri] into a temporary folder and reads its manifest. */
-    suspend fun open(context: Context, uri: Uri): Backup = withContext(Dispatchers.IO) {
+    suspend fun open(context: Context, uri: Uri): Backup {
+        return unpack(context) {
+            context.contentResolver.openInputStream(uri) ?: throw BackupException("cannot open $uri")
+        }
+    }
+
+    /** CUSTOM.md #32: same, from bytes in memory (the decrypted file from the cloud). */
+    suspend fun open(context: Context, bytes: ByteArray): Backup {
+        return unpack(context) { ByteArrayInputStream(bytes) }
+    }
+
+    /** CUSTOM.md #32: same, from a file (the safety copy made before a restore). */
+    suspend fun open(context: Context, file: File): Backup {
+        return unpack(context) { file.inputStream() }
+    }
+
+    private suspend fun unpack(context: Context, open: () -> InputStream): Backup = withContext(Dispatchers.IO) {
         val root = context.cacheDir.resolve("custom_restore")
 
         root.deleteRecursively()
         root.mkdirs()
 
-        val input = context.contentResolver.openInputStream(uri)
-            ?: throw BackupException("cannot open $uri")
+        val input = open()
 
         ZipInputStream(input.buffered()).use { zip ->
             val rootPath = root.canonicalPath + File.separator
@@ -170,7 +215,7 @@ object BackupManager {
     }
 
     /** Puts the backup back. Subscriptions that already exist on this device are skipped. */
-    suspend fun restore(context: Context, backup: Backup): RestoreResult {
+    suspend fun restore(context: Context, backup: Backup, replace: Boolean = false): RestoreResult {
         val settings = withContext(Dispatchers.IO) { restoreSettings(context, backup.manifest) }
         val override = withContext(Dispatchers.IO) {
             if (backup.manifest.isNull("override")) {
@@ -185,8 +230,27 @@ object BackupManager {
 
         val idMap = HashMap<String, UUID>() // uuid in the backup -> uuid on this device
         val failed = ArrayList<String>()
+        val removed = HashSet<UUID>() // CUSTOM.md #32: deleted from this device by a replace
+        val deleted = ArrayList<String>()
         var restored = 0
         var skipped = 0
+
+        // CUSTOM.md #32: a replace makes this device look like the backup: subscriptions that are not
+        // in the backup are removed (the user was told in the confirmation, and a safety copy was made)
+        if (replace) {
+            existing.filter { it.imported && it.type != Profile.Type.External && !inBackup(backup, it) }
+                .forEach {
+                    try {
+                        withProfile { delete(it.uuid) }
+                        removed.add(it.uuid)
+                        deleted.add(it.name)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        failed.add(it.name)
+                    }
+                }
+        }
 
         for (i in 0 until backup.profiles.length()) {
             val item = backup.profiles.getJSONObject(i)
@@ -197,8 +261,23 @@ object BackupManager {
             val interval = item.optLong("interval")
             val ageKey = if (item.isNull("ageSecretKey")) null else item.getString("ageSecretKey")
 
-            val same = existing.firstOrNull {
-                it.name == name && it.type == type && it.source == source
+            var same = existing.firstOrNull {
+                it.uuid !in removed && it.name == name && it.type == type && it.source == source
+            }
+
+            // a replace: a file subscription has no address to download from again, so the backup's copy wins
+            if (same != null && replace && type == Profile.Type.File) {
+                val sameId = same.uuid
+
+                try {
+                    withProfile { delete(sameId) }
+                    removed.add(sameId)
+                    same = null
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // cannot delete it: keep the one on this device
+                }
             }
 
             if (same != null) {
@@ -235,7 +314,8 @@ object BackupManager {
         }
 
         // the profile that was active gets active again, but only when none is active on this device
-        if (active == null && !backup.manifest.isNull("activeProfile")) {
+        // (a replace, CUSTOM.md #32, also takes the backup's choice when one is active here)
+        if ((replace || active == null || active.uuid in removed) && !backup.manifest.isNull("activeProfile")) {
             idMap[backup.manifest.getString("activeProfile")]?.let { id ->
                 try {
                     withProfile {
@@ -251,7 +331,30 @@ object BackupManager {
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
-        return RestoreResult(restored, skipped, failed, settings, override)
+        return RestoreResult(restored, skipped, failed, settings, override, deleted)
+    }
+
+    /** CUSTOM.md #32: the names of the subscriptions on this device that a replace would remove. */
+    suspend fun planDeletes(backup: Backup): List<String> {
+        return withProfile { queryAll() }
+            .filter { it.imported && it.type != Profile.Type.External && !inBackup(backup, it) }
+            .map { it.name }
+    }
+
+    // same name, type and address = the same subscription (the rule of the "skip" above)
+    private fun inBackup(backup: Backup, profile: Profile): Boolean {
+        val list = backup.profiles
+
+        for (i in 0 until list.length()) {
+            val item = list.getJSONObject(i)
+
+            if (item.getString("name") == profile.name &&
+                item.getString("type") == profile.type.name &&
+                item.getString("source") == profile.source
+            ) return true
+        }
+
+        return false
     }
 
     /** Removes the unpacked files (when the user cancels). */
@@ -261,10 +364,14 @@ object BackupManager {
 
     // ---- settings -----------------------------------------------------------------------------
 
-    private fun serviceToJson(store: ServiceStore): JSONObject = JSONObject().apply {
+    private fun serviceToJson(store: ServiceStore, sync: Boolean): JSONObject = JSONObject().apply {
         put("bypassPrivateNetwork", store.bypassPrivateNetwork)
-        put("accessControlMode", store.accessControlMode.name)
-        put("accessControlPackages", JSONArray(store.accessControlPackages.toList()))
+        // CUSTOM.md #32: which apps go through the VPN depends on what is installed on this device,
+        // so the cloud backup leaves it out (and a restore leaves the local value alone)
+        if (!sync) {
+            put("accessControlMode", store.accessControlMode.name)
+            put("accessControlPackages", JSONArray(store.accessControlPackages.toList()))
+        }
         put("dnsHijacking", store.dnsHijacking)
         put("systemProxy", store.systemProxy)
         put("allowBypass", store.allowBypass)
