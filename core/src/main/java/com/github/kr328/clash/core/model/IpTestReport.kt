@@ -10,7 +10,8 @@ import kotlinx.serialization.json.Json
  */
 @Serializable
 data class IpTestRow(
-    val ip: String = "",
+    val ip: String = "", // the address, or the domain when [isDomain]
+    val isDomain: Boolean = false,
     val ok: Boolean = false,
     val ms: Int = 0,
     val code: String = "",
@@ -36,7 +37,8 @@ data class IpTestRef(
 /**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
  * "direct", "node" or "nodes" (then only [nodes] is filled: the nodes that can be chosen). [error] is a short code:
- * "no domain", "no node", "no address", "unknown mode", or "".
+ * "no domain", "no node", "no address", "domain only node" (direct mode, and only domains were typed),
+ * "unknown mode", or "".
  */
 @Serializable
 data class IpTestReport(
@@ -45,7 +47,8 @@ data class IpTestReport(
     val node: String = "",
     val nodes: List<String> = emptyList(),
     val rows: List<IpTestRow> = emptyList(),
-    val invalid: List<String> = emptyList(),
+    val invalid: List<String> = emptyList(), // words that were neither an address nor a domain
+    val skipped: List<String> = emptyList(), // direct mode: domains, which only the node mode tests
     val cut: Int = 0,
     val ref: IpTestRef? = null,
     val echSource: String = "",

@@ -10,7 +10,9 @@ package conftest
 //     for Cloudflare, the data centre read from the `Cf-Ray` header of the answer;
 //   - mode "node" (B): the chosen node copied with its `server` replaced by the address, like the per-address test
 //     of #1 (ipdelay.TryIP). Shows the delay, the exit country, and how it compares with the quickest address the
-//     last speed test found in the node's `hosts:` entry.
+//     last speed test found in the node's `hosts:` entry. A domain in the list is tested the same way, as the node's
+//     `server`; the core resolves it when it dials. In mode "direct" a domain is not tested (it is reported in
+//     `skipped`), only addresses are.
 //   - mode "nodes": nothing is tested, the names of the nodes to choose from come back.
 //
 // Power: nothing runs on its own; one call is one run, and CancelIPTest stops it.
@@ -59,12 +61,13 @@ type IPRequest struct {
 
 // IPRow is the result for one address.
 type IPRow struct {
-	IP      string `json:"ip"`
-	OK      bool   `json:"ok"`
-	Ms      int    `json:"ms"`
-	Code    string `json:"code"`   // errlog code (or "echrejected"), "" when OK
-	Reason  string `json:"reason"` // the failure in the core's words, "" when OK
-	InHosts bool   `json:"inHosts"`
+	IP       string `json:"ip"` // the address, or the domain when IsDomain
+	IsDomain bool   `json:"isDomain"`
+	OK       bool   `json:"ok"`
+	Ms       int    `json:"ms"`
+	Code     string `json:"code"`   // errlog code (or "echrejected"), "" when OK
+	Reason   string `json:"reason"` // the failure in the core's words, "" when OK
+	InHosts  bool   `json:"inHosts"`
 
 	// node mode
 	Country string `json:"country"`
@@ -92,7 +95,8 @@ type IPReport struct {
 	Node      string   `json:"node"`
 	Nodes     []string `json:"nodes"`     // mode "nodes"
 	Rows      []IPRow  `json:"rows"`      // quickest first, the ones that failed last
-	Invalid   []string `json:"invalid"`   // words that were not an address
+	Invalid   []string `json:"invalid"`   // words that were neither an address nor a domain
+	Skipped   []string `json:"skipped"`   // direct mode: domains, which only the node mode tests
 	Cut       int      `json:"cut"`       // addresses over the limit, not tested
 	Ref       *IPRef   `json:"ref"`       // node mode
 	ECHSource string   `json:"echSource"` // direct mode: the server that gave the ECH config, "" when there is none
@@ -131,7 +135,7 @@ func RunIP(filter string) IPReport {
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	req.Domain = strings.TrimSpace(req.Domain)
-	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Nodes: []string{}}
+	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Skipped: []string{}, Nodes: []string{}}
 
 	if req.Mode == "nodes" {
 		for name, raw := range ipdelay.RawProxies() {
@@ -145,16 +149,36 @@ func RunIP(filter string) IPReport {
 		return rep
 	}
 
-	ips, invalid := parseIPList(req.IPs)
+	list, invalid := parseTargets(req.IPs)
 
 	rep.Invalid = append(rep.Invalid, invalid...)
 
-	if len(ips) > maxIPTest {
-		rep.Cut = len(ips) - maxIPTest
-		ips = ips[:maxIPTest]
+	if req.Mode == "direct" {
+		var addrs []target
+
+		for _, t := range list {
+			if t.IsDomain {
+				rep.Skipped = append(rep.Skipped, t.Text)
+			} else {
+				addrs = append(addrs, t)
+			}
+		}
+
+		if len(addrs) == 0 && len(rep.Skipped) > 0 {
+			rep.Error = "domain only node"
+
+			return rep
+		}
+
+		list = addrs
 	}
 
-	if len(ips) == 0 {
+	if len(list) > maxIPTest {
+		rep.Cut = len(list) - maxIPTest
+		list = list[:maxIPTest]
+	}
+
+	if len(list) == 0 {
 		rep.Error = "no address"
 
 		return rep
@@ -180,9 +204,9 @@ func RunIP(filter string) IPReport {
 
 	switch req.Mode {
 	case "direct":
-		runDirect(ctx, &rep, ips)
+		runDirect(ctx, &rep, list)
 	case "node":
-		runNode(ctx, &rep, ips)
+		runNode(ctx, &rep, list)
 	default:
 		rep.Error = "unknown mode"
 	}
@@ -220,7 +244,7 @@ func configHosts() map[string]bool {
 	return out
 }
 
-func runNode(ctx context.Context, rep *IPReport, ips []netip.Addr) {
+func runNode(ctx context.Context, rep *IPReport, list []target) {
 	if rep.Node == "" {
 		rep.Error = "no node"
 
@@ -239,7 +263,7 @@ func runNode(ctx context.Context, rep *IPReport, ips []netip.Addr) {
 		}
 	}
 
-	for i, ip := range ips {
+	for i, t := range list {
 		if i > 0 && !pause(ctx) {
 			return
 		}
@@ -248,10 +272,9 @@ func runNode(ctx context.Context, rep *IPReport, ips []netip.Addr) {
 			return
 		}
 
-		s := ip.String()
-		res := ipdelay.TryIP(rep.Node, s)
+		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
 
-		row := IPRow{IP: s, InHosts: hosts[s], Ms: res.Delay, Country: res.Country}
+		row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text], Ms: res.Delay, Country: res.Country}
 
 		if res.Err == "" {
 			row.OK = true
@@ -268,7 +291,7 @@ func runNode(ctx context.Context, rep *IPReport, ips []netip.Addr) {
 	}
 }
 
-func runDirect(ctx context.Context, rep *IPReport, ips []netip.Addr) {
+func runDirect(ctx context.Context, rep *IPReport, list []target) {
 	if rep.Domain == "" {
 		rep.Error = "no domain"
 
@@ -288,7 +311,7 @@ func runDirect(ctx context.Context, rep *IPReport, ips []netip.Addr) {
 
 	inConfig := configHosts()
 
-	for i, ip := range ips {
+	for i, t := range list {
 		if i > 0 && !pause(ctx) {
 			return
 		}
@@ -297,7 +320,7 @@ func runDirect(ctx context.Context, rep *IPReport, ips []netip.Addr) {
 			return
 		}
 
-		row := probeIP(ctx, ip, rep.Domain, echList)
+		row := probeIP(ctx, netip.MustParseAddr(t.Text), rep.Domain, echList)
 		row.InHosts = inConfig[row.IP]
 
 		rep.Rows = append(rep.Rows, row)

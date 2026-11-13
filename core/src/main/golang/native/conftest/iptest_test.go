@@ -6,34 +6,49 @@ import (
 	"testing"
 )
 
-func addrs(list ...string) []netip.Addr {
-	out := make([]netip.Addr, len(list))
+func ips(list ...string) []target {
+	out := make([]target, len(list))
 	for i, s := range list {
-		out[i] = netip.MustParseAddr(s)
+		out[i] = target{Text: netip.MustParseAddr(s).String()}
 	}
 
 	return out
 }
 
-func TestParseIPList(t *testing.T) {
+func TestParseTargets(t *testing.T) {
+	dom := func(names ...string) []target {
+		out := make([]target, len(names))
+		for i, n := range names {
+			out[i] = target{Text: n, IsDomain: true}
+		}
+
+		return out
+	}
+
 	cases := []struct {
 		in      string
-		ips     []netip.Addr
+		want    []target
 		invalid []string
 	}{
-		{"1.1.1.1\n2.2.2.2", addrs("1.1.1.1", "2.2.2.2"), nil},
-		{"1.1.1.1, 2.2.2.2;3.3.3.3  4.4.4.4\t5.5.5.5", addrs("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4", "5.5.5.5"), nil},
-		{"1.1.1.1，2.2.2.2、3.3.3.3；4.4.4.4", addrs("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"), nil},
-		{"1.1.1.1:443 [2606:4700::1]:443 [2606:4700::2] 2606:4700::3", addrs("1.1.1.1", "2606:4700::1", "2606:4700::2", "2606:4700::3"), nil},
-		{"1.1.1.1 1.1.1.1 ::ffff:1.1.1.1", addrs("1.1.1.1"), nil},
-		{"abc 1.1.1.1 300.1.1.1 fe80::1%eth0 1.2.3", addrs("1.1.1.1"), []string{"abc", "300.1.1.1", "fe80::1%eth0", "1.2.3"}},
+		{"1.1.1.1\n2.2.2.2", ips("1.1.1.1", "2.2.2.2"), nil},
+		{"1.1.1.1, 2.2.2.2;3.3.3.3  4.4.4.4\t5.5.5.5", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4", "5.5.5.5"), nil},
+		{"1.1.1.1，2.2.2.2、3.3.3.3；4.4.4.4", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"), nil},
+		{"1.1.1.1:443 [2606:4700::1]:443 [2606:4700::2] 2606:4700::3", ips("1.1.1.1", "2606:4700::1", "2606:4700::2", "2606:4700::3"), nil},
+		{"1.1.1.1 1.1.1.1 ::ffff:1.1.1.1", ips("1.1.1.1"), nil},
+		{"abc 1.1.1.1 300.1.1.1 fe80::1%eth0 1.2.3", ips("1.1.1.1"), []string{"abc", "300.1.1.1", "fe80::1%eth0", "1.2.3"}},
 		{"  \n\r\n ", nil, nil},
+
+		// domains
+		{"example.com", dom("example.com"), nil},
+		{"Example.COM. example.com geng-xin.uf0.workers.dev", dom("example.com", "geng-xin.uf0.workers.dev"), nil},
+		{"example.com:8443 1.1.1.1 b.example.org", append(append(dom("example.com"), ips("1.1.1.1")...), dom("b.example.org")...), nil},
+		{"localhost a_b.com -a.com a-.com a..com 1.2.3.4:abc 2606:4700::zz 例子.com", nil, []string{"localhost", "a_b.com", "-a.com", "a-.com", "a..com", "1.2.3.4:abc", "2606:4700::zz", "例子.com"}},
 	}
 
 	for i, c := range cases {
-		ips, invalid := parseIPList(c.in)
-		if !reflect.DeepEqual(ips, c.ips) || !reflect.DeepEqual(invalid, c.invalid) {
-			t.Errorf("case %d: got %v %v, want %v %v", i, ips, invalid, c.ips, c.invalid)
+		got, invalid := parseTargets(c.in)
+		if !reflect.DeepEqual(got, c.want) || !reflect.DeepEqual(invalid, c.invalid) {
+			t.Errorf("case %d: got %v %v, want %v %v", i, got, invalid, c.want, c.invalid)
 		}
 	}
 }

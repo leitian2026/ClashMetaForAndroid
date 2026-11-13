@@ -71,6 +71,19 @@ func TestRunIPModes(t *testing.T) {
 	if rep.Error != "no address" {
 		t.Errorf("%+v", rep)
 	}
+
+	// direct mode does not test domains: they are reported, and only domains is an error of its own
+	rep = RunIP(`{"kind":"ip","mode":"direct","domain":"x","ips":"a.example.com b.example.org"}`)
+	if rep.Error != "domain only node" || len(rep.Skipped) != 2 || len(rep.Rows) != 0 {
+		t.Errorf("%+v", rep)
+	}
+
+	// a domain in node mode is a target like an address (the node does not exist here, so no row, but no error of
+	// the list either)
+	rep = RunIP(`{"kind":"ip","mode":"node","node":"","ips":"a.example.com"}`)
+	if rep.Error != "no node" || len(rep.Invalid) != 0 {
+		t.Errorf("%+v", rep)
+	}
 }
 
 func TestCancelNothing(t *testing.T) {

@@ -160,6 +160,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         when {
             report == null -> design.showText(failure)
             report.error == "no address" -> design.showText(getString(R.string.iptest_need_ips))
+            report.error == "domain only node" -> design.showText(getString(R.string.iptest_domain_node_only))
             report.error.isNotEmpty() -> design.showText(getString(R.string.check_error, report.error))
             else -> design.showIpTest(report)
         }

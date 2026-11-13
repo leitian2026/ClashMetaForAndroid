@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r45
+当前版本：2_11_36-r46
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -644,12 +644,15 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。`component/dialer/dialer.go` 的 `dialContextRaw`（原 `DialContext`）、`parseAddr`（`resolver.LookupIPWithResolver` 返回的是解析到的全部 IP，不截断）、`dialContext`（单个 IP 的拨号；`parallelDialContext` / `serialDialContext` / `dualStackDialContext` 在只有一个 IP 时最后都是调它）、`component/resolver/resolver.go` 的 `LookupIPWithResolver`（`hosts:` 命中时直接返回名单里的全部 IP，包括 IPv6）。
 - **验证和局限：** 补丁在上面这份内核源码上按 0001、0002、0003 的顺序 `patch --dry-run` 再真打通过，打完的文件 `gofmt` 干净；`preferip.go` 单独拿出来跑过 `go vet` 和 `go test -race`（设置、清除、4in6、不在列表里、只清自己那个、非法参数）；`pickIPs` 单独跑过 8 个用例。**没有编译整个内核**（这里拉不到内核的依赖），Go / Kotlin 要靠 Actions 构建验证。如果构建因为 0003 出错，把 `0003-preferred-ip.patch` 单独删掉，同时把 `ipdelay.go` 里的 `dialer.SetPreferredIP` / `ClearPreferredIP` / `ClearPreferredIPs` 三处调用（`setFastest`、`testProxy` 的 `len(all)==0` 分支、`CaptureConfig` 末尾）去掉；#1 的测速收窄不受影响。
 
-## 43. 测试其他 IP（配置检查页，r45）
-**效果：** 配置检查页在"最终生效配置 / 清缓存 / 检查 DNS"那一行下面多一个"测试其他 IP"按钮，测**不在配置里**的 IP。点开是一个对话框：多行输入框填 IP（每行一个，也可以用逗号、分号、空格分隔，全角的也行；`1.1.1.1:443`、`[2606::1]:443` 取其中的地址；重复的去掉；没看懂的词在结果里列出来），下面选一个节点，两个按钮："直连测 IP"（A）和"套入节点测"（B）。填的 IP 和选的节点记在页面自己的 SharedPreferences（`custom_config_check` 的 `ip_text`、`ip_node`）。结果出来后，**点一行复制这个 IP**，最后一行"复制全部能用的 IP"；右上角的复制按钮复制整页文字。
+## 43. 测试其他 IP（配置检查页，r45；r46 加域名、调深小字颜色）
+**效果：** 配置检查页在"最终生效配置 / 清缓存 / 检查 DNS"那一行下面多一个"测试其他 IP"按钮，测**不在配置里**的 IP（r46 起也可以填域名，见 B）。点开是一个对话框：多行输入框填 IP 或域名（每行一个，也可以用逗号、分号、空格分隔，全角的也行；`1.1.1.1:443`、`[2606::1]:443`、`example.com:443` 取其中的地址或域名，端口不用；重复的去掉；既不是 IP 也不是域名的词在结果里列出来），下面选一个节点，两个按钮："直连测 IP"（A）和"套入节点测"（B）。填的 IP 和选的节点记在页面自己的 SharedPreferences（`custom_config_check` 的 `ip_text`、`ip_node`）。结果出来后，**点一行复制这个 IP**，最后一行"复制全部能用的 IP"；右上角的复制按钮复制整页文字。
+
+**结果页的小字（ECH 配置来源、TLS 和运营商那一行、提示、时间）r46 起用深一点的灰（浅色 `#616161`，夜间 `#BDBDBD`），原来固定的 `#9E9E9E` 在浅色背景上太淡；只改了这一页，DNS 检查页（`DnsCheckView`）的 `#9E9E9E` 还没动。**
 
 **一次最多 20 个**（多的不测，结果里写"还有 N 个没测"）。**一个接一个测，两个之间随机隔 1 到 3 秒**（`ipGapMin` / `ipGapMax`）。结果按延迟从小到大排，没通的排最后（按填的顺序）。测的时候按钮变成"取消"，再点一次，界面立刻停，同时通知内核停（`closeCustomConnection("!cancel-iptest")` → `CancelIPTest`），已经测完的行仍然显示（"已取消"）。点测试按钮才测，没有定时器、没有后台任务。
 
 **A：直连测 IP（不经过节点）**
+- **只测 IP 地址（r46）：** 填了域名的条目不测，结果里写"域名只能用套入节点测，这里没测：…"；只填了域名就直接提示"直连测 IP 只测 IP 地址，域名要用套入节点测"。
 - 用输入框里**已有的那个域名**当 SNI 和 Host（没填会提示）；直连 `IP:443`，拨号用 `dialer.DialContext`（和 ECH 测试一样，不走 VPN）。
 - 每个 IP 显示：延迟（连接 + TLS 握手，毫秒）、TLS 版本、ALPN（握手时给 `h2` 和 `http/1.1`，看服务器选哪个）、ECH 是否被接受、机房、运营商。已经在某个节点的 `hosts:` 里的标"已在配置里"。
 - **ECH：** 这一轮开头向 DoH 取一次这个域名的 ECH 配置（先配置里 `dns:` 的 `https://` 服务器，再几个公共的，一共最多等 8 秒）；取到了就带 ECH 握手（TLS 1.3），"已接受 / 未接受 / 被拒绝"；被拒绝时再用普通握手试一次，这个 IP 通不通、延迟多少看第二次；取不到就不带 ECH，页面写"这个域名没有查到 ECH 配置"。证书不验证，只看握手过没过。
@@ -657,12 +660,13 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **运营商：** 先查 `ipinfo.io/<ip>/org`，没有再查 `ipwho.is`（两个都是公共服务，有频率限制），查到的记在内存里，下次不再查；查不到就不显示，不影响这个 IP 算不算通。
 
 **B：套入节点测**
+- **域名（r46）：** 条目是域名时，把所选节点复制一份，`server` 换成这个域名（节点名另取 `<节点名> (test)`），其余和 IP 一样。域名由内核拨号时自己解析，所以 `hosts:` 里写了这个域名就用你写的 IP；节点没写 `servername` / `sni` 时 SNI 就是这个域名。**换名是为了避开 #42 的首选 IP**：内核按节点名认首选 IP，临时节点同名的话，域名解析结果里只要有首选 IP，就只会拨那一个，测出来的就不是这个域名本身了。域名行不查"已在 hosts"，也不读、不记国家缓存（国家照样查），因为那是按 IP 记的。域名合法性：至少两段，每段只含字母、数字、连字符（不以连字符开头结尾），最后一段要含字母（所以 `1.2.3`、`300.1.1.1` 不算域名）；中文域名要写成 punycode。
 - 选的节点原样复制一份，只把 `server` 换成这个 IP，用节点自己的协议请求测速地址（`ipdelay.TryIP`，和 #1 逐 IP 测速是同一个做法，延迟数字可以直接比），通了再取出口国家（这个节点 + 这个 IP 已经知道国家就直接用）。每个 IP 显示：国旗（查不到显示"？"）、延迟、"比对照快 N 毫秒"、"已在 hosts"（这个节点的 `hosts:` 里已经有）。
 - **对照：** 页面顶上一行写这个节点 `hosts:` 里的地址在**上一次测速**里最快的那个和延迟（和"测了多久前"）。没测过就写"还没测过，到代理页点一次测速"，不会自己去测。
 - **局限：** 和 #1 一样只换 `server`，节点没写 `servername` / `sni`（或 Host）时，这些字段默认取 `server`，换成 IP 后就是这个 IP（vless 看过源码，其他协议没逐个看）；这时测出来的"不通"可能是这个原因，不是 IP 的问题。测的过程中我们自己的套接字会计入 `selfDialing`，不会被当成真实流量记进"在用的 IP"。
 
 **新增文件**
-- `core/src/main/golang/native/conftest/iptest.go`（`RunIP`、`CancelIPTest`、A 的握手 / `Cf-Ray` / 运营商）、`iptest_logic.go`（读 IP 列表、排序、机房代号，不依赖内核，可单独测）、`iptest_test.go`、`iptest_net_test.go`（本机 TLS 服务器：h2 和 http/1.1、`Cf-Ray`、连不上、取消、各模式的错误）。
+- `core/src/main/golang/native/conftest/iptest.go`（`RunIP`、`CancelIPTest`、A 的握手 / `Cf-Ray` / 运营商）、`iptest_logic.go`（`parseTargets` 读 IP 和域名、排序、机房代号，不依赖内核，可单独测）、`iptest_test.go`、`iptest_net_test.go`（本机 TLS 服务器：h2 和 http/1.1、`Cf-Ray`、连不上、取消、各模式的错误）。
 - `core/src/main/golang/native/ipdelay/iptry.go`（`TryIP`，B 用）。
 - `core/.../model/IpTestReport.kt`。
 - `design/.../custom/IpTestView.kt`（结果页）、`IpTestDialog.kt`（对话框，代码里搭，没有布局文件）。
@@ -670,4 +674,4 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 
 **改了已登记的自定义文件（上游文件一行没动）：** `conftest/dnscheck.go`（`RunAny` 多一个 `kind == "ip"`）、`connections.go`（`closeCustomConnection` 多一个取消 id）、`CustomConnections.kt`（`CANCEL_IPTEST`）、`ConfigCheckDesign.kt`（`Request.IpTest`、`setIpRunning`、`askIpTest`、`showIpTest`）、`ConfigCheckActivity.kt`（`runIpTest`、`cancelRunning`；ECH 测试和 DNS 检查的"取消"也走 `cancelRunning`，会一并通知内核停）、`design_config_check.xml`（多一行一个按钮）。
 
-**验证和局限：** Go 部分：`iptest.go`、`iptest_logic.go` 拿桩代码（假的 `errlog` / `ipdelay` / `dialer`）做过类型检查（`go vet` 通过），读 IP 列表、排序、机房代号、运营商拼接有单元测试，A 的握手用本机 TLS 服务器端到端跑过（h2 和 http/1.1 都读到了 `Cf-Ray` 的机房、ALPN、TLS 版本；连不上的 IP 给出原因；中途取消只留已测完的那一行、一秒内返回）。**没有真的编译**：`ipdelay/iptry.go`（用了 `ipdelay.go` 里的未导出函数）和整个 Kotlin 部分这里编译不了，也没在手机上跑过，要靠 Actions 构建验证。`ipinfo.io`、`ipwho.is` 的返回格式按它们的文档写的，没在真实网络里试过；A 的 ECH 部分依赖 DoH 能取到配置，取不到只是不显示 ECH。
+**验证和局限：** Go 部分：`iptest.go`、`iptest_logic.go` 拿桩代码（假的 `errlog` / `ipdelay` / `dialer`）做过类型检查（`go vet` 通过），读 IP 和域名列表（含各种写法、非法词）、排序、机房代号、运营商拼接有单元测试，A 的握手用本机 TLS 服务器端到端跑过（h2 和 http/1.1 都读到了 `Cf-Ray` 的机房、ALPN、TLS 版本；连不上的 IP 给出原因；中途取消只留已测完的那一行、一秒内返回）。**没有真的编译**：`ipdelay/iptry.go`（用了 `ipdelay.go` 里的未导出函数，r46 加的域名分支也没真跑过）和整个 Kotlin 部分这里编译不了，也没在手机上跑过，要靠 Actions 构建验证。`ipinfo.io`、`ipwho.is` 的返回格式按它们的文档写的，没在真实网络里试过；A 的 ECH 部分依赖 DoH 能取到配置，取不到只是不显示 ECH。

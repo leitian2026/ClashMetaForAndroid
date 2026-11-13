@@ -30,7 +30,9 @@ class IpTestView(
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
     private val colorGood = if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")
-    private val colorMuted = Color.parseColor("#9E9E9E")
+
+    // the small grey lines (ECH source, TLS / operator details, hints, time): dark enough to read on a light page
+    private val colorMuted = if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161")
 
     private val direct = report.mode == "direct"
 
@@ -70,6 +72,10 @@ class IpTestView(
         }
 
         if (report.cancelled) add(sb, context.getString(R.string.iptest_cancelled) + "\n", colorWarn)
+
+        if (report.skipped.isNotEmpty()) {
+            add(sb, context.getString(R.string.iptest_skipped, report.skipped.joinToString("、")) + "\n", colorWarn)
+        }
 
         if (report.invalid.isNotEmpty()) {
             add(sb, context.getString(R.string.iptest_invalid, report.invalid.joinToString("、")) + "\n", colorWarn)

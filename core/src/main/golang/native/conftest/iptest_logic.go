@@ -13,20 +13,36 @@ import (
 // maxIPTest is the most addresses one run tests; the rest of the list is counted, not tested.
 const maxIPTest = 20
 
-// parseIPList reads what the user typed: addresses separated by line breaks, commas, semicolons, spaces or tabs
-// (also the full-width ones). `1.2.3.4:443` and `[2606::1]:443` are read as their address. Duplicates are
-// dropped. Words that are not an address come back in `invalid`, in the order written.
-func parseIPList(text string) (ips []netip.Addr, invalid []string) {
+// target is one entry of the typed list: an address (Text is the address as netip writes it) or a domain (Text is
+// the name in lower case, without the final dot).
+type target struct {
+	Text     string
+	IsDomain bool
+}
+
+// parseTargets reads what the user typed: addresses and domains separated by line breaks, commas, semicolons,
+// spaces or tabs (also the full-width ones). `1.1.1.1:443`, `[2606::1]:443` and `example.com:443` are read as their
+// address or name (the port is not used). Duplicates are dropped. Words that are neither come back in `invalid`, in
+// the order written.
+func parseTargets(text string) (list []target, invalid []string) {
 	fields := strings.FieldsFunc(text, func(r rune) bool {
 		switch r {
-		case '\n', '\r', '\t', ' ', ',', ';', '，', '；', '、', '　':
+		case '\n', '\r', '\t', ' ', ',', ';', '，', '；', '、', '\u3000':
 			return true
 		}
 
 		return false
 	})
 
-	seen := map[netip.Addr]bool{}
+	seen := map[string]bool{}
+
+	add := func(t target) {
+		if !seen[t.Text] {
+			seen[t.Text] = true
+
+			list = append(list, t)
+		}
+	}
 
 	for _, f := range fields {
 		var addr netip.Addr
@@ -35,6 +51,10 @@ func parseIPList(text string) (ips []netip.Addr, invalid []string) {
 			addr = ap.Addr()
 		} else if a, err := netip.ParseAddr(strings.Trim(f, "[]")); err == nil {
 			addr = a
+		} else if name, ok := domainOf(f); ok {
+			add(target{Text: name, IsDomain: true})
+
+			continue
 		} else {
 			invalid = append(invalid, f)
 
@@ -49,14 +69,53 @@ func parseIPList(text string) (ips []netip.Addr, invalid []string) {
 			continue
 		}
 
-		if !seen[addr] {
-			seen[addr] = true
+		add(target{Text: addr.String()})
+	}
 
-			ips = append(ips, addr)
+	return list, invalid
+}
+
+// domainOf reads a host name: at least two labels of letters, digits and hyphens (a hyphen is not first or last),
+// the last label with a letter in it (so `1.2.3` and `300.1.1.1` are not names). A final dot and a `:port` are
+// dropped. Names with other characters (internationalised ones must be written in punycode) are not accepted.
+func domainOf(word string) (string, bool) {
+	if i := strings.LastIndexByte(word, ':'); i > 0 {
+		port := word[i+1:]
+
+		if port != "" && strings.Trim(port, "0123456789") == "" {
+			word = word[:i]
 		}
 	}
 
-	return ips, invalid
+	name := strings.ToLower(strings.TrimSuffix(word, "."))
+
+	if len(name) == 0 || len(name) > 253 {
+		return "", false
+	}
+
+	labels := strings.Split(name, ".")
+	if len(labels) < 2 {
+		return "", false
+	}
+
+	for _, l := range labels {
+		if len(l) == 0 || len(l) > 63 || l[0] == '-' || l[len(l)-1] == '-' {
+			return "", false
+		}
+
+		for _, c := range l {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+				return "", false
+			}
+		}
+	}
+
+	last := labels[len(labels)-1]
+	if strings.Trim(last, "0123456789-") == "" {
+		return "", false
+	}
+
+	return name, true
 }
 
 // sortRows puts the addresses that work first, quickest first; the ones that failed keep the order they were typed.
