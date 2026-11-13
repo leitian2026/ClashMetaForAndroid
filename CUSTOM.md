@@ -1,20 +1,21 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
+当前版本：2_11_36-r43
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
 ## 上游文件总表（同步上游时冲突只会出现在这里）
 | 上游文件 | 对应条目 | 冲突风险 | 冲突时怎么办 |
 |---|---|---|---|
-| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20） |
+| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
-| `core/src/main/golang/native/tunnel.go` | #1 #7 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`） |
+| `core/src/main/golang/native/tunnel.go` | #1 #7 #37 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37） |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
-| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()` |
+| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37） |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
@@ -580,7 +581,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **通知栏定时器 1 秒改 5 秒，文字没变就不发（`DynamicNotificationModule.kt`）：** 副标题里的累计流量只是每 5 秒（原来 1 秒）读一次；每次先拼出正文和副标题，和上次发出去的一样就不调用 `notify()`（没有流量、没有换 IP 时基本不发）。**IP 变化不等定时器：** `nodeIpChanged` 那一支（#7）照旧立刻更新。亮屏时和换配置时（标题变了）清掉"上次发出的"，保证下一次一定发。息屏时本来就不更新（上游的 `shouldUpdate`），没动。
 - **首页后台不再每秒查流量（`MainActivity.kt`，上游代码）：** 流量定时器那一支的条件由 `clashRunning` 改为 `clashRunning && activityStarted`，和连接页、底层连接页等一样：页面不在前台时，生产者停在"等人接收"，不唤醒、不做 IPC。回到前台时 `ActivityStart` 事件会让循环重新判断，定时器立刻给出一次。
 - **`noteUse` 快速通道（`ipdelay/inuse.go`）：** 内核每个新请求都会调用它。现在先用读锁看一眼：这个节点最近一次记录的 IP 就是这个 IP，并且是 0.5 秒（`repeatGap`，小于 `useWindow` 的 1.5 秒）之内记的，就直接返回，不拿写锁、不分配切片、不排序。集合和顺序在这种情况下不可能变，所以显示结果一样；只是最近一次的时间戳最多晚 0.5 秒更新。IP 不同或隔了 0.5 秒以上，走原来的完整流程。
-- **检查过、没发现问题的：** 网络切换重测（#24）、IP 变化广播（#7）、云端备份（#32）、配置检查（#22）、错误页（#21）、连接页和底层连接页（前台才刷新）都是事件驱动，息屏时不干活，没有残留的定时器或轮询。`errlog` 对每条警告 / 错误日志跑几个正则，日志刷屏时有点耗，影响小，没改。
+- **检查过、没发现问题的：** 网络切换重测（#24）、IP 变化广播（#7）、云端备份（#32）、配置检查（#22）、错误页（#21）、连接页和底层连接页（前台才刷新）都是事件驱动，息屏时不干活，没有残留的定时器或轮询。`errlog` 对每条警告 / 错误日志跑几个正则，日志刷屏时有点耗，影响小，没改。**r43 又对照代码盘点了一遍：** 自家新增的东西里，测速的随机等待只在手动测速时有（#1 r41），首页状态检测（#37）没有定时器、最多每 3 分钟一个请求；其余定时器都是上游原有的并且已经在 #35 里限制过：通知栏 5 秒（亮屏才跑，因为副标题还要显示累计流量）、首页流量 1 秒和连接页 / 底层连接页 2 秒（页面在前台且代理运行才参与）、日志页 0.5 秒（页面在前台才参与）、应用列表缓存（只等安装卸载广播）。上游里首页以外的"提供者 / 文件 / 配置"三个页面各有一个 1 分钟的定时器，页面进后台后仍会走，每分钟一次、没有请求，影响很小，**没改**（改它们要动三个上游文件，合并时多三处冲突）。
 
 ## 36. 云端备份：删除入口，恢复确认框里列出订阅名（r40）
 - **删除云端备份：** 首页右上角菜单多一项"删除云端备份"：列出云端所有备份（时间 · 设备名，本机的有标记），选一份，确认（"删除后永久消失，所有设备都不能再用它恢复"）后从坚果云删除。任何设备的备份都能删。`CloudBackup.delete`、`CloudBackupFlow.delete`；动作 `CLOUD_DELETE`（`BackupActivity` 和 `MainCustomMenu` 里各一份常量）。
@@ -588,3 +589,36 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 
 ## 本版没做的（决定不做）
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。
+
+## 37. 首页代理卡片显示"现在通不通"（r43）
+**效果：** 首页"代理"卡片的副标题在 IP 后面多一段：`✓ 86 ms`（节点在用且能通）或 `✗ 不通`；还没测过时什么都不写。用来一眼分清"代理坏了"还是"浏览器自己的缓存坏了"（关了代理再打开打不开外网时，先看这里）。
+- **测什么：** 经**正在用的节点**（`CurrentSet` 的那个节点）请求一次测速地址（和测速页同一个 `defaultTestURL`、同样 5 秒超时），不走代理组、不测别的节点。没有任何请求走过节点（还不知道在用哪个）时不测，也就不显示。
+- **什么时候测（没有定时器）：** 有人问隧道状态（打开首页、换 IP 事件、通知文字重建）时，如果上一次的结果是"通"且超过 3 分钟（`reachFresh`），或上一次是"不通"且超过 20 秒（`reachRetry`），或还没测过，就在后台发一次；另外**网络切换稳定之后**（#24 的 `MarkNetworkChanged`）对刚才那个节点再测一次。同一时间只发一个。载入新配置时（`CaptureConfig`）清空。
+- **怎么告诉首页：** 只有"从没结果变成有结果"或"通 ↔ 不通"切换时，才用 #7 的同一个事件通知（`notifyNow`，不记 IP 切换历史），首页和通知栏各读一次；延迟毫秒数的小变化不通知，下次打开首页才刷新。
+- **功耗：** 最多每 3 分钟一个请求，且只在首页或通知本来就要读状态时；息屏时没有人问，就不测。没有轮询。
+- **新增文件：** `core/src/main/golang/native/ipdelay/reach.go`；文案 `custom_reach_ok` / `custom_reach_fail`。
+- **改了上游文件：** `tunnel.go`（`queryTunnelState` 多一个 `reach` 字段）、`TunnelState.kt`（`reach`），见总表；自家文件 `ipdelay.go`（`CaptureConfig` 末尾一行 `resetReach()`）、`nodeinfo.go`（`MarkNetworkChanged` 末尾一行 `refreshReach()`）、`MainCustomCards.kt`（拼接 reach 文字）。
+- **对"关了代理再打开，浏览器打不开外网"：** 内核这边本来就没有残留：每次启动和停止都会走 `Clash.reset()` → `reset()` → `tunnel.CloseAllConnections()`，`profile.store-fake-ip` 你的配置里也已经开了。所以这一条改不了"代理工具"这一侧，只能靠本条的状态判断问题在哪边。
+
+## 38. 配置历史里标出"这个版本用过没出错"（r43）
+**效果：** #28 的版本列表里，用过且当时代理是通的那个版本后面多 `· ✓ 用过没出错`，回滚时可以优先选它。
+- **怎么标：** 首页拿到 #37 的"通"（`reach > 0`）时（`MainCustomRefresh.refreshCustom`），把**正在用的配置**和它的历史版本逐字节比较，相同的那一份旁边建一个空文件 `<毫秒>.ok`（`ConfigHistory.markVerified`）。只在 `config.yaml` 变了之后才重新比较（`ConfigVerified` 记着上次的 uuid + 修改时间 + 大小）。订阅（没有历史）、没在历史里的版本不标。删历史版本时一起删它的 `.ok`。
+- **限制：** 只在首页打开着、并且收到"通"的那一刻才会标（后台不做）；通知栏也会收到事件，但标记是首页做的。
+- **功耗：** 不在后台跑；一次小文件比较，且同一份配置只做一次。
+- **新增文件：** `app/.../custom/ConfigVerified.kt`；`ConfigHistory.kt` 加 `Version.verified` / `markVerified`；`ConfigTools.kt` 版本标签加一段；`MainCustomRefresh.kt` 末尾多一行调用；文案 `history_verified`。
+
+## 39. 连接页写明"为什么直连 / 被拒绝"（r43）
+**效果：** 连接列表每行第三行里，走直连或被拒绝的连接，规则前面加结果：`直连 ← GeoSite,cn`、`拒绝 ← 规则`；点一行的详情里多一行"结果"：`直连，没走代理：命中了规则 GeoSite,cn` / `被拒绝：…` / `走了代理（组 → 节点）：命中了规则 …`。
+- **怎么判断：** 内核列出的链路里**真正承载的那一项**（`chains` 的第一个）是 `DIRECT` 就是直连，以 `REJECT` 开头就是拒绝；规则取自原来就有的 `rule` / `payload`，没有新的内核调用。
+- **改的文件：** `design/.../custom/ConnectionAdapter.kt`（`ruleWithVerdict` / `verdict` / `leafKind`）；文案 `connection_row_*` / `connection_label_verdict` / `connection_verdict_*`。没有功耗影响。
+
+## 40. 构建产物名带版本号和时间（r43）
+**效果：** Actions 里下载的产物不再叫 `CMFA Debug Unsigned APK (arm64-v8a)`，而是 `CMFA-custom-2_11_36-r43-1113-1530`（`CUSTOM.md` 开头"当前版本："那一行 + 北京时间的月日-时分）。
+- **每次交付改一行：** `CUSTOM.md` 开头的 `当前版本：` 要和压缩包名里的 `<上游版本>-r<数字>` 一致（规则写进了 `AGENTS.md`）。读不到这一行时产物名里写 `unknown`，构建不会失败。
+- **改了上游文件：** `.github/workflows/build-debug.yaml`（上传前一个 `Artifact name` 步骤，上传步骤的 `name:`），见总表。
+
+## 41. 上游差异报告（手动，r43）
+**效果：** Actions 里手动运行 `Upstream Status`，在运行摘要里看到：上游有多少个我们还没有的提交、它们改了多少文件、其中**哪些文件在本表里**（合并时可能冲突）、内核子模块有没有动（补丁要不要重新对）、最新 15 条提交标题。只读，不合并、不推送。
+- **上游地址：** 默认 `https://github.com/MetaCubeX/ClashMetaForAndroid.git` 的 `main`；要改，在仓库设置里加变量 `UPSTREAM_URL` / `UPSTREAM_BRANCH`。本地也能跑：`bash scripts/upstream-status.sh`（`UPSTREAM_REF` 可以指向本地已有的引用）。
+- **新增文件：** `scripts/upstream-status.sh`、`.github/workflows/upstream-status.yaml`。没有定时触发，不占 Actions 额度。
+

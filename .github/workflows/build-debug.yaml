@@ -203,12 +203,19 @@ jobs:
       - name: List APK files
         run: find app/build -name "*.apk" -print
 
+      # CUSTOM (CUSTOM.md #40): the artifact is named after the delivery in CUSTOM.md ("当前版本：") and the build time
+      - name: Artifact name
+        id: label
+        run: |
+          ver=$(sed -n 's/^当前版本：//p' CUSTOM.md | head -1 | tr -d '[:space:]')
+          echo "name=CMFA-custom-${ver:-unknown}-$(TZ=Asia/Shanghai date +%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+
       # CUSTOM: single arm64-v8a upload (other ABI upload steps removed)
       - name: Upload Aritfact (arm64-v8a)
         uses: actions/upload-artifact@v7
         if: ${{  success() }}
         with:
-          name: CMFA Debug Unsigned APK (arm64-v8a)
+          name: ${{ steps.label.outputs.name }} # CUSTOM.md #40
           path: |
             app/build/intermediates/apk/alpha/release/*.apk
           if-no-files-found: error

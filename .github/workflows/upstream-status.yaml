@@ -1,0 +1,26 @@
+# CUSTOM (CUSTOM.md #41): started by hand. Reports how many upstream commits the custom branch is behind and
+# which of the files listed in CUSTOM.md they change (where a merge can conflict). It only reads and fetches:
+# nothing is merged or pushed. The upstream address can be changed with the repository variables
+# UPSTREAM_URL and UPSTREAM_BRANCH (default: MetaCubeX/ClashMetaForAndroid, main).
+name: Upstream Status
+on:
+  workflow_dispatch:
+
+jobs:
+  UpstreamStatus:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compare with upstream
+        env:
+          UPSTREAM_URL: ${{ vars.UPSTREAM_URL }}
+          UPSTREAM_BRANCH: ${{ vars.UPSTREAM_BRANCH }}
+        run: |
+          # empty repository variables: use the defaults of the script
+          [ -n "$UPSTREAM_URL" ] || unset UPSTREAM_URL
+          [ -n "$UPSTREAM_BRANCH" ] || unset UPSTREAM_BRANCH
+          bash scripts/upstream-status.sh

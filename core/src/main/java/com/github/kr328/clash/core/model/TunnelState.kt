@@ -18,6 +18,8 @@ data class TunnelState(
     // (most recent first, at most 3), and how many more were left out; empty when none is known
     val currentIps: List<CurrentIp> = emptyList(),
     val currentMore: Int = 0,
+    // CUSTOM (CUSTOM.md #37): does the node in use work? > 0 yes (delay in ms), -1 no, 0 not known yet
+    val reach: Int = 0,
 ) : Parcelable {
     @Serializable
     data class CurrentIp(

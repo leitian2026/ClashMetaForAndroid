@@ -21,6 +21,11 @@ object ConfigHistory {
         val size: Long get() = file.length()
 
         fun text(): String = file.readText(Charsets.UTF_8)
+
+        /** CUSTOM.md #38: the proxy was seen working while this version was the one in use. */
+        val verified: Boolean get() = marker().exists()
+
+        internal fun marker(): File = file.resolveSibling("$at.ok")
     }
 
     private fun dir(context: Context, uuid: UUID): File {
@@ -39,6 +44,26 @@ object ConfigHistory {
     /** The committed config.yaml of the profile (what is in use), or null. */
     fun current(context: Context, uuid: UUID): File? {
         return context.importedDir.resolve("$uuid/config.yaml").takeIf { it.isFile }
+    }
+
+    /**
+     * CUSTOM.md #38: the proxy was seen working (the home page got a working answer for the node in use) with the
+     * config in use. The kept version with the same content gets a marker file next to it; no kept version with the
+     * same content (a subscription, or one never saved here) -> nothing. Never throws.
+     */
+    fun markVerified(context: Context, uuid: UUID) {
+        try {
+            val current = current(context, uuid) ?: return
+
+            if (current.length() == 0L || current.length() > MAX_BYTES) return
+
+            val bytes = current.readBytes()
+
+            list(context, uuid)
+                .firstOrNull { it.size == bytes.size.toLong() && it.file.readBytes().contentEquals(bytes) }
+                ?.let { v -> if (!v.verified) v.marker().createNewFile() }
+        } catch (_: Exception) {
+        }
     }
 
     /** Called before the committed copy of a profile is replaced by the one in the processing folder. Never throws. */
@@ -68,6 +93,9 @@ object ConfigHistory {
 
         target.resolve("$at.yaml").writeBytes(bytes)
 
-        versions.drop(MAX - 1).forEach { it.file.delete() }
+        versions.drop(MAX - 1).forEach {
+            it.file.delete()
+            it.marker().delete()
+        }
     }
 }

@@ -311,6 +311,15 @@
     <string name="log_level_next">已保存：日志级别“%1$s”，下次载入配置时生效</string>
     <string name="log_level_failed">保存日志级别失败</string>
     <string name="custom_ips_more">等 %d 个</string>
+    <string name="custom_reach_ok">✓ %1$d ms</string>
+    <string name="custom_reach_fail">✗ 不通</string>
+    <string name="history_verified"> · ✓ 用过没出错</string>
+    <string name="connection_row_direct">直连 ← %1$s</string>
+    <string name="connection_row_reject">拒绝 ← %1$s</string>
+    <string name="connection_label_verdict">结果</string>
+    <string name="connection_verdict_direct">直连，没走代理：命中了规则 %1$s</string>
+    <string name="connection_verdict_reject">被拒绝：命中了规则 %1$s</string>
+    <string name="connection_verdict_proxy">走了代理（%1$s）：命中了规则 %2$s</string>
     <string name="check_dns_c_ok">结论：可用。内核实际用的答案和 %1$d 个服务器一致。</string>
     <string name="check_dns_c_nomatch">结论：不确定。内核的答案和被检查的服务器都对不上，可能来自内核的 DNS 缓存（想要新的先点“清缓存”）。</string>
     <string name="check_dns_c_core_line">内核的答案：A %1$s；AAAA %2$s（%3$d 毫秒）</string>

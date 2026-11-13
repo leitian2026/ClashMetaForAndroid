@@ -31,7 +31,8 @@ func queryTunnelState() *C.char {
 		CurrentCountry string           `json:"currentCountry,omitempty"` // CUSTOM
 		CurrentIPs     []ipdelay.NodeIP `json:"currentIps,omitempty"`     // CUSTOM: every address in use (CUSTOM.md #7)
 		CurrentMore    int              `json:"currentMore,omitempty"`    // CUSTOM: how many more were left out
-	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country, CurrentIPs: ips, CurrentMore: more}
+		Reach          int              `json:"reach,omitempty"`          // CUSTOM (CUSTOM.md #37): >0 the node works (ms), -1 it does not
+	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country, CurrentIPs: ips, CurrentMore: more, Reach: ipdelay.Reach(node)}
 
 	return marshalJson(response)
 }

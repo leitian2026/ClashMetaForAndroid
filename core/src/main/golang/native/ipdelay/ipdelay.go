@@ -381,6 +381,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	failedAt = map[string]time.Time{}
 	lastUsed = used{}
 	lock.Unlock()
+
+	resetReach() // CUSTOM.md #37
 }
 
 // InstallSocketHook wraps the core's socket hook (set in delegate.Init) so that the node IP

@@ -79,7 +79,7 @@ object ConnectionText {
     fun info(context: Context, item: ConnectionItem): String {
         return listOf(
             item.network.uppercase(Locale.ROOT),
-            rule(item),
+            ruleWithVerdict(context, item),
             traffic(item),
             item.process,
             time(context, item.start, "HH:mm:ss"),
@@ -116,6 +116,7 @@ object ConnectionText {
         )
         // the core lists the carrying node first; the route reads better from the group to the node
         add(R.string.connection_label_chain, item.chains.asReversed().joinToString(" → "))
+        add(R.string.connection_label_verdict, verdict(context, item))
         add(R.string.connection_label_node_ip, nodeIp(item))
         add(R.string.connection_label_rule, rule(item))
         add(R.string.connection_label_app, item.process)
@@ -131,6 +132,48 @@ object ConnectionText {
         val flag = CountryFlag.of(item.nodeCountry)
 
         return if (flag.isEmpty()) item.nodeIp else "$flag ${item.nodeIp}"
+    }
+
+    // CUSTOM.md #39: "Direct ← GeoSite,cn": says why a connection did not go through the proxy
+    private fun ruleWithVerdict(context: Context, item: ConnectionItem): String {
+        val r = rule(item)
+
+        if (r.isEmpty()) return ""
+
+        return when (leafKind(item)) {
+            LeafKind.Direct -> context.getString(R.string.connection_row_direct, r)
+            LeafKind.Reject -> context.getString(R.string.connection_row_reject, r)
+            else -> r
+        }
+    }
+
+    private fun verdict(context: Context, item: ConnectionItem): String {
+        val r = rule(item)
+
+        if (r.isEmpty()) return ""
+
+        return when (leafKind(item)) {
+            LeafKind.Direct -> context.getString(R.string.connection_verdict_direct, r)
+            LeafKind.Reject -> context.getString(R.string.connection_verdict_reject, r)
+            else -> context.getString(
+                R.string.connection_verdict_proxy,
+                item.chains.asReversed().joinToString(" → "),
+                r,
+            )
+        }
+    }
+
+    private enum class LeafKind { Direct, Reject, Other }
+
+    // the core lists the node that really carries the connection first
+    private fun leafKind(item: ConnectionItem): LeafKind {
+        val leaf = item.chains.firstOrNull() ?: return LeafKind.Other
+
+        return when {
+            leaf.equals("DIRECT", ignoreCase = true) -> LeafKind.Direct
+            leaf.startsWith("REJECT", ignoreCase = true) -> LeafKind.Reject
+            else -> LeafKind.Other
+        }
     }
 
     private fun rule(item: ConnectionItem): String {

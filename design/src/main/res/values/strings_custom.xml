@@ -311,6 +311,15 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>
     <string name="log_level_failed">Could not save the log level</string>
     <string name="custom_ips_more">+%d more</string>
+    <string name="custom_reach_ok">✓ %1$d ms</string>
+    <string name="custom_reach_fail">✗ Not working</string>
+    <string name="history_verified"> · ✓ worked</string>
+    <string name="connection_row_direct">Direct ← %1$s</string>
+    <string name="connection_row_reject">Rejected ← %1$s</string>
+    <string name="connection_label_verdict">Result</string>
+    <string name="connection_verdict_direct">Went direct, not through the proxy: it matched the rule %1$s</string>
+    <string name="connection_verdict_reject">Rejected: it matched the rule %1$s</string>
+    <string name="connection_verdict_proxy">Through the proxy (%1$s): it matched the rule %2$s</string>
     <string name="check_dns_c_ok">Result: OK. The answer the core really uses matches %1$d server(s).</string>
     <string name="check_dns_c_nomatch">Result: not sure. The core\'s answer matches none of the checked servers; it may come from the core\'s DNS cache.</string>
     <string name="check_dns_c_core_line">The core\'s answer: A %1$s; AAAA %2$s (%3$d ms)</string>

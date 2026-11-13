@@ -33,6 +33,8 @@ func MarkTested() {
 // Wi-Fi, IPv6 appeared or went away). A speed test older than this says little about the new network.
 func MarkNetworkChanged() {
 	atomic.StoreInt64(&networkChangedAt, time.Now().UnixMilli())
+
+	refreshReach() // CUSTOM.md #37
 }
 
 // NodeInfoResult is the answer to SortNodeInfo.

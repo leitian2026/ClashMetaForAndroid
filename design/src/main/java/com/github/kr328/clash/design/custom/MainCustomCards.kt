@@ -30,7 +30,16 @@ class MainCustomCards(
         // every address the requests went through most recently (CUSTOM.md #7)
         val text = state.ipsText { context.getString(R.string.custom_ips_more, it) }
 
-        return if (text.isEmpty()) null else " · $text"
+        // does the node in use work (CUSTOM.md #37); nothing is written while that is not known yet
+        val reach = when {
+            state.reach > 0 -> context.getString(R.string.custom_reach_ok, state.reach)
+            state.reach < 0 -> context.getString(R.string.custom_reach_fail)
+            else -> ""
+        }
+
+        val parts = listOf(text, reach).filter { it.isNotEmpty() }
+
+        return if (parts.isEmpty()) null else " · " + parts.joinToString(" · ")
     }
 
     private fun openGeoSiteSettings() {

@@ -110,7 +110,9 @@ object ConfigTools {
                     context.getString(DesignR.string.history_version_line, date, lines, d.added, d.removed)
                 }
 
-                if (inUse != null && inUse == text) line + context.getString(DesignR.string.history_in_use) else line
+                val shown = if (inUse != null && inUse == text) line + context.getString(DesignR.string.history_in_use) else line
+
+                if (v.verified) shown + context.getString(DesignR.string.history_verified) else shown // CUSTOM.md #38
             }
         }
 
