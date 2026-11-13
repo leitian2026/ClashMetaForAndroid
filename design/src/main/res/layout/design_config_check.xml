@@ -126,6 +126,23 @@
                     android:text="@string/check_dns_start" />
             </LinearLayout>
 
+            <!-- CUSTOM (CUSTOM.md #43): test other IPs (not the ones in the config) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/item_tailing_margin">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_ip_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.IpTest)}"
+                    android:text="@string/iptest_button" />
+            </LinearLayout>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

@@ -85,13 +85,18 @@ type DNSReport struct {
 	Core    CoreAnswer  `json:"core"`    // what the core's own resolver answers
 }
 
-// RunAny runs the check the request asks for: the DNS check for kind "dns", the ECH check otherwise.
+// RunAny runs the check the request asks for: the DNS check for kind "dns", the IP test for kind "ip" (CUSTOM.md #43),
+// the ECH check otherwise.
 func RunAny(filter string) any {
 	var req Request
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	if req.Kind == "dns" {
 		return RunDNS(strings.TrimSpace(req.Domain))
+	}
+
+	if req.Kind == "ip" { // CUSTOM.md #43: test other IPs (iptest.go)
+		return RunIP(filter)
 	}
 
 	return Run(filter)

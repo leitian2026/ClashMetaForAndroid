@@ -5,6 +5,7 @@ import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.ConfigCheckReport
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
+import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
 import com.github.kr328.clash.design.R
@@ -24,6 +25,9 @@ import org.json.JSONObject
 class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     private var job: Job? = null
 
+    // CUSTOM.md #43: the running job is a "test other IPs"; the core has to be told to stop it
+    private var ipTesting = false
+
     override suspend fun main() {
         val design = ConfigCheckDesign(this)
 
@@ -41,14 +45,21 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
                             Unit
                         }
+                        ConfigCheckDesign.Request.IpTest -> {
+                            // CUSTOM.md #43: while a test runs its button is the "cancel" one
+                            if (job?.isActive == true) {
+                                cancelRunning(design)
+                            } else {
+                                job = launch { runIpTest(design) }
+                            }
+
+                            Unit
+                        }
                         ConfigCheckDesign.Request.Toggle, ConfigCheckDesign.Request.Dns -> {
                             val running = job?.isActive == true
 
                             if (running) {
-                                job?.cancel()
-                                job = null
-                                design.setRunning(false)
-                                design.showText(getString(R.string.check_cancelled))
+                                cancelRunning(design)
                             } else if (it == ConfigCheckDesign.Request.Dns) {
                                 job = launch { runDns(design) } // CUSTOM.md #25
                             } else {
@@ -60,6 +71,97 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun cancelRunning(design: ConfigCheckDesign) {
+        job?.cancel()
+        job = null
+
+        if (ipTesting) {
+            ipTesting = false
+
+            try {
+                withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+
+        design.setRunning(false)
+        design.setIpRunning(false)
+        design.showText(getString(R.string.check_cancelled))
+    }
+
+    // CUSTOM (CUSTOM.md #43): test other IPs. A dialog asks for the addresses, the node and the way to test: straight
+    // to the address ("direct", uses the domain field of the page as SNI and Host) or through the node with its server
+    // replaced by the address ("node"). Runs only when tapped; the core stops when the button is tapped again.
+    private suspend fun runIpTest(design: ConfigCheckDesign) {
+        if (!clashRunning) {
+            design.showText(getString(R.string.connections_not_running))
+            return
+        }
+
+        var failure = ""
+
+        val report = try {
+            val nodes = IpTestReport.parse(
+                withClash {
+                    queryCustomConnections(
+                        CustomConnections.SORT_CHECK,
+                        JSONObject().put("kind", "ip").put("mode", "nodes").toString(),
+                    )
+                },
+            ).nodes
+
+            val choice = design.askIpTest(nodes) ?: return
+
+            if (choice.ips.isBlank()) {
+                design.showText(getString(R.string.iptest_need_ips))
+                return
+            }
+
+            val domain = if (choice.mode == "direct") design.domain() else ""
+
+            if (choice.mode == "direct" && domain.isEmpty()) {
+                design.showText(getString(R.string.iptest_need_domain))
+                return
+            }
+
+            if (choice.mode == "node" && choice.node.isEmpty()) {
+                design.showText(getString(R.string.iptest_need_node))
+                return
+            }
+
+            val request = JSONObject()
+                .put("kind", "ip")
+                .put("mode", choice.mode)
+                .put("domain", domain)
+                .put("node", choice.node)
+                .put("ips", choice.ips)
+                .toString()
+
+            design.setIpRunning(true)
+            ipTesting = true
+
+            IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failure = getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
+
+            null
+        }
+
+        ipTesting = false
+        design.setIpRunning(false)
+
+        when {
+            report == null -> design.showText(failure)
+            report.error == "no address" -> design.showText(getString(R.string.iptest_need_ips))
+            report.error.isNotEmpty() -> design.showText(getString(R.string.check_error, report.error))
+            else -> design.showIpTest(report)
         }
     }
 

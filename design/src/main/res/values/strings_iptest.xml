@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #43): test other IPs -->
+<resources>
+    <string name="iptest_button">Test other IPs</string>
+    <string name="iptest_running">Testing… a random 1 to 3 seconds between two IPs; tap the button again to cancel</string>
+    <string name="iptest_dialog_title">Test other IPs</string>
+    <string name="iptest_dialog_hint">Enter IPs that are not in the config, one per line (commas and spaces work too), at most 20. \"Direct\" uses the domain of the field above as SNI and Host; \"Through node\" puts the IP in place of the chosen node\'s server.</string>
+    <string name="iptest_ips_hint">e.g. 104.18.2.5</string>
+    <string name="iptest_node_label">Node (for \"Through node\")</string>
+    <string name="iptest_no_nodes">No node to choose in the config (\"Through node\" is not available)</string>
+    <string name="iptest_btn_node">Through node</string>
+    <string name="iptest_btn_direct">Direct</string>
+    <string name="iptest_need_ips">No IP was entered, or none of the entries is an IP address</string>
+    <string name="iptest_need_domain">Direct needs a domain in the field above, used as SNI and Host</string>
+    <string name="iptest_need_node">No node chosen, \"Through node\" is not available</string>
+    <string name="iptest_head_direct">■ Direct (domain %1$s, used as SNI and Host)</string>
+    <string name="iptest_head_node">■ Through node (node %1$s)</string>
+    <string name="iptest_ech_source">ECH config from %1$s</string>
+    <string name="iptest_ech_none">No ECH config found for this domain, only the plain handshake is tested</string>
+    <string name="iptest_ref">For comparison: the quickest address in the config, %1$s, %2$d ms (tested %3$s)</string>
+    <string name="iptest_ref_none">For comparison: the addresses in this node\'s hosts were not tested yet (run a speed test on the proxy page)</string>
+    <string name="iptest_cancelled">Cancelled, these are the ones done before</string>
+    <string name="iptest_invalid">Not understood: %1$s</string>
+    <string name="iptest_cut">Over the limit of 20, %1$d not tested</string>
+    <string name="iptest_tap_hint">Tap a line to copy its IP</string>
+    <string name="iptest_ms">%1$d ms</string>
+    <string name="iptest_faster">%1$d ms quicker</string>
+    <string name="iptest_in_hosts">already in hosts</string>
+    <string name="iptest_in_config">already in the config</string>
+    <string name="iptest_tls">TLS %1$s</string>
+    <string name="iptest_ech_accepted">ECH accepted</string>
+    <string name="iptest_ech_notaccepted">ECH not accepted</string>
+    <string name="iptest_ech_rejected">ECH rejected</string>
+    <string name="iptest_colo">data centre %1$s</string>
+    <string name="iptest_none_ok">None of them works</string>
+    <string name="iptest_copy_all">Copy all that work (%1$d)</string>
+    <string name="iptest_tested_at">Tested %1$s</string>
+</resources>

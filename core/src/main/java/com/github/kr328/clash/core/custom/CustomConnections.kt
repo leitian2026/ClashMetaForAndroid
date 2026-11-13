@@ -24,6 +24,9 @@ object CustomConnections {
     const val FLUSH_DNS = "!flush-dns"
     const val FLUSH_FAKEIP = "!flush-fakeip"
 
+    // id that close() takes to stop the running "test other IPs" of the config check page (CUSTOM #43)
+    const val CANCEL_IPTEST = "!cancel-iptest"
+
     // id that close() takes to forget the recorded errors (CUSTOM #21)
     const val CLEAR_ERRORS = "!errors"
 

@@ -57,6 +57,14 @@ func closeCustomConnection(id C.c_string) C.int {
 		return 1
 	}
 
+	if C.GoString(id) == conftest.CancelIPTestID { // CUSTOM.md #43: stop the running "test other IPs"
+		if conftest.CancelIPTest() {
+			return 1
+		}
+
+		return 0
+	}
+
 	if C.GoString(id) == conftest.FlushDNSID { // CUSTOM.md #26: clear the core's DNS cache
 		if conftest.FlushDNS() {
 			return 1

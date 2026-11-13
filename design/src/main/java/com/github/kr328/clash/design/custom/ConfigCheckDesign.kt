@@ -5,10 +5,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.text.method.LinkMovementMethod
 import android.view.View
+import android.widget.Toast
 import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
+import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.databinding.DesignConfigCheckBinding
@@ -26,7 +28,7 @@ import kotlin.coroutines.resume
 // written in the config work. The last domain typed is remembered in this page's own preferences.
 class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(context) {
     enum class Request {
-        Toggle, Dns, Copy, Flush, Effective,
+        Toggle, Dns, Copy, Flush, Effective, IpTest,
     }
 
     private val binding = DesignConfigCheckBinding
@@ -111,6 +113,41 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             if (running) {
                 binding.checkTextView.text = context.getString(R.string.check_running)
             }
+        }
+    }
+
+    // CUSTOM.md #43: the button of "test other IPs" turns into "cancel" while its test runs
+    suspend fun setIpRunning(running: Boolean) {
+        withContext(Dispatchers.Main) {
+            binding.checkIpView.setText(if (running) R.string.check_cancel else R.string.iptest_button)
+
+            if (running) {
+                binding.checkTextView.text = context.getString(R.string.iptest_running)
+            }
+        }
+    }
+
+    /** CUSTOM.md #43: the dialog of "test other IPs"; null when cancelled. */
+    suspend fun askIpTest(nodes: List<String>): IpTestChoice? {
+        return IpTestDialog.ask(context, prefs, nodes)
+    }
+
+    // CUSTOM.md #43: a tap on a line of the IP test copies that address (or all that work); the page has such lines,
+    // so like the DNS check its taps go to the links; the copy button at the top copies the whole text
+    suspend fun showIpTest(report: IpTestReport) {
+        withContext(Dispatchers.Main) {
+            val view = IpTestView(context, report) { text ->
+                context.getSystemService<ClipboardManager>()
+                    ?.setPrimaryClip(ClipData.newPlainText("ip_test", text))
+
+                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            }
+
+            binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
+            linksOn = true
+
+            binding.checkTextView.text = view.render()
+            shown = view.plain()
         }
     }
 
