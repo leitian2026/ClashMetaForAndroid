@@ -1,0 +1,105 @@
+diff -ruN a/component/dialer/dialer.go b/component/dialer/dialer.go
+--- a/component/dialer/dialer.go
++++ b/component/dialer/dialer.go
+@@ -55,6 +55,19 @@
+ 		return nil, err
+ 	}
+ 
++	// CUSTOM (CUSTOM.md #42): the node has a preferred address among the resolved ones: dial only that one (what
++	// every dial path does with a single address), and fall back to the whole list once if it fails
++	if pip, ok := preferredIn(opt.owner, ips); ok {
++		conn, perr := dialContext(ctx, network, pip, port, opt)
++		if perr == nil {
++			return conn, nil
++		}
++		if ctx.Err() != nil {
++			return nil, perr
++		}
++		dropPreferred(opt.owner, pip)
++	}
++
+ 	tcpConcurrent := GetTcpConcurrent()
+ 
+ 	switch network {
+diff -ruN a/component/dialer/preferip.go b/component/dialer/preferip.go
+--- a/component/dialer/preferip.go
++++ b/component/dialer/preferip.go
+@@ -0,0 +1,78 @@
++package dialer
++
++// CUSTOM (CUSTOM.md #42, not part of upstream): a preferred address per node.
++//
++// The app tests the addresses of a node and calls SetPreferredIP with the fastest one. When the core opens a new
++// connection for that node (the name is the `owner` option set by 0001), dialContextRaw dials only that address,
++// when it is among the addresses the node's server name resolves to, instead of trying all of them (tcp-concurrent
++// races every address, one handshake each). When that one cannot be reached, the dial goes on with the whole list
++// and the preference is removed.
++//
++// Nothing runs on its own: the map is read once per dial of a node, and written when the app finishes a test.
++
++import (
++	"net/netip"
++	"sync"
++)
++
++var (
++	preferLock sync.RWMutex
++	preferred  = map[string]netip.Addr{} // node name -> preferred address
++)
++
++// SetPreferredIP makes ip the address dialed first (and only) for new connections of the node `owner`.
++func SetPreferredIP(owner string, ip netip.Addr) {
++	if owner == "" || !ip.IsValid() {
++		return
++	}
++
++	preferLock.Lock()
++	preferred[owner] = ip.Unmap()
++	preferLock.Unlock()
++}
++
++// ClearPreferredIP removes the preference of one node.
++func ClearPreferredIP(owner string) {
++	preferLock.Lock()
++	delete(preferred, owner)
++	preferLock.Unlock()
++}
++
++// ClearPreferredIPs removes the preferences of all nodes.
++func ClearPreferredIPs() {
++	preferLock.Lock()
++	preferred = map[string]netip.Addr{}
++	preferLock.Unlock()
++}
++
++// preferredIn returns the preferred address of `owner` when it is one of ips.
++func preferredIn(owner string, ips []netip.Addr) (netip.Addr, bool) {
++	if owner == "" {
++		return netip.Addr{}, false
++	}
++
++	preferLock.RLock()
++	want, ok := preferred[owner]
++	preferLock.RUnlock()
++
++	if !ok {
++		return netip.Addr{}, false
++	}
++
++	for _, ip := range ips {
++		if ip.Unmap() == want {
++			return ip, true
++		}
++	}
++
++	return netip.Addr{}, false
++}
++
++// dropPreferred removes the preference of `owner` if it is still ip (a test may have set a newer one meanwhile).
++func dropPreferred(owner string, ip netip.Addr) {
++	preferLock.Lock()
++	if cur, ok := preferred[owner]; ok && cur == ip.Unmap() {
++		delete(preferred, owner)
++	}
++	preferLock.Unlock()
++}

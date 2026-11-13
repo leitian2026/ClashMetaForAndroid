@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r43
+当前版本：2_11_36-r44
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -50,13 +50,22 @@
 - 功耗：只在用户手动测速时才跑，不轮询，不跟随息屏恢复时的自动健康检查（`healthCheckAll`）。
 
 **r41：测哪些 IP、并发和国家查询**
-- **每个节点最多测 4 个 IP**（`maxTestIPs`，原来 8 个）。**正在用的 IP 一定在这 4 个里**（`inUseLocked`：#7 记下的请求最近走过的 IP，没有就取最近拨的 IP；只取 IPv4），再用名单里靠前的补满。显示顺序仍按名单顺序，不是"在用的排最前"，这样前后两次对得上；不在名单里的在用 IP 排在最后。
+- **（r44 改了，见下面 r44 一节）** ~~每个节点最多测 4 个 IP~~。在用的 IP（`inUseLocked`：#7 记下的请求最近走过的 IP，没有就取最近拨的 IP；只取 IPv4）仍然一定会测。显示顺序仍按名单顺序，不是"在用的排最前"，这样前后两次对得上；不在名单里的在用 IP 排在最后。
 - **名单顺序固定：** `hosts:` 里写了的，按你写的顺序；实时解析的，先把解析到的 IPv4 **排序**再取（DNS 返回的顺序每次可能不同）。
-- **"共 N 个，仅测了 M 个"：** 名单（解析到的全部 IPv4，加上不在名单里的在用 IP）超过测的个数时，页面最后一行（"N 分钟前测速"那一行）左边多写这一句。N 是**这一次解析到的个数**，不是域名一共有多少个；DNS 每次只给其中一部分的域名，N 可能前后不一样。没超过就不显示。
+- **"共 N 个，仅测了 M 个"（r44 起只有实时解析的节点会出现，`hosts:` 的节点不显示）：** 名单（解析到的全部 IPv4，加上不在名单里的在用 IP）超过测的个数时，页面最后一行（"N 分钟前测速"那一行）左边多写这一句。N 是**这一次解析到的个数**，不是域名一共有多少个；DNS 每次只给其中一部分的域名，N 可能前后不一样。没超过就不显示。
 - **在用的 IP 前面有 `●`：** `Get()` 返回时现算（`IPDelay.InUse`），不存；节点最近没有请求时是"最后一批"（和首页一致，直到下一个请求才变）。
-- **限量并发：** 所有节点、所有 IP 一共最多同时 4 个测试（`testSlots`，一个测试 = 测速请求 + 它的国家查询）；每个测试拿到名额后先随机等 0 到 1.5 秒（`testJitter`）再发请求，等待不计入延迟。节点多时测完要久一点（每 4 个一批，一批约 1 秒多），但不会一下子冒出一大批请求。
-- **国家查询：** 只对测通的 IP 查（以前就是这样）；**这个节点 + 这个 IP 的国家已经知道（内存里或 #11 记在磁盘上的）就不再查**，直接用，少发一次请求；新出现的 IP 才查。代价：一个 IP 的出口国家变了的话，测速不会自己刷新它（首页的失败重试照旧）。
-- **改动：** `ipdelay.go`（`maxTestIPs` / `maxConcurrent` / `testJitter`、`IPDelay.Total` / `InUse`、`candidateIPs` 不再截断并对解析结果排序、新增 `pickIPs` / `inUseLocked` / `throttledTest`、`testProxy`、`Get`、`testIP` 多一个 `known` 参数）、`IpDelay.kt`（`total`、`inUse`）、`ProxyView.kt`（在用标记和"共 N 个"一行，行数没变，不改 `onMeasure`）、文案 `ip_delay_total`。
+- **~~限量并发~~（r44 去掉了 `testSlots` / `testJitter`，改成下面的"一个节点内一个接一个测"）。**
+- **国家查询（r44 起按来源，见下）：** 只对测通的 IP 查；**这个节点 + 这个 IP 的国家已经知道（内存里或 #11 记在磁盘上的）就不再查**，直接用，少发一次请求；新出现的 IP 才查。代价：一个 IP 的出口国家变了的话，测速不会自己刷新它（首页的失败重试照旧）。
+- **改动（r44 又改了其中的限量、并发和 `candidateIPs`，见下一节）：** `ipdelay.go`（`maxTestIPs` / `maxConcurrent` / `testJitter`、`IPDelay.Total` / `InUse`、`candidateIPs` 不再截断并对解析结果排序、新增 `pickIPs` / `inUseLocked` / `throttledTest`、`testProxy`、`Get`、`testIP` 多一个 `known` 参数）、`IpDelay.kt`（`total`、`inUse`）、`ProxyView.kt`（在用标记和"共 N 个"一行，行数没变，不改 `onMeasure`）、文案 `ip_delay_total`。
+
+**r44：按来源收窄测速（`hosts:` 的全测，DNS 解析出来的只测少数）**
+- **测几个：** `hosts:` 里你写的 IPv4 **全测**，最多 8 个（`maxHostsIPs`；超过 8 个时在用的一定在里面，其余按你写的顺序补）。实时解析出来的（`hosts:` 里没有这个 server）排序后只测前 2 个（`maxResolvedIPs`），**在用的那个再加 1 个**（已经在前 2 个里就不加；有几个在用的只加最近用的那一个）。选法在 `pickIPs`（多了参数 `withInUseOnTop`）。
+- **一个节点内一个接一个测：** 同一个节点的几个 IP 依次测，两个之间**随机隔 1 到 3 秒**（`gapMin` / `gapMax`，间隔不计入延迟）；不同节点之间照旧各测各的。去掉了原来"所有节点一共同时最多 4 个"（`testSlots`）和测前的随机等待（`testJitter`、`throttledTest`）。代价：一个节点有 8 个 IP 时要测 7 到 21 秒以上。
+- **国家查询：** `hosts:` 的 IP **测通的都查**（缓存里有就不查）；实时解析出来的**只查在用的那一个**（缓存里有就不查），其余的 IP 只显示延迟，国旗位置显示"？"（没查，不是失败）。`testIP` 多了参数 `wantCountry`。
+- **"共 N 个，仅测了 M 个"：** 只在实时解析的节点上出现（`testProxy` 里 `hosts:` 的节点 `Total` 写 0）。
+- **没有时间限制：** 每次点测速都真测，没有"多久内不重测"。
+- **`candidateIPs`** 多返回一个 `fromHosts`（名单是不是来自 `hosts:`）。
+- **改动：** 只有 `ipdelay.go`（上面这些，加 `inUseV4`、`setFastest`）。Kotlin 一行没动。
 
 **新增文件**
 - `core/src/main/golang/native/ipdelay/ipdelay.go`：逐 IP 测速逻辑（临时复制节点、把 server 换成该 IP、经节点拨号请求测速 URL）。
@@ -622,3 +631,14 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **上游地址：** 默认 `https://github.com/MetaCubeX/ClashMetaForAndroid.git` 的 `main`；要改，在仓库设置里加变量 `UPSTREAM_URL` / `UPSTREAM_BRANCH`。本地也能跑：`bash scripts/upstream-status.sh`（`UPSTREAM_REF` 可以指向本地已有的引用）。
 - **新增文件：** `scripts/upstream-status.sh`、`.github/workflows/upstream-status.yaml`。没有定时触发，不占 Actions 额度。
 
+## 42. 自动用最快的 IP（内核补丁 0003，r44）
+**效果：** 你写在 `hosts:` 里的节点，手动点测速（`TestGroup`）测完后，在**测通的 `hosts:` IP 里取延迟最小的**设为这个节点的"首选 IP"。之后这个节点的**新连接只拨这一个 IP**，不再对每个 IP 都握手（`tcp-concurrent` 原来是所有 IP 同时拨、谁先通用谁）。
+- **只对 `hosts:` 里你写的 IP 生效。** 实时解析的节点（DNS 每次返回的子集会变，首选 IP 可能不在下次的结果里，而且每次只测 2 个，"最快"没有意义）不设首选；以后想放开再加。
+- **拨不通就退回：** 首选 IP 拨号失败（并且不是因为调用方取消了连接），这一次接着用完整的 IP 列表拨（和没有补丁时一样），同时把这个节点的首选清掉；再下一次测速重新选。
+- **什么时候设、什么时候清：** 只有手动测速会设（#24 网络切换后的自动重测只测延迟、不走 `TestGroup`，所以不会改首选，换网络后首选可能不再是最快的，要再点一次测速；首选拨不通时会自己退回并清掉）。清掉的时机：载入新配置（`CaptureConfig`）；一个 `hosts:` 的 IP 都没测通；节点不再有名单（`testProxy` 里 `len(all)==0`）；拨号时首选 IP 不在这次解析结果里则补丁不用它（没有副作用，也不清）。
+- **效果和限制：** 只对**新建**的连接生效，已经开着的连接最长复用 1800 到 3000 秒才会换；首选的节点每条新连接只握手一次。只挂在 `DialContext`（TCP 拨号，以及走它的 `udp`）上，hysteria 之类走 `ListenPacket` 的 UDP 传输不受影响。节点名取自 0001 给拨号加的 `owner` 选项（`WithOwner(b.name)`），所以只有带这个选项的拨号才生效。
+- **功耗：** 没有任何定时器 / 后台任务；每次拨号读一次带读锁的小 map，测速结束写一次。
+- **新增文件：** `patches/mihomo/0003-preferred-ip.patch`（内核补丁，新文件 `component/dialer/preferip.go`：`SetPreferredIP` / `ClearPreferredIP` / `ClearPreferredIPs` 和包内的 `preferredIn` / `dropPreferred`；改 `component/dialer/dialer.go` 的 `dialContextRaw`，在 `parseAddr` 之后、`tcp-concurrent` 判断之前加一段，带 `CUSTOM` 注释）。**必须在 0001 之后应用**（`dialContextRaw` 是 0001 改的名字，`opt.owner` 也是 0001 加的）；`build-debug.yaml` 的 `Apply mihomo patches` 本来就按文件名顺序全打，没有改工作流。
+- **改了上游文件（App 侧）：** 只有 #1 已经登记的 `ipdelay.go`（新文件，不是上游）：`testProxy` 末尾 `setFastest`、`CaptureConfig` 末尾 `dialer.ClearPreferredIPs()`。上游文件一行没动。
+- **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。`component/dialer/dialer.go` 的 `dialContextRaw`（原 `DialContext`）、`parseAddr`（`resolver.LookupIPWithResolver` 返回的是解析到的全部 IP，不截断）、`dialContext`（单个 IP 的拨号；`parallelDialContext` / `serialDialContext` / `dualStackDialContext` 在只有一个 IP 时最后都是调它）、`component/resolver/resolver.go` 的 `LookupIPWithResolver`（`hosts:` 命中时直接返回名单里的全部 IP，包括 IPv6）。
+- **验证和局限：** 补丁在上面这份内核源码上按 0001、0002、0003 的顺序 `patch --dry-run` 再真打通过，打完的文件 `gofmt` 干净；`preferip.go` 单独拿出来跑过 `go vet` 和 `go test -race`（设置、清除、4in6、不在列表里、只清自己那个、非法参数）；`pickIPs` 单独跑过 8 个用例。**没有编译整个内核**（这里拉不到内核的依赖），Go / Kotlin 要靠 Actions 构建验证。如果构建因为 0003 出错，把 `0003-preferred-ip.patch` 单独删掉，同时把 `ipdelay.go` 里的 `dialer.SetPreferredIP` / `ClearPreferredIP` / `ClearPreferredIPs` 三处调用（`setFastest`、`testProxy` 的 `len(all)==0` 分支、`CaptureConfig` 末尾）去掉；#1 的测速收窄不受影响。

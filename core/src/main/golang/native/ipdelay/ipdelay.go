@@ -58,9 +58,10 @@ type IPDelay struct {
 }
 
 const (
-	maxTestIPs     = 4                      // CUSTOM.md #1 (r41): most addresses tested per node
-	maxConcurrent  = 4                      // CUSTOM.md #1 (r41): address tests running at once, over all nodes
-	testJitter     = 1500 * time.Millisecond // CUSTOM.md #1 (r41): a test starts after a random wait of up to this
+	maxHostsIPs    = 8               // CUSTOM.md #1 (r44): most `hosts:` addresses tested per node
+	maxResolvedIPs = 2               // CUSTOM.md #1 (r44): most addresses tested that were found by resolving the domain (the one in use comes on top)
+	gapMin         = 1 * time.Second // CUSTOM.md #1 (r44): the tests of one node go one after the other, with a random pause of gapMin to gapMax between two
+	gapMax         = 3 * time.Second
 	testTimeout    = 5 * time.Second
 	geoTimeout     = 4 * time.Second
 	retryAfter     = 5 * time.Minute
@@ -94,9 +95,6 @@ var (
 	selfDialing int32
 
 	hookOnce sync.Once
-
-	// CUSTOM.md #1 (r41): a test (its request and its country lookup) holds one slot; nodes do not all fire at once
-	testSlots = make(chan struct{}, maxConcurrent)
 
 	// change notification (see SetOnChange); guarded by notifyLock, never held together with `lock`
 	notifyLock  sync.Mutex
@@ -383,6 +381,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	lock.Unlock()
 
 	resetReach() // CUSTOM.md #37
+
+	dialer.ClearPreferredIPs() // CUSTOM.md #42: a new profile starts without a preferred address
 }
 
 // InstallSocketHook wraps the core's socket hook (set in delegate.Init) so that the node IP
@@ -601,12 +601,14 @@ func testURLOf(px C.Proxy) string {
 }
 
 func testProxy(name string, raw map[string]any, testURL string) {
-	all := candidateIPs(raw)
+	all, fromHosts := candidateIPs(raw)
 
 	if len(all) == 0 {
 		lock.Lock()
 		delete(results, name)
 		lock.Unlock()
+
+		dialer.ClearPreferredIP(name) // CUSTOM.md #42
 
 		return
 	}
@@ -623,39 +625,56 @@ func testProxy(name string, raw map[string]any, testURL string) {
 		}
 	}
 
-	// CUSTOM.md #1 (r41): the addresses in use are always tested, then the first ones of the list
-	ips, total := pickIPs(all, inUseLocked(name), maxTestIPs)
+	// CUSTOM.md #1 (r44): the addresses the user wrote in `hosts:` are all tested (up to maxHostsIPs, the ones in
+	// use among them); of the addresses found by resolving the domain only the first maxResolvedIPs are tested,
+	// and the one in use on top of them.
+	inUse := inUseLocked(name)
+
+	var ips []string
+
+	total := 0 // only a domain without a `hosts:` entry says "N in all, M tested"
+
+	if fromHosts {
+		ips, _ = pickIPs(all, inUse, maxHostsIPs, false)
+	} else {
+		ips, total = pickIPs(all, inUse, maxResolvedIPs, true)
+	}
 
 	known := make(map[string]string, len(ips)) // exit countries already known: not asked again
 	for _, ip := range ips {
 		known[ip] = countries[name+"|"+ip]
 	}
+
+	// CUSTOM.md #1 (r44): a country is asked for every address that works when the user wrote them in `hosts:`; for
+	// a resolved domain only for the address in use
+	mainUse := ""
+	if v4 := inUseV4(inUse); len(v4) > 0 {
+		mainUse = v4[0]
+	}
 	lock.Unlock()
 
 	list := make([]IPDelay, len(ips))
 
-	wg := &sync.WaitGroup{}
-
+	// CUSTOM.md #1 (r44): one after the other, a random 1 to 3 seconds between two (the pause is not part of the
+	// measured delay). Different nodes still run side by side.
 	for i, ip := range ips {
 		list[i].IP = ip
 		list[i].Total = total
 
-		wg.Add(1)
+		if i > 0 {
+			time.Sleep(gapMin + time.Duration(rand.Int63n(int64(gapMax-gapMin))))
+		}
 
-		go func(i int, ip string) {
-			defer wg.Done()
-
+		func() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Warnln("IP delay test `%s` %s: %v", name, ip, r)
 				}
 			}()
 
-			list[i].Delay, list[i].Country = throttledTest(raw, ip, testURL, known[ip])
-		}(i, ip)
+			list[i].Delay, list[i].Country = testIP(raw, ip, testURL, known[ip], fromHosts || ip == mainUse)
+		}()
 	}
-
-	wg.Wait()
 
 	now := time.Now().UnixMilli()
 
@@ -679,18 +698,37 @@ func testProxy(name string, raw map[string]any, testURL string) {
 		}
 	}
 	lock.Unlock()
+
+	// CUSTOM.md #42: of the `hosts:` addresses that answered, the fastest becomes the one the core dials
+	if fromHosts {
+		setFastest(name, all, list)
+	}
 }
 
-// throttledTest runs testIP once a slot is free, after a random wait, so that a group with many nodes does not
-// send all its requests at the same moment (CUSTOM.md #1, r41). The wait comes before the request is made and is
-// not part of the measured delay.
-func throttledTest(raw map[string]any, ip, testURL, known string) (int, string) {
-	testSlots <- struct{}{}
-	defer func() { <-testSlots }()
+// setFastest makes the quickest of the tested `hosts:` addresses the preferred address of the node: the core then
+// dials only that one for a new connection, instead of racing all of them. When none of them answered, the
+// preference is removed. Addresses that were tested but are not in `all` (the one in use) are not considered.
+func setFastest(name string, all []string, list []IPDelay) {
+	inAll := make(map[string]bool, len(all))
+	for _, ip := range all {
+		inAll[ip] = true
+	}
 
-	time.Sleep(time.Duration(rand.Int63n(int64(testJitter))))
+	best, bestDelay := "", 0
 
-	return testIP(raw, ip, testURL, known)
+	for _, item := range list {
+		if item.Delay > 0 && inAll[item.IP] && (best == "" || item.Delay < bestDelay) {
+			best, bestDelay = item.IP, item.Delay
+		}
+	}
+
+	if addr, err := netip.ParseAddr(best); err == nil {
+		dialer.SetPreferredIP(name, addr)
+
+		return
+	}
+
+	dialer.ClearPreferredIP(name)
 }
 
 // inUseLocked returns the addresses requests of the node went through lately (CUSTOM.md #7), or the one the core
@@ -711,19 +749,9 @@ func inUseLocked(node string) []string {
 	return out
 }
 
-// pickIPs chooses the addresses to test: the IPv4 addresses in use first (they are what the node really
-// uses), then the first ones of `all`, at most `limit` in all. The result keeps the order of `all`, in-use
-// addresses that are not in it come last. `total` is how many addresses there are: all of `all` and the in-use
-// ones that are not in it.
-func pickIPs(all, inUse []string, limit int) (picked []string, total int) {
-	inAll := make(map[string]bool, len(all))
-	for _, ip := range all {
-		inAll[ip] = true
-	}
-
-	total = len(all)
-
-	var usedList []string
+// inUseV4 returns the IPv4 addresses of `inUse` (as written by netip, without duplicates), in the same order.
+func inUseV4(inUse []string) []string {
+	var out []string
 
 	seen := map[string]bool{}
 
@@ -742,8 +770,30 @@ func pickIPs(all, inUse []string, limit int) (picked []string, total int) {
 
 		seen[ip] = true
 
-		usedList = append(usedList, ip)
+		out = append(out, ip)
+	}
 
+	return out
+}
+
+// pickIPs chooses the addresses to test. The result keeps the order of `all`, in-use addresses that are not in it
+// come last. `total` is how many addresses there are: all of `all` and the in-use ones that are not in it.
+//
+//   - withInUseOnTop false (`hosts:` addresses): the IPv4 addresses in use first (they are what the node really
+//     uses), then the first ones of `all`, at most `limit` in all.
+//   - withInUseOnTop true (addresses found by resolving the domain, CUSTOM.md #1 r44): the first `limit` of `all`,
+//     and on top of them the one address in use that was used last (the first of `inUse`), when it is not among them.
+func pickIPs(all, inUse []string, limit int, withInUseOnTop bool) (picked []string, total int) {
+	inAll := make(map[string]bool, len(all))
+	for _, ip := range all {
+		inAll[ip] = true
+	}
+
+	total = len(all)
+
+	usedList := inUseV4(inUse)
+
+	for _, ip := range usedList {
 		if !inAll[ip] {
 			total++
 		}
@@ -751,18 +801,32 @@ func pickIPs(all, inUse []string, limit int) (picked []string, total int) {
 
 	chosen := map[string]bool{}
 
-	for _, ip := range usedList {
-		if len(chosen) < limit {
+	if withInUseOnTop {
+		for _, ip := range all {
+			if len(chosen) >= limit {
+				break
+			}
+
 			chosen[ip] = true
 		}
-	}
 
-	for _, ip := range all {
-		if len(chosen) >= limit {
-			break
+		if len(usedList) > 0 {
+			chosen[usedList[0]] = true
+		}
+	} else {
+		for _, ip := range usedList {
+			if len(chosen) < limit {
+				chosen[ip] = true
+			}
 		}
 
-		chosen[ip] = true
+		for _, ip := range all {
+			if len(chosen) >= limit {
+				break
+			}
+
+			chosen[ip] = true
+		}
 	}
 
 	for _, ip := range all {
@@ -824,18 +888,20 @@ func CountryOf(node, ip string) string {
 
 // candidateIPs returns the IPv4 addresses behind the node's server, or nil when
 // there is nothing to compare (server is already an IP, node is ipv6 only, ...).
-func candidateIPs(raw map[string]any) []string {
+// fromHosts is true when they are the ones the user wrote in `hosts:` (CUSTOM.md #1 r44), false when they were
+// found by resolving the domain.
+func candidateIPs(raw map[string]any) (ips []string, fromHosts bool) {
 	server, _ := raw["server"].(string)
 	if server == "" {
-		return nil
+		return nil, false
 	}
 
 	if v, _ := raw["ip-version"].(string); v == "ipv6" {
-		return nil
+		return nil, false
 	}
 
 	if _, err := netip.ParseAddr(server); err == nil {
-		return nil // literal IP: a single address, nothing to compare
+		return nil, false // literal IP: a single address, nothing to compare
 	}
 
 	lock.RLock()
@@ -843,7 +909,7 @@ func candidateIPs(raw map[string]any) []string {
 	lock.RUnlock()
 
 	if found {
-		return onlyIPv4(toStrings(entry)) // the order the user wrote
+		return onlyIPv4(toStrings(entry)), true // the order the user wrote
 	}
 
 	// CUSTOM.md #1 (r41): sorted, so that the same addresses come first every time (the DNS answer comes in any order)
@@ -853,7 +919,7 @@ func candidateIPs(raw map[string]any) []string {
 		return netip.MustParseAddr(out[i]).Less(netip.MustParseAddr(out[j]))
 	})
 
-	return out
+	return out, false
 }
 
 func lookup(host string) []string {
@@ -945,8 +1011,9 @@ func closeProxy(px C.Proxy) {
 	}
 }
 
-// testIP measures the delay through the node at `ip` and, when that works, the exit country.
-func testIP(raw map[string]any, ip, rawURL, known string) (int, string) {
+// testIP measures the delay through the node at `ip` and, when that works, the exit country (only when
+// wantCountry is set and the country of this address is not known yet, CUSTOM.md #1 r44).
+func testIP(raw map[string]any, ip, rawURL, known string, wantCountry bool) (int, string) {
 	px := newVariant(raw, ip)
 	if px == nil {
 		return 0, ""
@@ -965,6 +1032,10 @@ func testIP(raw map[string]any, ip, rawURL, known string) (int, string) {
 
 	if known != "" {
 		return delay, known // CUSTOM.md #1 (r41): the exit country of this address is already known
+	}
+
+	if !wantCountry {
+		return delay, ""
 	}
 
 	return delay, lookupCountry(px)
