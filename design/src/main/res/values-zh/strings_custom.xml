@@ -372,10 +372,6 @@
     <string name="cloud_result_settings_kept">本机的设置没有改动。</string>
 
     <!-- CUSTOM #33: network status card on the home page -->
-    <string name="custom_net_title">网络状况</string>
-    <string name="custom_net_delay">%1$d ms</string>
-    <string name="custom_net_switch">最近切换 %1$s  %2$s → %3$s</string>
-    <string name="custom_net_switch_first">最近切换 %1$s  %2$s</string>
 
     <!-- CUSTOM #36: delete a cloud backup, subscription names in the restore confirmation -->
     <string name="cloud_menu_delete">删除云端备份</string>

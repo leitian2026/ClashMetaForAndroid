@@ -372,10 +372,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_result_settings_kept">The settings of this device were not changed.</string>
 
     <!-- CUSTOM #33: network status card on the home page -->
-    <string name="custom_net_title">Network status</string>
-    <string name="custom_net_delay">%1$d ms</string>
-    <string name="custom_net_switch">Last switch %1$s  %2$s → %3$s</string>
-    <string name="custom_net_switch_first">Last switch %1$s  %2$s</string>
 
     <!-- CUSTOM #36: delete a cloud backup, subscription names in the restore confirmation -->
     <string name="cloud_menu_delete">Delete a Jianguoyun backup</string>

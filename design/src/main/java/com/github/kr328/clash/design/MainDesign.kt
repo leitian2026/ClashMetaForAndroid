@@ -8,8 +8,6 @@ import com.github.kr328.clash.core.util.trafficTotal
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
 import com.github.kr328.clash.design.custom.MainCustomCards
 import com.github.kr328.clash.design.custom.MainCustomMenu // CUSTOM: CUSTOM.md #32
-import com.github.kr328.clash.design.custom.MainCustomNet // CUSTOM: CUSTOM.md #33
-import com.github.kr328.clash.design.custom.NetExtra // CUSTOM: CUSTOM.md #33
 import com.github.kr328.clash.design.databinding.DesignMainBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
@@ -45,10 +43,9 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     // CUSTOM: top-right menu (cloud backup, local export / import), CUSTOM.md #32
     private val customMenu = MainCustomMenu(context, binding.root)
 
-    suspend fun setCustomCards(running: Boolean, state: TunnelState, extra: NetExtra? = null) {
+    suspend fun setCustomCards(running: Boolean, state: TunnelState) {
         withContext(Dispatchers.Main) {
             binding.customIp = customCards.update(running, state)
-            binding.customNet = MainCustomNet.text(context, running, state, extra) // CUSTOM.md #33
         }
     }
 

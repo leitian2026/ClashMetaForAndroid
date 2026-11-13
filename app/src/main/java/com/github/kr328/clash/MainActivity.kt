@@ -20,7 +20,6 @@ import com.github.kr328.clash.custom.ConfigCheckActivity // CUSTOM: CUSTOM.md #2
 import com.github.kr328.clash.custom.ErrorsActivity // CUSTOM: CUSTOM.md #21
 import com.github.kr328.clash.custom.MuxActivity
 import com.github.kr328.clash.custom.customNodeIpEvents
-import com.github.kr328.clash.custom.loadNetExtra // CUSTOM: CUSTOM.md #33
 import com.github.kr328.clash.custom.refreshCustom
 import com.github.kr328.clash.design.MainDesign
 import com.github.kr328.clash.design.ui.ToastDuration
@@ -96,7 +95,7 @@ class MainActivity : BaseActivity<MainDesign>() {
                     }
                 }
                 customNodeIp.onReceive { // CUSTOM: CUSTOM.md #7
-                    design.refreshCustom(this@MainActivity, clashRunning)
+                    design.refreshCustom(clashRunning)
                 }
                 if (clashRunning && activityStarted) { // CUSTOM: CUSTOM.md #35 (activityStarted: nothing while the page is in the background)
                     ticker.onReceive {
@@ -119,7 +118,7 @@ class MainActivity : BaseActivity<MainDesign>() {
 
         setMode(state.mode)
         setHasProviders(providers.isNotEmpty())
-        setCustomCards(clashRunning, state, loadNetExtra(this@MainActivity, clashRunning, state.currentNode)) // CUSTOM: CUSTOM.md #6, #7, #33
+        setCustomCards(clashRunning, state) // CUSTOM: CUSTOM.md #6, #7
 
         withProfile {
             setProfileName(queryActive()?.name)

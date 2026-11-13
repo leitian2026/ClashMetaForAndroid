@@ -7,10 +7,11 @@ package ipdelay
 // dialer.SetUseHook). With multiplexing a new web page may go through several addresses of the node, and
 // a request put on an open connection dials nothing, so the socket hook alone cannot tell.
 //
-// What the home page and the notification show is the set of addresses used by the requests of the last
-// useWindow before the most recent one; it stays as it is until the next request. Nothing runs on its
-// own: the hook is only called when a request is made anyway, and the app is told only when the set
-// changes (the same delayed notification as for a dial, see scheduleNotify).
+// The set kept here is the addresses used by the requests of the last useWindow before the most recent
+// one; it stays as it is until the next request. What the home page and the notification show is only the
+// newest address of it (r42). Nothing runs on its own: the hook is only called when a request is made
+// anyway, and the app is told only when the set changes (the same delayed notification as for a dial,
+// see scheduleNotify).
 
 import (
 	"sort"
@@ -25,7 +26,6 @@ import (
 const (
 	useWindow   = 1500 * time.Millisecond // requests closer together than this belong to one visit
 	repeatGap   = 500 * time.Millisecond  // CUSTOM.md #35: the same address again within this is not worth recording (< useWindow)
-	maxShownIPs = 3
 )
 
 // NodeIP is an address of a node and, when already known, the exit country behind it.
@@ -136,9 +136,9 @@ func countryLocked(node, ip string) string {
 	return country
 }
 
-// CurrentSet returns the node in use and the addresses of it that requests went through most recently
-// (at most maxShownIPs, most recent first; `more` is how many were left out). Without any request seen
-// yet it falls back to the address the core dialed most recently. Like Current it starts the country
+// CurrentSet returns the node in use and the address its most recent request went through (a list of one;
+// `more` is always 0 since r42, kept so that the callers need no change). Without any request seen yet it
+// falls back to the address the core dialed most recently. Like Current it starts the country
 // lookups that are still missing.
 func CurrentSet() (node string, ips []NodeIP, more int) {
 	active := activeNodes() // before taking our lock: it walks the core's connection list
@@ -185,10 +185,8 @@ func CurrentSet() (node string, ips []NodeIP, more int) {
 		return "", nil, 0
 	}
 
-	if len(list) > maxShownIPs {
-		more = len(list) - maxShownIPs
-		list = list[:maxShownIPs]
-	}
+	// CUSTOM.md #7 (r42): only the address the most recent request went through is shown; `more` stays 0
+	list = list[:1]
 
 	for _, ip := range list {
 		ips = append(ips, NodeIP{IP: ip, Country: countryLocked(node, ip)})

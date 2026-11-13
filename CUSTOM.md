@@ -16,10 +16,10 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()` |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #33 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕）；#33 在代理卡片后加一张"网络状况"卡（变量 `customNet`，`visibility` 跟着它是不是 null） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #33 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import；#33 `setCustomCards()` 加参数 `extra: NetExtra? = null`，里面多写一行 `binding.customNet = MainCustomNet.text(...)`，加两个 import |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #33 #35 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#33 `fetch()` 里的 `setCustomCards(...)` 多传 `loadNetExtra(...)`，`refreshCustom` 多传 `this@MainActivity`，加 `loadNetExtra` 的 import；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #35 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
@@ -136,6 +136,7 @@
 - **订阅点：** 服务进程里 `NodeIpNotifier.start()` 只订阅一次（幂等），由 `DynamicNotificationModule.run()` 和 `ClashManager.queryTunnelState()` 触发。
 - **功耗：** 没有新增 ticker / 定时器 / 轮询（只有 IP 变化时才排一个 0.8 秒的一次性延时）；通知里不再每秒查速度（少了一次 JNI），文本只在 IP 变化后重建；息屏时通知不重建，亮屏后第一次更新才用新文本；hook 只在内核本来就要开 socket 时做一次 map 查询；探测只在 IP 变化后首次读取时发 1~2 个请求。测速和探测自己发起的连接不会被记成"使用中"。
 
+- **r42：首页和通知只显示最近一个请求走的那个 IP（一个）。** 下面 r32 说的"最近 1.5 秒内的所有 IP、最多 3 个、等 N 个"不再显示：`CurrentSet()` 只返回集合里最新的那个（`more` 恒为 0）；集合本身（`recent`）照旧记着，测速页的在用标记（#1 r41）和连接页还在用它；集合变了才通知这一点不变，所以两个 IP 轮流时显示的是上一次通知时最新的那个，下次进首页会刷新。
 - **r32：显示的是"请求实际走过的 IP"，可以是几个。** 旧做法（上面"IP 怎么定的"）记的是内核**拨号**的 IP：多路复用时新请求直接放在已经开着的连接上，不会拨号，首页就不变；`tcp-concurrent` 并发拨号时输掉的那几个 IP 也被记进去。新做法：内核的 xhttp 客户端给每个请求（新连接和复用的连接一样）都有一次 `GotConn` 回调，里面能拿到**这个请求实际用的那条连接的对端地址**；补丁 `patches/mihomo/0002-request-remote.patch` 在三个 `GotConn` 里加一行，把它报给应用（`dialer.NoteUse` → `dialer.SetUseHook`）。应用（`ipdelay/inuse.go`）按节点记下"每个 IP 最近一次被请求用到的时刻"，**显示的是最近一个请求之前 1.5 秒内（`useWindow`）所有请求用到的 IP，去重，最近用的排前面，最多 3 个，再多写"等 N 个"**（例：`规则模式 · 🇺🇸 104.17.146.59 · 🇺🇸 172.64.79.23`）。窗口以最近一次请求的时刻为准，不是以"现在"为准：没有新请求时一直保持上一批，不会清空；下一个请求出现才重新算。一个网站的请求陆续用了两个 IP 就显示两个；一直在连续请求时只显示最近 1.5 秒里的。
   - **通知栏**用同一份文本：`🇺🇸 IP · 🇺🇸 IP · 节点名`（TunnelState.ipsText）。
   - **更新时机：** 只有"这一批 IP（排序后的集合）"和上次不同才排一个 0.8 秒的一次性通知（和原来合并拨号用的是同一个 `scheduleNotify`），两个 IP 轮流做"最近一个"不算变化；国家探测完成时照旧通知。没有新增定时器 / 后台任务；钩子在请求本来就要做的 `GotConn` 里被调用，没人监听时只是一次原子读取，有人监听时一次带锁的小 map 更新。我们自己的测速 / 国家探测（`selfDialing`）不计入。
@@ -568,18 +569,8 @@
 **改了上游文件：** `design_main.xml`（右上角 `custom_more`）、`MainDesign.kt`（一行 `customMenu` 加一个 import）。`AndroidManifest.xml` 没有新增 Activity（沿用 `BackupActivity`）。
 **依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
 
-## 33. 首页"网络状况"卡（r39）
-**效果：** 首页在"代理"卡片后面多一张"网络状况"卡，**只在核心运行并且有正在用的节点时显示**，两行字：
-- 第一行：`🇺🇸 IP · 节点名 · 86 ms`（正在用的所有 IP 和国旗、节点名、这个节点最近一次的延迟；没有延迟就不写这一项）。
-- 第二行：`最近切换 10:42  🇯🇵 5.6.7.8 → 🇺🇸 1.2.3.4`（#10 的 IP 切换历史最后两条；只有一条时没有箭头；今天以前的写 `11-12 10:42`；没有历史就没有这一行）。
-- 点一下打开"连接"页（右上角有 IP 切换历史的完整列表）。
-
-**数据全是现成的，什么都不新测：** 节点和 IP 来自 `TunnelState`（#7，`fetch()` 本来就取了）；延迟来自 `queryProxyGroupNames` + `queryProxyGroup`（内核最近一次测速的结果，在第一个列出这个节点的组里找，找到就停）；切换来自 `<filesDir>/custom/ip_history.json`（#10，在 IO 线程读，最多 50 条）。
-**更新时机（没有新增定时器 / 轮询）：** 和 #7 的首页刷新同一时机：打开首页、核心启停、配置切换、核心广播"IP 变了"。多出来的是每次刷新多问几次组（IPC）和读一个小文件。所以延迟只是**上一次测速的结果**，点测速后回首页才更新，不会自己走。
-**局限：** ① 延迟取的是该节点在组里显示的那个测速地址的延迟，没测过显示不出来；② 链路里有多层代理时，显示的节点是 #7 认定的"正在用的节点"（连接数最多的那个）；③ 配置里组特别多、又没有包含全部节点的全局组时，找节点要多问几次组。
-
-**新增文件：** `design/.../custom/MainCustomNet.kt`（`NetExtra` 和两行文字的拼法）、`app/.../custom/MainCustomNetLoader.kt`（`loadNetExtra`）；文案 `custom_net_*`（`strings_custom.xml` 中英文）。
-**改了上游文件：** `design_main.xml`（变量 `customNet` + 一张 `LargeActionCard`）、`MainDesign.kt`、`MainActivity.kt`（见上面总表）。`MainCustomRefresh.kt`（自己的文件）：`refreshCustom` 多一个 `context` 参数。
+## 33. 首页"网络状况"卡（r39，**r42 取消**）
+r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和首页代理卡片 / 通知重复，第二行（最近切换）是连接页 IP 切换历史（#10）的摘要，只有"节点延迟"是新的，而延迟在代理页测速里本来就有。**现在的状态：** 首页没有这张卡；`MainDesign.setCustomCards(running, state)` 和 `refreshCustom(running)` 回到两个参数；`design_main.xml` 没有 `customNet` 和那张卡；`custom_net_*` 文案删掉。`MainCustomNet.kt`、`MainCustomNetLoader.kt` 两个文件已没有人用，r42 包里把它们换成了只有一行 `package` 的空文件，**可以直接删除**（不删也不影响构建）。
 
 ## 34. 推送 custom 分支时的快速检查（r39）
 **效果：** `.github/workflows/check-custom.yaml`（新文件）：往 `custom` 分支推送（rebase 到上游 main 之后、或任何改动）时自动跑，也可以手动启动；**不做 Gradle 构建**，大约一分钟，构建仍然只能手动（#2）。检查两件事：① `bash scripts/check-custom.sh`（#19，有 `origin/main` 时用 `UPSTREAM_REF=origin/main`，没有就用宽松检查）：挂钩丢了、新挂钩没登记会失败；② 只检出内核子模块（`--depth 1`，带重试），按顺序对 `patches/mihomo/*.patch` 先 `--dry-run` 再真打：内核升级后补丁对不上会失败，不用等到构建失败才发现。
