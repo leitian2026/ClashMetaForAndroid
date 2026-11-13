@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r46
+当前版本：2_11_36-r47
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -32,8 +32,10 @@
 | `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
 | `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view`（r34 起是显示当前级别文字的 `TextView`，原来是图标 `ImageView`）；标题栏的 `layout_toStartOf` 改指向它 |
 | `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
+| `build.gradle.kts` | #44 | 低（只加一个 `customRev` 和两处 `versionNameSuffix`） | 重加 `queryConfigProperty` 后面的 `customRev`（读 `CUSTOM.md` 的"当前版本："那一行，取最后的 `r<数字>`），`release` 构建类型里的 `versionNameSuffix = customRev`，`debug` 构建类型里的 `versionNameSuffix` 改成 `".debug$customRev"`（后缀必须放在构建类型里，才会排在变体后缀 `.Alpha` / `.Meta` 的后面） |
+| `design/src/main/res/layout/design_about.xml` | #44 | 低 | 内层竖向 `LinearLayout`（App 名字和版本号那一层）的 `layout_width` 由 `match_parent` 改成 `0dp`，加 `layout_weight=1`，版本号太长时才会换行 |
 
-共 24 个上游文件（含 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 26 个上游文件（含 `build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -675,3 +677,11 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **改了已登记的自定义文件（上游文件一行没动）：** `conftest/dnscheck.go`（`RunAny` 多一个 `kind == "ip"`）、`connections.go`（`closeCustomConnection` 多一个取消 id）、`CustomConnections.kt`（`CANCEL_IPTEST`）、`ConfigCheckDesign.kt`（`Request.IpTest`、`setIpRunning`、`askIpTest`、`showIpTest`）、`ConfigCheckActivity.kt`（`runIpTest`、`cancelRunning`；ECH 测试和 DNS 检查的"取消"也走 `cancelRunning`，会一并通知内核停）、`design_config_check.xml`（多一行一个按钮）。
 
 **验证和局限：** Go 部分：`iptest.go`、`iptest_logic.go` 拿桩代码（假的 `errlog` / `ipdelay` / `dialer`）做过类型检查（`go vet` 通过），读 IP 和域名列表（含各种写法、非法词）、排序、机房代号、运营商拼接有单元测试，A 的握手用本机 TLS 服务器端到端跑过（h2 和 http/1.1 都读到了 `Cf-Ray` 的机房、ALPN、TLS 版本；连不上的 IP 给出原因；中途取消只留已测完的那一行、一秒内返回）。**没有真的编译**：`ipdelay/iptry.go`（用了 `ipdelay.go` 里的未导出函数，r46 加的域名分支也没真跑过）和整个 Kotlin 部分这里编译不了，也没在手机上跑过，要靠 Actions 构建验证。`ipinfo.io`、`ipwho.is` 的返回格式按它们的文档写的，没在真实网络里试过；A 的 ECH 部分依赖 DoH 能取到配置，取不到只是不显示 ECH。
+
+## 44. App 里的版本号带上 r 数字，关于页长版本号换行（r47）
+**效果：** App 自己的版本号由 `2.11.36.Alpha` 变成 `2.11.36.Alpha-r47`（Actions 实际跑的是 `app:assembleAlphaRelease`，所以是 `.Alpha`；构建 Meta 变体是 `2.11.36.Meta-r47`，debug 构建类型是 `2.11.36.Alpha.debug-r47`）。关于页、系统的应用信息、崩溃记录、诊断包读的都是 `versionName`，所以都看得到。关于页的版本号太长时在屏幕里换行，不再被挤出屏幕。
+- **每次交付只改一行：** `r47` 取自本文件开头"当前版本："那一行（和 #40 的产物名是同一行），不用另外改 `build.gradle.kts`。读不到这一行、或最后一段不是 `r<数字>` 时不加后缀，构建不会失败。
+- **`release_name` 不带后缀：** `build.gradle.kts` 里 `release_name`（`AndroidManifest.xml` 的元数据）是 `v2.11.36`，没动，它是上游在配置阶段算的，别处没有用到。
+- **内核那边：** `versionName` 也会传给内核，出现在内核的版本字符串里（`...-CMFA-2.11.36.alpha-r47`，小写），只是显示，没有逻辑依赖。
+- **改了上游文件：** `build.gradle.kts`、`design/src/main/res/layout/design_about.xml`，见总表。
+- **局限：** 没真的编译，也没在手机上看过关于页；换行靠布局宽度 `0dp` + `layout_weight=1`，要靠 Actions 构建验证。

@@ -42,6 +42,15 @@ subprojects {
         return localProperties.getProperty(key)
     }
 
+    // CUSTOM (CUSTOM.md #44): the revision of the "当前版本：" line of CUSTOM.md (r47 of 2_11_36-r47), appended to the end
+    // of versionName (2.11.36.Alpha-r47). Not found or not like r<number>: nothing is appended, the build does not fail.
+    val customRev = rootProject.file("CUSTOM.md").takeIf { it.exists() }
+        ?.readLines(Charsets.UTF_8)
+        ?.firstOrNull { it.startsWith("\u5F53\u524D\u7248\u672C\uFF1A") }
+        ?.substringAfter("\uFF1A")?.trim()?.substringAfterLast('-')
+        ?.takeIf { Regex("r[0-9]+").matches(it) }
+        ?.let { "-$it" } ?: ""
+
     extensions.configure<BaseExtension> {
         buildFeatures.buildConfig = true
         defaultConfig {
@@ -161,6 +170,7 @@ subprojects {
 
         buildTypes {
             named("release") {
+                versionNameSuffix = customRev // CUSTOM.md #44
                 isMinifyEnabled = isApp
                 isShrinkResources = isApp
                 signingConfig = signingConfigs.findByName("release") ?: signingConfigs["debug"]
@@ -170,7 +180,7 @@ subprojects {
                 )
             }
             named("debug") {
-                versionNameSuffix = ".debug"
+                versionNameSuffix = ".debug$customRev" // CUSTOM.md #44
             }
         }
 

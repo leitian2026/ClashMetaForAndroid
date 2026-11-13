@@ -18,8 +18,11 @@
             android:layout_height="@dimen/about_icon_size"
             android:background="@drawable/ic_clash" />
 
+        <!-- CUSTOM (CUSTOM.md #44): width 0dp + weight 1 (was match_parent, which pushed the text out of the screen
+             next to the icon), so a long version name wraps onto the next line -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/about_text_margin"
             android:orientation="vertical">
