@@ -1,0 +1,54 @@
+# CUSTOM (CUSTOM.md #34): a quick check of the custom branch, no Gradle build. It runs when the custom branch
+# is pushed (after a rebase onto the upstream main, or any change) and can be started by hand. It finds the
+# two things a sync with upstream breaks most often, in about a minute instead of a failed build:
+#   1. CUSTOM.md and the code disagree (a hook was lost in a merge, a new hook is not registered):
+#      scripts/check-custom.sh
+#   2. a patch for the mihomo core (patches/mihomo/*.patch) does not apply to the commit of the core
+#      that the branch points at (the core was updated)
+# The real build stays manual (CUSTOM.md #2): Build Debug.
+name: Check Custom
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - custom
+
+jobs:
+  CheckCustom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # the "main" branch (the upstream mirror) is needed to tell upstream files from new ones
+
+      - name: CUSTOM.md and the code agree
+        run: |
+          if git rev-parse --verify -q origin/main >/dev/null; then
+            export UPSTREAM_REF=origin/main
+          else
+            echo "no origin/main: loose check"
+          fi
+          bash scripts/check-custom.sh
+
+      # only the core's git data of the pinned commit, as the build does (with retries when GitHub is busy)
+      - name: Checkout the core (submodule)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            git submodule update --init --depth 1 --force core/src/foss/golang/clash && exit 0
+            echo "submodule checkout failed, retry $i/6"
+            git submodule deinit -f --all 2>/dev/null || true
+            rm -rf core/src/foss/golang/clash .git/modules/clash-foss
+            sleep 20
+          done
+          exit 1
+
+      - name: The mihomo patches apply, in order
+        run: |
+          set -e
+          cd core/src/foss/golang/clash
+          for p in "$GITHUB_WORKSPACE"/patches/mihomo/*.patch; do
+            echo "checking and applying $p"
+            patch -p1 --no-backup-if-mismatch --dry-run < "$p"
+            patch -p1 --no-backup-if-mismatch < "$p"
+          done

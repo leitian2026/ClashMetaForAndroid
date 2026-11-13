@@ -29,6 +29,9 @@
         <variable
             name="customIp"
             type="String" /> <!-- CUSTOM (CUSTOM.md #7): " · flag ip", appended to the proxy card subtext -->
+        <variable
+            name="customNet"
+            type="String" /> <!-- CUSTOM (CUSTOM.md #33): text of the network status card, null = card hidden -->
 
         <import type="android.view.View" />
         <import type="com.github.kr328.clash.design.MainDesign.Request" />
@@ -131,6 +134,17 @@
                     app:icon="@drawable/ic_baseline_apps"
                     app:subtext="@{customIp == null ? mode : mode + customIp}"
                     app:text="@string/proxy" />
+
+                <!-- CUSTOM (CUSTOM.md #33): network status (node, addresses in use, delay, last switch); hidden when not running -->
+                <com.github.kr328.clash.design.view.LargeActionCard
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_card_margin_vertical"
+                    android:onClick="@{() -> self.request(Request.OpenConnections)}"
+                    android:visibility="@{customNet == null ? View.GONE : View.VISIBLE}"
+                    app:icon="@drawable/ic_baseline_swap_vert"
+                    app:subtext="@{customNet}"
+                    app:text="@string/custom_net_title" />
 
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"
