@@ -16,11 +16,11 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()` |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
-| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
-| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
+| `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #33 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕）；#33 在代理卡片后加一张"网络状况"卡（变量 `customNet`，`visibility` 跟着它是不是 null） |
+| `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #33 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import；#33 `setCustomCards()` 加参数 `extra: NetExtra? = null`，里面多写一行 `binding.customNet = MainCustomNet.text(...)`，加两个 import |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
-| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22） |
-| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支 |
+| `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #33 #35 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#33 `fetch()` 里的 `setCustomCards(...)` 多传 `loadNetExtra(...)`，`refreshCustom` 多传 `this@MainActivity`，加 `loadNetExtra` 的 import；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
+| `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
 | `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）和 `.custom.ConfigCheckActivity`（#22）的 `<activity>` |
@@ -541,6 +541,7 @@
 **效果：** 首页顶部（logo 和 App 名字那一行）最右边加一个"⋮"，点开是：
 - **备份到坚果云：** 导出和 #17 一样的内容（订阅列表和各订阅文件、当前启用的订阅、服务设置、界面设置、geo 下载地址、覆盖设置），在内存里打成 zip，用"备份密码"加密后上传。**设备专属的内容不进云端备份：** 服务设置里的"访问控制"模式和应用名单（每台设备装的应用不同）。本来就不在备份里的还有节点选择记录、geo 文件、缓存、"隐藏应用图标"。
 - **从坚果云恢复（r36 改）：** 先弹出列表：云端所有备份，新的在前，每项"时间 · 设备名"，本机的标"（本机）"，选哪份恢复哪份（可回退）。选完下载、解密，显示备份时间、设备名和订阅数，确认框里有一个**"同时替换本机设置"勾选项，默认不勾**。确认后：① 先把本机现状完整存一份（`filesDir/custom_backups/pre-restore-<毫秒>.zip`，保留最近 3 份，存不成功就不往下做）；② 备份里的订阅按 #17 的流程加入本机（名称 + 类型 + 地址相同的保留本机的，文件类订阅没有地址可重新下载，用备份里的内容替换；订阅类会重新联网下载，失败的留在订阅页）；**不删除任何本机订阅**，只有本机没有启用的订阅时才把备份里启用的那个设为启用；③ 只有勾了那个选项，才替换应用设置、服务设置（IPv6、系统代理等）、覆盖设置和 geo 下载地址，不勾则一个设置都不动（结果里写"本机的设置没有改动"）。（r35 是整体覆盖：设置替换、备份里没有的本机订阅会被删除。别的手机开了 IPv6 而本机不想开，所以改成了这样。）
+- **删除云端备份（r40，见 #36）：** 列出云端所有备份，选一份，确认后从坚果云删掉（任何设备的都能删）。
 - **坚果云设置：** 三项：坚果云账号（邮箱）、第三方应用密码（坚果云网页端 账户信息 → 安全选项 → 第三方应用管理 → 添加应用 生成，不是登录密码）、备份密码（加密用，忘记就打不开备份，每台共用的设备要填同一个）。保存后立刻连一次坚果云，告诉用户账号和应用密码对不对。第一次点备份 / 恢复时没设置会先弹这个。三项存在 `custom_cloud_backup` 私有偏好文件里（只在本机，不在任何备份里；备份密码和应用密码是明文存的，和订阅地址一样靠 App 私有目录保护）。输入框是明文显示（不是圆点），免得备份密码打错到另一台设备才发现。
 - **本地导出备份 / 本地导入备份：** 从"设置 → 应用"搬到这里（#17 的功能没改）。
 - **撤销上次云端恢复：** 回到上面第 ① 步存的那份（同样是整体覆盖，同样先列出会删除的订阅并确认），用完删掉那份。
@@ -557,6 +558,33 @@
 **改了自己的文件：** `BackupManager.kt`（`export` 拆出 `write`；新增 `exportBytes` / `exportFile` / `open(bytes)` / `open(file)`；`restore` 加 `replace` / `applySettings` / `replaceFiles` 三个参数（本地导入不传，行为和 #17 一样；云端恢复传 `replace=false, applySettings=勾选项, replaceFiles=true`；撤销传 `replace=true`）；新增 `planDeletes`（只有撤销用）；`RestoreResult` 加 `deleted`；`serviceToJson` 加 `sync` 参数）、`BackupActivity.kt`（四个新 action 和网络错误提示）、`BackupDesign.kt`（新增 `form(...)` 输入对话框和 `confirmWithOption(...)` 带勾选项的确认框）、`BackupPreference.kt`（去掉导出 / 导入两项）。
 **改了上游文件：** `design_main.xml`（右上角 `custom_more`）、`MainDesign.kt`（一行 `customMenu` 加一个 import）。`AndroidManifest.xml` 没有新增 Activity（沿用 `BackupActivity`）。
 **依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
+
+## 33. 首页"网络状况"卡（r39）
+**效果：** 首页在"代理"卡片后面多一张"网络状况"卡，**只在核心运行并且有正在用的节点时显示**，两行字：
+- 第一行：`🇺🇸 IP · 节点名 · 86 ms`（正在用的所有 IP 和国旗、节点名、这个节点最近一次的延迟；没有延迟就不写这一项）。
+- 第二行：`最近切换 10:42  🇯🇵 5.6.7.8 → 🇺🇸 1.2.3.4`（#10 的 IP 切换历史最后两条；只有一条时没有箭头；今天以前的写 `11-12 10:42`；没有历史就没有这一行）。
+- 点一下打开"连接"页（右上角有 IP 切换历史的完整列表）。
+
+**数据全是现成的，什么都不新测：** 节点和 IP 来自 `TunnelState`（#7，`fetch()` 本来就取了）；延迟来自 `queryProxyGroupNames` + `queryProxyGroup`（内核最近一次测速的结果，在第一个列出这个节点的组里找，找到就停）；切换来自 `<filesDir>/custom/ip_history.json`（#10，在 IO 线程读，最多 50 条）。
+**更新时机（没有新增定时器 / 轮询）：** 和 #7 的首页刷新同一时机：打开首页、核心启停、配置切换、核心广播"IP 变了"。多出来的是每次刷新多问几次组（IPC）和读一个小文件。所以延迟只是**上一次测速的结果**，点测速后回首页才更新，不会自己走。
+**局限：** ① 延迟取的是该节点在组里显示的那个测速地址的延迟，没测过显示不出来；② 链路里有多层代理时，显示的节点是 #7 认定的"正在用的节点"（连接数最多的那个）；③ 配置里组特别多、又没有包含全部节点的全局组时，找节点要多问几次组。
+
+**新增文件：** `design/.../custom/MainCustomNet.kt`（`NetExtra` 和两行文字的拼法）、`app/.../custom/MainCustomNetLoader.kt`（`loadNetExtra`）；文案 `custom_net_*`（`strings_custom.xml` 中英文）。
+**改了上游文件：** `design_main.xml`（变量 `customNet` + 一张 `LargeActionCard`）、`MainDesign.kt`、`MainActivity.kt`（见上面总表）。`MainCustomRefresh.kt`（自己的文件）：`refreshCustom` 多一个 `context` 参数。
+
+## 34. 推送 custom 分支时的快速检查（r39）
+**效果：** `.github/workflows/check-custom.yaml`（新文件）：往 `custom` 分支推送（rebase 到上游 main 之后、或任何改动）时自动跑，也可以手动启动；**不做 Gradle 构建**，大约一分钟，构建仍然只能手动（#2）。检查两件事：① `bash scripts/check-custom.sh`（#19，有 `origin/main` 时用 `UPSTREAM_REF=origin/main`，没有就用宽松检查）：挂钩丢了、新挂钩没登记会失败；② 只检出内核子模块（`--depth 1`，带重试），按顺序对 `patches/mihomo/*.patch` 先 `--dry-run` 再真打：内核升级后补丁对不上会失败，不用等到构建失败才发现。
+**注意：** 上游文件 `.github/workflows/build-*.yaml` 没动。`check-custom.yaml` 是新文件，不会和上游冲突。
+
+## 35. 省电：通知栏、首页后台、noteUse（r40）
+- **通知栏定时器 1 秒改 5 秒，文字没变就不发（`DynamicNotificationModule.kt`）：** 副标题里的累计流量只是每 5 秒（原来 1 秒）读一次；每次先拼出正文和副标题，和上次发出去的一样就不调用 `notify()`（没有流量、没有换 IP 时基本不发）。**IP 变化不等定时器：** `nodeIpChanged` 那一支（#7）照旧立刻更新。亮屏时和换配置时（标题变了）清掉"上次发出的"，保证下一次一定发。息屏时本来就不更新（上游的 `shouldUpdate`），没动。
+- **首页后台不再每秒查流量（`MainActivity.kt`，上游代码）：** 流量定时器那一支的条件由 `clashRunning` 改为 `clashRunning && activityStarted`，和连接页、底层连接页等一样：页面不在前台时，生产者停在"等人接收"，不唤醒、不做 IPC。回到前台时 `ActivityStart` 事件会让循环重新判断，定时器立刻给出一次。
+- **`noteUse` 快速通道（`ipdelay/inuse.go`）：** 内核每个新请求都会调用它。现在先用读锁看一眼：这个节点最近一次记录的 IP 就是这个 IP，并且是 0.5 秒（`repeatGap`，小于 `useWindow` 的 1.5 秒）之内记的，就直接返回，不拿写锁、不分配切片、不排序。集合和顺序在这种情况下不可能变，所以显示结果一样；只是最近一次的时间戳最多晚 0.5 秒更新。IP 不同或隔了 0.5 秒以上，走原来的完整流程。
+- **检查过、没发现问题的：** 网络切换重测（#24）、IP 变化广播（#7）、云端备份（#32）、配置检查（#22）、错误页（#21）、连接页和底层连接页（前台才刷新）都是事件驱动，息屏时不干活，没有残留的定时器或轮询。`errlog` 对每条警告 / 错误日志跑几个正则，日志刷屏时有点耗，影响小，没改。
+
+## 36. 云端备份：删除入口，恢复确认框里列出订阅名（r40）
+- **删除云端备份：** 首页右上角菜单多一项"删除云端备份"：列出云端所有备份（时间 · 设备名，本机的有标记），选一份，确认（"删除后永久消失，所有设备都不能再用它恢复"）后从坚果云删除。任何设备的备份都能删。`CloudBackup.delete`、`CloudBackupFlow.delete`；动作 `CLOUD_DELETE`（`BackupActivity` 和 `MainCustomMenu` 里各一份常量）。
+- **恢复前看到有哪些订阅：** 确认框在原来的说明后面列出三类名字（每类最多 20 个，多的写"…共 N 个"，没有的类不显示）：将加入的、本机已有的（保留本机的）、文件类订阅里会被备份内容替换的。判断规则和恢复时一样（名称 + 类型 + 地址相同 = 同一个订阅）。`BackupManager.compare`。
 
 ## 本版没做的（决定不做）
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。

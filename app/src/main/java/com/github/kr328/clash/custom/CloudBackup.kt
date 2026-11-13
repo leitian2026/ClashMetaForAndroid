@@ -140,6 +140,11 @@ object CloudBackup {
         client(settings).get(path(entry.file))
     }
 
+    /** Deletes one backup from the server (CUSTOM.md #36). */
+    suspend fun delete(settings: Settings, entry: Entry) {
+        withContext(Dispatchers.IO) { client(settings).delete(path(entry.file)) }
+    }
+
     /** Opens the downloaded file; throws [BackupCrypto.WrongPasswordException] for a wrong backup password. */
     suspend fun decrypt(data: ByteArray, settings: Settings): ByteArray = withContext(Dispatchers.Default) {
         BackupCrypto.decrypt(data, settings.backupPassword)

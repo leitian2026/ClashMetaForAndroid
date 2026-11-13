@@ -353,6 +353,38 @@ object BackupManager {
             .map { it.name }
     }
 
+    /** CUSTOM.md #36: how the subscriptions of a backup relate to the ones on this device (names, in the order of the backup). */
+    class Comparison(
+        val added: List<String>, // not on this device: will be added
+        val same: List<String>, // already here (same name, type and address): this device's stays
+        val replaced: List<String>, // file subscriptions that are already here: the backup's content replaces it
+    )
+
+    suspend fun compare(backup: Backup): Comparison {
+        val local = withProfile { queryAll() }
+        val added = ArrayList<String>()
+        val same = ArrayList<String>()
+        val replaced = ArrayList<String>()
+        val list = backup.profiles
+
+        for (i in 0 until list.length()) {
+            val item = list.getJSONObject(i)
+            val name = item.getString("name")
+            val type = item.getString("type")
+            val source = item.getString("source")
+
+            val here = local.any { it.name == name && it.type.name == type && it.source == source }
+
+            when {
+                !here -> added.add(name)
+                type == Profile.Type.File.name -> replaced.add(name)
+                else -> same.add(name)
+            }
+        }
+
+        return Comparison(added, same, replaced)
+    }
+
     // same name, type and address = the same subscription (the rule of the "skip" above)
     private fun inBackup(backup: Backup, profile: Profile): Boolean {
         val list = backup.profiles

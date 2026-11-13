@@ -24,6 +24,7 @@ import (
 
 const (
 	useWindow   = 1500 * time.Millisecond // requests closer together than this belong to one visit
+	repeatGap   = 500 * time.Millisecond  // CUSTOM.md #35: the same address again within this is not worth recording (< useWindow)
 	maxShownIPs = 3
 )
 
@@ -58,6 +59,25 @@ func noteUse(node, ip string) {
 	}
 
 	now := time.Now()
+
+	// CUSTOM.md #35: this is called for every request. When the newest address of the node is this very
+	// one and was noted a moment ago, nothing can have changed (same set, same order): leave at once,
+	// without the write lock, the allocations and the sort below.
+	lock.RLock()
+
+	repeated := false
+
+	if _, ok := proxies[node]; ok {
+		if list := recent[node]; len(list) > 0 && list[0].ip == ip && now.Sub(list[0].at) < repeatGap {
+			repeated = true
+		}
+	}
+
+	lock.RUnlock()
+
+	if repeated {
+		return
+	}
 
 	lock.Lock()
 

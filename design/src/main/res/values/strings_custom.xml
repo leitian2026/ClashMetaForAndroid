@@ -369,4 +369,21 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_network_error">Network error: %1$s</string>
     <string name="cloud_pull_option_settings">Also replace the settings of this device (app settings, service settings such as IPv6, override settings)</string>
     <string name="cloud_result_settings_kept">The settings of this device were not changed.</string>
+
+    <!-- CUSTOM #33: network status card on the home page -->
+    <string name="custom_net_title">Network status</string>
+    <string name="custom_net_delay">%1$d ms</string>
+    <string name="custom_net_switch">Last switch %1$s  %2$s → %3$s</string>
+    <string name="custom_net_switch_first">Last switch %1$s  %2$s</string>
+
+    <!-- CUSTOM #36: delete a cloud backup, subscription names in the restore confirmation -->
+    <string name="cloud_menu_delete">Delete a Jianguoyun backup</string>
+    <string name="cloud_delete_title">Delete a backup</string>
+    <string name="cloud_delete_pick_title">Delete which backup?</string>
+    <string name="cloud_delete_confirm">Delete the backup of %1$s from %2$s from Jianguoyun? It is removed for good and no device can restore it afterwards.</string>
+    <string name="cloud_delete_done">Deleted.</string>
+    <string name="cloud_cmp_added">Will be added: %1$s</string>
+    <string name="cloud_cmp_same">Already on this device (this device\'s stays): %1$s</string>
+    <string name="cloud_cmp_replaced">File subscriptions replaced by the backup\'s content: %1$s</string>
+    <string name="cloud_names_more"> … %1$d in all</string>
 </resources>

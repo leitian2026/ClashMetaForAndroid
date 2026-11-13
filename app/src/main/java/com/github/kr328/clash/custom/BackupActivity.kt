@@ -32,6 +32,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
                 ACTION_CLOUD_PUSH -> CloudBackupFlow.push(this, design) // CUSTOM.md #32
                 ACTION_CLOUD_PULL -> CloudBackupFlow.pull(this, design)
                 ACTION_CLOUD_SETTINGS -> CloudBackupFlow.settings(this, design)
+                ACTION_CLOUD_DELETE -> CloudBackupFlow.delete(this, design) // CUSTOM.md #36
                 ACTION_RESTORE_UNDO -> CloudBackupFlow.undo(this, design)
             }
         } catch (e: CancellationException) {
@@ -155,6 +156,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
         const val ACTION_CLOUD_PUSH = "com.github.kr328.clash.custom.action.CLOUD_PUSH"
         const val ACTION_CLOUD_PULL = "com.github.kr328.clash.custom.action.CLOUD_PULL"
         const val ACTION_CLOUD_SETTINGS = "com.github.kr328.clash.custom.action.CLOUD_SETTINGS"
+        const val ACTION_CLOUD_DELETE = "com.github.kr328.clash.custom.action.CLOUD_DELETE" // CUSTOM.md #36
         const val ACTION_RESTORE_UNDO = "com.github.kr328.clash.custom.action.RESTORE_UNDO"
     }
 }

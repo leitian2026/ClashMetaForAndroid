@@ -94,16 +94,7 @@ object CloudBackupFlow {
             return
         }
 
-        val ownId = CloudBackup.deviceId(context)
-
-        // newest first; "time · device name", this phone marked
-        val labels = history.map {
-            val mark = if (it.deviceId == ownId) context.getString(DesignR.string.cloud_pick_this_device) else ""
-
-            "${format(it.time)} · ${it.deviceName}$mark"
-        }
-
-        val index = design.pick(context.getString(DesignR.string.cloud_pick_title), labels)
+        val index = design.pick(context.getString(DesignR.string.cloud_pick_title), labelsOf(context, history))
 
         if (index < 0) return
 
@@ -142,12 +133,28 @@ object CloudBackupFlow {
 
         val backup = BackupManager.open(context, zip)
 
-        val text = context.getString(
+        var text = context.getString(
             DesignR.string.cloud_pull_confirm,
             format(entry.time),
             entry.deviceName,
             backup.profiles.length(),
         )
+
+        // CUSTOM.md #36: which subscriptions come in, which are already here, which file subscriptions get replaced
+        val cmp = BackupManager.compare(backup)
+        val parts = ArrayList<String>()
+
+        if (cmp.added.isNotEmpty()) {
+            parts.add(context.getString(DesignR.string.cloud_cmp_added, names(context, cmp.added)))
+        }
+        if (cmp.same.isNotEmpty()) {
+            parts.add(context.getString(DesignR.string.cloud_cmp_same, names(context, cmp.same)))
+        }
+        if (cmp.replaced.isNotEmpty()) {
+            parts.add(context.getString(DesignR.string.cloud_cmp_replaced, names(context, cmp.replaced)))
+        }
+
+        if (parts.isNotEmpty()) text += "\n\n" + parts.joinToString("\n")
 
         // the box: also replace the settings of this device (not checked: subscriptions only)
         val withSettings = design.confirmWithOption(
@@ -185,6 +192,46 @@ object CloudBackupFlow {
         )
 
         showResult(context, design, DesignR.string.backup_import_done_title, result, withSettings)
+    }
+
+    /** CUSTOM.md #36: deletes one backup from Jianguoyun (any device's), after a confirmation. */
+    suspend fun delete(context: Context, design: BackupDesign) {
+        val settings = ready(context, design) ?: return
+
+        design.setStatus(context.getString(DesignR.string.cloud_pulling))
+
+        val history = CloudBackup.history(settings)
+
+        if (history.isEmpty()) {
+            design.message(
+                context.getString(DesignR.string.cloud_delete_title),
+                context.getString(DesignR.string.cloud_nothing_there),
+            )
+
+            return
+        }
+
+        val index = design.pick(context.getString(DesignR.string.cloud_delete_pick_title), labelsOf(context, history))
+
+        if (index < 0) return
+
+        val entry = history[index]
+
+        val sure = design.confirm(
+            context.getString(DesignR.string.cloud_delete_title),
+            context.getString(DesignR.string.cloud_delete_confirm, format(entry.time), entry.deviceName),
+        )
+
+        if (!sure) return
+
+        design.setStatus(context.getString(DesignR.string.cloud_pulling))
+
+        CloudBackup.delete(settings, entry)
+
+        design.message(
+            context.getString(DesignR.string.cloud_delete_title),
+            context.getString(DesignR.string.cloud_delete_done),
+        )
     }
 
     /** "Undo last restore": goes back to the safety copy that was made before the last cloud restore. */
@@ -263,6 +310,24 @@ object CloudBackupFlow {
         lines.add(context.getString(DesignR.string.cloud_result_undo_hint))
 
         design.message(context.getString(title), lines.joinToString("\n"))
+    }
+
+    // newest first; "time · device name", this phone marked
+    private fun labelsOf(context: Context, history: List<CloudBackup.Entry>): List<CharSequence> {
+        val ownId = CloudBackup.deviceId(context)
+
+        return history.map {
+            val mark = if (it.deviceId == ownId) context.getString(DesignR.string.cloud_pick_this_device) else ""
+
+            "${format(it.time)} · ${it.deviceName}$mark"
+        }
+    }
+
+    // subscription names for a confirmation: the first 20, then how many there are
+    private fun names(context: Context, list: List<String>): String {
+        val shown = list.take(20).joinToString("、")
+
+        return if (list.size > 20) shown + context.getString(DesignR.string.cloud_names_more, list.size) else shown
     }
 
     private fun format(time: Long): String {

@@ -46,20 +46,32 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
 
     private val notificationManager = NotificationManagerCompat.from(service)
 
+    // CUSTOM.md #35: the text of the notification as last posted; null = post at the next update
+    private var lastPosted: String? = null
+
     private fun update() {
         val total = Clash.queryTrafficTotal()
 
         val uploaded = total.trafficUpload()
         val downloaded = total.trafficDownload()
 
+        val text = NodeIpText.get(service) // CUSTOM: CUSTOM.md #7 (was: upload/download speed)
+        val sub = service.getString(
+            R.string.clash_notification_content,
+            uploaded, downloaded
+        )
+
+        // CUSTOM.md #35: every notify() is a call to the system; when the text is the same as the one on
+        // screen (no traffic, no new IP) there is nothing to tell it
+        val key = "$text\n$sub"
+
+        if (key == lastPosted) return
+
+        lastPosted = key
+
         val notification = builder
-            .setContentText(NodeIpText.get(service)) // CUSTOM: CUSTOM.md #7 (was: upload/download speed)
-            .setSubText(
-                service.getString(
-                    R.string.clash_notification_content,
-                    uploaded, downloaded
-                )
-            )
+            .setContentText(text)
+            .setSubText(sub)
             .build()
 
         notificationManager.notify(R.id.nf_clash_status, notification)
@@ -84,14 +96,17 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
 
         NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7
 
-        val ticker = ticker(TimeUnit.SECONDS.toMillis(1))
+        // CUSTOM.md #35: every 5 seconds (was 1). A new IP does not wait for it: nodeIpChanged below updates at once.
+        val ticker = ticker(TimeUnit.SECONDS.toMillis(5))
 
         while (true) {
             select<Unit> {
                 screenToggle.onReceive {
                     when (it.action) {
-                        Intent.ACTION_SCREEN_ON ->
+                        Intent.ACTION_SCREEN_ON -> {
                             shouldUpdate = true
+                            lastPosted = null // post once when the screen is on again
+                        }
                         Intent.ACTION_SCREEN_OFF ->
                             shouldUpdate = false
                     }
@@ -101,6 +116,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                 }
                 profileLoaded.onReceive {
                     builder.setContentTitle(StatusProvider.currentProfile ?: "Not selected")
+                    lastPosted = null // CUSTOM.md #35: the title changed, post at the next update even if the text is the same
                 }
                 if (shouldUpdate) {
                     ticker.onReceive {

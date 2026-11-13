@@ -369,4 +369,21 @@
     <string name="cloud_network_error">网络出错：%1$s</string>
     <string name="cloud_pull_option_settings">同时替换本机设置（应用设置、IPv6 等服务设置、覆盖设置）</string>
     <string name="cloud_result_settings_kept">本机的设置没有改动。</string>
+
+    <!-- CUSTOM #33: network status card on the home page -->
+    <string name="custom_net_title">网络状况</string>
+    <string name="custom_net_delay">%1$d ms</string>
+    <string name="custom_net_switch">最近切换 %1$s  %2$s → %3$s</string>
+    <string name="custom_net_switch_first">最近切换 %1$s  %2$s</string>
+
+    <!-- CUSTOM #36: delete a cloud backup, subscription names in the restore confirmation -->
+    <string name="cloud_menu_delete">删除云端备份</string>
+    <string name="cloud_delete_title">删除备份</string>
+    <string name="cloud_delete_pick_title">删除哪一份？</string>
+    <string name="cloud_delete_confirm">从坚果云删除 %2$s 在 %1$s 的备份？删除后永久消失，所有设备都不能再用它恢复。</string>
+    <string name="cloud_delete_done">已删除。</string>
+    <string name="cloud_cmp_added">将加入：%1$s</string>
+    <string name="cloud_cmp_same">本机已有（保留本机的）：%1$s</string>
+    <string name="cloud_cmp_replaced">文件类订阅，用备份里的内容替换：%1$s</string>
+    <string name="cloud_names_more"> …共 %1$d 个</string>
 </resources>
