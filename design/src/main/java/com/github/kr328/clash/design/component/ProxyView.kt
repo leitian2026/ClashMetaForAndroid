@@ -246,7 +246,8 @@ class ProxyView(
 
                 // flag of the exit country in front of the address; "？" when it could not be found
                 val flag = if (item.delay > 0) CountryFlag.of(item.country).ifEmpty { "？" } else ""
-                val label = if (flag.isEmpty()) item.ip else "$flag ${item.ip}"
+                val base = if (flag.isEmpty()) item.ip else "$flag ${item.ip}"
+                val label = if (item.inUse) "● $base" else base // CUSTOM.md #1 (r41): the address in use
 
                 val ipCount = paint.breakText(
                     label,
@@ -270,7 +271,24 @@ class ProxyView(
                 paint.textSize = ageSize
                 paint.alpha = 0x80
 
-                canvas.drawText(age, right - paint.measureText(age), y, paint)
+                val ageWidth = paint.measureText(age)
+
+                canvas.drawText(age, right - ageWidth, y, paint)
+
+                // CUSTOM.md #1 (r41): more addresses than were tested -> "N in all, only M tested"
+                val total = ipDelays.maxOf { it.total }
+
+                if (total > ipDelays.size) {
+                    val note = context.getString(R.string.ip_delay_total, total, ipDelays.size)
+                    val noteCount = paint.breakText(
+                        note,
+                        false,
+                        (right - left - ageWidth - state.config.textMargin).coerceAtLeast(0f),
+                        null,
+                    )
+
+                    canvas.drawText(note, 0, noteCount, left, y, paint)
+                }
             }
         }
     }

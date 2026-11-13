@@ -48,6 +48,15 @@
 - **国旗：** 每个 IP 的延迟测通后，再经这个 IP 请求一次"查询自己出口国家"的服务（`https://api.country.is/`，失败再试 `https://ipinfo.io/country`），把出口国家画成国旗放在 IP 前面（落地国家，不是 IP 注册地）。查不到显示"？"。多出的请求只在用户手动测速时发生。
 - 功耗：只在用户手动测速时才跑，不轮询，不跟随息屏恢复时的自动健康检查（`healthCheckAll`）。
 
+**r41：测哪些 IP、并发和国家查询**
+- **每个节点最多测 4 个 IP**（`maxTestIPs`，原来 8 个）。**正在用的 IP 一定在这 4 个里**（`inUseLocked`：#7 记下的请求最近走过的 IP，没有就取最近拨的 IP；只取 IPv4），再用名单里靠前的补满。显示顺序仍按名单顺序，不是"在用的排最前"，这样前后两次对得上；不在名单里的在用 IP 排在最后。
+- **名单顺序固定：** `hosts:` 里写了的，按你写的顺序；实时解析的，先把解析到的 IPv4 **排序**再取（DNS 返回的顺序每次可能不同）。
+- **"共 N 个，仅测了 M 个"：** 名单（解析到的全部 IPv4，加上不在名单里的在用 IP）超过测的个数时，页面最后一行（"N 分钟前测速"那一行）左边多写这一句。N 是**这一次解析到的个数**，不是域名一共有多少个；DNS 每次只给其中一部分的域名，N 可能前后不一样。没超过就不显示。
+- **在用的 IP 前面有 `●`：** `Get()` 返回时现算（`IPDelay.InUse`），不存；节点最近没有请求时是"最后一批"（和首页一致，直到下一个请求才变）。
+- **限量并发：** 所有节点、所有 IP 一共最多同时 4 个测试（`testSlots`，一个测试 = 测速请求 + 它的国家查询）；每个测试拿到名额后先随机等 0 到 1.5 秒（`testJitter`）再发请求，等待不计入延迟。节点多时测完要久一点（每 4 个一批，一批约 1 秒多），但不会一下子冒出一大批请求。
+- **国家查询：** 只对测通的 IP 查（以前就是这样）；**这个节点 + 这个 IP 的国家已经知道（内存里或 #11 记在磁盘上的）就不再查**，直接用，少发一次请求；新出现的 IP 才查。代价：一个 IP 的出口国家变了的话，测速不会自己刷新它（首页的失败重试照旧）。
+- **改动：** `ipdelay.go`（`maxTestIPs` / `maxConcurrent` / `testJitter`、`IPDelay.Total` / `InUse`、`candidateIPs` 不再截断并对解析结果排序、新增 `pickIPs` / `inUseLocked` / `throttledTest`、`testProxy`、`Get`、`testIP` 多一个 `known` 参数）、`IpDelay.kt`（`total`、`inUse`）、`ProxyView.kt`（在用标记和"共 N 个"一行，行数没变，不改 `onMeasure`）、文案 `ip_delay_total`。
+
 **新增文件**
 - `core/src/main/golang/native/ipdelay/ipdelay.go`：逐 IP 测速逻辑（临时复制节点、把 server 换成该 IP、经节点拨号请求测速 URL）。
 - `core/src/main/java/com/github/kr328/clash/core/model/IpDelay.kt`：数据类（`ip`、`delay`、`country`、`at`）。
@@ -61,7 +70,7 @@
 | `core/src/main/golang/native/tunnel/proxies.go` | import 加 `cfa/native/ipdelay`；`Proxy` 结构体加字段 `IPDelays`；`convertProxies` 里填 `IPDelays: ipdelay.Get(name)` |
 | `core/src/main/golang/native/config/load.go` | import 加 `cfa/native/ipdelay`；`hub.ApplyConfig(cfg)` 后加 `ipdelay.CaptureConfig(rawCfg.Proxy, rawCfg.Hosts)` |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | 构造参数末尾加 `val ipDelays: List<IpDelay> = emptyList()` |
-| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | import `R`；`state` 加 setter（`requestLayout()`）；`onMeasure` 增加 IP 行高度；`onDraw` 基础布局改用"去掉 IP 行后的高度"，末尾新增 IP 行绘制 |
+| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 r41：IP 行前加 `●` 标记，最后一行左边写"共 N 个，仅测了 M 个"；import `R`；`state` 加 setter（`requestLayout()`）；`onMeasure` 增加 IP 行高度；`onDraw` 基础布局改用"去掉 IP 行后的高度"，末尾新增 IP 行绘制 |
 
 **依赖的 mihomo API（上游内核升级后若编译报错先查这些）：**
 `adapter.ParseProxy`、`C.Proxy.DialContext`、`C.Proxy.ExtraDelayHistories`、`resolver.LookupIP`、`outboundgroup.ProxyGroup`、`config.RawConfig` 的 `Proxy` / `Hosts` 字段。

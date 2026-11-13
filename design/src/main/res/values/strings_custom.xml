@@ -16,6 +16,7 @@
     <string name="ip_delay_age_minutes">Tested %1$d min ago</string>
     <string name="ip_delay_age_hours">Tested %1$d h ago</string>
     <string name="ip_delay_age_days">Tested %1$d d ago</string>
+    <string name="ip_delay_total">%1$d addresses, tested %2$d</string>
     <string name="geosite_download_reload">Reload profile now</string>
     <string name="geosite_download_reload_sent">Reload requested. If the service is not running, the new file is used at the next start.</string>
     <string name="connections">Connections</string>

@@ -16,6 +16,7 @@
     <string name="ip_delay_age_minutes">%1$d 分钟前测速</string>
     <string name="ip_delay_age_hours">%1$d 小时前测速</string>
     <string name="ip_delay_age_days">%1$d 天前测速</string>
+    <string name="ip_delay_total">共 %1$d 个，仅测了 %2$d 个</string>
     <string name="geosite_download_reload">立即重载配置</string>
     <string name="geosite_download_reload_sent">已请求重载。服务未运行时，下次启动会使用新文件。</string>
     <string name="connections">连接</string>
