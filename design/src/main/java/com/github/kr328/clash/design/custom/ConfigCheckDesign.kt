@@ -136,18 +136,49 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // so like the DNS check its taps go to the links; the copy button at the top copies the whole text
     suspend fun showIpTest(report: IpTestReport) {
         withContext(Dispatchers.Main) {
-            val view = IpTestView(context, report) { text ->
+            renderIpTest(report)
+        }
+    }
+
+    // CUSTOM.md #43: a tap on "look up" of a row asks who runs that address (the activity does it, onLookup); the
+    // answer comes back here and the page is laid out again with it
+    var onLookup: ((String) -> Unit)? = null
+
+    private var ipReport: IpTestReport? = null
+
+    private fun renderIpTest(report: IpTestReport) {
+        ipReport = report
+
+        val view = IpTestView(
+            context,
+            report,
+            onCopy = { text ->
                 context.getSystemService<ClipboardManager>()
                     ?.setPrimaryClip(ClipData.newPlainText("ip_test", text))
 
                 Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            },
+            onLookup = { ip -> onLookup?.invoke(ip) },
+        )
+
+        binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
+        linksOn = true
+
+        binding.checkTextView.text = view.render()
+        shown = view.plain()
+    }
+
+    suspend fun setIpOwner(ip: String, owner: String) {
+        withContext(Dispatchers.Main) {
+            val report = ipReport ?: return@withContext // another page was shown meanwhile
+
+            if (owner.isEmpty()) {
+                Toast.makeText(context, R.string.iptest_lookup_none, Toast.LENGTH_SHORT).show()
+
+                return@withContext
             }
 
-            binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
-            linksOn = true
-
-            binding.checkTextView.text = view.render()
-            shown = view.plain()
+            renderIpTest(report.copy(rows = report.rows.map { if (it.ip == ip) it.copy(asn = owner) else it }))
         }
     }
 
@@ -159,6 +190,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 linksOn = false
             }
 
+            ipReport = null
             binding.checkTextView.text = text
             shown = text
         }

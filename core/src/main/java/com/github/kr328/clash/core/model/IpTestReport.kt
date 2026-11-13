@@ -6,7 +6,8 @@ import kotlinx.serialization.json.Json
 /**
  * CUSTOM (CUSTOM.md #43, not upstream): the result for one address in "test other IPs". [code] is an error code
  * of the errors page (or "echrejected"), "" when [ok]. [country], [faster] are filled in node mode; [tls], [alpn],
- * [ech] ("accepted", "notaccepted", "rejected", "none", or "" when unknown), [asn], [colo] in direct mode.
+ * [ech] ("accepted", "notaccepted", "rejected", "none", or "" when unknown), [cf] (the answer of the server shows
+ * Cloudflare; a positive sign only), [colo] in direct mode. [asn] is filled only after a "look up" (mode "asn").
  */
 @Serializable
 data class IpTestRow(
@@ -23,6 +24,7 @@ data class IpTestRow(
     val alpn: String = "",
     val ech: String = "",
     val asn: String = "",
+    val cf: Boolean = false,
     val colo: String = "",
 )
 

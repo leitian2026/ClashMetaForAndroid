@@ -23,6 +23,7 @@ class IpTestView(
     private val context: Context,
     private val report: IpTestReport,
     private val onCopy: (String) -> Unit,
+    private val onLookup: ((String) -> Unit)? = null, // a tap on "look up" of a row (CUSTOM.md #43)
 ) {
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
@@ -30,6 +31,7 @@ class IpTestView(
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
     private val colorGood = if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")
+    private val colorLink = if (night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
 
     // the small grey lines (ECH source, TLS / operator details, hints, time): dark enough to read on a light page
     private val colorMuted = if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161")
@@ -148,10 +150,27 @@ class IpTestView(
                 "rejected" -> parts += context.getString(R.string.iptest_ech_rejected)
             }
 
+            if (r.cf) parts += context.getString(R.string.iptest_cf)
             if (r.colo.isNotEmpty()) parts += context.getString(R.string.iptest_colo, r.colo)
             if (r.asn.isNotEmpty()) parts += r.asn
 
-            if (parts.isNotEmpty()) add(sb, "    " + parts.joinToString(" · ") + "\n", colorMuted)
+            // the operator is asked only when this is tapped (it needs the network, and the public services limit it)
+            val lookup = links && r.asn.isEmpty() && onLookup != null
+
+            if (parts.isNotEmpty() || lookup) {
+                add(sb, "    " + parts.joinToString(" · "), colorMuted)
+
+                if (lookup) {
+                    if (parts.isNotEmpty()) add(sb, " · ", colorMuted)
+
+                    val from = sb.length
+
+                    add(sb, context.getString(R.string.iptest_lookup), colorLink)
+                    sb.setSpan(click { onLookup?.invoke(r.ip) }, from, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+
+                sb.append('\n')
+            }
         }
     }
 

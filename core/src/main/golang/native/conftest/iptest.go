@@ -6,14 +6,17 @@ package conftest
 //
 //   - mode "direct" (A): a TLS connection straight to the address (the socket does not go through the VPN), with the
 //     domain of the page as SNI and Host. Shows the time to connect and handshake, the TLS version, the ALPN, whether
-//     the server accepted ECH (the ECH config is fetched once for the domain), the operator (AS) of the address and,
-//     for Cloudflare, the data centre read from the `Cf-Ray` header of the answer;
+//     the server accepted ECH (the ECH config is fetched once for the domain) and, when the answer of the server
+//     shows Cloudflare (`Cf-Ray` header or `Server: cloudflare`), that and the data centre read from `Cf-Ray`. The
+//     operator (AS) of an address is not asked on its own: only when the user taps "look up" on a row (mode "asn");
+//
 //   - mode "node" (B): the chosen node copied with its `server` replaced by the address, like the per-address test
 //     of #1 (ipdelay.TryIP). Shows the delay, the exit country, and how it compares with the quickest address the
 //     last speed test found in the node's `hosts:` entry. A domain in the list is tested the same way, as the node's
 //     `server`; the core resolves it when it dials. In mode "direct" a domain is not tested (it is reported in
 //     `skipped`), only addresses are.
 //   - mode "nodes": nothing is tested, the names of the nodes to choose from come back.
+//   - mode "asn": the operator of the one address in `ips` is asked from public services (ipinfo.io, ipwho.is).
 //
 // Power: nothing runs on its own; one call is one run, and CancelIPTest stops it.
 
@@ -77,7 +80,8 @@ type IPRow struct {
 	TLS  string `json:"tls"`  // "1.2" / "1.3"
 	ALPN string `json:"alpn"` // "h2" / "http/1.1"
 	ECH  string `json:"ech"`  // "accepted", "notaccepted", "rejected", "none" (the domain has no ECH config)
-	ASN  string `json:"asn"`  // "AS13335 Cloudflare, Inc."
+	ASN  string `json:"asn"`  // "AS13335 Cloudflare, Inc." (only after a "look up": mode "asn", or kept from an earlier one)
+	CF   bool   `json:"cf"`   // the answer of the server shows Cloudflare (a positive sign only)
 	Colo string `json:"colo"` // Cloudflare data centre
 }
 
@@ -145,6 +149,12 @@ func RunIP(filter string) IPReport {
 		}
 
 		sort.Strings(rep.Nodes)
+
+		return rep
+	}
+
+	if req.Mode == "asn" {
+		lookupOwners(&rep, req.IPs)
 
 		return rep
 	}
@@ -368,10 +378,14 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 	row.TLS = tlsVersion(state.Version)
 	row.ALPN = state.NegotiatedProtocol
 
-	// the answer of the server (for the data centre) and the operator of the address; neither is needed for the
-	// address to count as working, so a failure of either only leaves its field empty
-	row.Colo = fetchColo(ctx, conn, domain)
-	row.ASN = lookupASN(ctx, row.IP)
+	// the answer of the server (is it Cloudflare, and the data centre): not needed for the address to count as
+	// working, so a failure only leaves the fields empty. The operator is not asked here (a tap asks it, mode
+	// "asn"); one that an earlier tap found is shown again, from memory.
+	row.Colo, row.CF = fetchEvidence(ctx, conn, domain)
+
+	if v, ok := asnCache.Load(row.IP); ok {
+		row.ASN = v.(string)
+	}
 
 	return row
 }
@@ -427,9 +441,10 @@ func handshakeTo(ctx context.Context, addr, domain string, echList []byte) (*tls
 	return c, int(time.Since(start).Milliseconds()), nil
 }
 
-// fetchColo sends HEAD / over the connection that was just made and reads the Cloudflare data centre from the
-// `Cf-Ray` header. It closes the connection. "" when the server is not Cloudflare or does not answer.
-func fetchColo(ctx context.Context, conn *tls.Conn, domain string) string {
+// fetchEvidence sends HEAD / over the connection that was just made and reads from the answer whether it shows
+// Cloudflare (`Cf-Ray` header or `Server: cloudflare`) and the data centre from `Cf-Ray`. It closes the connection.
+// ("", false) when the server does not answer or shows neither.
+func fetchEvidence(ctx context.Context, conn *tls.Conn, domain string) (string, bool) {
 	defer conn.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
@@ -454,22 +469,49 @@ func fetchColo(ctx context.Context, conn *tls.Conn, domain string) string {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, "https://"+domain+"/", nil)
 	if err != nil {
-		return ""
+		return "", false
 	}
 
 	resp, err := tr.RoundTrip(req)
 	if err != nil {
-		return ""
+		return "", false
 	}
 
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 	_ = resp.Body.Close()
 
-	return coloOf(resp.Header.Get("Cf-Ray"))
+	ray := resp.Header.Get("Cf-Ray")
+
+	return coloOf(ray), isCloudflare(ray, resp.Header.Get("Server"))
 }
 
-// lookupASN asks a public service who runs the address. "" when it cannot be found (the answer is kept for the
-// next run when it is found).
+// lookupOwners (mode "asn") asks who runs the address typed in `text` (one address; a domain or a second word is
+// not looked up). The row has the address and the answer; no row and Error "not found" when nothing was found.
+func lookupOwners(rep *IPReport, text string) {
+	list, _ := parseTargets(text)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*asnTimeout+time.Second)
+	defer cancel()
+
+	for _, t := range list {
+		if t.IsDomain {
+			continue
+		}
+
+		if owner := lookupASN(ctx, t.Text); owner != "" {
+			rep.Rows = append(rep.Rows, IPRow{IP: t.Text, ASN: owner})
+		}
+
+		break
+	}
+
+	if len(rep.Rows) == 0 {
+		rep.Error = "not found"
+	}
+}
+
+// lookupASN asks a public service who runs the address (only when the user taps "look up"). "" when it cannot be
+// found (the answer is kept for the next run when it is found).
 func lookupASN(ctx context.Context, ip string) string {
 	if v, ok := asnCache.Load(ip); ok {
 		return v.(string)

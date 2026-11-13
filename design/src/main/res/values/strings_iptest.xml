@@ -34,6 +34,9 @@
     <string name="iptest_ech_notaccepted">ECH not accepted</string>
     <string name="iptest_ech_rejected">ECH rejected</string>
     <string name="iptest_colo">data centre %1$s</string>
+    <string name="iptest_cf">Cloudflare confirmed</string>
+    <string name="iptest_lookup">Look up owner (online)</string>
+    <string name="iptest_lookup_none">Owner not found</string>
     <string name="iptest_none_ok">None of them works</string>
     <string name="iptest_copy_all">Copy all that work (%1$d)</string>
     <string name="iptest_tested_at">Tested %1$s</string>

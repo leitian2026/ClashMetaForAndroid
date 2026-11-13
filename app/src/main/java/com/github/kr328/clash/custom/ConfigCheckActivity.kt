@@ -33,6 +33,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         setContentDesign(design)
 
+        // CUSTOM.md #43: a tap on "look up" of a row of the IP test
+        design.onLookup = { ip -> launch { lookupOwner(design, ip) } }
+
         while (isActive) {
             select<Unit> {
                 design.requests.onReceive {
@@ -164,6 +167,22 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             report.error.isNotEmpty() -> design.showText(getString(R.string.check_error, report.error))
             else -> design.showIpTest(report)
         }
+    }
+
+    // CUSTOM.md #43: who runs this address, asked from public services only when the user taps "look up" on its row
+    private suspend fun lookupOwner(design: ConfigCheckDesign, ip: String) {
+        val owner = try {
+            val request = JSONObject().put("kind", "ip").put("mode", "asn").put("ips", ip).toString()
+
+            IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+                .rows.firstOrNull()?.asn.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            ""
+        }
+
+        design.setIpOwner(ip, owner)
     }
 
     private suspend fun runCheck(design: ConfigCheckDesign) {

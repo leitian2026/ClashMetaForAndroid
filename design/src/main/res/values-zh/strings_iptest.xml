@@ -34,6 +34,9 @@
     <string name="iptest_ech_notaccepted">ECH 未接受</string>
     <string name="iptest_ech_rejected">ECH 被拒绝</string>
     <string name="iptest_colo">机房 %1$s</string>
+    <string name="iptest_cf">确认是 Cloudflare</string>
+    <string name="iptest_lookup">查归属（联网）</string>
+    <string name="iptest_lookup_none">没查到归属</string>
     <string name="iptest_none_ok">没有一个能用</string>
     <string name="iptest_copy_all">复制全部能用的 IP（%1$d 个）</string>
     <string name="iptest_tested_at">测试时间：%1$s</string>

@@ -157,6 +157,12 @@ func coloOf(ray string) string {
 	return code
 }
 
+// isCloudflare says whether the answer of a server shows Cloudflare: it has a `Cf-Ray` header, or `Server: cloudflare`.
+// Only a positive sign: a server that did not answer, or answered without either, is not called "not Cloudflare".
+func isCloudflare(ray, server string) bool {
+	return strings.TrimSpace(ray) != "" || strings.EqualFold(strings.TrimSpace(server), "cloudflare")
+}
+
 // asnText joins an AS number and its organisation ("AS13335", "Cloudflare, Inc." -> "AS13335 Cloudflare, Inc.").
 func asnText(asn, org string) string {
 	asn, org = strings.TrimSpace(asn), strings.TrimSpace(org)

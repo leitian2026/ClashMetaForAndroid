@@ -107,3 +107,22 @@ func TestAsnText(t *testing.T) {
 		}
 	}
 }
+
+func TestIsCloudflare(t *testing.T) {
+	cases := []struct {
+		ray, server string
+		want        bool
+	}{
+		{"8a1b2c3d4e5f6a7b-HKG", "", true},
+		{"", "cloudflare", true},
+		{"", " Cloudflare ", true},
+		{"", "nginx", false},
+		{"", "", false},
+	}
+
+	for _, c := range cases {
+		if got := isCloudflare(c.ray, c.server); got != c.want {
+			t.Errorf("isCloudflare(%q, %q) = %v, want %v", c.ray, c.server, got, c.want)
+		}
+	}
+}

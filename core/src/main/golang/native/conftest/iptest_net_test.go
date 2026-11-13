@@ -37,7 +37,7 @@ func TestProbeLocal(t *testing.T) {
 		if h2 {
 			want = "h2"
 		}
-		if !row.OK || row.ALPN != want || row.TLS != "1.3" || row.Colo != "HKG" || row.ECH != "none" || row.Ms < 0 {
+		if !row.OK || row.ALPN != want || row.TLS != "1.3" || row.Colo != "HKG" || !row.CF || row.ECH != "none" || row.Ms < 0 {
 			t.Errorf("h2=%v: %+v", h2, row)
 		}
 		t.Logf("%+v", row)
@@ -124,5 +124,13 @@ func TestRunIPCancel(t *testing.T) {
 
 	if CancelIPTest() {
 		t.Error("the run is over, nothing to cancel")
+	}
+}
+
+// a domain is not looked up, so nothing is asked from the network and the run ends with "not found"
+func TestRunIPAsnDomainOnly(t *testing.T) {
+	rep := RunIP(`{"kind":"ip","mode":"asn","ips":"example.com"}`)
+	if len(rep.Rows) != 0 || rep.Error != "not found" {
+		t.Errorf("%+v", rep)
 	}
 }
