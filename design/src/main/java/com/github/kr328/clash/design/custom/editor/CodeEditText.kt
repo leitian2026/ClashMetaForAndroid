@@ -16,12 +16,16 @@ import android.text.TextWatcher
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
+import android.view.GestureDetector
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.BaseAdapter
+import android.widget.EdgeEffect
 import android.widget.ListView
+import android.widget.OverScroller
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatEditText
@@ -204,6 +208,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         this.text?.let { rebuildLineStarts(it) }
 
+        flinger.abortAnimation()
         updateGutter(lineStarts.size)
         setSelection(0)
         scrollTo(0, 0)
@@ -366,7 +371,162 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         postDelayed(highlightRunnable, 30)
     }
 
+    // ---- fling (CUSTOM.md #49) ---------------------------------------------------------------------
+    // An EditText only follows the finger: when it lifts, the text stops, there is no gliding on. This adds it: the
+    // speed of the finger is read by a GestureDetector at the lift, an OverScroller glides on from it, one step per
+    // screen frame, and a touch stops it. Nothing runs before a fling or after it ends.
+
+    private val flinger = OverScroller(context)
+
+    private val flingDetector = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                val max = maxScrollY()
+
+                if (max <= 0) return false
+
+                flinger.fling(scrollX, scrollY, 0, -velocityY.toInt(), 0, 0, 0, max)
+                postInvalidateOnAnimation()
+
+                return true
+            }
+        },
+    )
+
+    // the lowest scroll position: the same limit the text box itself keeps when it follows the finger
+    private fun maxScrollY(): Int {
+        val l = layout ?: return 0
+
+        return (l.height - (height - totalPaddingTop - totalPaddingBottom)).coerceAtLeast(0)
+    }
+
+    // the glow at the ends, as a RecyclerView draws it (the connections page): pulled when the finger drags past an
+    // end, and given the speed of a fling that runs into an end
+    private val edgeTop = EdgeEffect(context)
+    private val edgeBottom = EdgeEffect(context)
+
+    private val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+    private var stoppedGlide = false // this touch began while the text was gliding: it stops it, it is not a tap
+    private var downX = 0f
+    private var downY = 0f
+    private var lastY = 0f
+    private var dragged = false
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                stoppedGlide = !flinger.isFinished
+
+                if (stoppedGlide) flinger.abortAnimation()
+
+                downX = event.x
+                downY = event.y
+                lastY = event.y
+                dragged = false
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                val dy = event.y - lastY
+
+                lastY = event.y
+
+                if (!dragged && Math.abs(event.x - downX) + Math.abs(event.y - downY) > touchSlop) dragged = true
+
+                if (height > 0 && width > 0) {
+                    if (dy > 0 && scrollY <= 0) {
+                        edgeTop.onPull(dy / height, event.x / width)
+                        postInvalidateOnAnimation()
+                    } else if (dy < 0 && scrollY >= maxScrollY()) {
+                        edgeBottom.onPull(-dy / height, 1f - event.x / width)
+                        postInvalidateOnAnimation()
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                edgeTop.onRelease()
+                edgeBottom.onRelease()
+                postInvalidateOnAnimation()
+            }
+        }
+
+        flingDetector.onTouchEvent(event)
+
+        // a touch that only stopped the gliding is not a tap: the text box must not put the caret there
+        if (stoppedGlide && !dragged && event.actionMasked == MotionEvent.ACTION_UP) {
+            stoppedGlide = false
+
+            val cancel = MotionEvent.obtain(event)
+
+            cancel.action = MotionEvent.ACTION_CANCEL
+
+            val handled = super.onTouchEvent(cancel)
+
+            cancel.recycle()
+
+            return handled
+        }
+
+        return super.onTouchEvent(event)
+    }
+
+    override fun computeScroll() {
+        super.computeScroll()
+
+        if (flinger.computeScrollOffset()) {
+            val y = flinger.currY
+
+            scrollTo(scrollX, y)
+
+            if (y <= 0 || y >= maxScrollY()) {
+                // it reached an end: the glow takes the speed that is left, and the gliding is over
+                val speed = flinger.currVelocity.toInt()
+
+                if (y <= 0) edgeTop.onAbsorb(speed) else edgeBottom.onAbsorb(speed)
+
+                flinger.abortAnimation()
+            }
+
+            postInvalidateOnAnimation()
+        }
+    }
+
+    override fun draw(canvas: Canvas) {
+        super.draw(canvas)
+
+        // the same way ScrollView draws its glow
+        if (!edgeTop.isFinished) {
+            val save = canvas.save()
+
+            canvas.translate(scrollX.toFloat(), minOf(0, scrollY).toFloat())
+            edgeTop.setSize(width, height)
+
+            if (edgeTop.draw(canvas)) postInvalidateOnAnimation()
+
+            canvas.restoreToCount(save)
+        }
+
+        if (!edgeBottom.isFinished) {
+            val save = canvas.save()
+
+            canvas.translate((scrollX - width).toFloat(), (maxOf(maxScrollY(), scrollY) + height).toFloat())
+            canvas.rotate(180f, width.toFloat(), 0f)
+            edgeBottom.setSize(width, height)
+
+            if (edgeBottom.draw(canvas)) postInvalidateOnAnimation()
+
+            canvas.restoreToCount(save)
+        }
+    }
+
+    // while gliding the text box must not pull the text back to the caret
+    override fun bringPointIntoView(offset: Int): Boolean {
+        return if (flinger.isFinished) super.bringPointIntoView(offset) else false
+    }
+
     override fun onDetachedFromWindow() {
+        flinger.abortAnimation()
         removeCallbacks(highlightRunnable)
         removeCallbacks(completionRunnable)
         dismissCompletion()
