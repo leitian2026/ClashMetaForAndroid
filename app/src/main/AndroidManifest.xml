@@ -168,6 +168,13 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/check_title" />
+        <!-- CUSTOM (CUSTOM.md #46): the built-in text editor; it must not be recreated by a turn of the phone, the
+             text on the page that is not saved would be lost -->
+        <activity
+            android:name=".custom.EditorActivity"
+            android:configChanges="uiMode|orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
+            android:exported="false"
+            android:label="@string/editor_title" />
         <activity
             android:name=".LogsActivity"
             android:configChanges="uiMode"

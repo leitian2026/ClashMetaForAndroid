@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #46): the built-in text editor -->
+<resources>
+    <string name="editor_title">Editor</string>
+    <string name="editor_undo">Undo</string>
+    <string name="editor_redo">Redo</string>
+    <string name="editor_find">Find</string>
+    <string name="editor_check">Check</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_replace_hint">Replace with</string>
+    <string name="editor_replace">Replace</string>
+    <string name="editor_replace_all">All</string>
+    <string name="editor_match_case">Match case</string>
+    <string name="editor_previous">Previous</string>
+    <string name="editor_next">Next</string>
+    <string name="editor_status">Line %1$d, column %2$d · %3$d lines</string>
+    <string name="editor_external">Open with another app</string>
+    <string name="editor_leave_title">There are changes that are not saved</string>
+    <string name="editor_leave_save">Save</string>
+    <string name="editor_leave_discard">Discard</string>
+    <string name="editor_leave_cancel">Keep editing</string>
+    <string name="editor_saved">Saved</string>
+    <string name="editor_save_failed">Could not save: %1$s</string>
+    <string name="editor_open_failed">Could not open the file: %1$s</string>
+    <string name="editor_check_ok">The core found no error in this config</string>
+    <string name="editor_check_bad">The core does not accept this config: %1$s</string>
+    <string name="editor_check_title">Check</string>
+    <string name="editor_replaced">Replaced %1$d</string>
+</resources>

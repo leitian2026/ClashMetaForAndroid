@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #46): 内置文本编辑器 -->
+<resources>
+    <string name="editor_title">编辑器</string>
+    <string name="editor_undo">撤销</string>
+    <string name="editor_redo">重做</string>
+    <string name="editor_find">查找</string>
+    <string name="editor_check">检查</string>
+    <string name="editor_save">保存</string>
+    <string name="editor_replace_hint">替换为</string>
+    <string name="editor_replace">替换</string>
+    <string name="editor_replace_all">全部</string>
+    <string name="editor_match_case">区分大小写</string>
+    <string name="editor_previous">上一个</string>
+    <string name="editor_next">下一个</string>
+    <string name="editor_status">第 %1$d 行，第 %2$d 列 · 共 %3$d 行</string>
+    <string name="editor_external">用其他应用打开</string>
+    <string name="editor_leave_title">有修改还没保存</string>
+    <string name="editor_leave_save">保存</string>
+    <string name="editor_leave_discard">放弃修改</string>
+    <string name="editor_leave_cancel">继续编辑</string>
+    <string name="editor_saved">已保存</string>
+    <string name="editor_save_failed">保存失败：%1$s</string>
+    <string name="editor_open_failed">打开文件失败：%1$s</string>
+    <string name="editor_check_ok">内核没有发现这份配置有错</string>
+    <string name="editor_check_bad">内核不接受这份配置：%1$s</string>
+    <string name="editor_check_title">检查</string>
+    <string name="editor_replaced">已替换 %1$d 处</string>
+</resources>

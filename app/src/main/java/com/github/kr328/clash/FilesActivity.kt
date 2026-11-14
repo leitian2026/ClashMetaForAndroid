@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import com.github.kr328.clash.common.util.grantPermissions
 import com.github.kr328.clash.common.util.ticker
 import com.github.kr328.clash.common.util.uuid
+import com.github.kr328.clash.custom.EditorActivity // CUSTOM.md #46
 import com.github.kr328.clash.design.FilesDesign
 import com.github.kr328.clash.design.util.showExceptionToast
 import com.github.kr328.clash.remote.FilesClient
@@ -64,13 +65,18 @@ class FilesActivity : BaseActivity<FilesDesign>() {
                                 stack.push(it.file.id)
                             }
                             is FilesDesign.Request.OpenFile -> {
-                                startActivityForResult(
-                                    ActivityResultContracts.StartActivityForResult(),
-                                    Intent(Intent.ACTION_VIEW).setDataAndType(
-                                        client.buildDocumentUri(it.file.id),
-                                        "text/plain"
-                                    ).grantPermissions()
-                                )
+                                // CUSTOM (CUSTOM.md #46): a text file opens in the built-in editor
+                                if (EditorActivity.canOpen(it.file.name, it.file.size)) {
+                                    startActivity(EditorActivity.intent(this, it.file.id, it.file.name, uuid))
+                                } else {
+                                    startActivityForResult(
+                                        ActivityResultContracts.StartActivityForResult(),
+                                        Intent(Intent.ACTION_VIEW).setDataAndType(
+                                            client.buildDocumentUri(it.file.id),
+                                            "text/plain"
+                                        ).grantPermissions()
+                                    )
+                                }
                             }
                             is FilesDesign.Request.DeleteFile -> {
                                 client.deleteDocument(it.file.id)

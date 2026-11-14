@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r48
+当前版本：2_11_36-r49
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -24,7 +24,8 @@
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）和 `.custom.ConfigCheckActivity`（#22）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
+| `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(...))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -35,7 +36,7 @@
 | `build.gradle.kts` | #44 | 低（只加一个 `customRev` 和两处 `versionNameSuffix`） | 重加 `queryConfigProperty` 后面的 `customRev`（读 `CUSTOM.md` 的"当前版本："那一行，取最后的 `r<数字>`），`release` 构建类型里的 `versionNameSuffix = customRev`，`debug` 构建类型里的 `versionNameSuffix` 改成 `".debug$customRev"`（后缀必须放在构建类型里，才会排在变体后缀 `.Alpha` / `.Meta` 的后面） |
 | `design/src/main/res/layout/design_about.xml` | #44 | 低 | 内层竖向 `LinearLayout`（App 名字和版本号那一层）的 `layout_width` 由 `match_parent` 改成 `0dp`，加 `layout_weight=1`，版本号太长时才会换行 |
 
-共 26 个上游文件（含 `build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 27 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -697,3 +698,24 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **没做（要对照内核源码才能做，AGENTS.md 第 8 条）：** 读本机的 `ASN.mmdb` 离线给出归属并标注库的更新日期。App 构建时已经把这个文件放进了数据目录（`MainApplication.kt`），但读它要用内核里的 mmdb 读取代码，这次没有内核源码（子模块不在包里），不凭记忆写。需要 mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的源码。
 
 **验证和局限：** 这次没有 Go 和 Kotlin 编译环境，Go、Kotlin 都没有编译、没有跑单元测试，只新增了测试（`TestIsCloudflare`、`TestRunIPAsnDomainOnly`，`TestProbeLocal` 里加了 `CF` 检查），靠 Actions 构建和测试验证。"查归属"链接和点完后重新排版没在手机上看过。
+
+## 46. 内置文本编辑器：行号、YAML 高亮、撤销、查找替换、配置键补全（r49）
+**效果：** 在"文件"页点一个文本文件（`yaml`、`yml`、`json`、`txt`、`conf`、`ini`、`js`、`list`、`toml`，**不超过 1 MB**），不再丢给别的 App，而是在 App 里的编辑器打开。其他类型和更大的文件仍然交给别的 App。编辑器右上角 ⋮ 有"用其他应用打开"。
+- **编辑：** 行号；对屏幕上的行（和上下各 40 行）做 YAML 高亮（键、字符串、数字、`true/null` 之类、锚点、注释、`-` 和 `:`）；撤销和重做（连着打的字合成一步，退格也合成一步；也认外接键盘的 Ctrl+Z / Ctrl+Y）；回车保持缩进（`key:` 后多两格、`- 文字` 后自动补 `- `）；硬件键盘 Tab 缩进、Shift+Tab 减缩进。底部一排符号键（缩进、减缩进、`-`、`:`、`#`、引号、括号、`,` 等），点它们不会收起键盘。
+- **查找替换：** 上一个、下一个、区分大小写、替换、全部替换（全部替换只改变化的那一段，是一步撤销）。
+- **补全：** 只对 `config.yaml` 开。输入时按光标所在的层级提示还可以写的键（按 `type` 区分节点和策略组类型）、键的取值（`true/false`、`mode` 的几个值等）、规则的类型和各段（`DOMAIN-SUFFIX,`、`no-resolve` 等）、以及文件里自己定义的节点名、策略组名、provider 名。点一项就插入；键会带上换行和缩进。别的文件只提示文件里已有的词。
+- **保存和检查：** 保存是通过和外部编辑器同一个文档提供者写回去的，所以保存的 `config.yaml` 是配置的"未保存副本"，和用外部编辑器改完一样，回配置页点保存时内核照常检查。顶部"检查"（只在一个配置顶层的 `config.yaml` 上有）会先保存、再让内核读一遍（和 #27 的"检查配置有没有错"是同一个调用），通过就提示，不通过就把出错那一行标红并跳过去，弹窗里写原因和那一行。有没保存的修改按返回，会问保存、放弃或继续编辑。
+- **转屏不会丢：** 活动在 `AndroidManifest.xml` 里声明了 `configChanges`，转屏不重建。但 App 进程在后台被系统杀掉，没保存的修改会丢。
+
+**来源（AGENTS.md 第 8 条）：** 补全的设计、配置结构表来自 FlClash（GPL-3.0，同协议）：`lib/features/editor/clash_completion.dart`、`completion_matcher.dart`、`yaml_lines.dart`、`clash_schema.dart`。FlClash 是 Flutter（Dart），编辑器本体是它自己画出来的控件（`plugins/code_forge`），**没法复制**，原生这边是用 `EditText` 重写的，只移植了补全逻辑和数据。配置结构表由 `scripts/clash_schema_to_json.py` 从 `clash_schema.dart` 转成 `design/src/main/res/raw/clash_schema.json`（60 个顶层键，34 个共用定义，约 56 KB）；FlClash 更新了这个表，重跑这个脚本即可：`python3 scripts/clash_schema_to_json.py <clash_schema.dart> design/src/main/res/raw/clash_schema.json`。
+
+**新增文件（都在 `design/.../custom/editor/` 下，除非注明）：** `YamlLines.kt`（读 YAML 行的结构，光标在哪个键下面、这一层已经有哪些键）、`ClashSchema.kt`（读 JSON 配置结构表）、`ClashCompletion.kt`（补全、排序、从文件里读出节点名和策略组名）、`UndoStack.kt`（撤销栈）、`YamlHighlighter.kt`（一行的着色）、`CodeEditText.kt`（文本框：行号、着色、撤销、查找、补全弹窗）、`EditorDesign.kt`（页面，纯代码搭，没有布局文件）、`strings_editor.xml`（两份）、`res/raw/clash_schema.json`；`app/.../custom/EditorActivity.kt`。上游文件改动见总表：`FilesActivity.kt`、`AndroidManifest.xml`。
+
+**功耗：** 没有定时器、后台任务。着色和补全都是在打字或滚动停下 100 到 150 毫秒后才算一次；着色只给屏幕上的行和上下各 40 行加着色，旧的先清掉，所以任何时候都只有几百个着色标记，不管文件多大。补全在文件超过 60 万字符时不开。配置结构表（约 56 KB）只在打开 `config.yaml` 时在后台线程读一次。
+
+**局限和没做的：**
+- **没编译，没在手机上看过，也没跑过任何测试**（这次没有 Kotlin 编译环境）。是新写的一大块 UI，第一次构建很可能有编译错误或排版问题，要靠 Actions 验证，贴出错误我再改。
+- 没有代码折叠、片段（snippet）、provider 文件（`proxy-providers`、`rule-providers` 里的文件）的专用补全（FlClash 有，这次没移植）、JavaScript 脚本补全。
+- 文本是整个排版的，所以限制 1 MB；很长的订阅配置（几万行）会超过，会交给外部编辑器。
+- 补全弹窗用的是 `PopupWindow`，位置按光标算；键盘弹出时空间小，可能挤在光标上方，也没在真机上验证。
+- `YamlLines.kt`、`ClashCompletion.kt`、`UndoStack.kt`、`YamlHighlighter.kt` 不依赖 Android，可以在 JVM 上写测试，这次没写。
