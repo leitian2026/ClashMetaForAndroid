@@ -6,6 +6,9 @@ import com.github.kr328.clash.core.model.ConfigCheckReport
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.core.model.IpTestReport
+import com.github.kr328.clash.core.model.IpTestRow
+import com.github.kr328.clash.design.custom.AgeText
+import com.github.kr328.clash.design.custom.ErrorsText
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
 import com.github.kr328.clash.design.R
@@ -14,10 +17,14 @@ import com.github.kr328.clash.util.withClash
 import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import kotlin.random.Random
 
 // CUSTOM (CUSTOM.md #22): the config check page. A test runs only when the user taps the button, and
 // stops being waited for when they tap it again (the core finishes its own attempts, each at most a few
@@ -28,13 +35,26 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     // CUSTOM.md #43: the running job is a "test other IPs"; the core has to be told to stop it
     private var ipTesting = false
 
+    // CUSTOM (CUSTOM.md #52): what the last round used (for the download of a row), the rows it has, the download running
+    private class IpRun(val direct: Boolean, val domain: String, val node: String, val ports: String, val url: String)
+
+    private var lastRun: IpRun? = null
+    private var ipRows = ArrayList<IpTestRow>()
+    private var speedJob: Job? = null
+    private var speedIp = ""
+
     override suspend fun main() {
         val design = ConfigCheckDesign(this)
 
         setContentDesign(design)
 
-        // CUSTOM.md #43: a tap on "look up" of a row of the IP test
-        design.onLookup = { ip -> launch { lookupOwner(design, ip) } }
+        // CUSTOM.md #52: a tap on "测速" / "取消" of a row of the IP test
+        design.onSpeedTest = { ip ->
+            if (job?.isActive != true && speedJob?.isActive != true) {
+                speedJob = launch { runSpeed(design, ip) }
+            }
+        }
+        design.onSpeedCancel = { launch { cancelSpeed(design) } }
 
         while (isActive) {
             select<Unit> {
@@ -50,7 +70,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         }
                         ConfigCheckDesign.Request.IpTest -> {
                             // CUSTOM.md #43: while a test runs its button is the "cancel" one
-                            if (job?.isActive == true) {
+                            // (CUSTOM.md #52: ignored while a row downloads, that has its own "取消")
+                            if (speedJob?.isActive == true) {
+                                Unit
+                            } else if (job?.isActive == true) {
                                 cancelRunning(design)
                             } else {
                                 job = launch { runIpTest(design) }
@@ -81,6 +104,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         job?.cancel()
         job = null
 
+        val wasIp = ipTesting
+
         if (ipTesting) {
             ipTesting = false
 
@@ -94,21 +119,30 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         design.setRunning(false)
         design.setIpRunning(false)
-        design.showText(getString(R.string.check_cancelled))
+
+        if (wasIp) {
+            design.ipLog(getString(R.string.iptest_log_cancelled)) // the table stays, with what was done before
+        } else {
+            design.showText(getString(R.string.check_cancelled))
+        }
     }
 
-    // CUSTOM (CUSTOM.md #43): test other IPs. A dialog asks for the addresses, the node and the way to test: straight
-    // to the address ("direct", uses the domain field of the page as SNI and Host) or through the node with its server
-    // replaced by the address ("node"). Runs only when tapped; the core stops when the button is tapped again.
+    // CUSTOM (CUSTOM.md #43, #52): test other IPs. A dialog asks for the addresses, the node, the ports and the download
+    // address, and the way to test: straight to the address ("direct", uses the domain field of the page as SNI and
+    // Host) or through the node with its server replaced by the address ("node"). The addresses are tested one at a
+    // time, the app waiting the random 1 to 3 seconds between two (no timer: the wait is a suspended coroutine), and
+    // the table and the live status get what each one found. Runs only when tapped; the core stops when the button is
+    // tapped again.
     private suspend fun runIpTest(design: ConfigCheckDesign) {
         if (!clashRunning) {
             design.showText(getString(R.string.connections_not_running))
             return
         }
 
+        var begun = false
         var failure = ""
 
-        val report = try {
+        try {
             val nodes = IpTestReport.parse(
                 withClash {
                     queryCustomConnections(
@@ -125,64 +159,270 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 return
             }
 
-            val domain = if (choice.mode == "direct") design.domain() else ""
+            val direct = choice.mode == "direct"
+            val domain = if (direct) design.domain() else ""
 
-            if (choice.mode == "direct" && domain.isEmpty()) {
+            if (direct && domain.isEmpty()) {
                 design.showText(getString(R.string.iptest_need_domain))
                 return
             }
 
-            if (choice.mode == "node" && choice.node.isEmpty()) {
+            if (!direct && choice.node.isEmpty()) {
                 design.showText(getString(R.string.iptest_need_node))
                 return
             }
 
-            val request = JSONObject()
-                .put("kind", "ip")
-                .put("mode", choice.mode)
-                .put("domain", domain)
-                .put("node", choice.node)
-                .put("ips", choice.ips)
-                .toString()
+            // the list as the core reads it (addresses, domains, words it does not understand, the limit of 20)
+            val parsed = IpTestReport.parse(
+                withClash {
+                    queryCustomConnections(
+                        CustomConnections.SORT_CHECK,
+                        JSONObject().put("kind", "ip").put("mode", "parse").put("direct", direct)
+                            .put("ips", choice.ips).toString(),
+                    )
+                },
+            )
 
+            when (parsed.error) {
+                "no address" -> {
+                    design.showText(getString(R.string.iptest_need_ips))
+                    return
+                }
+                "domain only node" -> {
+                    design.showText(getString(R.string.iptest_domain_node_only))
+                    return
+                }
+            }
+
+            val warnings = ArrayList<String>()
+
+            if (parsed.skipped.isNotEmpty()) warnings += getString(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
+            if (parsed.invalid.isNotEmpty()) warnings += getString(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
+            if (parsed.cut > 0) warnings += getString(R.string.iptest_cut, parsed.cut)
+
+            val head = if (direct) {
+                getString(R.string.iptest_head_direct, domain)
+            } else {
+                getString(R.string.iptest_head_node, choice.node)
+            }
+
+            val targets = parsed.rows
+
+            lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
+            ipRows = ArrayList()
+
+            design.ipBegin(direct, head, "", warnings)
+            begun = true
             design.setIpRunning(true)
             ipTesting = true
 
-            IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+            design.ipLog(
+                getString(
+                    R.string.iptest_log_start,
+                    targets.size,
+                    if (direct) {
+                        getString(R.string.iptest_log_mode_direct, domain)
+                    } else {
+                        getString(R.string.iptest_log_mode_node, choice.node)
+                    },
+                ),
+            )
+
+            if (direct) fetchColos(design)
+
+            for ((i, t) in targets.withIndex()) {
+                if (i > 0) delay(Random.nextLong(1000, 3001)) // the random gap between two addresses
+
+                design.ipLog(getString(R.string.iptest_log_ip_start, i + 1, targets.size, t.ip))
+
+                val request = JSONObject()
+                    .put("kind", "ip")
+                    .put("mode", if (direct) "probe" else "nodeone")
+                    .put("domain", domain)
+                    .put("node", choice.node)
+                    .put("ips", t.ip)
+                    .put("ports", choice.ports)
+                    .toString()
+
+                val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+
+                if (report.cancelled) break
+
+                val row = report.rows.firstOrNull()
+
+                if (report.error.isNotEmpty() || row == null) {
+                    design.ipLog(getString(R.string.iptest_log_error, report.error.ifEmpty { t.ip }))
+                    continue
+                }
+
+                ipRows.add(row)
+
+                val sub = if (direct) {
+                    if (report.echSource.isNotEmpty()) {
+                        getString(R.string.iptest_ech_source, report.echSource)
+                    } else {
+                        getString(R.string.iptest_ech_none)
+                    }
+                } else {
+                    val ref = report.ref
+
+                    if (ref != null) {
+                        getString(R.string.iptest_ref, ref.ip, ref.ms, AgeText.testedAgo(this, ref.at))
+                    } else {
+                        getString(R.string.iptest_ref_none)
+                    }
+                }
+
+                design.ipInfo(head, sub, warnings)
+                design.ipRows(ipRows)
+
+                if (row.ok) {
+                    val open = row.ports.filter { it.ok }.joinToString(" ") { it.port.toString() }
+
+                    design.ipLog(
+                        if (direct) {
+                            getString(R.string.iptest_log_ip_ok, row.ip, row.avg, row.loss, open.ifEmpty { "-" })
+                        } else {
+                            getString(R.string.iptest_log_ip_ok_noports, row.ip, row.avg, row.loss)
+                        },
+                    )
+
+                    if (direct) {
+                        design.ipLog(
+                            if (row.asn.isNotEmpty()) {
+                                getString(R.string.iptest_log_asn_ok, row.ip, row.asn)
+                            } else {
+                                getString(R.string.iptest_log_asn_none, row.ip)
+                            },
+                        )
+                    }
+                } else {
+                    design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, ErrorsText.explain(this, row.code), row.loss))
+                }
+            }
+
+            design.ipLog(getString(R.string.iptest_log_done, ipRows.size))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             failure = getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
 
-            null
-        }
+            if (begun) design.ipLog(failure) else design.showText(failure)
+        } finally {
+            ipTesting = false
 
-        ipTesting = false
-        design.setIpRunning(false)
-
-        when {
-            report == null -> design.showText(failure)
-            report.error == "no address" -> design.showText(getString(R.string.iptest_need_ips))
-            report.error == "domain only node" -> design.showText(getString(R.string.iptest_domain_node_only))
-            report.error.isNotEmpty() -> design.showText(getString(R.string.check_error, report.error))
-            else -> design.showIpTest(report)
+            withContext(NonCancellable) { design.setIpRunning(false) }
         }
     }
 
-    // CUSTOM.md #43: who runs this address, asked from public services only when the user taps "look up" on its row
-    private suspend fun lookupOwner(design: ConfigCheckDesign, ip: String) {
-        val owner = try {
-            val request = JSONObject().put("kind", "ip").put("mode", "asn").put("ips", ip).toString()
+    // the data centre list (code -> city) of Cloudflare, fetched online once per round; without it only codes are shown
+    private suspend fun fetchColos(design: ConfigCheckDesign) {
+        try {
+            val report = IpTestReport.parse(
+                withClash {
+                    queryCustomConnections(
+                        CustomConnections.SORT_CHECK,
+                        JSONObject().put("kind", "ip").put("mode", "colo").toString(),
+                    )
+                },
+            )
 
-            IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
-                .rows.firstOrNull()?.asn.orEmpty()
+            if (report.colos.isNotEmpty()) {
+                design.ipColos(report.colos)
+                design.ipLog(getString(R.string.iptest_log_colo_ok, report.colos.size))
+            } else {
+                design.ipLog(getString(R.string.iptest_log_colo_fail, report.error.removePrefix("colo: ").ifEmpty { "-" }))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.ipLog(getString(R.string.iptest_log_colo_fail, e.message ?: e.javaClass.simpleName))
+        }
+    }
+
+    // CUSTOM (CUSTOM.md #52): the download test of one row, only when its "测速" is tapped. Directly to the address,
+    // or through the node in node mode. At most 10 MB or 5 seconds (the core stops it); "取消" stops it sooner.
+    private suspend fun runSpeed(design: ConfigCheckDesign, ip: String) {
+        val run = lastRun ?: return
+
+        if (!clashRunning) {
+            design.showText(getString(R.string.connections_not_running))
+            return
+        }
+
+        speedIp = ip
+
+        design.ipSpeedBusy(ip)
+        design.ipLog(getString(R.string.iptest_log_speed_start, ip))
+
+        try {
+            val request = JSONObject()
+                .put("kind", "ip")
+                .put("mode", "download")
+                .put("node", if (run.direct) "" else run.node)
+                .put("ips", ip)
+                .put("url", run.url)
+                .toString()
+
+            val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+            val row = report.rows.firstOrNull()
+
+            when {
+                report.cancelled -> design.ipLog(getString(R.string.iptest_log_speed_cancelled, ip))
+                report.error.isNotEmpty() || row == null ->
+                    design.ipLog(getString(R.string.iptest_log_speed_fail, ip, report.error.ifEmpty { "-" }))
+                else -> {
+                    ipRows = ArrayList(
+                        ipRows.map {
+                            if (it.ip == ip) {
+                                it.copy(speed = row.speed, speedBytes = row.speedBytes, speedMs = row.speedMs, speedErr = row.speedErr)
+                            } else {
+                                it
+                            }
+                        },
+                    )
+
+                    design.ipRows(ipRows)
+
+                    if (row.speedErr.isNotEmpty()) {
+                        design.ipLog(getString(R.string.iptest_log_speed_fail, ip, ErrorsText.explain(this, row.speedErr)))
+                    } else {
+                        design.ipLog(
+                            getString(
+                                R.string.iptest_log_speed_done,
+                                ip,
+                                String.format(java.util.Locale.US, "%.2f", row.speed),
+                                String.format(java.util.Locale.US, "%.1f MB", row.speedBytes / 1e6),
+                                row.speedMs,
+                            ),
+                        )
+                    }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.ipLog(getString(R.string.iptest_log_speed_fail, ip, e.message ?: e.javaClass.simpleName))
+        } finally {
+            withContext(NonCancellable) { design.ipSpeedBusy(null) }
+        }
+    }
+
+    private suspend fun cancelSpeed(design: ConfigCheckDesign) {
+        val running = speedJob?.takeIf { it.isActive } ?: return
+
+        running.cancel()
+        speedJob = null
+
+        try {
+            withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            ""
         }
 
-        design.setIpOwner(ip, owner)
+        design.ipSpeedBusy(null)
+        design.ipLog(getString(R.string.iptest_log_speed_cancelled, speedIp))
     }
 
     private suspend fun runCheck(design: ConfigCheckDesign) {

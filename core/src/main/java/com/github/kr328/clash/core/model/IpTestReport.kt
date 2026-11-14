@@ -26,6 +26,28 @@ data class IpTestRow(
     val asn: String = "",
     val cf: Boolean = false,
     val colo: String = "",
+    // CUSTOM.md #52: ten tries (percent lost; milliseconds of the ones that worked), the ports, the download test
+    val sent: Int = 0,
+    val loss: Int = 0,
+    val min: Int = 0,
+    val max: Int = 0,
+    val avg: Int = 0,
+    val ports: List<IpPortResult> = emptyList(),
+    val port: String = "", // node mode: the node's own port (not tested)
+    val speed: Double = 0.0, // megabytes per second, 0 when not tested or failed
+    val speedBytes: Long = 0,
+    val speedMs: Int = 0,
+    val speedErr: String = "",
+)
+
+/** CUSTOM.md #52: the handshake to one port of an address. [code] is an error code of the errors page. */
+@Serializable
+data class IpPortResult(
+    val port: Int = 0,
+    val ok: Boolean = false,
+    val ms: Int = 0,
+    val code: String = "",
+    val reason: String = "",
 )
 
 /** CUSTOM (CUSTOM.md #43): the quickest address of the node's `hosts:` entry in its last speed test; [at] is unix milliseconds. */
@@ -57,6 +79,7 @@ data class IpTestReport(
     val at: Long = 0,
     val cancelled: Boolean = false,
     val error: String = "",
+    val colos: Map<String, String> = emptyMap(), // CUSTOM.md #52: mode "colo": data centre code -> city
 ) {
     companion object {
         private val json = Json {

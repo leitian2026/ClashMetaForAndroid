@@ -10,7 +10,6 @@ import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
-import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.databinding.DesignConfigCheckBinding
@@ -111,6 +110,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             binding.checkDnsView.setText(if (running && dns) R.string.check_cancel else R.string.check_dns_start)
 
             if (running) {
+                textMode() // CUSTOM.md #52
                 binding.checkTextView.text = context.getString(R.string.check_running)
             }
         }
@@ -121,9 +121,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             binding.checkIpView.setText(if (running) R.string.check_cancel else R.string.iptest_button)
 
-            if (running) {
-                binding.checkTextView.text = context.getString(R.string.iptest_running)
-            }
+            ipView?.setBusy(running, null) // CUSTOM.md #52: no download while the round runs
         }
     }
 
@@ -132,65 +130,103 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         return IpTestDialog.ask(context, prefs, nodes)
     }
 
-    // CUSTOM.md #43: a tap on a line of the IP test copies that address (or all that work); the page has such lines,
-    // so like the DNS check its taps go to the links; the copy button at the top copies the whole text
-    suspend fun showIpTest(report: IpTestReport) {
+    // CUSTOM (CUSTOM.md #52): the IP test page is a table (IpTestView) with the live status under it. The activity
+    // starts it with ipBegin, then gives it a row (ipRows) and lines (ipLog) as the addresses are done.
+    // A tap on "测速" of a row (onSpeedTest) or on its "取消" (onSpeedCancel) goes to the activity.
+    var onSpeedTest: ((String) -> Unit)? = null
+    var onSpeedCancel: (() -> Unit)? = null
+
+    private var ipView: IpTestView? = null
+
+    suspend fun ipBegin(direct: Boolean, head: String, sub: String, warnings: List<String>) {
         withContext(Dispatchers.Main) {
-            renderIpTest(report)
-        }
-    }
+            val view = IpTestView(context, direct)
 
-    // CUSTOM.md #43: a tap on "look up" of a row asks who runs that address (the activity does it, onLookup); the
-    // answer comes back here and the page is laid out again with it
-    var onLookup: ((String) -> Unit)? = null
-
-    private var ipReport: IpTestReport? = null
-
-    private fun renderIpTest(report: IpTestReport) {
-        ipReport = report
-
-        val view = IpTestView(
-            context,
-            report,
-            onCopy = { text ->
+            view.onCopy = { text ->
                 context.getSystemService<ClipboardManager>()
                     ?.setPrimaryClip(ClipData.newPlainText("ip_test", text))
 
                 Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-            },
-            onLookup = { ip -> onLookup?.invoke(ip) },
-        )
-
-        binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
-        linksOn = true
-
-        binding.checkTextView.text = view.render()
-        shown = view.plain()
-    }
-
-    suspend fun setIpOwner(ip: String, owner: String) {
-        withContext(Dispatchers.Main) {
-            val report = ipReport ?: return@withContext // another page was shown meanwhile
-
-            if (owner.isEmpty()) {
-                Toast.makeText(context, R.string.iptest_lookup_none, Toast.LENGTH_SHORT).show()
-
-                return@withContext
             }
 
-            renderIpTest(report.copy(rows = report.rows.map { if (it.ip == ip) it.copy(asn = owner) else it }))
+            view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
+            view.onSpeedCancel = { onSpeedCancel?.invoke() }
+
+            view.onDetail = { title, text ->
+                MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setMessage(text)
+                    .setPositiveButton(R.string.close, null)
+                    .show()
+            }
+
+            view.setInfo(head, sub, warnings)
+
+            ipView = view
+
+            binding.checkIpContainer.removeAllViews()
+            binding.checkIpContainer.addView(view.root)
+            binding.checkIpContainer.visibility = View.VISIBLE
+            binding.checkTextView.visibility = View.GONE
+            linksOn = false
+
+            shown = view.plain()
         }
+    }
+
+    suspend fun ipInfo(head: String, sub: String, warnings: List<String>) {
+        withContext(Dispatchers.Main) {
+            ipView?.let {
+                it.setInfo(head, sub, warnings)
+                shown = it.plain()
+            }
+        }
+    }
+
+    suspend fun ipRows(rows: List<com.github.kr328.clash.core.model.IpTestRow>) {
+        withContext(Dispatchers.Main) {
+            ipView?.let {
+                it.setRows(rows)
+                shown = it.plain()
+            }
+        }
+    }
+
+    suspend fun ipColos(colos: Map<String, String>) {
+        withContext(Dispatchers.Main) { ipView?.setColos(colos) }
+    }
+
+    /** [ip]: the row whose download is running (null: none). */
+    suspend fun ipSpeedBusy(ip: String?) {
+        withContext(Dispatchers.Main) { ipView?.setBusy(false, ip) }
+    }
+
+    suspend fun ipLog(text: String) {
+        withContext(Dispatchers.Main) {
+            ipView?.let {
+                it.log(text)
+                shown = it.plain()
+            }
+        }
+    }
+
+    // back to the plain text view (any page but the IP test)
+    private fun textMode() {
+        ipView = null
+        binding.checkIpContainer.visibility = View.GONE
+        binding.checkIpContainer.removeAllViews()
+        binding.checkTextView.visibility = View.VISIBLE
     }
 
     suspend fun showText(text: String) {
         withContext(Dispatchers.Main) {
+            textMode() // CUSTOM.md #52
             if (linksOn) {
                 // back from the colored page (CUSTOM.md #30): the text can be selected again
                 binding.checkTextView.setTextIsSelectable(true)
                 linksOn = false
             }
 
-            ipReport = null
             binding.checkTextView.text = text
             shown = text
         }
@@ -202,6 +238,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
     suspend fun showEffective(config: EffectiveConfig) {
         withContext(Dispatchers.Main) {
+            textMode() // CUSTOM.md #52
+
             val view = EffectiveText(context, config)
 
             binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()
@@ -223,6 +261,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // rest), so like the effective config its taps go to the links; the copy button copies the whole text
     suspend fun showDns(report: DnsCheckReport) {
         withContext(Dispatchers.Main) {
+            textMode() // CUSTOM.md #52
+
             val view = DnsCheckView(context, report)
 
             binding.checkTextView.movementMethod = LinkMovementMethod.getInstance()

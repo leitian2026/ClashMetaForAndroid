@@ -60,6 +60,11 @@ type IPRequest struct {
 	Domain string `json:"domain"` // direct: SNI and Host
 	Node   string `json:"node"`   // node: the node to copy
 	IPs    string `json:"ips"`    // the text as typed
+	// CUSTOM.md #52: the per-address modes "probe", "nodeone", "download", "colo" (iptest_probe.go)
+	Ports string `json:"ports"` // probe: the ports to try, as typed ("" = the default list)
+	URL   string `json:"url"`   // download: the address to download ("" = the default)
+	// parse: read the typed list without testing; Direct drops the domains (only node mode tests them)
+	Direct bool `json:"direct"`
 }
 
 // IPRow is the result for one address.
@@ -83,6 +88,20 @@ type IPRow struct {
 	ASN  string `json:"asn"`  // "AS13335 Cloudflare, Inc." (only after a "look up": mode "asn", or kept from an earlier one)
 	CF   bool   `json:"cf"`   // the answer of the server shows Cloudflare (a positive sign only)
 	Colo string `json:"colo"` // Cloudflare data centre
+
+	// CUSTOM.md #52: ten tries, the ports and the download test (iptest_probe.go)
+	Sent  int       `json:"sent"`  // tries made
+	Loss  int       `json:"loss"`  // percent of the tries that failed
+	Min   int       `json:"min"`   // milliseconds, of the tries that worked
+	Max   int       `json:"max"`   //
+	Avg   int       `json:"avg"`   //
+	Ports []PortRes `json:"ports"` // direct mode, working address: the ports tried
+	Port  string    `json:"port"`  // node mode: the node's own port (not tested)
+
+	Speed      float64 `json:"speed"`      // download test: megabytes per second, 0 when not done / failed
+	SpeedBytes int64   `json:"speedBytes"` // bytes read
+	SpeedMs    int     `json:"speedMs"`    // time of the download
+	SpeedErr   string  `json:"speedErr"`   // why the download failed ("" when it worked)
 }
 
 // IPRef is the quickest address of the node's `hosts:` entry in its last speed test.
@@ -107,6 +126,8 @@ type IPReport struct {
 	At        int64    `json:"at"`
 	Cancelled bool     `json:"cancelled"`
 	Error     string   `json:"error"`
+	// CUSTOM.md #52: mode "colo": data centre code -> city, as Cloudflare lists them
+	Colos map[string]string `json:"colos"`
 }
 
 // ipPort is the port tested in direct mode (a variable only so that a test can point it at a local server).
@@ -157,6 +178,12 @@ func RunIP(filter string) IPReport {
 		lookupOwners(&rep, req.IPs)
 
 		return rep
+	}
+
+	// CUSTOM.md #52: one address per call (the app loops, so it can draw the table and the log after each)
+	switch req.Mode {
+	case "parse", "probe", "nodeone", "download", "colo":
+		return runOne(req, rep)
 	}
 
 	list, invalid := parseTargets(req.IPs)
@@ -408,7 +435,12 @@ func tlsVersion(v uint16) string {
 // handshakeTo connects to addr and does the TLS handshake. The time is from dialing to the end of the handshake.
 // The caller owns (and must close) the returned connection when err is nil; it is closed here when there is an error.
 func handshakeTo(ctx context.Context, addr, domain string, echList []byte) (*tls.Conn, int, error) {
-	ctx, cancel := context.WithTimeout(ctx, attemptTimeout)
+	return handshakeWithin(ctx, addr, domain, echList, attemptTimeout)
+}
+
+// handshakeWithin is handshakeTo with its own time limit (CUSTOM.md #52: the ten tries and the ports take 3 seconds each).
+func handshakeWithin(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, error) {
+	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
 	start := time.Now()

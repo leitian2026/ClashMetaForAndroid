@@ -154,15 +154,30 @@
                 android:clipToPadding="false"
                 android:paddingBottom="@{self.surface.insets.bottom}">
 
-                <TextView
-                    android:id="@+id/check_text_view"
+                <!-- CUSTOM (CUSTOM.md #52): the IP test table sits under the text view (which is empty then) -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingHorizontal="@dimen/item_tailing_margin"
-                    android:paddingVertical="@dimen/item_padding_vertical"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textIsSelectable="true" />
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/check_text_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="@dimen/item_tailing_margin"
+                        android:paddingVertical="@dimen/item_padding_vertical"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textIsSelectable="true" />
+
+                    <FrameLayout
+                        android:id="@+id/check_ip_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="@dimen/item_tailing_margin"
+                        android:paddingVertical="@dimen/item_padding_vertical"
+                        android:visibility="gone" />
+                </LinearLayout>
             </androidx.core.widget.NestedScrollView>
         </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
