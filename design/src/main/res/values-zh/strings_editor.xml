@@ -26,4 +26,12 @@
     <string name="editor_check_bad">内核不接受这份配置：%1$s</string>
     <string name="editor_check_title">检查</string>
     <string name="editor_replaced">已替换 %1$d 处</string>
+    <string name="editor_font_smaller">字体减小（-2）</string>
+    <string name="editor_font_bigger">字体增大（+2）</string>
+    <string name="editor_save_as">保存到手机任意位置…</string>
+    <string name="editor_import_from">从手机任意位置打开 / 导入…</string>
+    <string name="editor_saved_to">已保存到 %1$s</string>
+    <string name="editor_imported">已导入 %1$s（可撤销，尚未保存）</string>
+    <string name="editor_import_failed">导入失败：%1$s</string>
+    <string name="editor_too_big">文件超过 1 MB</string>
 </resources>

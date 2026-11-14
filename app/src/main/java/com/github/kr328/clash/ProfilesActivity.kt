@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.setUUID
 import com.github.kr328.clash.common.util.ticker
+import com.github.kr328.clash.custom.EditorActivity // CUSTOM.md #47
 import com.github.kr328.clash.design.ProfilesDesign
 import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.service.model.Profile
@@ -77,6 +78,17 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
                         }
                         is ProfilesDesign.Request.ShareQrCode ->
                             design.showProfileQrCode(it.profile)
+                        // CUSTOM (CUSTOM.md #47): straight to the built-in editor on config.yaml
+                        is ProfilesDesign.Request.EditConfig ->
+                            startActivity(
+                                EditorActivity.intent(
+                                    this@ProfilesActivity,
+                                    "${it.profile.uuid}/config.yaml",
+                                    "config.yaml",
+                                    it.profile.uuid,
+                                    it.profile.name,
+                                )
+                            )
                     }
                 }
                 if (activityStarted) {

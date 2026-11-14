@@ -39,7 +39,7 @@ class EditorDesign(
     canCheck: Boolean,
     useSchema: Boolean,
 ) : Design<EditorDesign.Request>(context) {
-    enum class Request { Save, Check, External, Leave }
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom } // SaveAs, ImportFrom: CUSTOM.md #47
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -53,6 +53,13 @@ class EditorDesign(
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
 
     private fun dp(value: Int) = (value * density).toInt()
+
+    private companion object {
+        const val DEFAULT_SIZE = 13 // sp, what the editor had before the size could be changed
+        const val MIN_SIZE = 9
+        const val MAX_SIZE = 37
+        const val STEP = 2
+    }
 
     private val editor = CodeEditText(context).apply {
         setTextColor(colorText)
@@ -82,6 +89,19 @@ class EditorDesign(
         setPadding(dp(12), dp(4), dp(12), dp(4))
         setBackgroundColor(colorBar)
     }
+
+    // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
+    private val prefs = context.getSharedPreferences("custom_editor", Context.MODE_PRIVATE)
+    private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
+
+    private val sizeView = TextView(context).apply {
+        textSize = 12f
+        setTextColor(colorMuted)
+        gravity = Gravity.CENTER
+        minWidth = dp(28)
+    }
+    private val smallerButton = action("A−", context.getString(R.string.editor_font_smaller)) { changeSize(-STEP) }
+    private val biggerButton = action("A+", context.getString(R.string.editor_font_bigger)) { changeSize(STEP) }
 
     // find bar
     private var matchCase = false
@@ -184,7 +204,22 @@ class EditorDesign(
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(40)))
-        addView(statusView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        addView(
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundColor(colorBar)
+
+                addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+                for (b in listOf(smallerButton, biggerButton)) b.minHeight = dp(36)
+
+                addView(smallerButton)
+                addView(sizeView)
+                addView(biggerButton)
+            },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT),
+        )
 
         // the page is under the system bars: leave their room, and the room of the keyboard (from Android 11 it
         // is told in the insets; before that the window is made smaller by the activity)
@@ -238,6 +273,9 @@ class EditorDesign(
             }
         }
 
+        editor.setSizeSp(sizeSp.toFloat())
+        refreshSize()
+
         editor.onEdited = {
             setDirty(true)
             refreshStatus()
@@ -272,6 +310,13 @@ class EditorDesign(
     }
 
     fun currentText(): String = editor.text?.toString() ?: ""
+
+    /** CUSTOM.md #47: puts text picked from elsewhere in place of the text (one undo step, the page becomes unsaved). */
+    fun replaceText(text: String) {
+        editor.replaceWhole(text)
+        setDirty(true)
+        refreshStatus()
+    }
 
     fun markSaved() {
         setDirty(false)
@@ -338,6 +383,23 @@ class EditorDesign(
         redoButton.alpha = if (editor.undo.canRedo) 1f else 0.35f
     }
 
+    private fun changeSize(delta: Int) {
+        val next = (sizeSp + delta).coerceIn(MIN_SIZE, MAX_SIZE)
+
+        if (next == sizeSp) return
+
+        sizeSp = next
+        prefs.edit().putInt("size_sp", next).apply()
+        editor.setSizeSp(next.toFloat())
+        refreshSize()
+    }
+
+    private fun refreshSize() {
+        sizeView.text = sizeSp.toString()
+        smallerButton.alpha = if (sizeSp > MIN_SIZE) 1f else 0.35f
+        biggerButton.alpha = if (sizeSp < MAX_SIZE) 1f else 0.35f
+    }
+
     private fun refreshCase() {
         caseButton.setTextColor(if (matchCase) colorAccent else colorMuted)
     }
@@ -387,9 +449,18 @@ class EditorDesign(
 
     private fun showMore(anchor: View) {
         PopupMenu(context, anchor).apply {
-            menu.add(context.getString(R.string.editor_external))
+            // CUSTOM.md #47: save to / open from anywhere on the phone
+            menu.add(0, 1, 0, context.getString(R.string.editor_save_as))
+            menu.add(0, 2, 1, context.getString(R.string.editor_import_from))
+            menu.add(0, 0, 2, context.getString(R.string.editor_external))
             setOnMenuItemClickListener {
-                requests.trySend(Request.External)
+                requests.trySend(
+                    when (it.itemId) {
+                        1 -> Request.SaveAs
+                        2 -> Request.ImportFrom
+                        else -> Request.External
+                    }
+                )
 
                 true
             }

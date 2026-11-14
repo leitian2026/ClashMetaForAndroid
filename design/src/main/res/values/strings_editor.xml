@@ -26,4 +26,12 @@
     <string name="editor_check_bad">The core does not accept this config: %1$s</string>
     <string name="editor_check_title">Check</string>
     <string name="editor_replaced">Replaced %1$d</string>
+    <string name="editor_font_smaller">Smaller text (-2)</string>
+    <string name="editor_font_bigger">Bigger text (+2)</string>
+    <string name="editor_save_as">Save to anywhere on the phone…</string>
+    <string name="editor_import_from">Open / import from anywhere on the phone…</string>
+    <string name="editor_saved_to">Saved to %1$s</string>
+    <string name="editor_imported">Imported %1$s (can be undone, not saved yet)</string>
+    <string name="editor_import_failed">Could not import: %1$s</string>
+    <string name="editor_too_big">the file is bigger than 1 MB</string>
 </resources>

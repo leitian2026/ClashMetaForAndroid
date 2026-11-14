@@ -201,6 +201,45 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         onCaretChanged?.invoke()
     }
 
+    /** CUSTOM.md #47: the size of the text in sp; the line numbers follow it. Only called at a tap of the user. */
+    fun setSizeSp(sp: Float) {
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp)
+        numberPaint.textSize = textSize * 0.9f
+        gutterDigits = 0 // the gutter is as wide as its digits: measure it again
+        updateGutter(lineStarts.size)
+        invalidate()
+    }
+
+    /** CUSTOM.md #47: replaces the whole text by [replacement] as one undo step (only the part that differs is replaced). */
+    fun replaceWhole(replacement: String) {
+        val t = text ?: return
+        val old = t.toString()
+
+        if (old == replacement) return
+
+        var head = 0
+
+        while (head < old.length && head < replacement.length && old[head] == replacement[head]) head++
+
+        var tail = 0
+
+        while (tail < old.length - head && tail < replacement.length - head &&
+            old[old.length - 1 - tail] == replacement[replacement.length - 1 - tail]
+        ) {
+            tail++
+        }
+
+        clearMatch()
+
+        quiet = true
+        t.replace(head, old.length - tail, replacement.substring(head, replacement.length - tail))
+        quiet = false
+
+        undo.seal()
+        setSelection(0)
+        scrollTo(0, 0)
+    }
+
     val logicalLineCount: Int get() = lineStarts.size
 
     /** 0-based index of the line that has the character at [offset]. */

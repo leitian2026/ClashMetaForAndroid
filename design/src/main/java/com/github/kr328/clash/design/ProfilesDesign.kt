@@ -36,11 +36,17 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         data class Duplicate(val profile: Profile) : Request()
         data class ShareQrCode(val profile: Profile) : Request()
         data class Delete(val profile: Profile) : Request()
+        data class EditConfig(val profile: Profile) : Request() // CUSTOM (CUSTOM.md #47)
     }
 
     private val binding = DesignProfilesBinding
         .inflate(context.layoutInflater, context.root, false)
-    private val adapter = ProfileAdapter(context, this::requestActive, this::showMenu)
+    private val adapter = ProfileAdapter(
+        context,
+        this::requestActive,
+        this::showMenu,
+        { requests.trySend(Request.EditConfig(it)) }, // CUSTOM (CUSTOM.md #47)
+    )
 
     private var allUpdating: Boolean
         get() = adapter.states.allUpdating;

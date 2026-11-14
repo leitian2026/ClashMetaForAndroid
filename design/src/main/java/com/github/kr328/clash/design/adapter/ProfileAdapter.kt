@@ -14,7 +14,8 @@ class ProfileAdapter(
     private val context: Context,
     private val onClicked: (Profile) -> Unit,
     private val onMenuClicked: (Profile) -> Unit,
-) : RecyclerView.Adapter<ProfileAdapter.Holder>() {
+    private val onEditClicked: (Profile) -> Unit = {}, // CUSTOM (CUSTOM.md #47)
+) :RecyclerView.Adapter<ProfileAdapter.Holder>() {
     class Holder(val binding: AdapterProfileBinding) : RecyclerView.ViewHolder(binding.root)
 
     private val currentTime = ObservableCurrentTime()
@@ -47,6 +48,10 @@ class ProfileAdapter(
         }
         binding.setMenu {
             onMenuClicked(current)
+        }
+        // CUSTOM (CUSTOM.md #47)
+        binding.setEdit {
+            onEditClicked(current)
         }
     }
 

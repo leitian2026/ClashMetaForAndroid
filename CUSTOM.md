@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r50
+当前版本：2_11_36-r51
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -26,6 +26,10 @@
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
 | `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
 | `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(...))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
+| `design/src/main/res/layout/adapter_profile.xml` | #47 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
+| `design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt` | #47 | 低 | 构造函数末尾加带默认值的 `onEditClicked`，`onBindViewHolder` 里加 `binding.setEdit { onEditClicked(current) }` |
+| `design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt` | #47 | 低 | `Request` 加 `EditConfig(profile)`；创建 `ProfileAdapter` 时多传一个 lambda（`requests.trySend(Request.EditConfig(it))`） |
+| `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -36,7 +40,7 @@
 | `build.gradle.kts` | #44 | 低（只加一个 `customRev` 和两处 `versionNameSuffix`） | 重加 `queryConfigProperty` 后面的 `customRev`（读 `CUSTOM.md` 的"当前版本："那一行，取最后的 `r<数字>`），`release` 构建类型里的 `versionNameSuffix = customRev`，`debug` 构建类型里的 `versionNameSuffix` 改成 `".debug$customRev"`（后缀必须放在构建类型里，才会排在变体后缀 `.Alpha` / `.Meta` 的后面） |
 | `design/src/main/res/layout/design_about.xml` | #44 | 低 | 内层竖向 `LinearLayout`（App 名字和版本号那一层）的 `layout_width` 由 `match_parent` 改成 `0dp`，加 `layout_weight=1`，版本号太长时才会换行 |
 
-共 27 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 31 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -719,3 +723,16 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - 文本是整个排版的，所以限制 1 MB；很长的订阅配置（几万行）会超过，会交给外部编辑器。
 - 补全弹窗用的是 `PopupWindow`，位置按光标算；键盘弹出时空间小，可能挤在光标上方，也没在真机上验证。
 - `YamlLines.kt`、`ClashCompletion.kt`、`UndoStack.kt`、`YamlHighlighter.kt` 不依赖 Android，可以在 JVM 上写测试，这次没写。
+
+## 47. 配置卡片直达编辑入口；编辑器字体加减、保存 / 导入到手机任意位置（r51）
+**效果：**
+- **配置页卡片：** "N 小时前"往左移开（和右边的铅笔、竖线、⋮ 隔开），时间右边新增一个铅笔图标，点一下**直接**打开这个配置的 `config.yaml`（内置编辑器 #46），不用再经过"⋮ → 文件 → config.yaml"。
+- **字体：** 编辑器底部状态行右边有 `A−` 数字 `A+`，每点一次 ±2sp（9 到 37，默认 13，行号跟着变），选的大小用 `SharedPreferences`（`custom_editor` / `size_sp`）记住，下次打开沿用。
+- **保存到手机任意位置：** 编辑器右上 ⋮ →"保存到手机任意位置…"，用系统文件选择器（`CreateDocument`）选目录和文件名，把页面上的文字写过去。从配置卡片进来时默认文件名是"配置名.yaml"，别处进来是原文件名。这是"另存一份"，不动配置本身，也不清掉"未保存"状态。
+- **从手机任意位置打开 / 导入：** ⋮ →"从手机任意位置打开 / 导入…"，用系统文件选择器（`GetContent`）选一个文件，读出来**替换**当前页面的文字（一步可撤销，页面变成"未保存"，点保存才写进配置）。超过 1 MB 的文件拒绝（和编辑器的上限一致；同时从卡片直达时也加了这个检查）。
+
+**新增 / 改动文件：** 没有新文件。`custom/EditorActivity.kt`（`saveAs`、`importFrom`、`readText`、`suggestName`，`intent()` 多一个可选参数 `title`）、`custom/editor/EditorDesign.kt`（`Request.SaveAs` / `ImportFrom`、字号按钮和记忆、⋮ 菜单两项）、`custom/editor/CodeEditText.kt`（`setSizeSp`、`replaceWhole`）、两份 `strings_editor.xml`。上游文件改动见总表。
+
+**功耗：** 全部由点击触发，没有定时器；字号只在点击时写一次偏好；文件选择器和读写都在点击后做一次。
+
+**局限：** 没有 Kotlin 编译环境，没编译、没在手机上看过，靠 Actions 构建验证。"导入"是把文件内容放进正在编辑的那个配置里，不是新建配置（新建配置仍走配置页右上角的 +）。导入时遇到不是 UTF-8 的文件会出乱码。

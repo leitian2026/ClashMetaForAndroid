@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
 import android.view.WindowManager
 import com.github.kr328.clash.BaseActivity
@@ -15,6 +16,7 @@ import com.github.kr328.clash.remote.FilesClient
 import com.github.kr328.clash.service.custom.ConfigErrorText
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.pendingDir
+import com.github.kr328.clash.util.fileName
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +47,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val id = intent.getStringExtra(EXTRA_ID) ?: return finish()
         val name = intent.getStringExtra(EXTRA_NAME) ?: id.substringAfterLast('/')
         val profile = intent.getStringExtra(EXTRA_PROFILE) ?: ""
+        val title = intent.getStringExtra(EXTRA_TITLE) ?: "" // the profile's name, when opened from the profile list
         val uri = FilesClient(this).buildDocumentUri(id)
 
         // the config check works on the config.yaml at the top of a profile
@@ -69,6 +72,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Save -> save(design, uri)
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)
+                EditorDesign.Request.SaveAs -> saveAs(design, suggestName(name, title))
+                EditorDesign.Request.ImportFrom -> importFrom(design)
                 EditorDesign.Request.Leave -> if (leave(design, uri)) finish()
             }
         }
@@ -81,7 +86,80 @@ class EditorActivity : BaseActivity<EditorDesign>() {
     private fun read(uri: Uri): String {
         val stream = contentResolver.openInputStream(uri) ?: throw IOException("cannot open")
 
-        return stream.use { String(it.readBytes(), Charsets.UTF_8) }
+        return stream.use { readText(it) }
+    }
+
+    // CUSTOM.md #47: the text is laid out as a whole, so a file over the limit is refused (also when the page is
+    // opened straight from the profile list, which does not look at the size first)
+    private fun readText(stream: java.io.InputStream): String {
+        val bytes = stream.readBytes()
+
+        if (bytes.size > MAX_SIZE) throw IOException(getString(R.string.editor_too_big))
+
+        return String(bytes, Charsets.UTF_8)
+    }
+
+    // CUSTOM.md #47: the file name offered by "save to anywhere": the profile's name for its config.yaml
+    private fun suggestName(name: String, title: String): String {
+        if (name != "config.yaml" || title.isBlank()) return name
+
+        return title.replace(Regex("[\\\\/:*?\"<>|]"), "_") + ".yaml"
+    }
+
+    // CUSTOM.md #47: writes the text on the page to a file the user picks anywhere on the phone (the system file
+    // picker); the page's own file and its unsaved state are not touched
+    private suspend fun saveAs(design: EditorDesign, suggested: String) {
+        val bytes = design.currentText().toByteArray(Charsets.UTF_8)
+
+        val target: Uri = startActivityForResult(
+            ActivityResultContracts.CreateDocument("application/octet-stream"), // text/plain would add ".txt" to "x.yaml"
+            suggested,
+        ) ?: return
+
+        try {
+            withContext(Dispatchers.IO) {
+                val stream = contentResolver.openOutputStream(target, "wt") ?: throw IOException("cannot open")
+
+                stream.use { it.write(bytes) }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.message(
+                getString(R.string.editor_save_as),
+                getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName),
+            )
+
+            return
+        }
+
+        design.toast(getString(R.string.editor_saved_to, target.fileName ?: target.toString()))
+    }
+
+    // CUSTOM.md #47: reads a file the user picks anywhere on the phone and puts it in place of the text (one undo
+    // step; it is not saved until the user taps save)
+    private suspend fun importFrom(design: EditorDesign) {
+        val source: Uri = startActivityForResult(ActivityResultContracts.GetContent(), "*/*") ?: return
+
+        val text = try {
+            withContext(Dispatchers.IO) {
+                val stream = contentResolver.openInputStream(source) ?: throw IOException("cannot open")
+
+                stream.use { readText(it) }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.message(
+                getString(R.string.editor_import_from),
+                getString(R.string.editor_import_failed, e.message ?: e.javaClass.simpleName),
+            )
+
+            return
+        }
+
+        design.replaceText(text)
+        design.toast(getString(R.string.editor_imported, source.fileName ?: source.toString()))
     }
 
     private suspend fun save(design: EditorDesign, uri: Uri): Boolean {
@@ -178,21 +256,23 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         private const val EXTRA_ID = "editor_document_id"
         private const val EXTRA_NAME = "editor_name"
         private const val EXTRA_PROFILE = "editor_profile"
+        private const val EXTRA_TITLE = "editor_title" // CUSTOM.md #47
 
-        private const val MAX_SIZE = 1_000_000L // the text is laid out as a whole: a bigger file goes to another app
+        private const val MAX_SIZE = 1_000_000 // the text is laid out as a whole: a bigger file goes to another app
 
         private val textTypes = setOf("yaml", "yml", "json", "txt", "conf", "ini", "js", "list", "toml")
 
         /** Whether "Files" opens a file of this name and size here (and not in another app). */
         fun canOpen(name: String, size: Long): Boolean {
-            return name.substringAfterLast('.', "").lowercase() in textTypes && size <= MAX_SIZE
+            return name.substringAfterLast('.', "").lowercase() in textTypes && size <= MAX_SIZE.toLong()
         }
 
-        fun intent(context: Context, documentId: String, name: String, profile: UUID): Intent {
+        fun intent(context: Context, documentId: String, name: String, profile: UUID, title: String = ""): Intent {
             return Intent(context, EditorActivity::class.java)
                 .putExtra(EXTRA_ID, documentId)
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_PROFILE, profile.toString())
+                .putExtra(EXTRA_TITLE, title)
         }
     }
 }
