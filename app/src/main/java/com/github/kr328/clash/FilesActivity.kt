@@ -67,7 +67,7 @@ class FilesActivity : BaseActivity<FilesDesign>() {
                             is FilesDesign.Request.OpenFile -> {
                                 // CUSTOM (CUSTOM.md #46): a text file opens in the built-in editor
                                 if (EditorActivity.canOpen(it.file.name, it.file.size)) {
-                                    startActivity(EditorActivity.intent(this, it.file.id, it.file.name, uuid))
+                                    startActivity(EditorActivity.intent(this@FilesActivity, it.file.id, it.file.name, uuid)) // not `this`: inside select it is the SelectBuilder
                                 } else {
                                     startActivityForResult(
                                         ActivityResultContracts.StartActivityForResult(),
