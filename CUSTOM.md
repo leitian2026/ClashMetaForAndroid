@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r56
+当前版本：2_11_36-r57
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -764,7 +764,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **括号引号配对：** 光标紧挨着 `() [] {}` 时，它和另一个都加浅蓝底；找不到另一个（一直找到文件头 / 尾也没有）加红底。引号只在"值或列表项开头"处算开头（`don't` 里的撇号不算），同一行内配对，没关的引号标红。
 - **问题标记（只对 `.yaml` / `.yml`）：** 打字停 0.7 秒后，在另一个线程读一遍整份文本（`YamlLint.kt`），有问题的行在行号旁画红点（错误）或橙点（警告）；光标所在行的问题写在底部一行；底部的 `⚠ N` 点开是问题列表，点一项跳到那一行。内容：缩进用了 Tab（红）、缩进比上一行多但上一行不是以 `:` 结尾的键（红）、缩进和上面各层都对不上（红）、同一层重复的键（橙，`<<` 除外）、重复的节点名 / 策略组名（橙，节点和策略组共用一套名字）、策略组 `proxies` 里写了不存在的节点或策略组（橙，认 `DIRECT REJECT REJECT-DROP PASS COMPATIBLE GLOBAL`）、策略组 `use` 里写了不在 `proxy-providers` 的名字、规则最后一段指向不存在的策略组、`RULE-SET` 指向不存在的 `rule-providers`（`SUB-RULE` 不查）。块文本（`|` `>`）、跨行的 `[ ]` `{ }`、跨行的引号字符串里面的行不查。行数变了、检查结果还没更新时红点先不画，避免错位。
 - **显示空白字符：** Tab 画成带 → 的淡黄底，行尾空格 / Tab 画成淡橙底（光标就在行尾时不画，免得打字时闪）；⋮ 菜单里"显示 Tab 和行尾空格"可关，选择记在 `SharedPreferences`（`custom_editor` / `show_whitespace`，默认开）。
-- **订阅提示：** 从配置卡片的铅笔（或"文件"页）打开非本地文件类（`type != File`，即订阅和外部导入）配置的 `config.yaml` 时，顶部显示一条淡黄色提示"订阅更新时会重新下载内容，覆盖你在这里的修改"，点 ✕ 关掉；每次打开都显示一次。不拦截、不弹窗。
+- **订阅提示：** r57 起被 #51 取代（订阅类配置在编辑器里根本写不进去，改成只读）。
 
 **新增 / 改动文件：** 新增 `design/.../custom/editor/YamlLint.kt`（检查，无 Android 类）、`YamlPairs.kt`（括号引号配对，无 Android 类）；改动 `CodeEditText.kt`（分段、绘制、查找、后台检查）、`EditorDesign.kt`（问题行 / 按钮、跳到行、空白开关、订阅提示条）、`custom/EditorActivity.kt`（8 MB、`lint` / 提示参数、`EXTRA_UPDATES`）、两份 `strings_editor.xml`。上游文件：`ProfilesActivity.kt`、`FilesActivity.kt` 各多传一个参数，见总表。
 
@@ -775,4 +775,13 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - 换段会清空撤销记录；分段显示时补全（`config.yaml` 的键提示）关掉（光标上层的键可能在窗口外）；文件整个以字符串存着，8 MB 的中文文件内存约几十 MB。
 - 引用检查认的是文件里写出来的名字：节点来自别处合并、或由 provider 里的节点在 `proxies` 里被引用，会被报成"不存在"；单行 `{...}` 写法的节点和策略组认，跨行的 `{...}` 不认。规则的策略取最后一段（去掉 `no-resolve` / `src`），自定义写法的规则可能误报。
 - 没写 JVM 单元测试。
+
+## 51. 编辑器保存即生效；订阅 / 外部导入配置只读（r57）
+**原因（读代码得出）：** 编辑器写文件走 `FilesProvider.openDocument` → `Picker.pick(path, writable=true)`：先 `cloneToPending`（把正在用的 `imported` 复制成待保存副本 `pending`，并建一条 `Pending` 记录），再写进副本。副本要等配置页 ⋮ → 属性 → 保存（`ProfileManager.commit` → `ProfileProcessor.apply`：内核校验，通过才替换 `imported`、删 `pending`、广播 `PROFILE_CHANGED`，在用的配置随之重载）才生效。所以 r49–r56 的"已保存"并没有生效。另外 `pick` 对 `type != File`（订阅、外部导入）的写模式在 `cloneToPending` **之后**抛 `invalid open mode`：这类配置在编辑器里保存必失败，还会白留一份 `pending`（卡片上多出"未保存"）。r56 的"订阅更新会覆盖"提示前提是错的，已去掉。
+**效果：**
+- 点保存：先写进副本，再直接调用 `commit`（和属性页的保存是同一个调用）。内核接受 → 提示"已保存并生效"，在用的配置立即重载一次；内核拒绝 → 弹窗写原因（带出错行的片段），config.yaml 里把出错那行标红并跳过去，在用的配置不变，修改留在副本里，改好再保存。保存、检查、用其他应用打开、离开时选保存，都走这条路。
+- `type != File` 的配置（`ProfilesActivity` 铅笔、`FilesActivity` 传来的 `readOnly`）：编辑器只读（过滤器拒绝一切改动，不弹键盘），隐藏撤销 / 重做 / 保存 / 替换行 / 符号行 / 导入，顶部有一条说明；仍可查看、查找、"保存到手机任意位置"、跳到行。读文件用只读模式，不会触发 `cloneToPending`。
+**改动文件：** `CodeEditText.kt`（`readOnly`、`InputFilter`）、`EditorDesign.kt`（`readOnly` 参数取代 `updateNotice`）、`custom/EditorActivity.kt`（`applyProfile`、`EXTRA_READ_ONLY`）、两份 `strings_editor.xml`。没有新上游文件改动。
+**功耗：** 只在点保存时多一次 `commit`，没有定时器。
+**局限：** 没编译、没在手机上看过。保存即生效会让在用的配置重载一次（连接会断一下）。属性页退出时（`PropertiesActivity` 的 `defer` → `release`）仍会无条件丢弃 `pending`：编辑器现在保存即提交，不再受这个影响，但提交失败后留在副本里的改动，进属性页再退出会被丢掉。
 

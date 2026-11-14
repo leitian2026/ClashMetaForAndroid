@@ -9,6 +9,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
 import android.text.Layout
 import android.text.Spannable
@@ -103,6 +104,13 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     /** Called when the caret moved or the text changed (for the line and column shown). */
     var onCaretChanged: (() -> Unit)? = null
 
+    /** CUSTOM.md #51: the text can be read, selected and searched, but not changed (a profile that is not a local file). */
+    var readOnly: Boolean = false
+        set(value) {
+            field = value
+            showSoftInputOnFocus = !value
+        }
+
     /** CUSTOM.md #50: Tabs and spaces at the end of a line are drawn (set by the page, kept as a choice of the user). */
     var showWhitespace: Boolean = true
         set(value) {
@@ -161,6 +169,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         isVerticalScrollBarEnabled = true
         setHorizontallyScrolling(false)
         setLineSpacing(0f, 1.1f)
+
+        // CUSTOM.md #51: while read only every change is refused (putting the text in is not a change)
+        filters = arrayOf(
+            InputFilter { _, _, _, dest, dstart, dend -> if (!readOnly || loading) null else dest.subSequence(dstart, dend) },
+        )
 
         // no suggestions or corrections of the keyboard: the text is code
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or

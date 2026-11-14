@@ -40,7 +40,7 @@ class EditorDesign(
     canCheck: Boolean,
     useSchema: Boolean,
     private val lint: Boolean = false, // CUSTOM.md #50: look for mistakes in the text (YAML files)
-    updateNotice: Boolean = false, // CUSTOM.md #50: the profile is downloaded again at an update, which replaces the edits
+    private val readOnly: Boolean = false, // CUSTOM.md #51: a profile that is not a local file cannot be written (the service refuses)
 ) : Design<EditorDesign.Request>(context) {
     enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom } // SaveAs, ImportFrom: CUSTOM.md #47
 
@@ -125,7 +125,7 @@ class EditorDesign(
         gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(colorNoticeBg)
         setPadding(dp(14), 0, dp(4), 0)
-        visibility = if (updateNotice) View.VISIBLE else View.GONE
+        visibility = if (readOnly) View.VISIBLE else View.GONE
     }
 
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
@@ -202,13 +202,13 @@ class EditorDesign(
                 setPadding(dp(14), 0, dp(4), 0)
 
                 addView(titleView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                addView(undoButton)
-                addView(redoButton)
+                if (!readOnly) addView(undoButton)
+                if (!readOnly) addView(redoButton)
                 addView(findButton)
 
                 if (canCheck) addView(checkButton)
 
-                addView(saveButton)
+                if (!readOnly) addView(saveButton)
                 addView(moreButton)
             },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)),
@@ -219,7 +219,7 @@ class EditorDesign(
                 textSize = 12f
                 setTextColor(colorText)
                 setPadding(0, dp(6), 0, dp(6))
-                text = context.getString(R.string.editor_update_notice)
+                text = context.getString(R.string.editor_readonly_notice)
             },
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
@@ -240,7 +240,7 @@ class EditorDesign(
                 addView(action("✕", null) { toggleFind() })
             },
         )
-        findBar.addView(
+        if (!readOnly) findBar.addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -261,7 +261,7 @@ class EditorDesign(
         for (b in listOf(problemButton, previousWindowButton, nextWindowButton)) b.minHeight = dp(36)
 
         addView(infoRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(40)))
+        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(40)))
         addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -334,6 +334,7 @@ class EditorDesign(
         editor.setSizeSp(sizeSp.toFloat())
         refreshSize()
 
+        editor.readOnly = readOnly
         editor.lintEnabled = lint
         editor.showWhitespace = prefs.getBoolean("show_whitespace", true)
         editor.onProblems = {
@@ -614,7 +615,7 @@ class EditorDesign(
                 isChecked = editor.showWhitespace
             }
             menu.add(0, 1, 2, context.getString(R.string.editor_save_as))
-            menu.add(0, 2, 3, context.getString(R.string.editor_import_from))
+            if (!readOnly) menu.add(0, 2, 3, context.getString(R.string.editor_import_from))
             menu.add(0, 0, 4, context.getString(R.string.editor_external))
             setOnMenuItemClickListener {
                 when (it.itemId) {

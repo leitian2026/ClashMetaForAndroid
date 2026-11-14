@@ -18,6 +18,7 @@ import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.pendingDir
 import com.github.kr328.clash.util.fileName
 import com.github.kr328.clash.util.withClash
+import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -55,8 +56,13 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
         // CUSTOM.md #50: mistakes are looked for in YAML files; the update notice is only for the profile's config.yaml
         val lint = name.substringAfterLast('.', "").lowercase().let { it == "yaml" || it == "yml" }
-        val updateNotice = name == "config.yaml" && intent.getBooleanExtra(EXTRA_UPDATES, false)
-        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, updateNotice)
+        // CUSTOM.md #51: the service refuses to write a profile that is not a local file, so it is only shown
+        val readOnly = intent.getBooleanExtra(EXTRA_READ_ONLY, false)
+
+        profileId = profile
+        openedName = name
+
+        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, readOnly)
 
         setContentDesign(design)
 
@@ -72,7 +78,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
         while (isActive) {
             when (design.requests.receive()) {
-                EditorDesign.Request.Save -> save(design, uri)
+                EditorDesign.Request.Save -> if (!readOnly) save(design, uri)
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)
                 EditorDesign.Request.SaveAs -> saveAs(design, suggestName(name, title))
@@ -171,6 +177,9 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         )
     }
 
+    private var profileId = ""
+    private var openedName = ""
+
     private suspend fun save(design: EditorDesign, uri: Uri): Boolean {
         val bytes = design.currentText().toByteArray(Charsets.UTF_8)
 
@@ -192,7 +201,38 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         design.markSaved()
-        design.toast(getString(R.string.editor_saved))
+
+        if (profileId.isEmpty()) {
+            design.toast(getString(R.string.editor_saved))
+
+            return true
+        }
+
+        return applyProfile(design)
+    }
+
+    // CUSTOM.md #51: what was written is the profile's unsaved copy; this is the profile page's "save": the core checks
+    // it, and when it passes the profile in use is replaced and (if it is the active one) loaded again. When the core
+    // refuses, the copy stays as it is, the reason and the line are shown, and nothing in use changes.
+    private suspend fun applyProfile(design: EditorDesign): Boolean {
+        try {
+            withProfile { commit(UUID.fromString(profileId)) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val line = ConfigErrorText.lineOf(e.message)
+
+            if (line > 0 && openedName == "config.yaml") design.goToLine(line, true)
+
+            design.message(
+                getString(R.string.editor_apply_failed_title),
+                getString(R.string.editor_apply_failed, e.message ?: e.javaClass.simpleName),
+            )
+
+            return false
+        }
+
+        design.toast(getString(R.string.editor_saved_applied))
 
         return true
     }
@@ -266,7 +306,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         private const val EXTRA_NAME = "editor_name"
         private const val EXTRA_PROFILE = "editor_profile"
         private const val EXTRA_TITLE = "editor_title" // CUSTOM.md #47
-        private const val EXTRA_UPDATES = "editor_updates" // CUSTOM.md #50
+        private const val EXTRA_READ_ONLY = "editor_read_only" // CUSTOM.md #51
 
         // CUSTOM.md #50: a text over 3000 lines is shown a window at a time, so the size is limited by memory (the whole
         // text is kept as strings), not by the layout; a bigger file goes to another app
@@ -285,14 +325,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             name: String,
             profile: UUID,
             title: String = "",
-            updatesFromUrl: Boolean = false, // CUSTOM.md #50: an update downloads the profile again and replaces the edits
+            readOnly: Boolean = false, // CUSTOM.md #51: the profile is not a local file, its files cannot be written
         ): Intent {
             return Intent(context, EditorActivity::class.java)
                 .putExtra(EXTRA_ID, documentId)
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_PROFILE, profile.toString())
                 .putExtra(EXTRA_TITLE, title)
-                .putExtra(EXTRA_UPDATES, updatesFromUrl)
+                .putExtra(EXTRA_READ_ONLY, readOnly)
         }
     }
 }

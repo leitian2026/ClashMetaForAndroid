@@ -35,7 +35,6 @@
     <string name="editor_import_failed">Could not import: %1$s</string>
     <string name="editor_too_big">File is over 8 MB</string>
     <!-- CUSTOM (CUSTOM.md #50) -->
-    <string name="editor_update_notice">This is a subscription profile: an update downloads it again and replaces your edits</string>
     <string name="editor_problem_tab">Tab in the indent; YAML does not allow Tabs</string>
     <string name="editor_problem_deeper">Indented more than the line above allows (it is not a key ending with :)</string>
     <string name="editor_problem_misaligned">Indent matches no level above; not aligned with its siblings</string>
@@ -56,4 +55,8 @@
     <string name="editor_window_status">Big file, shown in parts: lines %1$d–%2$d</string>
     <string name="editor_big_notice">Big file, shown in parts; use ◀ ▶ or Go to line to change part (undo history is cleared when it changes)</string>
     <string name="editor_imported_no_undo">Imported %1$s (big file, cannot be undone; not saved yet)</string>
+    <string name="editor_readonly_notice">Subscription and externally imported profiles cannot be edited here (the service refuses to write them); view and find only</string>
+    <string name="editor_saved_applied">Saved and applied</string>
+    <string name="editor_apply_failed_title">Saved, but not applied</string>
+    <string name="editor_apply_failed">The core did not accept this config; the one in use is unchanged. Your edits are kept in the file; fix them and save again.\n\n%1$s</string>
 </resources>

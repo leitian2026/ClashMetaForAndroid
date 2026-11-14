@@ -35,7 +35,6 @@
     <string name="editor_import_failed">导入失败：%1$s</string>
     <string name="editor_too_big">文件超过 8 MB</string>
     <!-- CUSTOM (CUSTOM.md #50) -->
-    <string name="editor_update_notice">这是订阅配置：订阅更新时会重新下载内容，覆盖你在这里的修改</string>
     <string name="editor_problem_tab">缩进用了 Tab，YAML 不允许用 Tab 缩进</string>
     <string name="editor_problem_deeper">缩进比上一行多，但上一行不是以 : 结尾的键</string>
     <string name="editor_problem_misaligned">缩进和上面各层都对不上，没有和同级对齐</string>
@@ -56,4 +55,8 @@
     <string name="editor_window_status">文件较大，分段显示：当前第 %1$d–%2$d 行</string>
     <string name="editor_big_notice">文件较大，分段显示；用 ◀ ▶ 或“跳到行”换段，换段后撤销记录会清空</string>
     <string name="editor_imported_no_undo">已导入 %1$s（文件很大，不能撤销；尚未保存）</string>
+    <string name="editor_readonly_notice">订阅和外部导入的配置不能在这里改（服务端不允许写入），只能查看和查找</string>
+    <string name="editor_saved_applied">已保存并生效</string>
+    <string name="editor_apply_failed_title">保存后没能生效</string>
+    <string name="editor_apply_failed">内核没有接受这份配置，正在用的配置没有变。你的修改保留在文件里，改好后再保存一次。\n\n%1$s</string>
 </resources>
