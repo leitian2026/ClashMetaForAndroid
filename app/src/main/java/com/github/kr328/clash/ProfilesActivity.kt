@@ -87,6 +87,7 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
                                     "config.yaml",
                                     it.profile.uuid,
                                     it.profile.name,
+                                    it.profile.type != Profile.Type.File, // CUSTOM.md #50
                                 )
                             )
                     }

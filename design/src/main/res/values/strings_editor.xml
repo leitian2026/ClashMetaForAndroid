@@ -33,5 +33,27 @@
     <string name="editor_saved_to">Saved to %1$s</string>
     <string name="editor_imported">Imported %1$s (can be undone, not saved yet)</string>
     <string name="editor_import_failed">Could not import: %1$s</string>
-    <string name="editor_too_big">the file is bigger than 1 MB</string>
+    <string name="editor_too_big">File is over 8 MB</string>
+    <!-- CUSTOM (CUSTOM.md #50) -->
+    <string name="editor_update_notice">This is a subscription profile: an update downloads it again and replaces your edits</string>
+    <string name="editor_problem_tab">Tab in the indent; YAML does not allow Tabs</string>
+    <string name="editor_problem_deeper">Indented more than the line above allows (it is not a key ending with :)</string>
+    <string name="editor_problem_misaligned">Indent matches no level above; not aligned with its siblings</string>
+    <string name="editor_problem_dup_key">Duplicate key %1$s (already on line %2$d); the core may keep only the later one</string>
+    <string name="editor_problem_dup_name">Duplicate name %1$s (already on line %2$d)</string>
+    <string name="editor_problem_missing_proxy">%1$s in a group is not a defined proxy or group</string>
+    <string name="editor_problem_missing_policy">A rule points at %1$s, which is not a defined proxy or group</string>
+    <string name="editor_problem_missing_provider">%1$s in use is not in proxy-providers</string>
+    <string name="editor_problem_missing_ruleset">RULE-SET %1$s is not in rule-providers</string>
+    <string name="editor_problem_item">Line %1$d: %2$s</string>
+    <string name="editor_problems_title">%1$d problems (first %2$d listed)</string>
+    <string name="editor_problems_none">No problems found</string>
+    <string name="editor_goto_line">Go to line…</string>
+    <string name="editor_goto_hint">Line (1–%1$d)</string>
+    <string name="editor_show_whitespace">Show Tabs and trailing spaces</string>
+    <string name="editor_window_previous">Previous part</string>
+    <string name="editor_window_next">Next part</string>
+    <string name="editor_window_status">Big file, shown in parts: lines %1$d–%2$d</string>
+    <string name="editor_big_notice">Big file, shown in parts; use ◀ ▶ or Go to line to change part (undo history is cleared when it changes)</string>
+    <string name="editor_imported_no_undo">Imported %1$s (big file, cannot be undone; not saved yet)</string>
 </resources>

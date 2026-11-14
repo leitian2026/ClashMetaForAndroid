@@ -53,7 +53,10 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         // the config check works on the config.yaml at the top of a profile
         val canCheck = profile.isNotEmpty() && id == "$profile/config.yaml"
 
-        val design = EditorDesign(this, name, canCheck, name == "config.yaml")
+        // CUSTOM.md #50: mistakes are looked for in YAML files; the update notice is only for the profile's config.yaml
+        val lint = name.substringAfterLast('.', "").lowercase().let { it == "yaml" || it == "yml" }
+        val updateNotice = name == "config.yaml" && intent.getBooleanExtra(EXTRA_UPDATES, false)
+        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, updateNotice)
 
         setContentDesign(design)
 
@@ -158,8 +161,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             return
         }
 
-        design.replaceText(text)
-        design.toast(getString(R.string.editor_imported, source.fileName ?: source.toString()))
+        val undoable = design.replaceText(text)
+
+        design.toast(
+            getString(
+                if (undoable) R.string.editor_imported else R.string.editor_imported_no_undo,
+                source.fileName ?: source.toString(),
+            )
+        )
     }
 
     private suspend fun save(design: EditorDesign, uri: Uri): Boolean {
@@ -257,8 +266,11 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         private const val EXTRA_NAME = "editor_name"
         private const val EXTRA_PROFILE = "editor_profile"
         private const val EXTRA_TITLE = "editor_title" // CUSTOM.md #47
+        private const val EXTRA_UPDATES = "editor_updates" // CUSTOM.md #50
 
-        private const val MAX_SIZE = 1_000_000 // the text is laid out as a whole: a bigger file goes to another app
+        // CUSTOM.md #50: a text over 3000 lines is shown a window at a time, so the size is limited by memory (the whole
+        // text is kept as strings), not by the layout; a bigger file goes to another app
+        private const val MAX_SIZE = 8_000_000
 
         private val textTypes = setOf("yaml", "yml", "json", "txt", "conf", "ini", "js", "list", "toml")
 
@@ -267,12 +279,20 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             return name.substringAfterLast('.', "").lowercase() in textTypes && size <= MAX_SIZE.toLong()
         }
 
-        fun intent(context: Context, documentId: String, name: String, profile: UUID, title: String = ""): Intent {
+        fun intent(
+            context: Context,
+            documentId: String,
+            name: String,
+            profile: UUID,
+            title: String = "",
+            updatesFromUrl: Boolean = false, // CUSTOM.md #50: an update downloads the profile again and replaces the edits
+        ): Intent {
             return Intent(context, EditorActivity::class.java)
                 .putExtra(EXTRA_ID, documentId)
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_PROFILE, profile.toString())
                 .putExtra(EXTRA_TITLE, title)
+                .putExtra(EXTRA_UPDATES, updatesFromUrl)
         }
     }
 }

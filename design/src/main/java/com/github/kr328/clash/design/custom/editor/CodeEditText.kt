@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.InputType
+import android.text.Layout
 import android.text.Spannable
 import android.text.TextUtils
 import android.text.TextWatcher
@@ -36,6 +37,10 @@ import androidx.appcompat.widget.AppCompatEditText
 // (only when a schema is set). Nothing runs on its own: every step is a reaction to typing or a tap. The colours
 // (CUSTOM.md #48) are put on the whole text once when it is opened and then only on the lines an edit touches, so
 // scrolling does no colouring work; a very big text is coloured only around the screen, as before.
+// CUSTOM.md #50 adds: a text that does not fit in 3000 lines is shown a window at a time (the rest is kept as plain
+// strings), indent guides, the bracket or quote that goes with the one at the caret (red when it has no partner),
+// Tabs and trailing spaces made visible, and a dot at the line number of every problem a background check of the whole
+// text found (it runs once after the typing stops, not on a timer).
 class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -52,6 +57,13 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorGutterBg = if (night) Color.parseColor("#1F2328") else Color.parseColor("#F1F3F4")
     private val colorErrorBand = if (night) Color.parseColor("#55E57373") else Color.parseColor("#33D32F2F")
     private val colorMatch = if (night) Color.parseColor("#88FFB300") else Color.parseColor("#88FFEB3B")
+    private val colorGuide = if (night) Color.parseColor("#2EFFFFFF") else Color.parseColor("#26000000")
+    private val colorTrailing = if (night) Color.parseColor("#66FF8A65") else Color.parseColor("#55FF7043")
+    private val colorTabBg = if (night) Color.parseColor("#44FFCA28") else Color.parseColor("#55FFB300")
+    private val colorPair = Color.parseColor("#664FC3F7")
+    private val colorPairBad = Color.parseColor("#88F44336")
+    private val colorDiagError = Color.parseColor("#E53935")
+    private val colorDiagWarn = Color.parseColor("#FB8C00")
 
     private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
@@ -60,6 +72,17 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     }
     private val gutterPaint = Paint().apply { color = colorGutterBg }
     private val bandPaint = Paint().apply { color = colorErrorBand }
+    private val fillPaint = Paint()
+    private val guidePaint = Paint().apply {
+        color = colorGuide
+        strokeWidth = maxOf(1f, density)
+    }
+    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tabPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.MONOSPACE
+        textAlign = Paint.Align.CENTER
+        color = colorGutterText
+    }
 
     private class TokSpan(color: Int) : ForegroundColorSpan(color)
 
@@ -80,6 +103,13 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     /** Called when the caret moved or the text changed (for the line and column shown). */
     var onCaretChanged: (() -> Unit)? = null
 
+    /** CUSTOM.md #50: Tabs and spaces at the end of a line are drawn (set by the page, kept as a choice of the user). */
+    var showWhitespace: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     private var completion: ClashCompletion? = null
 
     private var lineStarts = intArrayOf(0)
@@ -92,6 +122,23 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private var quiet = false // an edit of the editor itself (a chosen suggestion, indent): no suggestions, no indent
     private var autoIndenting = false
     private var editing = false
+
+    // CUSTOM.md #50: a big text is shown a window at a time. `before` is the text of the lines above the window (it ends
+    // with a new line), `after` the text of the lines below it (it starts with a new line); the editable text is only the
+    // window. A text that fits in one window has both empty. Every line number that is shown counts the whole text.
+    private var before = ""
+    private var after = ""
+    private var lineOffset = 0 // the number of lines in `before`
+    private var afterLines = 0 // the number of new lines in `after`
+    private var fullCache: String? = null
+    private var editVersion = 0 // goes up at every change of the text, so a check that finishes late can be dropped
+
+    private var charW = 0f // the width of one character (the font is monospace)
+
+    // the bracket or quote at the caret and its partner (offsets in the window; -1 for none); red when it has none
+    private var pairA = -1
+    private var pairB = -1
+    private var pairBad = false
 
     private var highlightedFrom = -1
     private var highlightedTo = -1
@@ -121,6 +168,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
 
         numberPaint.textSize = textSize * 0.9f
+        tabPaint.textSize = textSize * 0.9f
+        charW = paint.measureText("M")
 
         updateGutter(1)
 
@@ -147,6 +196,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
                 rebuildLineStarts(s)
 
+                fullCache = null
+                editVersion++
+
                 if (loading) {
                     editing = false
 
@@ -157,7 +209,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
                 if (!replaying) undo.record(UndoStack.Edit(atStart, wasRemoved, wasInserted), autoIndenting)
 
-                updateGutter(lineStarts.size)
+                updateGutter(totalLines())
 
                 // CUSTOM.md #48: in whole-document mode only the lines this edit touched are coloured again, right
                 // here; otherwise (a big file) the screen and its surroundings are coloured after the edit stops
@@ -183,6 +235,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
                 editing = false
 
+                scheduleLint(700)
+                updatePairs()
+
                 onEdited?.invoke()
                 onCaretChanged?.invoke()
             }
@@ -193,14 +248,122 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     // ---- the text ---------------------------------------------------------------------------------
 
-    /** Puts [text] in, forgets undo history and marks. */
+    /** Puts [text] in, forgets undo history and marks. A text over 3000 lines is shown a window at a time (CUSTOM.md #50). */
     fun load(text: String) {
+        loadFull(text, 0)
+
+        errorLine = -1
+
+        clearProblems()
+        scheduleLint(50)
+    }
+
+    /** CUSTOM.md #50: the whole text, also the part that is not in the window. */
+    fun fullText(): String {
+        fullCache?.let { return it }
+
+        val window = text?.toString() ?: ""
+        val full = if (before.isEmpty() && after.isEmpty()) window else before + window + after
+
+        fullCache = full
+
+        return full
+    }
+
+    /** True while only a part of the text is in the text box. */
+    val isWindowed: Boolean get() = before.isNotEmpty() || after.isNotEmpty()
+
+    /** The first and last line (1-based, of the whole text) that are in the text box. */
+    val windowFirstLine: Int get() = lineOffset + 1
+    val windowLastLine: Int get() = lineOffset + lineStarts.size
+
+    private fun totalLines(): Int = lineOffset + lineStarts.size + afterLines
+
+    private fun countNewlines(s: String): Int {
+        var n = 0
+
+        for (c in s) if (c == '\n') n++
+
+        return n
+    }
+
+    // puts [full] in: as one window when it fits, otherwise the window that has the line [aroundLine]
+    private fun loadFull(full: String, aroundLine: Int) {
+        if (full.length <= WINDOW_CHARS && countNewlines(full) < WINDOW_LINES) {
+            installWindow("", full, "", 0)
+
+            return
+        }
+
+        val line = aroundLine.coerceAtLeast(0)
+        val s = slice(full, line - 300, line)
+
+        installWindow(s.before, s.window, s.after, s.start)
+    }
+
+    private class Slice(val before: String, val window: String, val after: String, val start: Int)
+
+    // cuts [full] into the lines above a window, the window (from the line [wantStart], at most 3000 lines and about
+    // 150000 characters) and the lines below it; the window always reaches the line [mustInclude]
+    private fun slice(full: String, wantStart: Int, mustInclude: Int): Slice {
+        var n = 1
+
+        for (c in full) if (c == '\n') n++
+
+        val starts = IntArray(n)
+        var k = 1
+
+        for (i in full.indices) if (full[i] == '\n') starts[k++] = i + 1
+
+        fun lineLength(i: Int): Int = (if (i + 1 < n) starts[i + 1] - 1 else full.length) - starts[i]
+
+        fun endFor(from: Int): Int {
+            var to = from
+            var chars = 0
+
+            while (to < n && to - from < WINDOW_LINES && (to == from || chars < WINDOW_CHARS)) {
+                chars += lineLength(to) + 1
+                to++
+            }
+
+            return to
+        }
+
+        var ws = wantStart.coerceIn(0, n - 1)
+        var we = endFor(ws)
+
+        if (mustInclude in 0 until n && mustInclude >= we) {
+            ws = mustInclude
+            we = endFor(ws)
+        }
+
+        val windowEnd = if (we < n) starts[we] - 1 else full.length
+
+        return Slice(
+            full.substring(0, starts[ws]),
+            full.substring(starts[ws], windowEnd),
+            if (we < n) full.substring(windowEnd) else "",
+            ws,
+        )
+    }
+
+    // makes [w] the text of the text box, with [b] above it and [a] below it; the history of undo is gone
+    private fun installWindow(b: String, w: String, a: String, offset: Int) {
         loading = true
-        setText(text)
+        setText(w)
         loading = false
 
+        before = b
+        after = a
+        lineOffset = offset
+        afterLines = countNewlines(a)
+        fullCache = null
+        matchSpan = null // setText took every span off
+        pairA = -1
+        pairB = -1
+        pairBad = false
+
         undo.clear()
-        errorLine = -1
         highlightedFrom = -1
         highlightedTo = -1
         highlightStale = true
@@ -209,28 +372,85 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         this.text?.let { rebuildLineStarts(it) }
 
         flinger.abortAnimation()
-        updateGutter(lineStarts.size)
+        updateGutter(totalLines())
         setSelection(0)
         scrollTo(0, 0)
+        removeCallbacks(highlightRunnable)
         postDelayed(highlightRunnable, 30)
         onCaretChanged?.invoke()
+    }
+
+    // the line [local] of the window, [fraction] of the way down the screen
+    private fun placeLine(local: Int, fraction: Float) {
+        val l = layout ?: return
+        val index = local.coerceIn(0, lineStarts.size - 1)
+
+        setSelection(lineStarts[index])
+
+        val y = l.getLineTop(l.getLineForOffset(lineStarts[index].coerceAtMost(text?.length ?: 0))) + totalPaddingTop - (height * fraction).toInt()
+
+        scrollTo(0, y.coerceIn(0, maxScrollY()))
+    }
+
+    /** The next window: it starts a little above where this one ends, so that the lines before the cut can still be seen. */
+    fun nextWindow(): Boolean {
+        if (after.isEmpty()) return false
+
+        val lastLine = lineOffset + lineStarts.size - 1
+        val overlap = minOf(100, lineStarts.size / 2)
+        val s = slice(fullText(), lastLine + 1 - overlap, lastLine + 1)
+
+        installWindow(s.before, s.window, s.after, s.start)
+        placeLine(lastLine - s.start, 0.05f)
+
+        return true
+    }
+
+    /** The window above this one. */
+    fun previousWindow(): Boolean {
+        if (lineOffset == 0) return false
+
+        val firstLine = lineOffset
+        val overlap = minOf(100, lineStarts.size / 2)
+        val s = slice(fullText(), firstLine + overlap - WINDOW_LINES, firstLine - 1)
+
+        installWindow(s.before, s.window, s.after, s.start)
+        placeLine(firstLine - s.start, 0.9f)
+
+        return true
     }
 
     /** CUSTOM.md #47: the size of the text in sp; the line numbers follow it. Only called at a tap of the user. */
     fun setSizeSp(sp: Float) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp)
         numberPaint.textSize = textSize * 0.9f
+        tabPaint.textSize = textSize * 0.9f
+        charW = paint.measureText("M")
         gutterDigits = 0 // the gutter is as wide as its digits: measure it again
-        updateGutter(lineStarts.size)
+        updateGutter(totalLines())
         invalidate()
     }
 
-    /** CUSTOM.md #47: replaces the whole text by [replacement] as one undo step (only the part that differs is replaced). */
-    fun replaceWhole(replacement: String) {
-        val t = text ?: return
+    /**
+     * CUSTOM.md #47: replaces the whole text by [replacement] as one undo step (only the part that differs is replaced).
+     * CUSTOM.md #50: when the old or the new text is shown a window at a time, the history of undo is gone instead; false then.
+     */
+    fun replaceWhole(replacement: String): Boolean {
+        val t = text ?: return true
+
+        if (isWindowed || replacement.length > WINDOW_CHARS || countNewlines(replacement) >= WINDOW_LINES) {
+            if (fullText() == replacement) return true
+
+            clearMatch()
+            loadFull(replacement, 0)
+            scheduleLint(100)
+
+            return false
+        }
+
         val old = t.toString()
 
-        if (old == replacement) return
+        if (old == replacement) return true
 
         var head = 0
 
@@ -253,9 +473,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         undo.seal()
         setSelection(0)
         scrollTo(0, 0)
+
+        return true
     }
 
-    val logicalLineCount: Int get() = lineStarts.size
+    val logicalLineCount: Int get() = totalLines()
 
     /** 0-based index of the line that has the character at [offset]. */
     fun lineIndexAt(offset: Int): Int {
@@ -271,7 +493,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         return low
     }
 
-    val caretLine: Int get() = lineIndexAt(selectionStart.coerceAtLeast(0)) + 1
+    val caretLine: Int get() = lineIndexAt(selectionStart.coerceAtLeast(0)) + 1 + lineOffset
 
     val caretColumn: Int
         get() {
@@ -303,7 +525,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         if (digits == gutterDigits) return
 
         gutterDigits = digits
-        gutterWidth = (numberPaint.measureText("0") * digits + 14 * density).toInt()
+        gutterWidth = (numberPaint.measureText("0") * digits + 22 * density).toInt()
 
         setPadding(gutterWidth + (8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
     }
@@ -319,37 +541,271 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             val bottom = scrollY + height
             val first = l.getLineForVertical((top - totalPaddingTop).coerceAtLeast(0))
             val last = l.getLineForVertical((bottom - totalPaddingTop).coerceAtLeast(0))
+            val padTop = totalPaddingTop
+            val padLeft = totalPaddingLeft
 
-            if (errorLine in lineStarts.indices) {
-                val from = l.getLineForOffset(lineStarts[errorLine].coerceAtMost(t.length))
-                val to = l.getLineForOffset(lineEnd(errorLine, t.length).coerceAtMost(t.length))
+            val errorLocal = errorLine - lineOffset
+
+            if (errorLocal in lineStarts.indices) {
+                val from = l.getLineForOffset(lineStarts[errorLocal].coerceAtMost(t.length))
+                val to = l.getLineForOffset(lineEnd(errorLocal, t.length).coerceAtMost(t.length))
 
                 canvas.drawRect(
                     scrollX.toFloat(),
-                    (l.getLineTop(from) + totalPaddingTop).toFloat(),
+                    (l.getLineTop(from) + padTop).toFloat(),
                     (scrollX + width).toFloat(),
-                    (l.getLineBottom(to) + totalPaddingTop).toFloat(),
+                    (l.getLineBottom(to) + padTop).toFloat(),
                     bandPaint,
                 )
             }
 
+            drawPair(canvas, l, t, padLeft, padTop)
+
+            // CUSTOM.md #50: indent guides and visible Tabs / trailing spaces, only for the lines on the screen
+            for (i in first..last) {
+                val start = l.getLineStart(i)
+
+                if (start == 0 || t[start - 1] == '\n') drawGuides(canvas, l, t, i, start, padLeft, padTop)
+
+                if (showWhitespace) drawWhitespace(canvas, l, t, i, start, padLeft, padTop)
+            }
+
             canvas.drawRect(scrollX.toFloat(), top.toFloat(), (scrollX + gutterWidth).toFloat(), bottom.toFloat(), gutterPaint)
+
+            // the dots only count while the text still has the lines the check saw
+            val showDots = diagTotalLines == totalLines()
 
             for (i in first..last) {
                 val start = l.getLineStart(i)
 
                 if (start == 0 || t[start - 1] == '\n') {
+                    val index = lineIndexAt(start)
+                    val baseline = (l.getLineBaseline(i) + padTop).toFloat()
+
                     canvas.drawText(
-                        (lineIndexAt(start) + 1).toString(),
+                        (index + 1 + lineOffset).toString(),
                         (scrollX + gutterWidth - 6 * density),
-                        (l.getLineBaseline(i) + totalPaddingTop).toFloat(),
+                        baseline,
                         numberPaint,
                     )
+
+                    if (showDots) {
+                        val severity = diagMap[index + lineOffset]
+
+                        if (severity != null) {
+                            dotPaint.color = if (severity == 0) colorDiagError else colorDiagWarn
+
+                            canvas.drawCircle(scrollX + 7 * density, baseline - numberPaint.textSize * 0.35f, 3 * density, dotPaint)
+                        }
+                    }
                 }
             }
         }
 
         super.onDraw(canvas)
+    }
+
+    // ---- guides, whitespace, pairs (CUSTOM.md #50) -----------------------------------------------------
+
+    // a thin vertical line at every second column inside the indent of the line that starts at [start]
+    private fun drawGuides(canvas: Canvas, l: Layout, t: Editable, line: Int, start: Int, padLeft: Int, padTop: Int) {
+        val lineEnd = l.getLineEnd(line)
+        var indent = 0
+
+        while (start + indent < lineEnd && t[start + indent] == ' ') indent++
+
+        // an empty line takes the depth of the lines around it, so that the guides run through it
+        if (start + indent >= lineEnd || t[start + indent] == '\n' || t[start + indent] == '\r') indent = blankDepth(start)
+
+        if (indent < 3) return
+
+        val top = (l.getLineTop(line) + padTop).toFloat()
+        val bottom = (l.getLineBottom(line) + padTop).toFloat()
+        var k = 2
+
+        while (k < indent) {
+            val x = padLeft + k * charW
+
+            canvas.drawLine(x, top, x, bottom, guidePaint)
+
+            k += 2
+        }
+    }
+
+    // the indent of the nearest lines above and below an empty line (the smaller one)
+    private fun blankDepth(start: Int): Int {
+        val t = text ?: return 0
+        val index = lineIndexAt(start)
+        var above = 0
+        var i = index - 1
+        var steps = 0
+
+        while (i >= 0 && steps < 60) {
+            val d = indentAt(t, lineStarts[i], lineEnd(i, t.length))
+
+            if (d >= 0) {
+                above = d
+
+                break
+            }
+
+            i--
+            steps++
+        }
+
+        var below = 0
+
+        i = index + 1
+        steps = 0
+
+        while (i < lineStarts.size && steps < 60) {
+            val d = indentAt(t, lineStarts[i], lineEnd(i, t.length))
+
+            if (d >= 0) {
+                below = d
+
+                break
+            }
+
+            i++
+            steps++
+        }
+
+        return minOf(above, below)
+    }
+
+    // the number of spaces the line [s, e) starts with; -1 when it has nothing else
+    private fun indentAt(t: CharSequence, s: Int, e: Int): Int {
+        var k = s
+
+        while (k < e && t[k] == ' ') k++
+
+        return if (k >= e || t[k] == '\r') -1 else k - s
+    }
+
+    // Tabs get a tinted box with an arrow; spaces and Tabs at the end of a line get a tinted box
+    private fun drawWhitespace(canvas: Canvas, l: Layout, t: Editable, line: Int, start: Int, padLeft: Int, padTop: Int) {
+        val le = l.getLineEnd(line).coerceAtMost(t.length)
+
+        if (le <= start) return
+
+        val top = (l.getLineTop(line) + padTop).toFloat()
+        val bottom = (l.getLineBottom(line) + padTop).toFloat()
+        val endsLogical = le >= t.length || t[le - 1] == '\n'
+        val textEnd = if (t[le - 1] == '\n') le - 1 else le
+
+        for (k in start until textEnd) {
+            if (t[k] != '\t') continue
+
+            val x1 = padLeft + l.getPrimaryHorizontal(k)
+            val x2 = padLeft + (if (k + 1 < le) l.getPrimaryHorizontal(k + 1) else l.getLineRight(line))
+
+            fillPaint.color = colorTabBg
+            canvas.drawRect(x1, top, x2, bottom, fillPaint)
+            canvas.drawText("\u2192", (x1 + x2) / 2f, (l.getLineBaseline(line) + padTop).toFloat(), tabPaint)
+        }
+
+        if (!endsLogical) return
+
+        var end = textEnd
+
+        if (end > start && t[end - 1] == '\r') end--
+
+        var from = end
+
+        while (from > start && (t[from - 1] == ' ' || t[from - 1] == '\t')) from--
+
+        if (from == end) return
+
+        // while the caret is in it the line is still being typed
+        if (selectionStart == selectionEnd && selectionStart in from..end) return
+
+        val x1 = padLeft + l.getPrimaryHorizontal(from)
+        val x2 = padLeft + l.getPrimaryHorizontal(end)
+
+        fillPaint.color = colorTrailing
+        canvas.drawRect(x1, top, x2, bottom, fillPaint)
+    }
+
+    private fun drawPair(canvas: Canvas, l: Layout, t: Editable, padLeft: Int, padTop: Int) {
+        for (o in intArrayOf(pairA, pairB)) {
+            if (o < 0 || o >= t.length) continue
+
+            val line = l.getLineForOffset(o)
+            val x = padLeft + l.getPrimaryHorizontal(o)
+
+            fillPaint.color = if (pairBad) colorPairBad else colorPair
+            canvas.drawRect(x, (l.getLineTop(line) + padTop).toFloat(), x + charW, (l.getLineBottom(line) + padTop).toFloat(), fillPaint)
+        }
+    }
+
+    // looks for the partner of the bracket or quote next to the caret; only called when the caret moved or the text changed
+    private fun updatePairs() {
+        val oldA = pairA
+        val oldB = pairB
+        val oldBad = pairBad
+
+        pairA = -1
+        pairB = -1
+        pairBad = false
+
+        val t = text
+
+        if (t != null && selectionStart == selectionEnd && selectionStart >= 0) {
+            findPair(t, selectionStart)
+        }
+
+        if (oldA != pairA || oldB != pairB || oldBad != pairBad) invalidate()
+    }
+
+    private fun findPair(t: Editable, caret: Int) {
+        val candidates = intArrayOf(caret - 1, caret)
+
+        for (at in candidates) {
+            if (at < 0 || at >= t.length) continue
+
+            val c = t[at]
+
+            if (c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}') {
+                val m = YamlPairs.matchBracket(t, at)
+
+                if (m >= 0) {
+                    pairA = at
+                    pairB = m
+                } else if (m == YamlPairs.UNMATCHED) {
+                    pairA = at
+                    pairBad = true
+                }
+
+                return
+            }
+        }
+
+        for (at in candidates) {
+            if (at < 0 || at >= t.length) continue
+
+            val c = t[at]
+
+            if (c != '"' && c != '\'') continue
+
+            val line = lineIndexAt(at)
+            val s = lineStarts[line]
+            val e = lineEnd(line, t.length)
+
+            if (e - s > 2000) return
+
+            val column = at - s
+
+            for (pair in YamlPairs.quotes(TextUtils.substring(t, s, e))) {
+                if (pair[0] == column || pair[1] == column) {
+                    pairA = s + pair[0]
+
+                    if (pair[1] >= 0) pairB = s + pair[1] else pairBad = true
+
+                    return
+                }
+            }
+        }
     }
 
     override fun onScrollChanged(horiz: Int, vert: Int, oldHoriz: Int, oldVert: Int) {
@@ -532,6 +988,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         flinger.abortAnimation()
         removeCallbacks(highlightRunnable)
         removeCallbacks(completionRunnable)
+        removeCallbacks(lintRunnable)
+        lintGeneration++
         dismissCompletion()
 
         super.onDetachedFromWindow()
@@ -581,7 +1039,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             val start = lineStarts[line]
             val end = lineEnd(line, editable.length)
 
-            if (end <= start) continue
+            if (end <= start || end - start > 2000) continue // a line that long (a minified file) is left plain
 
             // not subSequence: that copies the spans of the range
             val text = TextUtils.substring(editable, start, end).trimEnd('\r')
@@ -761,14 +1219,25 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         }
     }
 
-    /** Puts the caret at the start of the 1-based [line] and marks it as the place of an error when [mark]. */
+    /**
+     * Puts the caret at the start of the 1-based [line] (of the whole text) and marks it as the place of an error when
+     * [mark]. CUSTOM.md #50: the window moves when the line is not in it.
+     */
     fun goToLine(line: Int, mark: Boolean) {
-        val index = (line - 1).coerceIn(0, lineStarts.size - 1)
+        val absolute = (line - 1).coerceIn(0, totalLines() - 1)
 
-        setSelection(lineStarts[index])
-        scrollToOffset(lineStarts[index])
+        if (absolute < lineOffset || absolute >= lineOffset + lineStarts.size) {
+            val s = slice(fullText(), absolute - 300, absolute)
 
-        errorLine = if (mark) index else -1
+            installWindow(s.before, s.window, s.after, s.start)
+        }
+
+        val local = (absolute - lineOffset).coerceIn(0, lineStarts.size - 1)
+
+        setSelection(lineStarts[local])
+        scrollToOffset(lineStarts[local])
+
+        errorLine = if (mark) absolute else -1
 
         invalidate()
     }
@@ -782,7 +1251,10 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     // ---- find and replace ---------------------------------------------------------------------------
 
-    /** Finds the next (or previous) place of [query] from the caret, wrapping round; marks it. False when there is none. */
+    /**
+     * Finds the next (or previous) place of [query] from the caret, wrapping round; marks it. False when there is none.
+     * CUSTOM.md #50: it looks in the whole text, and the window moves to the place when it is not in it.
+     */
     fun find(query: String, forward: Boolean, matchCase: Boolean): Boolean {
         val t = text ?: return false
 
@@ -792,15 +1264,18 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             return false
         }
 
-        val s = t.toString()
+        val s = fullText()
+        val base = before.length
         var at: Int
 
         if (forward) {
-            at = s.indexOf(query, selectionEnd.coerceIn(0, s.length), !matchCase)
+            at = s.indexOf(query, base + selectionEnd.coerceIn(0, t.length), !matchCase)
 
             if (at < 0) at = s.indexOf(query, 0, !matchCase)
         } else {
-            at = if (selectionStart <= 0) -1 else s.lastIndexOf(query, selectionStart - 1, !matchCase)
+            val from = base + selectionStart.coerceAtLeast(0)
+
+            at = if (from <= 0) -1 else s.lastIndexOf(query, from - 1, !matchCase)
 
             if (at < 0) at = s.lastIndexOf(query, s.length, !matchCase)
         }
@@ -811,20 +1286,41 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             return false
         }
 
-        markMatch(at, at + query.length)
-        setSelection(at, at + query.length)
-        scrollToOffset(at)
+        showMatch(s, at, query.length)
 
         return true
     }
 
+    // marks and shows the match at [at] (an offset in the whole text), moving the window to it when it is outside
+    private fun showMatch(full: String, at: Int, length: Int) {
+        if (at < before.length || at + length > before.length + (text?.length ?: 0)) {
+            var line = 0
+
+            for (i in 0 until at) if (full[i] == '\n') line++
+
+            val s = slice(full, line - 300, line)
+
+            installWindow(s.before, s.window, s.after, s.start)
+        }
+
+        val t = text ?: return
+        val from = (at - before.length).coerceIn(0, t.length)
+        val to = (from + length).coerceAtMost(t.length)
+
+        markMatch(from, to)
+        setSelection(from, to)
+        scrollToOffset(from)
+    }
+
     /** "n of m" for the match at the caret: (index, total), index 0 when the caret is not on one. */
     fun matchPosition(query: String, matchCase: Boolean): Pair<Int, Int> {
-        val t = text ?: return Pair(0, 0)
+        if (text == null) return Pair(0, 0)
 
         if (query.isEmpty()) return Pair(0, 0)
 
-        val s = t.toString()
+        val s = fullText()
+        val from = before.length + selectionStart
+        val to = before.length + selectionEnd
         var count = 0
         var index = 0
         var at = s.indexOf(query, 0, !matchCase)
@@ -832,7 +1328,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         while (at >= 0 && count < 99999) {
             count++
 
-            if (at == selectionStart && at + query.length == selectionEnd) index = count
+            if (at == from && at + query.length == to) index = count
 
             at = s.indexOf(query, at + query.length, !matchCase)
         }
@@ -864,6 +1360,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         val t = text ?: return 0
 
         if (query.isEmpty()) return 0
+
+        // CUSTOM.md #50: the text is not all in the text box: replace in the whole text, the history of undo is gone
+        if (isWindowed) return replaceAllWindowed(query, with, matchCase)
 
         val old = t.toString()
         val result = StringBuilder(old.length)
@@ -906,6 +1405,37 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         return count
     }
 
+    private fun replaceAllWindowed(query: String, with: String, matchCase: Boolean): Int {
+        val old = fullText()
+        val result = StringBuilder(old.length)
+        var count = 0
+        var from = 0
+        var at = old.indexOf(query, 0, !matchCase)
+        val firstAt = at
+
+        while (at >= 0) {
+            result.append(old, from, at).append(with)
+            count++
+            from = at + query.length
+            at = old.indexOf(query, from, !matchCase)
+        }
+
+        if (count == 0) return 0
+
+        result.append(old, from, old.length)
+
+        var line = 0
+
+        for (i in 0 until firstAt) if (old[i] == '\n') line++
+
+        clearMatch()
+        loadFull(result.toString(), line)
+        scheduleLint(100)
+        onEdited?.invoke()
+
+        return count
+    }
+
     private fun markMatch(from: Int, to: Int) {
         val t = text ?: return
 
@@ -930,6 +1460,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         if (ready && !editing) {
             dismissCompletion()
             undo.seal()
+            updatePairs()
             onCaretChanged?.invoke()
         }
     }
@@ -938,7 +1469,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         val engine = completion ?: return
         val t = text ?: return
 
-        if (selectionStart != selectionEnd || selectionStart < 0 || t.length > 600_000) return
+        // CUSTOM.md #50: the keys above the window are not in the text box, so the level of the caret cannot be read
+        if (selectionStart != selectionEnd || selectionStart < 0 || t.length > 600_000 || isWindowed) return
 
         val offset = selectionStart
         val index = lineIndexAt(offset)
@@ -1089,6 +1621,89 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         shownCompletion = null
     }
 
+    // ---- problems of the whole text (CUSTOM.md #50) -----------------------------------------------------
+
+    /** Set by the page: look for mistakes in the text (only for YAML files). */
+    var lintEnabled = false
+
+    /** Called when the list of problems was renewed. */
+    var onProblems: (() -> Unit)? = null
+
+    private var problems: List<Diagnostic> = emptyList()
+    private val diagMap = HashMap<Int, Int>() // 0-based line of the whole text -> the worst severity on it
+    private val diagByLine = HashMap<Int, ArrayList<Diagnostic>>()
+    private var diagTotalLines = -1 // how many lines the text had when it was checked
+    private var lintGeneration = 0
+    private val lintRunnable = Runnable { startLint() }
+
+    fun allProblems(): List<Diagnostic> = problems
+
+    /** The problems of the 0-based [line] (of the whole text); none while the text has a different number of lines than when it was checked. */
+    fun problemsAt(line: Int): List<Diagnostic> {
+        if (diagTotalLines != totalLines()) return emptyList()
+
+        return diagByLine[line] ?: emptyList()
+    }
+
+    // the check starts once the typing has stopped for [delay] (never on a timer that keeps running)
+    private fun scheduleLint(delay: Long) {
+        if (!lintEnabled) return
+
+        removeCallbacks(lintRunnable)
+        postDelayed(lintRunnable, delay)
+    }
+
+    private fun clearProblems() {
+        problems = emptyList()
+        diagMap.clear()
+        diagByLine.clear()
+        diagTotalLines = -1
+        onProblems?.invoke()
+        invalidate()
+    }
+
+    // reads the whole text on a thread of its own; an answer that comes after the text changed again is dropped
+    private fun startLint() {
+        if (!lintEnabled) return
+
+        val snapshot = fullText()
+        val total = totalLines()
+        val version = editVersion
+        val generation = ++lintGeneration
+
+        Thread {
+            val found = try {
+                YamlLint.run(snapshot)
+            } catch (_: Throwable) {
+                null
+            }
+
+            if (found != null) {
+                post {
+                    if (generation == lintGeneration && version == editVersion && isAttachedToWindow) applyProblems(found, total)
+                }
+            }
+        }.start()
+    }
+
+    private fun applyProblems(found: List<Diagnostic>, total: Int) {
+        problems = found
+        diagMap.clear()
+        diagByLine.clear()
+
+        for (d in found) {
+            val old = diagMap[d.line]
+
+            if (old == null || d.severity < old) diagMap[d.line] = d.severity
+
+            diagByLine.getOrPut(d.line) { ArrayList() }.add(d)
+        }
+
+        diagTotalLines = total
+        onProblems?.invoke()
+        invalidate()
+    }
+
     // ---- keys ---------------------------------------------------------------------------------------
 
     // a keyboard with a Tab key: two spaces (Shift+Tab takes them away)
@@ -1118,8 +1733,13 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     }
 
     private companion object {
-        // CUSTOM.md #48: up to this size the whole text is coloured (about 5 spans a line); above it only the screen
-        const val WHOLE_MAX_LINES = 3000
-        const val WHOLE_MAX_CHARS = 150_000
+        // CUSTOM.md #50: the most that is in the text box at a time (a window of a bigger text)
+        const val WINDOW_LINES = 3000
+        const val WINDOW_CHARS = 150_000
+
+        // CUSTOM.md #48: up to this size the whole text is coloured (about 5 spans a line); above it only the screen.
+        // A window is never bigger than this unless a single line is.
+        const val WHOLE_MAX_LINES = WINDOW_LINES
+        const val WHOLE_MAX_CHARS = WINDOW_CHARS
     }
 }

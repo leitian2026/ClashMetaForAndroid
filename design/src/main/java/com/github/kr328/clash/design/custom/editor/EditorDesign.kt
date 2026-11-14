@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -38,6 +39,8 @@ class EditorDesign(
     private val fileName: String,
     canCheck: Boolean,
     useSchema: Boolean,
+    private val lint: Boolean = false, // CUSTOM.md #50: look for mistakes in the text (YAML files)
+    updateNotice: Boolean = false, // CUSTOM.md #50: the profile is downloaded again at an update, which replaces the edits
 ) : Design<EditorDesign.Request>(context) {
     enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom } // SaveAs, ImportFrom: CUSTOM.md #47
 
@@ -51,6 +54,8 @@ class EditorDesign(
     private val colorMuted = if (night) Color.parseColor("#9AA4AE") else Color.parseColor("#6B7480")
     private val colorAccent = if (night) Color.parseColor("#82AAFF") else Color.parseColor("#1565C0")
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
+    private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
+    private val colorNoticeBg = if (night) Color.parseColor("#3E2F00") else Color.parseColor("#FFF4D6")
 
     private fun dp(value: Int) = (value * density).toInt()
 
@@ -88,6 +93,39 @@ class EditorDesign(
         setTextColor(colorMuted)
         setPadding(dp(12), dp(4), dp(12), dp(4))
         setBackgroundColor(colorBar)
+    }
+
+    // CUSTOM.md #50: the row above the symbols: the problem on the caret's line (or which lines of a big text are shown),
+    // the list of all problems, and the buttons that move a big text's window
+    private val hintView = TextView(context).apply {
+        textSize = 12f
+        setTextColor(colorMuted)
+        maxLines = 2
+        ellipsize = android.text.TextUtils.TruncateAt.END
+        setPadding(dp(12), dp(4), dp(4), dp(4))
+        isClickable = true
+        setOnClickListener { showProblems() }
+    }
+    private val problemButton = action("", null) { showProblems() }
+    private val previousWindowButton = action("\u25C0", context.getString(R.string.editor_window_previous)) {
+        if (!editor.previousWindow()) refreshStatus()
+    }
+    private val nextWindowButton = action("\u25B6", context.getString(R.string.editor_window_next)) {
+        if (!editor.nextWindow()) refreshStatus()
+    }
+    private val infoRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(colorBar)
+        visibility = View.GONE
+    }
+
+    private val noticeRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(colorNoticeBg)
+        setPadding(dp(14), 0, dp(4), 0)
+        visibility = if (updateNotice) View.VISIBLE else View.GONE
     }
 
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
@@ -176,6 +214,18 @@ class EditorDesign(
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)),
         )
 
+        noticeRow.addView(
+            TextView(context).apply {
+                textSize = 12f
+                setTextColor(colorText)
+                setPadding(0, dp(6), 0, dp(6))
+                text = context.getString(R.string.editor_update_notice)
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        noticeRow.addView(action("\u2715", null) { noticeRow.visibility = View.GONE })
+        addView(noticeRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
         // find bar: the word, matches, previous, next, close; the replacement, replace, replace all
         findBar.addView(
             LinearLayout(context).apply {
@@ -203,6 +253,14 @@ class EditorDesign(
 
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        infoRow.addView(hintView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        infoRow.addView(problemButton)
+        infoRow.addView(previousWindowButton)
+        infoRow.addView(nextWindowButton)
+
+        for (b in listOf(problemButton, previousWindowButton, nextWindowButton)) b.minHeight = dp(36)
+
+        addView(infoRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(40)))
         addView(
             LinearLayout(context).apply {
@@ -276,6 +334,13 @@ class EditorDesign(
         editor.setSizeSp(sizeSp.toFloat())
         refreshSize()
 
+        editor.lintEnabled = lint
+        editor.showWhitespace = prefs.getBoolean("show_whitespace", true)
+        editor.onProblems = {
+            refreshProblems()
+            refreshStatus()
+        }
+
         editor.onEdited = {
             setDirty(true)
             refreshStatus()
@@ -298,6 +363,7 @@ class EditorDesign(
         }
 
         refreshCase()
+        refreshProblems()
         refreshStatus()
     }
 
@@ -306,16 +372,24 @@ class EditorDesign(
     fun load(text: String) {
         editor.load(text)
         setDirty(false)
+        refreshProblems()
         refreshStatus()
+
+        if (editor.isWindowed) launch { toast(context.getString(R.string.editor_big_notice)) }
     }
 
-    fun currentText(): String = editor.text?.toString() ?: ""
+    // the whole text, also the part of a big text that is not in the text box
+    fun currentText(): String = editor.fullText()
 
     /** CUSTOM.md #47: puts text picked from elsewhere in place of the text (one undo step, the page becomes unsaved). */
-    fun replaceText(text: String) {
-        editor.replaceWhole(text)
+    fun replaceText(text: String): Boolean {
+        val undoable = editor.replaceWhole(text) // false for a big text: the history of undo is gone (CUSTOM.md #50)
+
         setDirty(true)
+        refreshProblems()
         refreshStatus()
+
+        return undoable
     }
 
     fun markSaved() {
@@ -379,8 +453,91 @@ class EditorDesign(
     private fun refreshStatus() {
         statusView.text = context.getString(R.string.editor_status, editor.caretLine, editor.caretColumn, editor.logicalLineCount)
 
+        // CUSTOM.md #50: what the row above the symbols says
+        val here = editor.problemsAt(editor.caretLine - 1)
+
+        if (here.isNotEmpty()) {
+            val extra = if (here.size > 1) "  (+${here.size - 1})" else ""
+
+            hintView.text = describe(here[0]) + extra
+            hintView.setTextColor(if (here[0].severity == 0) colorBad else colorWarn)
+        } else if (editor.isWindowed) {
+            hintView.text = context.getString(R.string.editor_window_status, editor.windowFirstLine, editor.windowLastLine)
+            hintView.setTextColor(colorMuted)
+        } else {
+            hintView.text = ""
+        }
+
+        previousWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
+        nextWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
+        previousWindowButton.alpha = if (editor.windowFirstLine > 1) 1f else 0.35f
+        nextWindowButton.alpha = if (editor.windowLastLine < editor.logicalLineCount) 1f else 0.35f
+        infoRow.visibility = if (lint || editor.isWindowed) View.VISIBLE else View.GONE
+
         undoButton.alpha = if (editor.undo.canUndo) 1f else 0.35f
         redoButton.alpha = if (editor.undo.canRedo) 1f else 0.35f
+    }
+
+    // CUSTOM.md #50: the number of problems on the button; the button is only there for YAML files
+    private fun refreshProblems() {
+        val count = editor.allProblems().size
+
+        problemButton.visibility = if (lint) View.VISIBLE else View.GONE
+        problemButton.text = if (count > 0) "\u26A0 $count" else "\u2713"
+        problemButton.setTextColor(if (count > 0) colorWarn else colorMuted)
+    }
+
+    private fun describe(d: Diagnostic): String = when (d.kind) {
+        DiagKind.Tab -> context.getString(R.string.editor_problem_tab)
+        DiagKind.IndentDeeper -> context.getString(R.string.editor_problem_deeper)
+        DiagKind.IndentMisaligned -> context.getString(R.string.editor_problem_misaligned)
+        DiagKind.DupKey -> context.getString(R.string.editor_problem_dup_key, d.arg, d.other)
+        DiagKind.DupName -> context.getString(R.string.editor_problem_dup_name, d.arg, d.other)
+        DiagKind.MissingProxy -> context.getString(R.string.editor_problem_missing_proxy, d.arg)
+        DiagKind.MissingPolicy -> context.getString(R.string.editor_problem_missing_policy, d.arg)
+        DiagKind.MissingProvider -> context.getString(R.string.editor_problem_missing_provider, d.arg)
+        DiagKind.MissingRuleSet -> context.getString(R.string.editor_problem_missing_ruleset, d.arg)
+    }
+
+    // a list of the problems; a tap on one goes to its line
+    private fun showProblems() {
+        val all = editor.allProblems()
+
+        if (all.isEmpty()) {
+            launch { toast(context.getString(R.string.editor_problems_none)) }
+
+            return
+        }
+
+        val shown = all.take(300)
+        val items = shown.map { context.getString(R.string.editor_problem_item, it.line + 1, describe(it)) }.toTypedArray()
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(context.getString(R.string.editor_problems_title, all.size, shown.size))
+            .setItems(items) { _, which -> goToLine(shown[which].line + 1, false) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun askLine() {
+        val input = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = context.getString(R.string.editor_goto_hint, editor.logicalLineCount)
+            setSingleLine()
+        }
+        val box = FrameLayout(context).apply {
+            setPadding(dp(24), dp(8), dp(24), 0)
+            addView(input)
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.editor_goto_line)
+            .setView(box)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                input.text?.toString()?.toIntOrNull()?.let { goToLine(it, false) }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun changeSize(delta: Int) {
@@ -450,17 +607,28 @@ class EditorDesign(
     private fun showMore(anchor: View) {
         PopupMenu(context, anchor).apply {
             // CUSTOM.md #47: save to / open from anywhere on the phone
-            menu.add(0, 1, 0, context.getString(R.string.editor_save_as))
-            menu.add(0, 2, 1, context.getString(R.string.editor_import_from))
-            menu.add(0, 0, 2, context.getString(R.string.editor_external))
+            // CUSTOM.md #50: jump to a line, show Tabs and trailing spaces
+            menu.add(0, 3, 0, context.getString(R.string.editor_goto_line))
+            menu.add(0, 4, 1, context.getString(R.string.editor_show_whitespace)).apply {
+                isCheckable = true
+                isChecked = editor.showWhitespace
+            }
+            menu.add(0, 1, 2, context.getString(R.string.editor_save_as))
+            menu.add(0, 2, 3, context.getString(R.string.editor_import_from))
+            menu.add(0, 0, 4, context.getString(R.string.editor_external))
             setOnMenuItemClickListener {
-                requests.trySend(
-                    when (it.itemId) {
-                        1 -> Request.SaveAs
-                        2 -> Request.ImportFrom
-                        else -> Request.External
+                when (it.itemId) {
+                    3 -> askLine()
+                    4 -> {
+                        val on = !editor.showWhitespace
+
+                        editor.showWhitespace = on
+                        prefs.edit().putBoolean("show_whitespace", on).apply()
                     }
-                )
+                    1 -> requests.trySend(Request.SaveAs)
+                    2 -> requests.trySend(Request.ImportFrom)
+                    else -> requests.trySend(Request.External)
+                }
 
                 true
             }

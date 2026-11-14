@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r55
+当前版本：2_11_36-r56
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -25,11 +25,11 @@
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
 | `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
-| `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(...))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
+| `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 #50 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(..., uuid, "", profile.type != Profile.Type.File))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
 | `design/src/main/res/layout/adapter_profile.xml` | #47 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
 | `design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt` | #47 | 低 | 构造函数末尾加带默认值的 `onEditClicked`，`onBindViewHolder` 里加 `binding.setEdit { onEditClicked(current) }` |
 | `design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt` | #47 | 低 | `Request` 加 `EditConfig(profile)`；创建 `ProfileAdapter` 时多传一个 lambda（`requests.trySend(Request.EditConfig(it))`） |
-| `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
+| `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 #50 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
@@ -756,3 +756,23 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **滑行中按住：** 只是让文字停住，不当成点击（这一下的抬起改成取消事件交给文本框，光标不会移过去）；按住后继续拖照常滚动。
 **r55：划动不再弹输入法。** 文本框有焦点时，每次手指抬起都会弹输入法（系统行为，不分点击还是划动；划到顶或底时文字滑不动，还会被当成点击把光标移过去）。现在手指拖动超过触摸误差的手势，抬起时把 `ACTION_UP` 改成 `ACTION_CANCEL` 交给文本框，不移光标、不弹输入法；惯性滚动用的仍是真实的抬起事件。有选中文字时不改（那一下抬起属于选字）。副作用：划动后光标不会自动跳回屏幕里，留在原来的位置。点一下仍然移光标、弹输入法。
 **局限：** 没有 Kotlin 编译环境，没编译、没在手机上看过，靠 Actions 构建验证，边缘光的位置和方向要在手机上看。只有竖向惯性，不支持嵌套滚动（编辑器不在别的可滚动容器里，用不上）。
+
+## 50. 编辑器：大文件分段、缩进参考线、括号引号配对、问题标记、显示空白字符、订阅提示（r56）
+**效果：**
+- **大文件：** 文件上限从 1 MB 提到 8 MB。不超过 3000 行（且 15 万字符）的文件和以前一样整份在文本框里；超过的分段显示：文本框里只放一段（最多 3000 行），上面和下面的行以普通字符串存着。行号、状态栏、"跳到行"、检查报的行号都是整份文件的行号。底部一行有 ◀ ▶ 换段（新一段和旧一段重叠约 100 行，看得出接在哪），⋮ 菜单有"跳到行…"，查找会搜整份文件、结果不在这一段时自动换段，"全部替换"替换整份。保存、检查、导出用的是整份文本。每段整段着色一次，滑动不着色（同 #48）。
+- **缩进参考线：** 每两列一条竖线；空行取上下最近两行缩进的较小值，竖线不断。
+- **括号引号配对：** 光标紧挨着 `() [] {}` 时，它和另一个都加浅蓝底；找不到另一个（一直找到文件头 / 尾也没有）加红底。引号只在"值或列表项开头"处算开头（`don't` 里的撇号不算），同一行内配对，没关的引号标红。
+- **问题标记（只对 `.yaml` / `.yml`）：** 打字停 0.7 秒后，在另一个线程读一遍整份文本（`YamlLint.kt`），有问题的行在行号旁画红点（错误）或橙点（警告）；光标所在行的问题写在底部一行；底部的 `⚠ N` 点开是问题列表，点一项跳到那一行。内容：缩进用了 Tab（红）、缩进比上一行多但上一行不是以 `:` 结尾的键（红）、缩进和上面各层都对不上（红）、同一层重复的键（橙，`<<` 除外）、重复的节点名 / 策略组名（橙，节点和策略组共用一套名字）、策略组 `proxies` 里写了不存在的节点或策略组（橙，认 `DIRECT REJECT REJECT-DROP PASS COMPATIBLE GLOBAL`）、策略组 `use` 里写了不在 `proxy-providers` 的名字、规则最后一段指向不存在的策略组、`RULE-SET` 指向不存在的 `rule-providers`（`SUB-RULE` 不查）。块文本（`|` `>`）、跨行的 `[ ]` `{ }`、跨行的引号字符串里面的行不查。行数变了、检查结果还没更新时红点先不画，避免错位。
+- **显示空白字符：** Tab 画成带 → 的淡黄底，行尾空格 / Tab 画成淡橙底（光标就在行尾时不画，免得打字时闪）；⋮ 菜单里"显示 Tab 和行尾空格"可关，选择记在 `SharedPreferences`（`custom_editor` / `show_whitespace`，默认开）。
+- **订阅提示：** 从配置卡片的铅笔（或"文件"页）打开非本地文件类（`type != File`，即订阅和外部导入）配置的 `config.yaml` 时，顶部显示一条淡黄色提示"订阅更新时会重新下载内容，覆盖你在这里的修改"，点 ✕ 关掉；每次打开都显示一次。不拦截、不弹窗。
+
+**新增 / 改动文件：** 新增 `design/.../custom/editor/YamlLint.kt`（检查，无 Android 类）、`YamlPairs.kt`（括号引号配对，无 Android 类）；改动 `CodeEditText.kt`（分段、绘制、查找、后台检查）、`EditorDesign.kt`（问题行 / 按钮、跳到行、空白开关、订阅提示条）、`custom/EditorActivity.kt`（8 MB、`lint` / 提示参数、`EXTRA_UPDATES`）、两份 `strings_editor.xml`。上游文件：`ProfilesActivity.kt`、`FilesActivity.kt` 各多传一个参数，见总表。
+
+**功耗：** 没有定时器。检查只在打字停下 0.7 秒后（和打开文件时）跑一次，每次新开一个线程、跑完即退，结果过期就丢；配对只在光标动或文字变时查（最多各向两边找 2 万字符）；参考线和空白字符只画屏幕上的行。
+
+**局限和没做的：**
+- 没有 Kotlin 编译环境，**没编译、没在手机上看过**。检查的算法先用 Python 写了一份（`YamlLint.kt` 是它的逐行对照）在示例配置和仓库里的 workflow 文件上跑过，没有误报，再手工翻成 Kotlin；Kotlin 本身只有 Actions 能验证。
+- 换段会清空撤销记录；分段显示时补全（`config.yaml` 的键提示）关掉（光标上层的键可能在窗口外）；文件整个以字符串存着，8 MB 的中文文件内存约几十 MB。
+- 引用检查认的是文件里写出来的名字：节点来自别处合并、或由 provider 里的节点在 `proxies` 里被引用，会被报成"不存在"；单行 `{...}` 写法的节点和策略组认，跨行的 `{...}` 不认。规则的策略取最后一段（去掉 `no-resolve` / `src`），自定义写法的规则可能误报。
+- 没写 JVM 单元测试。
+
