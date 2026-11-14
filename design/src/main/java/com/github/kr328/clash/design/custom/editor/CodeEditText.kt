@@ -11,6 +11,7 @@ import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.InputType
 import android.text.Spannable
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
@@ -28,8 +29,9 @@ import androidx.appcompat.widget.AppCompatEditText
 // CUSTOM (CUSTOM.md #46, not upstream): the text field of the built-in editor. It keeps the normal EditText (keyboard,
 // selection, cursor) and adds: line numbers, YAML colours for the lines on the screen, undo / redo, find and
 // replace, indent keeping on a new line, the line of an error marked, and a list of suggestions at the caret
-// (only when a schema is set). Nothing runs on its own: every step is a reaction to typing, scrolling or a tap, and
-// the colouring and suggestions wait 100 to 150 ms after the last change.
+// (only when a schema is set). Nothing runs on its own: every step is a reaction to typing or a tap. The colours
+// (CUSTOM.md #48) are put on the whole text once when it is opened and then only on the lines an edit touches, so
+// scrolling does no colouring work; a very big text is coloured only around the screen, as before.
 class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -148,13 +150,20 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 }
 
                 errorLine = -1
-                highlightStale = true
 
                 if (!replaying) undo.record(UndoStack.Edit(atStart, wasRemoved, wasInserted), autoIndenting)
 
                 updateGutter(lineStarts.size)
-                removeCallbacks(highlightRunnable)
-                postDelayed(highlightRunnable, 100)
+
+                // CUSTOM.md #48: in whole-document mode only the lines this edit touched are coloured again, right
+                // here; otherwise (a big file) the screen and its surroundings are coloured after the edit stops
+                if (wholeDone && wholeMode() && recolour(s, atStart, wasInserted.length)) {
+                    removeCallbacks(highlightRunnable)
+                } else {
+                    highlightStale = true
+                    removeCallbacks(highlightRunnable)
+                    postDelayed(highlightRunnable, 100)
+                }
 
                 val typedOne = !replaying && !quiet && !autoIndenting && wasRemoved.isEmpty()
 
@@ -191,6 +200,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         highlightedFrom = -1
         highlightedTo = -1
         highlightStale = true
+        wholeDone = false
 
         this.text?.let { rebuildLineStarts(it) }
 
@@ -340,7 +350,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     override fun onScrollChanged(horiz: Int, vert: Int, oldHoriz: Int, oldVert: Int) {
         super.onScrollChanged(horiz, vert, oldHoriz, oldVert)
 
-        if (ready && !visibleIsHighlighted()) {
+        // CUSTOM.md #48: when the whole document is coloured, scrolling does no colouring work at all
+        if (ready && !(wholeDone && wholeMode()) && !visibleIsHighlighted()) {
             removeCallbacks(highlightRunnable)
             postDelayed(highlightRunnable, 30)
         }
@@ -348,6 +359,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+
+        if (wholeDone && wholeMode()) return // CUSTOM.md #48: the colours do not depend on the size
 
         removeCallbacks(highlightRunnable)
         postDelayed(highlightRunnable, 30)
@@ -381,15 +394,80 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         return !highlightStale && highlightedFrom >= 0 && range[0] >= highlightedFrom && range[1] <= highlightedTo
     }
 
-    // Colours the screen and 40 lines around it; the older colours are taken off first, so there are never more than
-    // a few hundred spans, however long the file is.
+    // CUSTOM.md #48: a document of up to this size is coloured as a whole, once, and then only the lines an edit
+    // touches are coloured again; scrolling then does no work for the colours (it only draws what is there). A bigger
+    // one keeps the old way: the screen and 40 lines around it are coloured, again when the screen leaves them.
+    private fun wholeMode(): Boolean = lineStarts.size <= WHOLE_MAX_LINES && (text?.length ?: 0) <= WHOLE_MAX_CHARS
+
+    // true while every line of the text has its colours
+    private var wholeDone = false
+
+    private fun colorOf(kind: Tok): Int = when (kind) {
+        Tok.Key -> colorKey
+        Tok.Str -> colorStr
+        Tok.Num -> colorNum
+        Tok.Word -> colorWord
+        Tok.Anchor -> colorAnchor
+        Tok.Comment -> colorComment
+        Tok.Punct -> colorPunct
+    }
+
+    // adds the colours of the lines [firstLine, lastLine]; the old ones of these lines must be gone
+    private fun colourLines(editable: Editable, firstLine: Int, lastLine: Int) {
+        for (line in firstLine..lastLine) {
+            val start = lineStarts[line]
+            val end = lineEnd(line, editable.length)
+
+            if (end <= start) continue
+
+            // not subSequence: that copies the spans of the range
+            val text = TextUtils.substring(editable, start, end).trimEnd('\r')
+
+            YamlHighlighter.line(text) { a, b, kind ->
+                editable.setSpan(TokSpan(colorOf(kind)), start + a, start + b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+    }
+
+    // after an edit that put [insertedLength] characters at [atStart]: the lines it touched get their colours again.
+    // false when it touched too many lines (a big paste): the caller colours the whole text later
+    private fun recolour(t: Editable, atStart: Int, insertedLength: Int): Boolean {
+        val first = lineIndexAt(atStart.coerceIn(0, t.length))
+        val last = lineIndexAt((atStart + insertedLength).coerceIn(0, t.length))
+
+        if (last - first > 500) {
+            wholeDone = false
+
+            return false
+        }
+
+        for (span in t.getSpans(lineStarts[first], lineEnd(last, t.length), TokSpan::class.java)) t.removeSpan(span)
+
+        colourLines(t, first, last)
+
+        return true
+    }
+
     private fun highlightNow() {
         val t = text ?: return
-        val range = visibleRange()
-
         val editable: Editable = t
 
         for (span in editable.getSpans(0, editable.length, TokSpan::class.java)) editable.removeSpan(span)
+
+        if (wholeMode()) {
+            if (editable.isNotEmpty()) colourLines(editable, 0, lineStarts.size - 1)
+
+            wholeDone = true
+            highlightedFrom = 0
+            highlightedTo = editable.length
+            highlightStale = false
+
+            return
+        }
+
+        wholeDone = false
+
+        val range = visibleRange()
 
         if (range == null) {
             highlightedFrom = -1
@@ -398,36 +476,15 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             return
         }
 
+        // Colours the screen and 40 lines around it; the older colours are taken off first, so there are never more
+        // than a few hundred spans, however long the file is.
         val firstLine = (lineIndexAt(range[0]) - 40).coerceAtLeast(0)
         val lastLine = (lineIndexAt(range[1]) + 40).coerceAtMost(lineStarts.size - 1)
-        val from = lineStarts[firstLine]
-        val to = lineEnd(lastLine, editable.length)
 
-        for (line in firstLine..lastLine) {
-            val start = lineStarts[line]
-            val end = lineEnd(line, editable.length)
+        colourLines(editable, firstLine, lastLine)
 
-            if (end <= start) continue
-
-            val text = editable.subSequence(start, end).toString().trimEnd('\r')
-
-            YamlHighlighter.line(text) { a, b, kind ->
-                val color = when (kind) {
-                    Tok.Key -> colorKey
-                    Tok.Str -> colorStr
-                    Tok.Num -> colorNum
-                    Tok.Word -> colorWord
-                    Tok.Anchor -> colorAnchor
-                    Tok.Comment -> colorComment
-                    Tok.Punct -> colorPunct
-                }
-
-                editable.setSpan(TokSpan(color), start + a, start + b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-        }
-
-        highlightedFrom = from
-        highlightedTo = to
+        highlightedFrom = lineStarts[firstLine]
+        highlightedTo = lineEnd(lastLine, editable.length)
         highlightStale = false
     }
 
@@ -895,5 +952,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         }
 
         return super.onKeyDown(keyCode, event)
+    }
+
+    private companion object {
+        // CUSTOM.md #48: up to this size the whole text is coloured (about 5 spans a line); above it only the screen
+        const val WHOLE_MAX_LINES = 3000
+        const val WHOLE_MAX_CHARS = 150_000
     }
 }
