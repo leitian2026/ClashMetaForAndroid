@@ -453,9 +453,12 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         flingDetector.onTouchEvent(event)
 
-        // a touch that only stopped the gliding is not a tap: the text box must not put the caret there
-        if (stoppedGlide && !dragged && event.actionMasked == MotionEvent.ACTION_UP) {
+        // a touch that only stopped the gliding, or that dragged the text, is not a tap: the text box must not put the
+        // caret there or open the keyboard (it does so at every lift of the finger while it has the focus). Not when
+        // text is selected: that lift belongs to the selection.
+        if ((stoppedGlide || dragged) && !hasSelection() && event.actionMasked == MotionEvent.ACTION_UP) {
             stoppedGlide = false
+            dragged = false
 
             val cancel = MotionEvent.obtain(event)
 
