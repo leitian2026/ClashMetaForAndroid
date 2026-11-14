@@ -23,6 +23,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.BaseAdapter
+import android.widget.EdgeEffect
 import android.widget.ListView
 import android.widget.OverScroller
 import android.widget.PopupWindow
@@ -400,10 +401,72 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         return (l.height - (height - totalPaddingTop - totalPaddingBottom)).coerceAtLeast(0)
     }
 
+    // the glow at the ends, as a RecyclerView draws it (the connections page): pulled when the finger drags past an
+    // end, and given the speed of a fling that runs into an end
+    private val edgeTop = EdgeEffect(context)
+    private val edgeBottom = EdgeEffect(context)
+
+    private val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+    private var stoppedGlide = false // this touch began while the text was gliding: it stops it, it is not a tap
+    private var downX = 0f
+    private var downY = 0f
+    private var lastY = 0f
+    private var dragged = false
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN && !flinger.isFinished) flinger.abortAnimation()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                stoppedGlide = !flinger.isFinished
+
+                if (stoppedGlide) flinger.abortAnimation()
+
+                downX = event.x
+                downY = event.y
+                lastY = event.y
+                dragged = false
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                val dy = event.y - lastY
+
+                lastY = event.y
+
+                if (!dragged && Math.abs(event.x - downX) + Math.abs(event.y - downY) > touchSlop) dragged = true
+
+                if (height > 0 && width > 0) {
+                    if (dy > 0 && scrollY <= 0) {
+                        edgeTop.onPull(dy / height, event.x / width)
+                        postInvalidateOnAnimation()
+                    } else if (dy < 0 && scrollY >= maxScrollY()) {
+                        edgeBottom.onPull(-dy / height, 1f - event.x / width)
+                        postInvalidateOnAnimation()
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                edgeTop.onRelease()
+                edgeBottom.onRelease()
+                postInvalidateOnAnimation()
+            }
+        }
 
         flingDetector.onTouchEvent(event)
+
+        // a touch that only stopped the gliding is not a tap: the text box must not put the caret there
+        if (stoppedGlide && !dragged && event.actionMasked == MotionEvent.ACTION_UP) {
+            stoppedGlide = false
+
+            val cancel = MotionEvent.obtain(event)
+
+            cancel.action = MotionEvent.ACTION_CANCEL
+
+            val handled = super.onTouchEvent(cancel)
+
+            cancel.recycle()
+
+            return handled
+        }
 
         return super.onTouchEvent(event)
     }
@@ -412,8 +475,48 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         super.computeScroll()
 
         if (flinger.computeScrollOffset()) {
-            scrollTo(scrollX, flinger.currY)
+            val y = flinger.currY
+
+            scrollTo(scrollX, y)
+
+            if (y <= 0 || y >= maxScrollY()) {
+                // it reached an end: the glow takes the speed that is left, and the gliding is over
+                val speed = flinger.currVelocity.toInt()
+
+                if (y <= 0) edgeTop.onAbsorb(speed) else edgeBottom.onAbsorb(speed)
+
+                flinger.abortAnimation()
+            }
+
             postInvalidateOnAnimation()
+        }
+    }
+
+    override fun draw(canvas: Canvas) {
+        super.draw(canvas)
+
+        // the same way ScrollView draws its glow
+        if (!edgeTop.isFinished) {
+            val save = canvas.save()
+
+            canvas.translate(scrollX.toFloat(), minOf(0, scrollY).toFloat())
+            edgeTop.setSize(width, height)
+
+            if (edgeTop.draw(canvas)) postInvalidateOnAnimation()
+
+            canvas.restoreToCount(save)
+        }
+
+        if (!edgeBottom.isFinished) {
+            val save = canvas.save()
+
+            canvas.translate((scrollX - width).toFloat(), (maxOf(maxScrollY(), scrollY) + height).toFloat())
+            canvas.rotate(180f, width.toFloat(), 0f)
+            edgeBottom.setSize(width, height)
+
+            if (edgeBottom.draw(canvas)) postInvalidateOnAnimation()
+
+            canvas.restoreToCount(save)
         }
     }
 
