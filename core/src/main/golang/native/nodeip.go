@@ -36,7 +36,7 @@ func subscribeNodeIp(remote unsafe.Pointer) {
 	// CUSTOM (CUSTOM.md #53): problems of the running config reach the app the same way, with another word
 	issues.SetDir(mc.Path.HomeDir())
 	errlog.Hook = issues.FromLog
-	ipdelay.OnLoaded = issuecheck.Trigger
+	issues.OnDNSFailed = issuecheck.DNSFailed // a connection failed because no DNS server answered: ask them once
 	issues.SetOnChange(func() {
 		nodeIPLock.Lock()
 		r := nodeIPRemote

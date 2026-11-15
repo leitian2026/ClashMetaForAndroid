@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"cfa/native/ipdelay"
-	"cfa/native/issuecheck"
 	"cfa/native/tunnel"
 )
 
@@ -21,7 +20,6 @@ func retest(mode string) map[string]any {
 	switch mode {
 	case "changed":
 		ipdelay.MarkNetworkChanged()
-		issuecheck.Trigger() // CUSTOM.md #53: new network, look again for dead DNS servers / node addresses
 	case "run":
 		runRetest()
 	}

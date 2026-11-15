@@ -81,3 +81,52 @@ func TestCommand(t *testing.T) {
 		t.Fatal("sub not resolved")
 	}
 }
+
+func TestDialLines(t *testing.T) {
+	reset()
+
+	var asked int
+
+	OnDNSFailed = func() { asked++ }
+
+	line := func(node, dest, reason string) string {
+		return "[TCP] dial " + node + " (match Match/) 127.0.0.1:1 --> " + dest + " error: " + reason
+	}
+
+	// the address of a node that did not answer
+	if FromLog(line("my node", "example.com:443", "dial tcp 1.2.3.4:8443: i/o timeout")) {
+		t.Fatal("a dial line must not be taken")
+	}
+
+	s := Query()
+	if s.Active != 1 || s.Items[0].Kind != KindIP || s.Items[0].Subject != "1.2.3.4:8443" || s.Items[0].Extra != "my node" {
+		t.Fatalf("got %+v", s)
+	}
+
+	// not a node's address: DIRECT, the destination itself, cancelled, no network
+	FromLog(line("DIRECT", "example.com:443", "dial tcp 5.5.5.5:443: i/o timeout"))
+	FromLog(line("n2", "6.6.6.6:443", "dial tcp 6.6.6.6:443: i/o timeout"))
+	FromLog(line("n3", "example.com:443", "dial tcp 7.7.7.7:443: operation was canceled: context canceled"))
+	FromLog(line("n4", "example.com:443", "dial tcp [2001:db8::1]:443: connect: network is unreachable"))
+
+	if s := Query(); s.Active != 1 {
+		t.Fatalf("extra issues: %+v", s.Items)
+	}
+
+	// IPv6 node address
+	FromLog(line("n5", "example.com:443", "dial tcp [2001:db8::2]:443: i/o timeout"))
+
+	if s := Query(); s.Active != 2 {
+		t.Fatalf("ipv6 address not found: %+v", s.Items)
+	}
+
+	// no DNS server answered: the servers are asked, the line is still the errors page's
+	if FromLog(line("n6", "example.com:443", "dns resolve failed: all DNS requests failed, first error: x")) || asked != 1 {
+		t.Fatalf("asked %d", asked)
+	}
+
+	// the same sentence on its own is an issue and also asks
+	if !FromLog("[DNS] all DNS requests failed, first error: x") || asked != 2 {
+		t.Fatalf("standalone: asked %d", asked)
+	}
+}

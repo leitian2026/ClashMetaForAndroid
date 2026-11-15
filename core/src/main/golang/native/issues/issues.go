@@ -2,9 +2,10 @@
 // card on the home page (CUSTOM.md #53, not upstream).
 //
 // It is only a store. Who finds a problem: the log listener of package errlog (provider / geo / dns lines, see
-// FromLog), package issuecheck (probes after a config load or a network change), and the service process (a
-// subscription update failed, through the same bridge call the page uses). Nothing here runs on its own; a change
-// calls the registered callback once, after a short delay, outside the lock.
+// FromLog: the problems the core itself logs, and a node address that a real connection could not reach), package
+// issuecheck (which DNS server is down, asked once when a connection failed because no DNS server answered), and the
+// service process (a subscription update failed, through the same bridge call the page uses). Nothing here runs on
+// its own; a change calls the registered callback once, after a short delay, outside the lock.
 package issues
 
 import (
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"cfa/native/errlog"
 )
 
 const (
@@ -325,7 +328,16 @@ func Command(cmd string) Snapshot {
 	return Query()
 }
 
+// OnDNSFailed is called (when set) when a connection failed because no DNS server answered; the main package sets it
+// to issuecheck.DNSFailed, which asks each server once.
+var OnDNSFailed func()
+
 var (
+	// "[TCP] dial <node> [(match <rule>)] <src> --> <dst> error: <reason>", the reason may have several lines
+	reDialLine = regexp.MustCompile(`(?s)^\[(?:TCP|UDP)\] dial (.+?) (?:\(match .*?\) )?\S+ --> (\S+) error: (.*)$`)
+	// the address the core dialed, as the Go network error writes it: "dial tcp 1.2.3.4:443: i/o timeout"
+	reNodeAddr = regexp.MustCompile(`dial (?:tcp|udp)[46]? (\[[0-9a-fA-F:.]+\]|\d{1,3}(?:\.\d{1,3}){3}):(\d+)`)
+
 	reProvider = regexp.MustCompile(`^\[Provider\]\s+(.+?)\s+(?:pull|read bundle file|initial|update)\b.*?error[:\s]*(.*)$`)
 	reGeo      = regexp.MustCompile(`(?i)^\[GEO\]|(geosite|geoip|mmdb|asn)(\.dat|\.mmdb)?\s+invalid|failed to update geo`)
 	reECH      = regexp.MustCompile(`(?i)\bech\b.*(reject|expired|retry|fail|invalid)|(reject|expired|retry|fail|invalid).*\bech\b`)
@@ -336,6 +348,12 @@ var (
 // plain log line). Everything else is left to errlog.
 func FromLog(payload string) bool {
 	p := strings.TrimSpace(payload)
+
+	if m := reDialLine.FindStringSubmatch(p); m != nil { // a failed connection: never taken (the errors page lists it)
+		fromDial(m[1], m[2], m[3])
+
+		return false
+	}
 
 	switch {
 	case strings.HasPrefix(p, "[Provider]"):
@@ -360,6 +378,7 @@ func FromLog(payload string) bool {
 		Report(KindDNS, "nameserver-policy", "", p, "")
 	case strings.Contains(p, "all DNS requests failed"):
 		Report(KindDNS, "resolve", "dns", p, "")
+		dnsFailed()
 	case reECH.MatchString(p):
 		Report(KindECH, "ech", "", p, "")
 	default:
@@ -367,4 +386,41 @@ func FromLog(payload string) bool {
 	}
 
 	return true
+}
+
+func dnsFailed() {
+	if f := OnDNSFailed; f != nil {
+		f()
+	}
+}
+
+// fromDial looks at the reason of a failed connection: when no DNS server answered, the servers are asked once
+// (OnDNSFailed); when the address of a node could not be reached, that address is a problem. Nothing is judged for
+// DIRECT / REJECT, for connections that were cancelled or closed, and for "network is unreachable" (no IPv6 / no network).
+func fromDial(node, dest, reason string) {
+	low := strings.ToLower(reason)
+
+	if strings.Contains(reason, "all DNS requests failed") {
+		dnsFailed()
+	}
+
+	switch strings.ToUpper(node) {
+	case "DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE":
+		return
+	}
+
+	for _, skip := range []string{"context canceled", "use of closed network connection", "broken pipe", "network is unreachable", "no route to host"} {
+		if strings.Contains(low, skip) {
+			return
+		}
+	}
+
+	for _, m := range reNodeAddr.FindAllStringSubmatch(reason, -1) {
+		addr := m[1] + ":" + m[2]
+		if addr == dest { // the destination itself, not a node
+			continue
+		}
+
+		Report(KindIP, addr, errlog.Classify(reason), reason, node)
+	}
 }

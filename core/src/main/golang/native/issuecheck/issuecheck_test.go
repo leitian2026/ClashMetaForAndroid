@@ -2,6 +2,7 @@ package issuecheck
 
 import (
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,9 +10,16 @@ import (
 	"cfa/native/issues"
 )
 
-func TestDNSFailsTwiceIsReported(t *testing.T) {
-	sleep = func(time.Duration) {}
+func reset() {
+	atomic.StoreInt64(&lastRun, 0)
+	atomic.StoreInt32(&running, 0)
+	now = time.Now
 	dialProbe = func(string) error { return nil }
+	issues.Clear()
+}
+
+func TestRoundReportsDownServersAndResolves(t *testing.T) {
+	reset()
 	dnsProbe = func() []conftest.DNSServer {
 		return []conftest.DNSServer{
 			{Address: "https://a/dns", Kind: "doh", OK: false, Reason: "i/o timeout"},
@@ -27,7 +35,9 @@ func TestDNSFailsTwiceIsReported(t *testing.T) {
 		t.Fatalf("got %+v", s)
 	}
 
-	dnsProbe = func() []conftest.DNSServer { return nil }
+	dnsProbe = func() []conftest.DNSServer {
+		return []conftest.DNSServer{{Address: "https://a/dns", Kind: "doh", OK: true}}
+	}
 	round()
 
 	if s := issues.Query(); s.Active != 0 || !s.Items[0].Resolved {
@@ -36,11 +46,10 @@ func TestDNSFailsTwiceIsReported(t *testing.T) {
 }
 
 func TestOfflineReportsNothing(t *testing.T) {
-	sleep = func(time.Duration) {}
+	reset()
 	dialProbe = func(string) error { return errors.New("i/o timeout") }
 	dnsProbe = func() []conftest.DNSServer { return []conftest.DNSServer{{Address: "https://z/dns", Kind: "doh"}} }
 
-	issues.Clear()
 	round()
 
 	if s := issues.Query(); s.Active != 0 {
@@ -48,52 +57,43 @@ func TestOfflineReportsNothing(t *testing.T) {
 	}
 }
 
-func TestNodeKinds(t *testing.T) {
-	sleep = func(time.Duration) {}
-	rawProxies = func() map[string]map[string]any {
-		return map[string]map[string]any{
-			"tcp":    {"type": "vless", "server": "1.1.1.1", "port": 443},
-			"hy2":    {"type": "hysteria2", "server": "2.2.2.2", "port": 8443},
-			"domain": {"type": "trojan", "server": "a.example.com", "port": 443},
-			"chain":  {"type": "ss", "server": "3.3.3.3", "port": 1, "dialer-proxy": "x"},
-		}
-	}
-	nodeAddrs = func(n string) []string {
-		return map[string][]string{"tcp": {"1.1.1.1"}, "hy2": {"2.2.2.2"}, "chain": {"3.3.3.3"}}[n]
-	}
+func TestCooldownAndSingleFlight(t *testing.T) {
+	reset()
 
-	got := map[string]target{}
-	for _, x := range targets() {
-		got[x.node] = x
+	var calls int32
+
+	done := make(chan struct{}, 4)
+
+	dnsProbe = func() []conftest.DNSServer {
+		atomic.AddInt32(&calls, 1)
+		done <- struct{}{}
+
+		return nil
 	}
 
-	if got["tcp"].viaNode || !got["hy2"].viaNode || !got["chain"].viaNode {
-		t.Fatalf("modes: %+v", got)
+	DNSFailed()
+	DNSFailed() // within the cooldown: no second round
+	DNSFailed()
+
+	<-done
+
+	time.Sleep(50 * time.Millisecond)
+
+	if n := atomic.LoadInt32(&calls); n != 1 {
+		t.Fatalf("%d rounds for a burst", n)
 	}
 
-	if d := got["domain"]; !d.viaNode || !d.isDomain || d.hostport != "a.example.com:443" {
-		t.Fatalf("domain: %+v", d)
+	t0 := time.Now()
+	now = func() time.Time { return t0.Add(2 * time.Minute) }
+
+	for atomic.LoadInt32(&running) != 0 {
+		time.Sleep(time.Millisecond)
 	}
 
-	dialProbe = func(string) error { return nil }
-	dnsProbe = func() []conftest.DNSServer { return nil }
-	nodeProbe = func(node, server string, isDomain bool) string {
-		if node == "hy2" {
-			return "timeout"
-		}
+	DNSFailed()
+	<-done
 
-		if node == "chain" {
-			return "skip"
-		}
-
-		return ""
-	}
-
-	issues.Clear()
-	round()
-
-	s := issues.Query()
-	if s.Active != 1 || s.Items[0].Extra != "hy2" || s.Items[0].Subject != "2.2.2.2:8443" {
-		t.Fatalf("got %+v", s)
+	if n := atomic.LoadInt32(&calls); n != 2 {
+		t.Fatalf("%d rounds after the cooldown", n)
 	}
 }
