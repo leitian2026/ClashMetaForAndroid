@@ -291,7 +291,27 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         val avail = tableBox.width
         val sum = min.sum()
 
-        if (avail <= sum) return min
+        if (avail <= sum) {
+            // CUSTOM.md #55 (r67): a little too wide (a long IP in the first column): the other columns give up to 15%
+            // (their text just wraps one more time) so that the last column is not pushed off the screen; only when that
+            // is not enough the table scrolls sideways as before
+            val rest = sum - min[0]
+            val need = sum - avail
+
+            if (rest > 0 && need <= rest * 0.15) {
+                val out = IntArray(min.size)
+
+                out[0] = min[0]
+
+                for (i in 1 until min.size) out[i] = (min[i] * (rest - need).toDouble() / rest).toInt()
+
+                out[out.size - 1] += avail - out.sum()
+
+                return out
+            }
+
+            return min
+        }
 
         val weight = DoubleArray(min.size) { i ->
             val long = i > 0 && keys[i - 1].let { it == Key.COLO || it == Key.ASN || it == Key.PORTS }
@@ -451,7 +471,9 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         return TextView(context).apply {
             this.text = text
             textSize = 14f
-            gravity = Gravity.CENTER
+            // CUSTOM.md #55 (r67): the first line of every cell sits on the same line as the IP (top aligned), not
+            // in the middle of the row, so a cell with many lines (the ports) is not pushed down and cut at the bottom
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setTextColor(color)
             setPadding(dp(4), dp(5), dp(4), dp(5))
 
@@ -519,7 +541,10 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
     // "测速" of a row that works; "取消" on the row that is downloading; the others are grey while one is
     private fun testCell(r: IpTestRow): View {
-        val box = LinearLayout(context).apply { gravity = Gravity.CENTER }
+        val box = LinearLayout(context).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL // CUSTOM.md #55 (r67)
+            setPadding(0, dp(2), 0, 0)
+        }
 
         if (!r.ok) return box
 
@@ -554,8 +579,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     private fun ipCell(r: IpTestRow): View {
         val box = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), 0, dp(4), 0)
+            gravity = Gravity.TOP // CUSTOM.md #55 (r67): same top padding as the other cells, so the lines match
+            setPadding(dp(8), dp(5), dp(4), dp(5))
         }
 
         val ip = DashedTextView(context).apply {
