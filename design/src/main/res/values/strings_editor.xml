@@ -88,4 +88,7 @@
     <string name="editor_leave_save_history">Save as history version</string>
     <string name="editor_leave_unapplied">What is on the page is not applied: the config in use did not change.</string>
     <string name="editor_leave_unapplied_saved">There is a saved history version that is not applied: the config in use did not change.</string>
+    <!-- CUSTOM.md #58: the note over the text of a history version (the other lines are cmp_* in strings_custom.xml) -->
+    <string name="editor_diff_changed">Changed</string>
+    <string name="editor_diff_note">Only the content is compared: comments and blank lines do not count.</string>
 </resources>

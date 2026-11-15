@@ -10,6 +10,7 @@ import android.text.InputType
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
@@ -25,6 +26,7 @@ import androidx.core.view.ViewCompat
 import androidx.databinding.Observable
 import androidx.core.view.WindowInsetsCompat
 import com.github.kr328.clash.core.model.EffectiveConfig
+import com.github.kr328.clash.core.model.EffectiveLine
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.EffectiveText
@@ -135,6 +137,22 @@ class EditorDesign(
         visibility = if (readOnly) View.VISIBLE else View.GONE
     }
 
+    // CUSTOM.md #58: what the marks on the text of a history version say (counts, what each colour is); a tap folds it
+    private var diffMarks: ConfigDiff.Marks? = null
+    private var diffExpanded = true
+    private val diffNote = TextView(context).apply {
+        textSize = 15f
+        setTextColor(colorText)
+        setBackgroundColor(colorBar)
+        setPadding(dp(14), dp(10), dp(14), dp(10))
+        setLineSpacing(0f, 1.15f)
+        visibility = View.GONE
+        setOnClickListener {
+            diffExpanded = !diffExpanded
+            refreshDiffNote()
+        }
+    }
+
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
     private val prefs = context.getSharedPreferences("custom_editor", Context.MODE_PRIVATE)
     private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
@@ -233,6 +251,7 @@ class EditorDesign(
         )
         noticeRow.addView(action("\u2715", null) { noticeRow.visibility = View.GONE })
         addView(noticeRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        addView(diffNote, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
         // find bar: the word, matches, previous, next, close; the replacement, replace, replace all
         findBar.addView(
@@ -432,6 +451,9 @@ class EditorDesign(
     fun replaceText(text: String): Boolean {
         val undoable = editor.replaceWhole(text) // false for a big text: the history of undo is gone (CUSTOM.md #50)
 
+        diffMarks = null // the marks were taken off with the old text (CUSTOM.md #58)
+        refreshDiffNote()
+
         setDirty(true)
         refreshProblems()
         refreshStatus()
@@ -446,6 +468,59 @@ class EditorDesign(
      */
     fun showDiffMarks(marks: ConfigDiff.Marks?) {
         editor.setDiffMarks(marks)
+
+        diffMarks = marks
+        diffExpanded = true
+        refreshDiffNote()
+    }
+
+    private fun refreshDiffNote() {
+        val m = diffMarks
+
+        // nothing is said when the comparison could not be laid on the lines (nothing was marked then)
+        if (m == null || !m.reliable) {
+            diffNote.visibility = View.GONE
+
+            return
+        }
+
+        val sb = SpannableStringBuilder()
+
+        if (m.isEmpty) {
+            sb.append(context.getString(R.string.cmp_no_diff))
+        } else {
+            val changed = m.status.values.count { it == EffectiveLine.CHANGED }
+            val added = m.status.values.count { it == EffectiveLine.ADDED }
+            val removed = m.removed.values.sumOf { it.size }
+
+            sb.append(context.getString(R.string.cmp_summary, changed, removed, added))
+
+            if (diffExpanded) {
+                fun line(text: String, color: Int) {
+                    sb.append('\n')
+
+                    val at = sb.length
+
+                    sb.append(text)
+                    sb.setSpan(ForegroundColorSpan(color), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.BOLD), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+
+                line(context.getString(R.string.editor_diff_changed), editor.diffChangeColor)
+                line(context.getString(R.string.cmp_legend_removed), editor.diffRemoveColor)
+                line(context.getString(R.string.cmp_legend_added), editor.diffAddColor)
+
+                sb.append('\n')
+
+                val at = sb.length
+
+                sb.append(context.getString(R.string.editor_diff_note))
+                sb.setSpan(ForegroundColorSpan(colorMuted), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+
+        diffNote.text = sb
+        diffNote.visibility = View.VISIBLE
     }
 
     fun markSaved() {

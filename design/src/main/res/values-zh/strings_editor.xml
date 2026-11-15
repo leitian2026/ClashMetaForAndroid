@@ -88,4 +88,7 @@
     <string name="editor_leave_save_history">存为历史版本</string>
     <string name="editor_leave_unapplied">页面上的这一份还没应用，正在用的配置没有变。</string>
     <string name="editor_leave_unapplied_saved">历史里有已保存但还没应用的版本，正在用的配置没有变。</string>
+    <!-- CUSTOM.md #58 -->
+    <string name="editor_diff_changed">改写</string>
+    <string name="editor_diff_note">只比较配置内容：注释和空行不算。</string>
 </resources>

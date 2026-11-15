@@ -48,7 +48,7 @@ object ConfigDiff {
      * is the number of lines of [new] when they come after the last one). Nothing is marked when the lines of the
      * comparison and the lines of the text do not add up (it never marks the wrong lines).
      */
-    class Marks(val status: Map<Int, Int>, val removed: Map<Int, List<String>>) {
+    class Marks(val status: Map<Int, Int>, val removed: Map<Int, List<String>>, val reliable: Boolean = true) {
         val isEmpty: Boolean get() = status.isEmpty() && removed.isEmpty()
     }
 
@@ -68,7 +68,7 @@ object ConfigDiff {
             nodeLines.add(i)
         }
 
-        if (out.count { it.status != EffectiveLine.REMOVED } != nodeLines.size) return Marks(emptyMap(), emptyMap())
+        if (out.count { it.status != EffectiveLine.REMOVED } != nodeLines.size) return Marks(emptyMap(), emptyMap(), false)
 
         val status = HashMap<Int, Int>()
         val removed = HashMap<Int, ArrayList<String>>()

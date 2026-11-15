@@ -80,6 +80,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorDelBg = if (night) Color.parseColor("#4490A4AE") else Color.parseColor("#4078909C")
     private val colorDelBar = if (night) Color.parseColor("#90A4AE") else Color.parseColor("#607D8B")
 
+    // the same colours, for the note above the text that says what each of them means (CUSTOM.md #58)
+    val diffAddColor: Int get() = colorAddBar
+    val diffChangeColor: Int get() = colorChangeBar
+    val diffRemoveColor: Int get() = colorDelBar
+
     private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
         textAlign = Paint.Align.RIGHT
