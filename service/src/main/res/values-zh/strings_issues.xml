@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CUSTOM.md #53 -->
+    <string name="custom_issue_channel">配置问题</string>
+    <string name="custom_issue_title">%d 个配置问题</string>
+    <string name="custom_issue_more">另有 %d 个</string>
+    <string name="custom_issue_doh">DNS 服务器不通：%s</string>
+    <string name="custom_issue_ip">节点地址不通：%s</string>
+    <string name="custom_issue_sub">订阅更新失败：%s</string>
+    <string name="custom_issue_ech">ECH 问题：%s</string>
+    <string name="custom_issue_dns">DNS 问题：%s</string>
+    <string name="custom_issue_geo">地理数据文件问题：%s</string>
+    <string name="custom_issue_provider">订阅源更新失败：%s</string>
+    <string name="custom_issue_other">问题：%s</string>
+</resources>

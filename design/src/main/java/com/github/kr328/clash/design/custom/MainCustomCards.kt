@@ -22,6 +22,33 @@ class MainCustomCards(
         setOnClickListener { openGeoSiteSettings() }
     }
 
+    private val issuesCard: com.github.kr328.clash.design.view.LargeActionCard? =
+        root.findViewById<com.github.kr328.clash.design.view.LargeActionCard>(R.id.custom_issues_card)?.apply {
+            // the page lives in the app module, so address it by name
+            setOnClickListener {
+                context.startActivity(Intent().setClassName(context, "com.github.kr328.clash.custom.IssuesActivity"))
+            }
+        }
+
+    // CUSTOM.md #53: one line per problem; what does not fit is behind the tap (the list page)
+    fun setIssues(snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot?) {
+        val card = issuesCard ?: return
+        val active = snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
+
+        if (active.isEmpty()) {
+            card.visibility = View.GONE
+            return
+        }
+
+        card.text = context.getString(R.string.issues_card_title, active.size)
+
+        val lines = active.take(2).map { context.getString(IssueText.kindRes(it.kind), IssueText.subject(it)) }
+        val more = if (active.size > lines.size) listOf(context.getString(R.string.main_issues_card_more)) else emptyList()
+
+        card.subtext = (lines + more).joinToString("\n")
+        card.visibility = View.VISIBLE
+    }
+
     fun update(running: Boolean, state: TunnelState): String? {
         geoSiteNotice?.visibility = if (GeoSiteResetNotice.isPending(context)) View.VISIBLE else View.GONE
 

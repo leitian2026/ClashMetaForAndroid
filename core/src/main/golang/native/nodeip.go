@@ -7,7 +7,12 @@ import (
 	"sync"
 	"unsafe"
 
+	"cfa/native/errlog"
 	"cfa/native/ipdelay"
+	"cfa/native/issuecheck"
+	"cfa/native/issues"
+
+	mc "github.com/metacubex/mihomo/constant"
 )
 
 // CUSTOM (CUSTOM.md #7): tells the app when the node IP in use changes. Reuses the FetchCallback
@@ -27,6 +32,20 @@ func subscribeNodeIp(remote unsafe.Pointer) {
 	if old != nil {
 		C.release_object(old)
 	}
+
+	// CUSTOM (CUSTOM.md #53): problems of the running config reach the app the same way, with another word
+	issues.SetDir(mc.Path.HomeDir())
+	errlog.Hook = issues.FromLog
+	ipdelay.OnLoaded = issuecheck.Trigger
+	issues.SetOnChange(func() {
+		nodeIPLock.Lock()
+		r := nodeIPRemote
+		nodeIPLock.Unlock()
+
+		if r != nil {
+			C.fetch_report(r, marshalString("issues"))
+		}
+	})
 
 	ipdelay.SetOnChange(func() {
 		nodeIPLock.Lock()

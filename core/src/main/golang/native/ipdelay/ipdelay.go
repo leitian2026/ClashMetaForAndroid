@@ -206,6 +206,9 @@ func NodeAddresses(name string) []string {
 	return append([]string(nil), nodeIPs[name]...)
 }
 
+// OnLoaded is called (when set) every time a profile was loaded, see CaptureDNS (CUSTOM.md #53).
+var OnLoaded func()
+
 var dohServers []string // DoH addresses written in the profile's `dns:` section
 
 // CaptureDNS remembers the `https://` DNS servers of the profile's `dns:` section (CUSTOM.md #22: the
@@ -227,6 +230,10 @@ func CaptureDNS(rawDNS any) {
 	}
 
 	setPolicy(policy) // CUSTOM.md #26: nameserver-policy with its order
+
+	if h := OnLoaded; h != nil { // CUSTOM.md #53: a profile was loaded, the runtime problem check may run
+		h()
+	}
 
 	lock.Lock()
 	dohServers = found

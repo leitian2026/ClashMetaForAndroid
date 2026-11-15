@@ -181,6 +181,7 @@ class ProfileWorker : BaseService() {
             .notify(id, notification)
 
         sendProfileUpdateCompleted(uuid)
+        com.github.kr328.clash.service.custom.IssueNotifier.subscription(this, name, null) // CUSTOM.md #53
     }
 
     private fun failed(uuid: UUID, name: String, reason: String) {
@@ -198,6 +199,7 @@ class ProfileWorker : BaseService() {
             .notify(id, notification)
 
         sendProfileUpdateFailed(uuid, reason)
+        com.github.kr328.clash.service.custom.IssueNotifier.subscription(this, name, reason) // CUSTOM.md #53
     }
 
     companion object {

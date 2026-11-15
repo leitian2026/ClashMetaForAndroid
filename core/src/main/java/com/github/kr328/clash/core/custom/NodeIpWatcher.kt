@@ -23,12 +23,13 @@ object CustomBridge {
 object NodeIpWatcher {
     private val started = AtomicBoolean(false)
 
-    fun start(onChange: () -> Unit) {
+    // [onIssues] (CUSTOM #53): the problems list of the core changed (the core reports it with the text "issues")
+    fun start(onIssues: () -> Unit = {}, onChange: () -> Unit) {
         if (!started.compareAndSet(false, true)) return
 
         CustomBridge.nativeSubscribeNodeIp(object : FetchCallback {
             override fun report(statusJson: String) {
-                onChange()
+                if (statusJson.contains("issues")) onIssues() else onChange()
             }
 
             override fun complete(error: String?) = Unit

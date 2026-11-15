@@ -21,6 +21,7 @@ import com.github.kr328.clash.custom.ErrorsActivity // CUSTOM: CUSTOM.md #21
 import com.github.kr328.clash.custom.MuxActivity
 import com.github.kr328.clash.custom.customNodeIpEvents
 import com.github.kr328.clash.custom.refreshCustom
+import com.github.kr328.clash.custom.refreshIssues
 import com.github.kr328.clash.design.MainDesign
 import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.util.startClashService
@@ -119,6 +120,7 @@ class MainActivity : BaseActivity<MainDesign>() {
         setMode(state.mode)
         setHasProviders(providers.isNotEmpty())
         setCustomCards(clashRunning, state) // CUSTOM: CUSTOM.md #6, #7
+        refreshIssues(clashRunning) // CUSTOM: CUSTOM.md #53
 
         withProfile {
             setProfileName(queryActive()?.name)

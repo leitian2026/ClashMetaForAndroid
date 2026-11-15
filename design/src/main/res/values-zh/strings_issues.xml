@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CUSTOM.md #53 -->
+    <string name="issues_title">配置问题</string>
+    <string name="issues_hint">代理运行中发现的问题：DNS 服务器和节点地址在加载配置、网络变化后检查；其他来自内核日志或订阅更新失败。已忽略的不再提醒。</string>
+    <string name="issues_clear">清除已恢复和未忽略的记录</string>
+    <string name="issues_empty">没有发现问题</string>
+    <string name="issues_empty_not_running">没有记录到问题。多数检查只在代理运行时进行。</string>
+    <string name="issues_section_active">问题（%1$d）</string>
+    <string name="issues_section_ignored">已忽略（%1$d）</string>
+    <string name="issues_section_resolved">已恢复（%1$d）</string>
+    <string name="issues_ignore">忽略</string>
+    <string name="issues_unignore">取消忽略</string>
+    <string name="issues_count">连续 %1$d 次</string>
+    <string name="issue_doh">DNS 服务器不通：%1$s</string>
+    <string name="issue_ip">节点地址不通：%1$s</string>
+    <string name="issue_sub">订阅更新失败：%1$s</string>
+    <string name="issue_ech">ECH 问题：%1$s</string>
+    <string name="issue_dns">DNS 问题：%1$s</string>
+    <string name="issue_geo">地理数据文件问题：%1$s</string>
+    <string name="issue_provider">订阅源更新失败：%1$s</string>
+    <string name="issue_other">问题：%1$s</string>
+    <string name="main_issues_card_sub">%1$s</string>
+    <string name="main_issues_card_more">点此查看全部</string>
+    <string name="issues_card_title">%1$d 个配置问题</string>
+</resources>

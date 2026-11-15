@@ -14,7 +14,7 @@ object NodeIpNotifier {
 
         NetworkRetest.start(app) // CUSTOM.md #24: same idempotent start, it only listens to the system's network events
 
-        NodeIpWatcher.start {
+        NodeIpWatcher.start(onIssues = { IssueNotifier.update(app) }) { // CUSTOM.md #53
             NodeIpText.invalidate()
 
             app.sendBroadcastSelf(Intent(CustomIntents.ACTION_NODE_IP_CHANGED))

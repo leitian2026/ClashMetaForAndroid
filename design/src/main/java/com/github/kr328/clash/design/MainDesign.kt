@@ -49,6 +49,13 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         }
     }
 
+    // CUSTOM (CUSTOM.md #53): the card for problems of the running config
+    suspend fun setCustomIssues(snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot?) {
+        withContext(Dispatchers.Main) {
+            customCards.setIssues(snapshot)
+        }
+    }
+
     suspend fun setProfileName(name: String?) {
         withContext(Dispatchers.Main) {
             binding.profileName = name

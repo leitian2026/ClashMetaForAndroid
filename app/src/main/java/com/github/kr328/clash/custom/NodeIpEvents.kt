@@ -30,7 +30,7 @@ fun ComponentActivity.customNodeIpEvents(): Channel<Unit> {
         override fun onStart(owner: LifecycleOwner) {
             activity.registerReceiverCompat(
                 receiver,
-                IntentFilter(CustomIntents.ACTION_NODE_IP_CHANGED),
+                IntentFilter(CustomIntents.ACTION_NODE_IP_CHANGED).apply { addAction(CustomIntents.ACTION_ISSUES_CHANGED) }, // CUSTOM.md #53
                 Permissions.RECEIVE_SELF_BROADCASTS,
                 null,
             )

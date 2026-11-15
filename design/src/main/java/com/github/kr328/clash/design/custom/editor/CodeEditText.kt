@@ -19,6 +19,7 @@ import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.GestureDetector
+import android.view.ScaleGestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -435,6 +436,18 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     /** CUSTOM.md #47: the size of the text in sp; the line numbers follow it. Only called at a tap of the user. */
     fun setSizeSp(sp: Float) {
+        // CUSTOM.md #53: the line at the top stays at the top when the size changes (a pinch changes it many times)
+        val before = layout
+        val anchor = if (before != null && before.lineCount > 0) before.getLineForVertical(scrollY) else 0
+        val fraction = if (before != null && before.lineCount > 0) {
+            val top = before.getLineTop(anchor)
+            val h = (before.getLineBottom(anchor) - top).coerceAtLeast(1)
+
+            ((scrollY - top).toFloat() / h).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp)
         numberPaint.textSize = textSize * 0.9f
         tabPaint.textSize = textSize * 0.9f
@@ -442,6 +455,17 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         gutterDigits = 0 // the gutter is as wide as its digits: measure it again
         updateGutter(totalLines())
         invalidate()
+
+        post {
+            val l = layout ?: return@post
+
+            if (anchor < l.lineCount) {
+                val top = l.getLineTop(anchor)
+                val h = l.getLineBottom(anchor) - top
+
+                scrollTo(scrollX, (top + fraction * h).toInt().coerceIn(0, maxScrollY()))
+            }
+        }
     }
 
     /**
@@ -882,9 +906,80 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private var lastY = 0f
     private var dragged = false
 
+    // ---- pinch (CUSTOM.md #53) ---------------------------------------------------------------------
+    // Two fingers change the size of the text: every time the fingers have moved apart (or together) by about 8 % since
+    // the last step, one step of one size (the page says what a step is), as long as the fingers stay down. The touch
+    // that was going on is cancelled when the second finger lands, so that no selection, caret or keyboard comes of it.
+
+    /** Called for every step of a pinch: +1 when the fingers moved apart, -1 when together. */
+    var onPinchStep: ((Int) -> Unit)? = null
+
+    private var pinching = false
+    private var pinchScale = 1f
+
+    private val scaleDetector = ScaleGestureDetector(
+        context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                pinchScale = 1f
+
+                return true
+            }
+
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                pinchScale *= detector.scaleFactor
+
+                while (pinchScale >= PINCH_STEP) {
+                    pinchScale /= PINCH_STEP
+                    onPinchStep?.invoke(1)
+                }
+
+                while (pinchScale <= 1f / PINCH_STEP) {
+                    pinchScale *= PINCH_STEP
+                    onPinchStep?.invoke(-1)
+                }
+
+                return true
+            }
+        },
+    )
+
+    // CUSTOM.md #53: a finger is on the text. While it is, the text is not scrolled to the caret and the keyboard's room
+    // is not given to the page (that would move the text away under the finger of a long press that is selecting a word)
+    var touching = false
+        private set
+
+    /** Called when the last finger has lifted (or the touch was cancelled). */
+    var onTouchEnded: (() -> Unit)? = null
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        scaleDetector.onTouchEvent(event)
+
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN && !pinching) {
+            pinching = true
+            flinger.abortAnimation()
+
+            val cancel = MotionEvent.obtain(event)
+
+            cancel.action = MotionEvent.ACTION_CANCEL
+            super.onTouchEvent(cancel)
+            cancel.recycle()
+        }
+
+        if (pinching) {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                pinching = false
+                dragged = false
+                stoppedGlide = false
+                endTouch()
+            }
+
+            return true
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                touching = true
                 stoppedGlide = !flinger.isFinished
 
                 if (stoppedGlide) flinger.abortAnimation()
@@ -921,6 +1016,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         }
 
         flingDetector.onTouchEvent(event)
+
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            // the end of the touch is told after the text box has dealt with the lift (it may open the keyboard there)
+            post { endTouch() }
+        }
 
         // a touch that only stopped the gliding, or that dragged the text, is not a tap: the text box must not put the
         // caret there or open the keyboard (it does so at every lift of the finger while it has the focus). Not when
@@ -992,9 +1092,24 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         }
     }
 
-    // while gliding the text box must not pull the text back to the caret
+    private fun endTouch() {
+        if (!touching) return
+
+        touching = false
+
+        // what was held back while the finger was down: show the caret now
+        if (hasFocus() && flinger.isFinished) {
+            val at = selectionEnd
+
+            if (at >= 0) super.bringPointIntoView(at)
+        }
+
+        onTouchEnded?.invoke()
+    }
+
+    // while gliding the text box must not pull the text back to the caret; nor while a finger is down (CUSTOM.md #53)
     override fun bringPointIntoView(offset: Int): Boolean {
-        return if (flinger.isFinished) super.bringPointIntoView(offset) else false
+        return if (flinger.isFinished && !touching) super.bringPointIntoView(offset) else false
     }
 
     override fun onDetachedFromWindow() {
@@ -1754,5 +1869,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         // A window is never bigger than this unless a single line is.
         const val WHOLE_MAX_LINES = WINDOW_LINES
         const val WHOLE_MAX_CHARS = WINDOW_CHARS
+
+        // CUSTOM.md #53: the change of the distance between two fingers that makes one step of size
+        const val PINCH_STEP = 1.08f
     }
 }

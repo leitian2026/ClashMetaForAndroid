@@ -7,6 +7,9 @@ import android.graphics.Typeface
 import android.os.Build
 import android.text.Editable
 import android.text.InputType
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
@@ -18,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.core.view.ViewCompat
+import androidx.databinding.Observable
 import androidx.core.view.WindowInsetsCompat
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
@@ -88,24 +92,18 @@ class EditorDesign(
     private val saveButton = action(context.getString(R.string.editor_save), null) { requests.trySend(Request.Save) }
     private val moreButton = action("⋮", null) { showMore(it) }
 
+    // CUSTOM.md #53: one row at the bottom: where the caret is (and the problem on its line, or which lines of a big
+    // text are shown), the problem count, the buttons of a big text's window, the size of the text
     private val statusView = TextView(context).apply {
         textSize = 12f
         setTextColor(colorMuted)
-        setPadding(dp(12), dp(4), dp(12), dp(4))
-        setBackgroundColor(colorBar)
+        maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
+        setPadding(dp(12), dp(2), dp(4), dp(2))
+        if (lint) setOnClickListener { showProblems() }
     }
 
-    // CUSTOM.md #50: the row above the symbols: the problem on the caret's line (or which lines of a big text are shown),
-    // the list of all problems, and the buttons that move a big text's window
-    private val hintView = TextView(context).apply {
-        textSize = 12f
-        setTextColor(colorMuted)
-        maxLines = 2
-        ellipsize = android.text.TextUtils.TruncateAt.END
-        setPadding(dp(12), dp(4), dp(4), dp(4))
-        isClickable = true
-        setOnClickListener { showProblems() }
-    }
+    // CUSTOM.md #50, #53: the problems button and the buttons that move a big text's window sit in the bottom row
     private val problemButton = action("", null) { showProblems() }
     private val previousWindowButton = action("\u25C0", context.getString(R.string.editor_window_previous)) {
         if (!editor.previousWindow()) refreshStatus()
@@ -113,13 +111,6 @@ class EditorDesign(
     private val nextWindowButton = action("\u25B6", context.getString(R.string.editor_window_next)) {
         if (!editor.nextWindow()) refreshStatus()
     }
-    private val infoRow = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setBackgroundColor(colorBar)
-        visibility = View.GONE
-    }
-
     private val noticeRow = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -253,15 +244,7 @@ class EditorDesign(
 
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        infoRow.addView(hintView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        infoRow.addView(problemButton)
-        infoRow.addView(previousWindowButton)
-        infoRow.addView(nextWindowButton)
-
-        for (b in listOf(problemButton, previousWindowButton, nextWindowButton)) b.minHeight = dp(36)
-
-        addView(infoRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(40)))
+        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)))
         addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -270,8 +253,14 @@ class EditorDesign(
 
                 addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-                for (b in listOf(smallerButton, biggerButton)) b.minHeight = dp(36)
+                for (b in listOf(problemButton, previousWindowButton, nextWindowButton, smallerButton, biggerButton)) {
+                    b.minHeight = dp(32)
+                    b.minWidth = dp(36)
+                }
 
+                addView(problemButton)
+                addView(previousWindowButton)
+                addView(nextWindowButton)
                 addView(smallerButton)
                 addView(sizeView)
                 addView(biggerButton)
@@ -280,21 +269,57 @@ class EditorDesign(
         )
 
         // the page is under the system bars: leave their room, and the room of the keyboard (from Android 11 it
-        // is told in the insets; before that the window is made smaller by the activity)
-        ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+        // is told in the insets; before that the window is made smaller by the activity). CUSTOM.md #53: the room of
+        // the bars is also taken from the app's own insets (surface), as the other pages do; the larger one counts
+        ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            val ime = if (Build.VERSION.SDK_INT >= 30) insets.getInsets(WindowInsetsCompat.Type.ime()).bottom else 0
 
-            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime))
+            barLeft = bars.left
+            barTop = bars.top
+            barRight = bars.right
+            barBottom = bars.bottom
+            imeBottom = if (Build.VERSION.SDK_INT >= 30) insets.getInsets(WindowInsetsCompat.Type.ime()).bottom else 0
+
+            applyPadding()
 
             insets
         }
+    }
+
+    private var barLeft = 0
+    private var barTop = 0
+    private var barRight = 0
+    private var barBottom = 0
+    private var imeBottom = 0
+
+    // CUSTOM.md #53: the room of the keyboard is given to the page when no finger is on the text: a long press that
+    // is selecting a word would otherwise find the text moved away under it, and the selection would not be the word
+    // that was pressed. The page is made smaller as soon as the finger lifts.
+    private var imeApplied = 0
+
+    private fun applyPadding() {
+        val own = surface.insets
+
+        if (!editor.touching) imeApplied = imeBottom
+
+        root.setPadding(
+            maxOf(barLeft, own.start),
+            maxOf(barTop, own.top),
+            maxOf(barRight, own.end),
+            maxOf(barBottom, own.bottom, imeApplied),
+        )
     }
 
     var dirty: Boolean = false
         private set
 
     init {
+        surface.addOnPropertyChangedCallback(object : Observable.OnPropertyChangedCallback() {
+            override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
+                applyPadding()
+            }
+        })
+
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
 
         row.addView(symbol("⇥", false) { editor.shiftLines(true) })
@@ -333,6 +358,10 @@ class EditorDesign(
 
         editor.setSizeSp(sizeSp.toFloat())
         refreshSize()
+
+        // CUSTOM.md #53: two fingers change the size, one size per step, as long as they stay down
+        editor.onPinchStep = { step -> changeSize(step) }
+        editor.onTouchEnded = { if (imeApplied != imeBottom) applyPadding() }
 
         editor.readOnly = readOnly
         editor.lintEnabled = lint
@@ -452,28 +481,34 @@ class EditorDesign(
     }
 
     private fun refreshStatus() {
-        statusView.text = context.getString(R.string.editor_status, editor.caretLine, editor.caretColumn, editor.logicalLineCount)
+        val sb = SpannableStringBuilder(
+            context.getString(R.string.editor_status, editor.caretLine, editor.caretColumn, editor.logicalLineCount),
+        )
 
-        // CUSTOM.md #50: what the row above the symbols says
+        // CUSTOM.md #50, #53: the problem on the caret's line, or which lines of a big text are shown
         val here = editor.problemsAt(editor.caretLine - 1)
 
         if (here.isNotEmpty()) {
-            val extra = if (here.size > 1) "  (+${here.size - 1})" else ""
+            val extra = if (here.size > 1) " (+${here.size - 1})" else ""
+            val start = sb.length
 
-            hintView.text = describe(here[0]) + extra
-            hintView.setTextColor(if (here[0].severity == 0) colorBad else colorWarn)
+            sb.append("  ").append(describe(here[0])).append(extra)
+            sb.setSpan(
+                ForegroundColorSpan(if (here[0].severity == 0) colorBad else colorWarn),
+                start,
+                sb.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
         } else if (editor.isWindowed) {
-            hintView.text = context.getString(R.string.editor_window_status, editor.windowFirstLine, editor.windowLastLine)
-            hintView.setTextColor(colorMuted)
-        } else {
-            hintView.text = ""
+            sb.append("  ·  ").append(context.getString(R.string.editor_window_status, editor.windowFirstLine, editor.windowLastLine))
         }
+
+        statusView.text = sb
 
         previousWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
         nextWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
         previousWindowButton.alpha = if (editor.windowFirstLine > 1) 1f else 0.35f
         nextWindowButton.alpha = if (editor.windowLastLine < editor.logicalLineCount) 1f else 0.35f
-        infoRow.visibility = if (lint || editor.isWindowed) View.VISIBLE else View.GONE
 
         undoButton.alpha = if (editor.undo.canUndo) 1f else 0.35f
         redoButton.alpha = if (editor.undo.canRedo) 1f else 0.35f
@@ -483,9 +518,10 @@ class EditorDesign(
     private fun refreshProblems() {
         val count = editor.allProblems().size
 
-        problemButton.visibility = if (lint) View.VISIBLE else View.GONE
-        problemButton.text = if (count > 0) "\u26A0 $count" else "\u2713"
-        problemButton.setTextColor(if (count > 0) colorWarn else colorMuted)
+        // CUSTOM.md #53: only when there is something to show (no "✓" that takes room when all is well)
+        problemButton.visibility = if (lint && count > 0) View.VISIBLE else View.GONE
+        problemButton.text = "\u26A0 $count"
+        problemButton.setTextColor(colorWarn)
     }
 
     private fun describe(d: Diagnostic): String = when (d.kind) {
@@ -663,7 +699,7 @@ class EditorDesign(
 
             gravity = Gravity.CENTER
             minWidth = dp(44)
-            minHeight = dp(40)
+            minHeight = dp(34)
             isClickable = true
             isFocusable = false
             isFocusableInTouchMode = false

@@ -4,11 +4,14 @@ package main
 import "C"
 
 import (
+	"strings"
+
 	"cfa/native/config"
 	"cfa/native/conftest"
 	"cfa/native/connlist"
 	"cfa/native/errlog"
 	"cfa/native/ipdelay"
+	"cfa/native/issues"
 )
 
 // CUSTOM (CUSTOM.md #8): active connections for the app's connections page.
@@ -39,6 +42,10 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 		return marshalJson(config.SetLogLevel(C.GoString(filter)))
 	}
 
+	if int(sortMode) == issues.SortIssues { // CUSTOM.md #53: problems of the running config (the filter is a command)
+		return marshalJson(issues.Command(C.GoString(filter)))
+	}
+
 	if int(sortMode) == ipdelay.SortNodeInfo { // CUSTOM.md #23 #24: IPv6-only nodes, last test time, last network change
 		return marshalJson(ipdelay.NodeInfo())
 	}
@@ -54,6 +61,19 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 func closeCustomConnection(id C.c_string) C.int {
 	if C.GoString(id) == errlog.ClearID { // CUSTOM.md #21: forget the recorded errors
 		errlog.Clear()
+		return 1
+	}
+
+	if sid := C.GoString(id); strings.HasPrefix(sid, issues.IgnorePrefix) || strings.HasPrefix(sid, issues.UnignorePrefix) || sid == issues.ClearID {
+		switch { // CUSTOM.md #53
+		case sid == issues.ClearID:
+			issues.Clear()
+		case strings.HasPrefix(sid, issues.IgnorePrefix):
+			issues.SetIgnored(strings.TrimPrefix(sid, issues.IgnorePrefix), true)
+		default:
+			issues.SetIgnored(strings.TrimPrefix(sid, issues.UnignorePrefix), false)
+		}
+
 		return 1
 	}
 
