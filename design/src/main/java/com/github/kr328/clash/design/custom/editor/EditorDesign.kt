@@ -56,7 +56,7 @@ class EditorDesign(
     private val colorBar = if (night) Color.parseColor("#1F2328") else Color.parseColor("#F1F3F4")
     private val colorText = if (night) Color.parseColor("#E6E6E6") else Color.parseColor("#1F2328")
     // CUSTOM: plain (uncoloured) YAML text, e.g. the rule lines; kept far from the grey of comments
-    private val colorPlain = if (night) Color.parseColor("#F48FB1") else Color.parseColor("#AD1457")
+    private val colorPlain = if (night) Color.parseColor("#C3E88D") else Color.parseColor("#2E7D32") // same green as the quoted strings
     private val colorMuted = if (night) Color.parseColor("#9AA4AE") else Color.parseColor("#6B7480")
     private val colorAccent = if (night) Color.parseColor("#82AAFF") else Color.parseColor("#1565C0")
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
