@@ -115,7 +115,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     // CUSTOM.md #58: a line of the text that a history version added or changed (drawn as a band behind the line; the
     // spans follow the text when it is edited and are not part of it)
-    private class DiffSpan(val status: Int)
+    private class DiffSpan(val status: Int, val old: String?)
 
     /**
      * CUSTOM.md #58: lines that the old text had and this one has not. They are not in the text: the line they sit
@@ -725,7 +725,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             val a = lineStarts[local]
             val b = lineEnd(local, t.length)
 
-            if (b > a) t.setSpan(DiffSpan(status), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (b > a) t.setSpan(DiffSpan(status, marks.old[line]), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
 
         for ((line, rows) in marks.removed) {
@@ -794,6 +794,22 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             } else {
                 fillPaint.color = if (added) colorAddBg else colorChangeBg
                 canvas.drawRect(left, top, right, bottom, fillPaint)
+
+                // a changed line: what the value was, struck through, right after the line (drawn, not in the text;
+                // when the line leaves no room for it, it is cut at the edge of the screen)
+                val old = s.old
+
+                if (old != null && old.isNotEmpty()) {
+                    val line = l.getLineForOffset(b)
+                    val x = padLeft + l.getPrimaryHorizontal(b) + charW
+
+                    if (x < right) {
+                        ghostPaint.textSize = textSize
+                        ghostPaint.color = colorChangeBar
+                        canvas.drawText(old, x, (l.getLineBaseline(line) + padTop).toFloat(), ghostPaint)
+                        ghostPaint.color = colorDelBar
+                    }
+                }
             }
         }
 

@@ -10,7 +10,7 @@ import android.text.InputType
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
+import android.text.style.StrikethroughSpan
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
@@ -484,39 +484,43 @@ class EditorDesign(
             return
         }
 
+        val changed = m.status.values.count { it == EffectiveLine.CHANGED }
+        val added = m.status.values.count { it == EffectiveLine.ADDED }
+        val removed = m.removed.values.sumOf { it.size }
         val sb = SpannableStringBuilder()
 
-        if (m.isEmpty) {
-            sb.append(context.getString(R.string.cmp_no_diff))
-        } else {
-            val changed = m.status.values.count { it == EffectiveLine.CHANGED }
-            val added = m.status.values.count { it == EffectiveLine.ADDED }
-            val removed = m.removed.values.sumOf { it.size }
+        // the same words and the same order as the head of the compare page (EffectiveText.header), in the colours of the marks
+        sb.append(context.getString(R.string.cmp_summary, changed, removed, added))
 
-            sb.append(context.getString(R.string.cmp_summary, changed, removed, added))
+        if (diffExpanded) {
+            sb.append('\n')
 
-            if (diffExpanded) {
-                fun line(text: String, color: Int) {
-                    sb.append('\n')
+            val changedAt = sb.length
 
-                    val at = sb.length
+            sb.append("~ ").append(context.getString(R.string.cmp_legend_changed))
+            sb.setSpan(ForegroundColorSpan(editor.diffChangeColor), changedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append("   ")
 
-                    sb.append(text)
-                    sb.setSpan(ForegroundColorSpan(color), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    sb.setSpan(StyleSpan(Typeface.BOLD), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
+            val removedAt = sb.length
 
-                line(context.getString(R.string.editor_diff_changed), editor.diffChangeColor)
-                line(context.getString(R.string.cmp_legend_removed), editor.diffRemoveColor)
-                line(context.getString(R.string.cmp_legend_added), editor.diffAddColor)
+            sb.append("- ").append(context.getString(R.string.cmp_legend_removed))
+            sb.setSpan(ForegroundColorSpan(editor.diffRemoveColor), removedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(StrikethroughSpan(), removedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append("   ")
 
-                sb.append('\n')
+            val addedAt = sb.length
 
-                val at = sb.length
+            sb.append("+ ").append(context.getString(R.string.cmp_legend_added))
+            sb.setSpan(ForegroundColorSpan(editor.diffAddColor), addedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
-                sb.append(context.getString(R.string.editor_diff_note))
-                sb.setSpan(ForegroundColorSpan(colorMuted), at, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
+            if (changed + removed + added == 0) sb.append('\n').append(context.getString(R.string.cmp_no_diff))
+
+            sb.append('\n')
+
+            val noteAt = sb.length
+
+            sb.append(context.getString(R.string.editor_diff_note))
+            sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
 
         diffNote.text = sb
