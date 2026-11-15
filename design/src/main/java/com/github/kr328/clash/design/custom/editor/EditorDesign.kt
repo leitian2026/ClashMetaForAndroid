@@ -19,11 +19,14 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.databinding.Observable
 import androidx.core.view.WindowInsetsCompat
+import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
+import com.github.kr328.clash.design.custom.EffectiveText
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.design.util.resolveThemedResourceId
@@ -31,6 +34,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import android.text.method.LinkMovementMethod
+import androidx.appcompat.app.AlertDialog
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
@@ -45,8 +50,12 @@ class EditorDesign(
     useSchema: Boolean,
     private val lint: Boolean = false, // CUSTOM.md #50: look for mistakes in the text (YAML files)
     private val readOnly: Boolean = false, // CUSTOM.md #51: a profile that is not a local file cannot be written (the service refuses)
+    // CUSTOM.md #56: the config.yaml of a profile the user edits: "save" only keeps a history version, "apply" puts
+    // it in use, and the history and the compare against the config in use are in the menu
+    private val split: Boolean = false,
 ) : Design<EditorDesign.Request>(context) {
-    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom } // SaveAs, ImportFrom: CUSTOM.md #47
+    // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare }
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -91,7 +100,11 @@ class EditorDesign(
     private val redoButton = action("↷", context.getString(R.string.editor_redo)) { editor.redoEdit() }
     private val findButton = action(context.getString(R.string.editor_find), null) { toggleFind() }
     private val checkButton = action(context.getString(R.string.editor_check), null) { requests.trySend(Request.Check) }
-    private val saveButton = action(context.getString(R.string.editor_save), null) { requests.trySend(Request.Save) }
+    private val saveButton = action(
+        context.getString(if (split) R.string.editor_save_history_short else R.string.editor_save),
+        context.getString(if (split) R.string.editor_save_history else R.string.editor_save),
+    ) { requests.trySend(Request.Save) }
+    private val applyButton = action(context.getString(R.string.editor_apply), null) { requests.trySend(Request.Apply) }
     private val moreButton = action("⋮", null) { showMore(it) }
 
     // CUSTOM.md #53: one row at the bottom: where the caret is (and the problem on its line, or which lines of a big
@@ -202,6 +215,7 @@ class EditorDesign(
                 if (canCheck) addView(checkButton)
 
                 if (!readOnly) addView(saveButton)
+                if (split) addView(applyButton)
                 addView(moreButton)
             },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)),
@@ -460,14 +474,108 @@ class EditorDesign(
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<Int> { c ->
                 val dialog = MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.editor_leave_title)
-                    .setPositiveButton(R.string.editor_leave_save) { _, _ -> if (c.isActive) c.resume(0) }
+                    .setTitle(if (split) R.string.editor_leave_title_history else R.string.editor_leave_title)
+                    .setPositiveButton(if (split) R.string.editor_leave_save_history else R.string.editor_leave_save) { _, _ -> if (c.isActive) c.resume(0) }
                     .setNegativeButton(R.string.editor_leave_discard) { _, _ -> if (c.isActive) c.resume(1) }
                     .setNeutralButton(R.string.editor_leave_cancel) { _, _ -> if (c.isActive) c.resume(2) }
                     .setOnCancelListener { if (c.isActive) c.resume(2) }
                     .show()
 
                 c.invokeOnCancellation { dialog.dismiss() }
+            }
+        }
+    }
+
+    /** CUSTOM.md #56: a list to pick from; the index of the picked item, or -1 when it was dismissed. */
+    suspend fun pick(title: CharSequence, items: List<CharSequence>): Int {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine<Int> { c ->
+                val dialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setItems(items.toTypedArray()) { _, which -> if (c.isActive) c.resume(which) }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener { if (c.isActive) c.resume(-1) }
+                    .show()
+
+                c.invokeOnCancellation { dialog.dismiss() }
+            }
+        }
+    }
+
+    /** CUSTOM.md #56: a question with two buttons; true when [positive] was tapped. */
+    suspend fun ask(title: CharSequence, text: CharSequence, positive: CharSequence): Boolean {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine<Boolean> { c ->
+                val dialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setMessage(text)
+                    .setPositiveButton(positive) { _, _ -> if (c.isActive) c.resume(true) }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener { if (c.isActive) c.resume(false) }
+                    .show()
+
+                c.invokeOnCancellation { dialog.dismiss() }
+            }
+        }
+    }
+
+    /**
+     * CUSTOM.md #56: the page of what a text changes against the config in use, drawn like the effective config
+     * page (see [EffectiveText]). [compute] is called when the page opens and at each tap on "compare again" (never
+     * on its own); it answers with the lines, or null when it could not. Returns when the page is closed.
+     */
+    suspend fun showCompare(title: CharSequence, compute: suspend () -> EffectiveConfig?) {
+        withContext(Dispatchers.Main) {
+            val body = TextView(context).apply {
+                textSize = 12f
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+                movementMethod = LinkMovementMethod.getInstance()
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+            }
+
+            var running = false
+
+            fun run() {
+                if (running) return
+
+                running = true
+                body.text = context.getString(R.string.editor_compare_running)
+
+                this@EditorDesign.launch(Dispatchers.Main) {
+                    val config = try {
+                        compute()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+
+                    body.text = if (config == null) {
+                        context.getString(R.string.editor_compare_failed)
+                    } else {
+                        EffectiveText(context, config, compare = true).render { }
+                    }
+
+                    running = false
+                }
+            }
+
+            suspendCancellableCoroutine<Unit> { c ->
+                val dialog: AlertDialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setView(ScrollView(context).apply { addView(body) })
+                    .setPositiveButton(R.string.editor_compare_close, null)
+                    .setNeutralButton(R.string.editor_compare_again, null)
+                    .setOnDismissListener { if (c.isActive) c.resume(Unit) }
+                    .show()
+
+                // the button must not close the page
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { run() }
+
+                c.invokeOnCancellation { dialog.dismiss() }
+
+                run()
             }
         }
     }
@@ -647,6 +755,11 @@ class EditorDesign(
         PopupMenu(context, anchor).apply {
             // CUSTOM.md #47: save to / open from anywhere on the phone
             // CUSTOM.md #50: jump to a line, show Tabs and trailing spaces
+            // CUSTOM.md #56: the history of the config and the compare against the config in use
+            if (split) {
+                menu.add(0, 5, 0, context.getString(R.string.editor_history_menu))
+                menu.add(0, 6, 0, context.getString(R.string.editor_compare_menu))
+            }
             menu.add(0, 3, 0, context.getString(R.string.editor_goto_line))
             menu.add(0, 4, 1, context.getString(R.string.editor_show_whitespace)).apply {
                 isCheckable = true
@@ -658,6 +771,8 @@ class EditorDesign(
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     3 -> askLine()
+                    5 -> requests.trySend(Request.History)
+                    6 -> requests.trySend(Request.Compare)
                     4 -> {
                         val on = !editor.showWhitespace
 
@@ -680,9 +795,10 @@ class EditorDesign(
             textSize = 15f
             setTextColor(colorAccent)
             gravity = Gravity.CENTER
-            minWidth = dp(44)
+            // CUSTOM.md #56: with the apply button the bar holds one more word, so the buttons are closer
+            minWidth = dp(if (split) 38 else 44)
             minHeight = dp(44)
-            setPadding(dp(8), 0, dp(8), 0)
+            setPadding(dp(if (split) 5 else 8), 0, dp(if (split) 5 else 8), 0)
             isClickable = true
             contentDescription = description ?: label
             setBackgroundResource(context.resolveThemedResourceId(android.R.attr.selectableItemBackground))

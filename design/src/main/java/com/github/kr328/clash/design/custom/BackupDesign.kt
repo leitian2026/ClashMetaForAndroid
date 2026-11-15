@@ -72,7 +72,7 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
         }
     }
 
-    /** CUSTOM.md #28: a list to pick from; the index of the picked item, or -1 when the user dismissed it. */
+    /** CUSTOM.md #28 #32: a list to pick from; the index of the picked item, or -1 when the user dismissed it. */
     suspend fun pick(title: CharSequence, items: List<CharSequence>): Int {
         return withContext(Dispatchers.Main) {
             statusView.visibility = View.GONE
@@ -84,32 +84,6 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
                     .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(-1) }
-            }
-        }
-    }
-
-    /** CUSTOM.md #28: a long text in a scrollable monospace box (a diff, a config excerpt). Returns when it is closed. */
-    suspend fun showText(title: CharSequence, text: CharSequence) {
-        withContext(Dispatchers.Main) {
-            statusView.visibility = View.GONE
-
-            val density = context.resources.displayMetrics.density
-
-            val body = TextView(context).apply {
-                this.text = text
-                textSize = 12f
-                typeface = Typeface.MONOSPACE
-                setTextIsSelectable(true)
-                setPadding((20 * density).toInt(), (8 * density).toInt(), (20 * density).toInt(), (8 * density).toInt())
-            }
-
-            suspendCancellableCoroutine<Unit> { ctx ->
-                MaterialAlertDialogBuilder(context)
-                    .setTitle(title)
-                    .setView(ScrollView(context).apply { addView(body) })
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show()
-                    .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(Unit) }
             }
         }
     }

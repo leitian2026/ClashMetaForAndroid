@@ -7,13 +7,18 @@ import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.common.util.grantPermissions
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.editor.EditorDesign
 import com.github.kr328.clash.remote.FilesClient
 import com.github.kr328.clash.service.custom.ConfigErrorText
+import com.github.kr328.clash.service.custom.ConfigHistory
+import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.pendingDir
 import com.github.kr328.clash.util.fileName
@@ -24,7 +29,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 // CUSTOM (CUSTOM.md #46, not upstream): the built-in text editor. "Files" opens a text file of a profile here (up to
@@ -32,6 +41,10 @@ import java.util.UUID
 // through the same document provider the other apps use, so a saved config.yaml is the profile's unsaved copy,
 // exactly as if an external editor had written it; the profile page's own "save" then lets the core check it.
 // Nothing runs on its own: the file is read once when the page opens and written when the user taps save.
+//
+// CUSTOM.md #56: for the config.yaml of a profile the user edits (the "split" case), "save" only keeps a history
+// version (ConfigHistory), "apply" writes the profile's pending copy and commits it (the core checks it first),
+// and the menu opens the history and the compare against the config in use. Every other file is saved as before.
 class EditorActivity : BaseActivity<EditorDesign>() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // from Android 11 the keyboard is told in the insets and the page makes room for it itself; before that
@@ -62,7 +75,11 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         profileId = profile
         openedName = name
 
-        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, readOnly)
+        // CUSTOM.md #56
+        split = canCheck && !readOnly
+        profileTitle = title.ifBlank { name }
+
+        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, readOnly, split)
 
         setContentDesign(design)
 
@@ -78,7 +95,12 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
         while (isActive) {
             when (design.requests.receive()) {
-                EditorDesign.Request.Save -> if (!readOnly) save(design, uri)
+                EditorDesign.Request.Save -> if (!readOnly) {
+                    if (split) saveHistory(design) else save(design, uri)
+                }
+                EditorDesign.Request.Apply -> if (split) apply(design, uri)
+                EditorDesign.Request.History -> if (split) history(design)
+                EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)
                 EditorDesign.Request.SaveAs -> saveAs(design, suggestName(name, title))
@@ -179,6 +201,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
     private var profileId = ""
     private var openedName = ""
+    private var split = false // CUSTOM.md #56
+    private var profileTitle = ""
 
     private suspend fun save(design: EditorDesign, uri: Uri): Boolean {
         val bytes = design.currentText().toByteArray(Charsets.UTF_8)
@@ -239,6 +263,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
     // true when the page may be closed: nothing is unsaved, or the user chose to save (and it worked) or to discard
     private suspend fun leave(design: EditorDesign, uri: Uri): Boolean {
+        if (split) return leaveSplit(design)
+
         if (!design.dirty) return true
 
         return when (design.confirmLeave()) {
@@ -248,47 +274,351 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
     }
 
-    // saves what is on the page, then lets the core read the profile's config.yaml: whether it is accepted, and which
-    // line it names when it is not
+    // lets the core read the profile's config.yaml: whether it is accepted, and which line it names when it is not.
+    // CUSTOM.md #56: for a config the user edits the text on the page is what is checked (it is written to a temporary
+    // folder, nothing of the profile is touched); for the other cases it is the profile's own copy, as before
     private suspend fun check(design: EditorDesign, uri: Uri, profile: String) {
         if (profile.isEmpty()) return
 
-        if (design.dirty && !save(design, uri)) return
-
-        val pending = pendingDir.resolve(profile)
-        val dir = if (pending.resolve("config.yaml").isFile) pending else importedDir.resolve(profile)
         val title = getString(R.string.editor_check_title)
+        var temp: File? = null
 
-        val answer = try {
-            JSONObject(withClash { queryCustomConnections(CustomConnections.SORT_VALIDATE, dir.absolutePath) })
+        val dir = if (split) {
+            val text = design.currentText()
+
+            try {
+                withContext(Dispatchers.IO) {
+                    val folder = File(cacheDir, "editor_check")
+
+                    folder.deleteRecursively()
+                    folder.mkdirs()
+                    File(folder, "config.yaml").writeBytes(text.toByteArray(Charsets.UTF_8))
+
+                    folder
+                }.also { temp = it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                design.message(title, e.message ?: e.javaClass.simpleName)
+
+                return
+            }
+        } else {
+            val pending = pendingDir.resolve(profile)
+
+            if (pending.resolve("config.yaml").isFile) pending else importedDir.resolve(profile)
+        }
+
+        try {
+            val answer = try {
+                JSONObject(withClash { queryCustomConnections(CustomConnections.SORT_VALIDATE, dir.absolutePath) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                design.message(title, e.message ?: e.javaClass.simpleName)
+
+                return
+            }
+
+            if (answer.optBoolean("ok")) {
+                design.toast(getString(R.string.editor_check_ok))
+
+                return
+            }
+
+            val line = answer.optInt("line")
+            val shown = ConfigErrorText.snippet(dir.resolve("config.yaml"), line)
+
+            if (line > 0) design.goToLine(line, true)
+
+            design.message(
+                title,
+                getString(R.string.editor_check_bad, answer.optString("error")) + (if (shown.isNotEmpty()) "\n\n$shown" else ""),
+            )
+        } finally {
+            temp?.let { t -> withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) { t.deleteRecursively() } }
+        }
+    }
+
+    // ---- CUSTOM.md #56: history versions, apply, compare ----------------------------------------------
+
+    private fun profileUuid(): UUID = UUID.fromString(profileId)
+
+    /** "Save as history version": only written to the history, the profile's pending copy and the config in use are not touched. */
+    private suspend fun saveHistory(design: EditorDesign, quiet: Boolean = false): Boolean {
+        val text = design.currentText()
+        val title = getString(R.string.editor_save_history)
+
+        val result = try {
+            withContext(Dispatchers.IO) { ConfigHistory.add(this@EditorActivity, profileUuid(), text) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            design.message(title, e.message ?: e.javaClass.simpleName)
+            design.message(title, getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName))
+
+            return false
+        }
+
+        when (result.status) {
+            ConfigHistory.ADDED, ConfigHistory.EXISTS -> {
+                design.markSaved()
+
+                if (!quiet) {
+                    val inUse = withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, profileUuid(), text) }
+
+                    design.toast(
+                        getString(
+                            when {
+                                result.status == ConfigHistory.EXISTS -> R.string.editor_history_exists
+                                inUse -> R.string.editor_history_saved_in_use
+                                else -> R.string.editor_history_saved
+                            },
+                        ),
+                    )
+                }
+
+                return true
+            }
+            ConfigHistory.EMPTY -> design.message(title, getString(R.string.editor_history_empty))
+            else -> design.message(title, getString(R.string.editor_history_too_big))
+        }
+
+        return false
+    }
+
+    /**
+     * "Apply": the text on the page is kept as a history version first (the config in use is kept before it, so the
+     * list stays in order), then written into the profile's pending copy and committed. The core checks it before
+     * anything is replaced: when it refuses, the config in use is not changed, the version in the history is marked
+     * as refused, the pending copy that this made is dropped and the line the core names is shown.
+     */
+    private suspend fun apply(design: EditorDesign, uri: Uri): Boolean {
+        val uuid = profileUuid()
+        val text = design.currentText()
+
+        if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
+            withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
+            design.markSaved()
+            design.toast(getString(R.string.editor_apply_same))
+
+            return true
+        }
+
+        val added = try {
+            withContext(Dispatchers.IO) {
+                ConfigHistory.keepInUse(this@EditorActivity, uuid)
+                ConfigHistory.add(this@EditorActivity, uuid, text)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+        val kept = added != null && (added.status == ConfigHistory.ADDED || added.status == ConfigHistory.EXISTS)
+
+        if (kept) design.markSaved()
+
+        val hadPending = try {
+            withProfile { queryByUUID(uuid) }?.pending == true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            true // not known: nothing is dropped afterwards
+        }
+
+        try {
+            withContext(Dispatchers.IO) {
+                val stream = contentResolver.openOutputStream(uri, "wt") ?: throw IOException("cannot open")
+
+                stream.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+            }
+
+            withProfile { commit(uuid) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            added?.version?.let { v -> withContext(Dispatchers.IO) { ConfigHistory.markBad(v) } }
+
+            // the copy that this apply made is not left behind (a copy that was there before is not touched)
+            if (!hadPending) {
+                try {
+                    withProfile { release(uuid) }
+                } catch (_: Exception) {
+                }
+            }
+
+            val line = ConfigErrorText.lineOf(e.message)
+
+            if (line > 0) design.goToLine(line, true)
+
+            design.message(
+                getString(R.string.editor_apply_failed_title),
+                getString(R.string.editor_apply_failed, e.message ?: e.javaClass.simpleName),
+            )
+
+            return false
+        }
+
+        design.markSaved()
+        design.toast(getString(if (kept) R.string.editor_applied else R.string.editor_applied_no_history))
+
+        return true
+    }
+
+    /** "History versions": the list of the versions of this config; the one picked is loaded into the page, not applied. */
+    private suspend fun history(design: EditorDesign) {
+        val uuid = profileUuid()
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
+        // the history of profiles that are gone (or are not edited by the user) is cleared when the list is opened
+        try {
+            val ids = withProfile { queryAll() }
+                .filter { it.imported && it.type == Profile.Type.File }
+                .map { it.uuid.toString() }
+                .toSet()
+
+            if (uuid.toString() in ids) {
+                withContext(Dispatchers.IO) { ConfigHistory.cleanOrphans(this@EditorActivity, ids) }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+
+        val versions = withContext(Dispatchers.IO) { ConfigHistory.list(this@EditorActivity, uuid) }
+
+        if (versions.isEmpty()) {
+            design.message(profileTitle, getString(R.string.history_none))
 
             return
         }
 
-        if (answer.optBoolean("ok")) {
-            design.toast(getString(R.string.editor_check_ok))
+        // one label per version: when it was kept, how long it is, what changed from the next older one, its state
+        val labels = withContext(Dispatchers.IO) {
+            val inUse = ConfigHistory.inUse(this@EditorActivity, uuid, versions)
+
+            versions.mapIndexed { i, v ->
+                val text = v.text()
+                val lines = text.lines().size
+                val older = versions.getOrNull(i + 1)
+                val date = format.format(Date(v.at))
+
+                var label = if (older == null) {
+                    getString(R.string.history_version_first, date, lines)
+                } else {
+                    val d = LineDiff.diff(older.text().lines(), text.lines())
+
+                    getString(R.string.history_version_line, date, lines, d.added, d.removed)
+                }
+
+                if (v == inUse) label += getString(R.string.history_in_use)
+
+                if (v.bad) {
+                    label += getString(R.string.history_bad)
+                } else if (v.saved && v != inUse) {
+                    label += getString(R.string.history_saved_unapplied)
+                }
+
+                if (v.verified) label += getString(R.string.history_verified) // CUSTOM.md #38
+
+                label
+            }
+        }
+
+        val index = design.pick(getString(R.string.history_pick_version, profileTitle), labels)
+        val version = versions.getOrNull(index) ?: return
+
+        if (design.dirty) {
+            val ok = design.ask(
+                getString(R.string.editor_history_overwrite_title),
+                getString(R.string.editor_history_overwrite),
+                getString(R.string.editor_history_load),
+            )
+
+            if (!ok) return
+        }
+
+        val text = try {
+            withContext(Dispatchers.IO) { version.text() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.message(profileTitle, getString(R.string.editor_open_failed, e.message ?: e.javaClass.simpleName))
 
             return
         }
 
-        val line = answer.optInt("line")
-        val shown = ConfigErrorText.snippet(dir.resolve("config.yaml"), line)
+        val date = format.format(Date(version.at))
+        val undoable = design.replaceText(text)
 
-        if (line > 0) design.goToLine(line, true)
+        design.markSaved() // it is a version of the history, so there is nothing on the page that is not kept
+        design.toast(getString(if (undoable) R.string.editor_history_loaded else R.string.editor_history_loaded_no_undo, date))
 
-        design.message(
-            title,
-            getString(R.string.editor_check_bad, answer.optString("error")) + (if (shown.isNotEmpty()) "\n\n$shown" else ""),
-        )
+        // computed once now; "compare again" computes it again for what is on the page then
+        compare(design, getString(R.string.editor_compare_loaded_title, date))
+    }
+
+    /** The page of what the text on the page would change against the config in use. */
+    private suspend fun compare(design: EditorDesign, title: String) {
+        val uuid = profileUuid()
+
+        design.showCompare(title) {
+            val text = design.currentText()
+
+            try {
+                withContext(Dispatchers.Default) {
+                    val used = ConfigHistory.current(this@EditorActivity, uuid)?.readText(Charsets.UTF_8) ?: ""
+
+                    ConfigDiff.diff(used, text)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null as EffectiveConfig?
+            }
+        }
+    }
+
+    // leaving, for a config the user edits: the changes are kept as a history version or dropped; the apply is a
+    // separate step, so when what is on the page (or a saved version) is not applied, a note says so
+    private suspend fun leaveSplit(design: EditorDesign): Boolean {
+        var discarded = false
+
+        if (design.dirty) {
+            when (design.confirmLeave()) {
+                0 -> if (!saveHistory(design, quiet = true)) return false
+                1 -> discarded = true
+                else -> return false
+            }
+        }
+
+        val uuid = profileUuid()
+        val text = design.currentText()
+
+        val note = try {
+            withContext(Dispatchers.IO) {
+                when {
+                    !discarded && !ConfigHistory.isInUse(this@EditorActivity, uuid, text) -> R.string.editor_leave_unapplied
+                    ConfigHistory.unapplied(this@EditorActivity, uuid) != null -> R.string.editor_leave_unapplied_saved
+                    else -> 0
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            0
+        }
+
+        if (note != 0) Toast.makeText(applicationContext, getString(note), Toast.LENGTH_LONG).show()
+
+        return true
     }
 
     // the page is closed after this: text that is edited elsewhere would be out of date here
     private suspend fun openExternal(design: EditorDesign, uri: Uri) {
-        if (design.dirty && !save(design, uri)) return
+        // CUSTOM.md #56: the other app opens the profile's own file; what is on the page is kept as a history version
+        if (design.dirty && !(if (split) saveHistory(design, quiet = true) else save(design, uri))) return
 
         try {
             startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "text/plain").grantPermissions())

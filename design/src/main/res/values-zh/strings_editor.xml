@@ -57,6 +57,35 @@
     <string name="editor_imported_no_undo">已导入 %1$s（文件很大，不能撤销；尚未保存）</string>
     <string name="editor_readonly_notice">订阅和外部导入的配置不能在这里改（服务端不允许写入），只能查看和查找</string>
     <string name="editor_saved_applied">已保存并生效</string>
-    <string name="editor_apply_failed_title">保存后没能生效</string>
-    <string name="editor_apply_failed">内核没有接受这份配置，正在用的配置没有变。你的修改保留在文件里，改好后再保存一次。\n\n%1$s</string>
+    <string name="editor_apply_failed_title">没能应用</string>
+    <string name="editor_apply_failed">内核没有接受这份配置，正在用的配置没有变。这份已存进历史版本，标着“未通过检查”，改好后再点“应用”。\n\n%1$s</string>
+    <!-- CUSTOM (CUSTOM.md #56): 历史版本、应用、对比 -->
+    <string name="editor_save_history">保存为历史版本</string>
+    <string name="editor_save_history_short">存历史</string>
+    <string name="editor_apply">应用</string>
+    <string name="editor_history_menu">历史版本…</string>
+    <string name="editor_compare_menu">和正在用的配置对比…</string>
+    <string name="editor_history_saved">已保存为历史版本。还没应用：正在用的配置没有变。</string>
+    <string name="editor_history_saved_in_use">已保存为历史版本（它就是正在用的配置）。</string>
+    <string name="editor_history_exists">历史里已有相同的版本，没有重复保存。</string>
+    <string name="editor_history_empty">空配置不存进历史。</string>
+    <string name="editor_history_too_big">超过 2 MB 的配置不存进历史。</string>
+    <string name="editor_applied">已应用，正在用的配置现在就是这一份。</string>
+    <string name="editor_applied_no_history">已应用（这份太大，没有存进历史）。</string>
+    <string name="editor_apply_same">这份就是正在用的配置，不用再应用。</string>
+    <string name="editor_history_overwrite_title">载入这个版本？</string>
+    <string name="editor_history_overwrite">编辑框里有还没保存的修改，载入这个版本会覆盖它们（可以撤销）。</string>
+    <string name="editor_history_load">载入</string>
+    <string name="editor_history_loaded">已载入 %1$s 的版本（可撤销）。还没应用。</string>
+    <string name="editor_history_loaded_no_undo">已载入 %1$s 的版本（文件很大，不能撤销）。还没应用。</string>
+    <string name="editor_compare_title">和正在用的配置相比</string>
+    <string name="editor_compare_loaded_title">%1$s 的版本和正在用的配置相比</string>
+    <string name="editor_compare_again">重新对比</string>
+    <string name="editor_compare_close">关闭</string>
+    <string name="editor_compare_running">正在对比…</string>
+    <string name="editor_compare_failed">没能对比。</string>
+    <string name="editor_leave_title_history">有修改还没存为历史版本</string>
+    <string name="editor_leave_save_history">存为历史版本</string>
+    <string name="editor_leave_unapplied">页面上的这一份还没应用，正在用的配置没有变。</string>
+    <string name="editor_leave_unapplied_saved">历史里有已保存但还没应用的版本，正在用的配置没有变。</string>
 </resources>

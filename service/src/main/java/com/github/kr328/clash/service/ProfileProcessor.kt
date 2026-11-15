@@ -59,7 +59,7 @@ object ProfileProcessor {
 
                 profileLock.withLock {
                     if (PendingDao().queryByUUID(snapshot.uuid) == snapshot) {
-                        ConfigHistory.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #28): keep the version being replaced and the new one
+                        if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #28 #56): keep the version being replaced and the new one (only self-edited profiles have a history)
                         context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()
                         context.processingDir.copyRecursively(context.importedDir.resolve(snapshot.uuid.toString()))
 
@@ -180,6 +180,7 @@ object ProfileProcessor {
 
                 pending.deleteRecursively()
                 imported.deleteRecursively()
+                ConfigHistory.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #56): its history goes with it
 
                 context.sendProfileChanged(uuid)
             }

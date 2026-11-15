@@ -1,6 +1,7 @@
 package com.github.kr328.clash.custom
 
-// CUSTOM (CUSTOM.md #28, not upstream): a plain line diff for the config history page. The common start and end
+// CUSTOM (CUSTOM.md #28 #56, not upstream): a plain line diff; the editor's history list uses it for the "+added −removed"
+// of each version. The common start and end
 // of the two texts are cut off first (edits are usually small), the rest is compared with the longest common
 // subsequence. When the changed middle is too big for that (more than LIMIT line pairs) it is shown as all
 // removed, then all added. Pure Kotlin, no Android classes.

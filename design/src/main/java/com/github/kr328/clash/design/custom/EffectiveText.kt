@@ -37,7 +37,13 @@ import com.github.kr328.clash.design.R
  * values a later step changed are shown (with the lines they sit under), unless all the defaults are asked for.
  * All of this happens in memory when the page draws; nothing runs on its own.
  */
-class EffectiveText(private val context: Context, private val config: EffectiveConfig) {
+class EffectiveText(
+    private val context: Context,
+    private val config: EffectiveConfig,
+    // CUSTOM.md #56: the same lines drawn for "this text against the config in use" (the editor's history compare):
+    // every line of the text, nothing folded, no "who did it" tags, its own summary and note
+    private val compare: Boolean = false,
+) {
     private var showKernel = false
     private var tailOpen = false // the section of the blocks the core added at the end
     private val expanded = HashSet<Int>() // folds the user opened, by the position of their first line
@@ -131,6 +137,8 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
     }
 
     private fun tag(l: EffectiveLine): String {
+        if (compare) return ""
+
         val id = when (l.source) {
             EffectiveLine.SRC_OVERRIDE -> R.string.eff_tag_override
             EffectiveLine.SRC_APP -> R.string.eff_tag_app
@@ -199,6 +207,12 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
     // [foldBase] keeps the folds of the two parts apart: a fold is known by the position of its first line
     private fun body(sb: SpannableStringBuilder, lines: List<EffectiveLine>, foldBase: Int, onChange: () -> Unit) {
         val parent = parentsOf(lines)
+
+        if (compare) {
+            for (k in lines.indices) line(sb, lines, parent, k)
+
+            return
+        }
 
         // what stays visible: the changed lines, what they sit under, and one line on each side
         val keep = BooleanArray(lines.size)
@@ -275,22 +289,29 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
     }
 
     private fun header(sb: SpannableStringBuilder, onChange: () -> Unit) {
-        sb.append(context.getString(R.string.eff_summary, config.changed, config.removed, config.added)).append('\n')
+        sb.append(
+            context.getString(
+                if (compare) R.string.cmp_summary else R.string.eff_summary,
+                config.changed,
+                config.removed,
+                config.added,
+            ),
+        ).append('\n')
 
         // the legend: what each mark and color means
         val changedAt = sb.length
-        sb.append("~ ").append(context.getString(R.string.eff_legend_changed))
+        sb.append("~ ").append(context.getString(if (compare) R.string.cmp_legend_changed else R.string.eff_legend_changed))
         sb.setSpan(ForegroundColorSpan(colorChanged), changedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.append("   ")
 
         val removedAt = sb.length
-        sb.append("- ").append(context.getString(R.string.eff_legend_removed))
+        sb.append("- ").append(context.getString(if (compare) R.string.cmp_legend_removed else R.string.eff_legend_removed))
         sb.setSpan(ForegroundColorSpan(colorRemoved), removedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.setSpan(StrikethroughSpan(), removedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.append("   ")
 
         val addedAt = sb.length
-        sb.append("+ ").append(context.getString(R.string.eff_legend_added))
+        sb.append("+ ").append(context.getString(if (compare) R.string.cmp_legend_added else R.string.eff_legend_added))
         sb.setSpan(ForegroundColorSpan(colorAdded), addedAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.append('\n')
 
@@ -313,12 +334,12 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
         }
 
         if (config.changed + config.removed + config.added == 0) {
-            sb.append(context.getString(R.string.eff_no_diff)).append('\n')
+            sb.append(context.getString(if (compare) R.string.cmp_no_diff else R.string.eff_no_diff)).append('\n')
         }
 
         val noteAt = sb.length
 
-        sb.append(context.getString(R.string.eff_note)).append('\n')
+        sb.append(context.getString(if (compare) R.string.cmp_note else R.string.eff_note)).append('\n')
         sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.setSpan(RelativeSizeSpan(0.85f), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
@@ -386,7 +407,7 @@ class EffectiveText(private val context: Context, private val config: EffectiveC
             val p = if (parent[i] >= 0) lines[parent[i]] else null
             val root = p == null || p.status != l.status || p.source != l.source
 
-            if (root || l.status == EffectiveLine.CHANGED) {
+            if (!compare && (root || l.status == EffectiveLine.CHANGED)) {
                 val tagAt = sb.length
 
                 sb.append(tag(l))

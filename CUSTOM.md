@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r67
+当前版本：2_11_36-r68
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -33,7 +33,7 @@
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
-| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `ConfigHistory.keep(context, snapshot.uuid)`（#28，记下被替换的和新的版本）；加两个 import |
+| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
 | `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
 | `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view`（r34 起是显示当前级别文字的 `TextView`，原来是图标 `ImageView`）；标题栏的 `layout_toStartOf` 改指向它 |
 | `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
@@ -473,16 +473,16 @@
 ## 27. 保存配置时说清是哪一行，以及"检查配置有没有错"（r26）
 **效果：**
 - **保存时的错误：** 你在"文件"里用外部编辑器改了 `config.yaml`，回到配置页点保存，上游本来就会让内核先检查（`ProfileProcessor.apply` 里的 `fetchAndValid`），不合格就不替换正在用的配置。以前只弹内核的一句话，现在如果这句话里有"line N"，就在后面加上那一行和上下各一行（`> 12 | 内容`）。没提行号的错误原样抛出。
-- **"检查配置有没有错"：** "设置 → 应用 → 配置历史与检查 → 检查配置有没有错"。选一个配置，让内核读它的 `config.yaml`（有**还没保存的编辑**就读那一份，页面会说明）、套上 App 的补丁、解析一遍，但**不载入、不联网下载**，只告诉你能不能通过；不能通过就写原因和那一行。用来在点保存之前先查。
+- **"检查配置有没有错"：** （r68 起入口是编辑页顶部的"检查"，见 #56；原来设置里的"配置历史与检查"已删。）让内核读配置的 `config.yaml`（自己编辑的配置读**编辑框里的文字**）、套上 App 的补丁、解析一遍，但**不载入、不联网下载**，只告诉你能不能通过；不能通过就写原因和那一行。用来在点保存之前先查。
 - 外部编辑器是直接写文件的，App 没办法在编辑器"保存"的那一刻拦住它，所以"保存前"指的是：点"保存"时先检查、失败就不替换；以及上面这个随时可用的预检。
 
-**怎么做的：** Go 的 `config.Validate(dir)`（新文件 `native/config/custom_validate.go`）就是 `FetchAndValid` 的校验部分：`UnmarshalAndPatch` → `Parse` → `destroyProviders`，不下载、不 `hub.ApplyConfig`；错误里的 `line N` 用正则取出。通道：`queryCustomConnections(SORT_VALIDATE = 7, 文件夹路径)`，没有新增 JNI 函数、没有给 `IClashManager` 加方法。Kotlin 的 `ConfigErrorText`（service）负责取行号、读文件、拼出上下文，`ConfigTools.check()`（app）负责界面。
+**怎么做的：** Go 的 `config.Validate(dir)`（新文件 `native/config/custom_validate.go`）就是 `FetchAndValid` 的校验部分：`UnmarshalAndPatch` → `Parse` → `destroyProviders`，不下载、不 `hub.ApplyConfig`；错误里的 `line N` 用正则取出。通道：`queryCustomConnections(SORT_VALIDATE = 7, 文件夹路径)`，没有新增 JNI 函数、没有给 `IClashManager` 加方法。Kotlin 的 `ConfigErrorText`（service）负责取行号、读文件、拼出上下文，编辑页（`EditorActivity.check()`）负责界面（r68 前是 `ConfigTools.check()`）。
 **功耗：** 点一次查一次。
 **新增文件：** `core/src/main/golang/native/config/custom_validate.go`；`service/.../custom/ConfigErrorText.kt`；`app/.../custom/ConfigTools.kt`；文案 `history_check_*`、service 的 `custom_config_error`。
 **改了上游文件：** `ProfileProcessor.kt`（见总表）。
 **依赖的上游接口：** `config.UnmarshalAndPatch`、`config.Parse`、`config.destroyProviders`（`native/config` 包里的，和 `FetchAndValid` 用的同一组）。
 
-## 28. 配置历史：保留最近 10 个版本，对比，回滚（r26）
+## 28. 配置历史：保留最近 10 个版本，对比，回滚（r26；**r68 起搬进编辑页并改了逻辑，见 #56**，下面写的是 r26 的旧样子）
 **效果：** "设置 → 应用 → 配置历史与检查 → 历史版本与回滚"。
 - **什么时候记：** 点"保存"（`ProfileProcessor.apply`）成功检查之后、替换正在用的配置之前，把**被替换的版本**和**新版本**的 `config.yaml` 各存一份到 `<filesDir>/custom/config_history/<uuid>/<毫秒时间>.yaml`；和最新一份内容相同就不重复存；每个配置最多 10 个，多的删最旧的。只记 `config.yaml`，不记 provider 文件。2 MB 以上的 `config.yaml` 不记。
 - **只有"自己编辑的配置"（类型 File）有历史：** 订阅（URL）每次保存都会重新下载覆盖，回滚没有意义，所以不列。
@@ -619,7 +619,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **对"关了代理再打开，浏览器打不开外网"：** 内核这边本来就没有残留：每次启动和停止都会走 `Clash.reset()` → `reset()` → `tunnel.CloseAllConnections()`，`profile.store-fake-ip` 你的配置里也已经开了。所以这一条改不了"代理工具"这一侧，只能靠本条的状态判断问题在哪边。
 
 ## 38. 配置历史里标出"这个版本用过没出错"（r43）
-**效果：** #28 的版本列表里，用过且当时代理是通的那个版本后面多 `· ✓ 用过没出错`，回滚时可以优先选它。
+**效果：** 编辑页的历史版本列表（r68 前在设置里，见 #56）里，用过且当时代理是通的那个版本后面多 `· ✓ 用过没出错`，回滚时可以优先选它。
 - **怎么标：** 首页拿到 #37 的"通"（`reach > 0`）时（`MainCustomRefresh.refreshCustom`），把**正在用的配置**和它的历史版本逐字节比较，相同的那一份旁边建一个空文件 `<毫秒>.ok`（`ConfigHistory.markVerified`）。只在 `config.yaml` 变了之后才重新比较（`ConfigVerified` 记着上次的 uuid + 修改时间 + 大小）。订阅（没有历史）、没在历史里的版本不标。删历史版本时一起删它的 `.ok`。
 - **限制：** 只在首页打开着、并且收到"通"的那一刻才会标（后台不做）；通知栏也会收到事件，但标记是首页做的。
 - **功耗：** 不在后台跑；一次小文件比较，且同一份配置只做一次。
@@ -844,3 +844,24 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **配置卡片铅笔（`adapter_profile.xml`）：** 铅笔左边加 24 dp 间距，时间文字整体向左挪，铅笔落在时间和右边 ⋮ 的中间。
 **测 IP 表头（`IpTestView.kt`）：** 表头灰底原来是每个标题各画一块，标题折成两行的列（机房、最小 / 最大 / 平均延迟）上方会出现缺口。现在灰底画在整行容器上，标题格子透明。数据行高度在测量值上多留 4 dp，避免端口一格的最后一行被裁掉。
 **r67（`IpTestView.kt`）：** ① 表格里所有格子改成**顶部对齐**（`textCell` / `ipCell` / `testCell`，上内边距都是 5 dp / 测速按钮 2 dp），每个格子的第一行和 IP 的第一行在同一条线上；原来的居中让端口、机房、归属地这类多行格子的内容从行中间往下排，上面空一大块、最后一行被裁掉。② `widths()`：最窄宽度之和只比页面宽一点点时（IP 列因为有长 IP 变宽），除 IP 列外的其他列最多一起收窄 15%（文字多换一次行），表格重新铺满页面，最右边的"速度"列不再被挤出屏幕；收窄 15% 还不够才像以前一样横向滚动。
+
+## 56. 编辑页：历史版本、保存和应用分开、历史逻辑修正；删掉设置里的"配置历史与检查"（r68）
+**效果：** 只对**自己编辑的配置**（类型 File 的 `config.yaml`）。订阅、外部导入、provider 等其他文件的编辑和保存和 r57 一样，不变。
+- **顶部按钮：** `存历史`（"保存为历史版本"，条上放不下全名，长按 / 对话框里是全名）和 `应用`。⋮ 菜单里多"历史版本…"和"和正在用的配置对比…"。
+- **保存为历史版本：** 只写进历史（`ConfigHistory.add`），**不碰待提交的副本、不应用**，正在用的配置不变。和**任何一个**已存版本内容相同就不再存（提示"历史里已有相同的版本"）；空配置、超过 2 MB 的不存。
+- **应用：** 先保证正在用的版本在历史里（`keepInUse`），再把编辑框的文字存成历史版本（已有就沿用），再写进待提交副本并 `commit`。内核通过才生效；不通过：正在用的配置不变，这个版本标"✗ 未通过检查"，这次应用自己建的待提交副本丢掉（原来就有的不动），弹窗写原因并跳到出错行。编辑框文字和正在用的完全一样时只提示"不用再应用"。
+- **检查：** 检查的是编辑框里的文字——写进缓存目录 `editor_check/config.yaml` 临时文件夹给内核（`SORT_VALIDATE` 只读那个文件夹里的 `config.yaml`），查完删掉；不再碰待提交副本。
+- **历史版本：** 只列正在编辑的这个配置（按 uuid 找，改名不影响）。每行：时间、行数、比前一版 `+增 −删`，再加状态：`正在使用`（和正在用的逐字节相同）/ `已保存未应用` / `✗ 未通过检查` / `✓ 用过没出错`（#38）。点一个版本：编辑框有没保存的修改先问"是否覆盖"；然后只是**载入编辑框**（可撤销，不应用），并弹出对比页。打开列表时顺手清孤儿历史目录。
+- **对比页（`ConfigDiff.kt` + `EffectiveText` 的 `compare` 模式）：** 样式和"最终生效配置"一样：`~` 改写（旧值划线，蓝）、`-` 删除（红，划线，是正在用的有而这份没有的）、`+` 新增（绿）；**所有行都展开，不折叠**，没有"内核默认值"那一类。顶部有"改写 N · 删除 N · 新增 N 行"汇总。**只在打开时算一次**，另有"重新对比"按钮（对比的是此刻编辑框里的文字）；菜单里的"和正在用的配置对比"随时可开。
+  - **为什么不用内核算：** 最终生效配置那一页是内核按**文件夹**读 `config.yaml` 做的"加载时被改了什么"，不能拿两段文本比。所以在 App 里做：不引入 YAML 库，按缩进把文本排成树；同一层的节点按"名字"配对——键按键名，列表项按 `name:`（`{...}` 里的也认），没有就按第一个键或整行；配对上的比值，再比下面的子节点；删掉的行放在它原来的位置。**注释、空行、`---` 不比。** 局限：整个 `{...}` 写在一行里的节点（常见的 `- {name: a, type: ss, ...}`）值不同时整行显示成"旧→新"，不拆到字段；缩进风格不同的两份文本照样能比（按树不按列）。
+- **退出：** 有改动时问"存为历史版本 / 丢弃 / 继续编辑"（不再有"保存并生效"）。退出时，编辑框里的这份还没应用、或历史里有比正在用的更新的"已保存未应用"版本，用 Toast 提醒一句（不拦）。"用其他应用打开"：先把改动存成历史版本，打开的是配置自己的文件。
+- **历史逻辑修正：**
+  - 去重和**所有**已存版本比（以前只和最新一份比）。应用前先存正在用的、再存新的，顺序不会错乱；`ProfileProcessor.apply` 里的 `ConfigHistory.keep` 发现已存在就沿用，并清掉它的"已保存未应用"和"未通过"标记。
+  - 配置删了（`ProfileProcessor.delete`）一并删它的历史目录；打开历史列表时清掉已有的孤儿目录（不在"类型 File 且已导入"的配置里的 uuid）。**订阅的旧历史也算孤儿，会被清**；以后只有 File 类型记历史（`keep` 里加了类型判断）。备份恢复覆盖同 uuid 的配置时走 `delete`，那个配置的历史会被清掉。
+  - 上限：最多 10 个；**不计数也不自动删**：正在用的、有 ✓ 的、最新的"已保存未应用"。其余留 10 个。
+- **标记文件**（版本旁边的空文件）：`<毫秒>.ok`（#38）、`.saved`（用户存的、之后没应用）、`.bad`（应用时内核拒绝）。
+- **删掉：** 设置 → 应用 里的"配置历史与检查"入口（`BackupPreference`）、`BackupActivity.ACTION_HISTORY`、`ConfigTools.kt`（版本列表搬进 `EditorActivity.history()`，检查搬进 `EditorActivity.check()`，不再有"恢复这个版本"那套 patch→写→commit→失败 release，应用走 `EditorActivity.apply()`）、`BackupDesign.showText`、22 条 `history_*` 文案。"导出诊断包"不动。**保留：** `ConfigHistory`、`LineDiff`（版本行的 +增 −删）、✓ 标记、`SORT_VALIDATE`、"配置检查"页。构建的"Remove deleted custom files"步骤加了 `ConfigTools.kt`。
+**功耗：** 全靠点击：只在点"存历史"、"应用"、"历史版本"、"重新对比"时读写文件；没有定时器、没有轮询。差异在内存里算，退出对话框时才读一次配置文件做比较。
+**新增文件：** `design/.../custom/ConfigDiff.kt`；文案 `editor_*`（`strings_editor.xml`）、`cmp_*`、`history_saved_unapplied`、`history_bad`（`strings_custom.xml`）。
+**改了的自家文件：** `ConfigHistory.kt`（重写）、`EditorActivity.kt`、`EditorDesign.kt`、`EffectiveText.kt`（`compare` 参数）、`ProfileProcessor.kt`（见总表）。
+**局限：** 没编译、没在手机上看过。顶部条上多了一个按钮，窄屏上标题会被挤得很短（按钮间距已收紧）。

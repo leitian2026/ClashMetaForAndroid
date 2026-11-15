@@ -244,37 +244,11 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_flush_done_fakeip">The DNS cache and the fake-ip map were cleared and every connection was closed. Apps that kept an old fake address connect again with a new lookup.</string>
     <string name="check_flush_failed">Clearing failed (the core has no resolver loaded).</string>
     <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
-    <string name="history_entry_title">Config history and checks</string>
-    <string name="history_entry_summary">Go back to an earlier version of an edited profile, see what changed, or check a config for errors</string>
-    <string name="history_menu_title">Config history and checks</string>
-    <string name="history_no_profile">There is no imported profile yet.</string>
-    <string name="history_no_file_profile">Only profiles you edit yourself (not subscriptions) keep a history. A subscription is downloaded again on every save.</string>
-    <string name="history_menu_history">Versions and rollback</string>
-    <string name="history_menu_check">Check a config for errors</string>
-    <string name="history_pick_profile">Which profile?</string>
-    <string name="history_none">No earlier version is kept yet. A version is kept each time you save an edited profile.</string>
+    <string name="history_none">This config has no history version yet. One is kept when you tap Keep or Apply.</string>
     <string name="history_pick_version">Versions of %1$s</string>
     <string name="history_version_first">%1$s · %2$d lines · earliest kept</string>
     <string name="history_version_line">%1$s · %2$d lines · +%3$d −%4$d vs the one before</string>
     <string name="history_in_use"> · in use</string>
-    <string name="history_action_diff">Compare with the version in use</string>
-    <string name="history_action_restore">Restore this version</string>
-    <string name="history_diff_title">Restoring %1$s would change</string>
-    <string name="history_diff_head">Removes %1$d line(s) of the version in use, adds %2$d line(s):</string>
-    <string name="history_diff_same">This version is identical to the one in use.</string>
-    <string name="history_diff_more">… %1$d more lines not shown</string>
-    <string name="history_restore_confirm">Restore the version of %1$s? The version in use stays in the history, so you can go back. Edits you have not saved are dropped.</string>
-    <string name="history_restoring">Restoring…</string>
-    <string name="history_restore_done">Restored and saved. If the profile is in use, the core loads it again.</string>
-    <string name="history_restore_failed">Not restored, the config in use stays as it is:
-%1$s</string>
-    <string name="history_checking">Checking…</string>
-    <string name="history_check_ok">No error found. The core can parse this config.</string>
-    <string name="history_check_pending">
-
-(This is the edit you have not saved yet.)</string>
-    <string name="history_check_bad">The core refuses this config:
-%1$s</string>
     <string name="diag_entry_title">Export diagnostic bundle</string>
     <string name="diag_entry_summary">One zip with the config (secrets masked), recent errors, node connections, crash records and a DNS check</string>
     <string name="diag_confirm_title">Export diagnostic bundle</string>
@@ -306,6 +280,13 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="eff_tail_show">▸ Blocks the core added by itself (%1$d), tap to open</string>
     <string name="eff_tail_hide">▾ Blocks the core added by itself (%1$d), tap to close</string>
     <string name="eff_tail_empty">None of them was changed by a later step. To see all the defaults, tap the line at the top.</string>
+    <!-- CUSTOM (CUSTOM.md #56): a text against the config in use, drawn like the effective config -->
+    <string name="cmp_summary">%1$d rewritten · %2$d removed · %3$d added (against the config in use)</string>
+    <string name="cmp_legend_changed">rewritten (old value struck through)</string>
+    <string name="cmp_legend_removed">removed (in use, not in this text)</string>
+    <string name="cmp_legend_added">added</string>
+    <string name="cmp_no_diff">No difference from the config in use.</string>
+    <string name="cmp_note">Only the settings are compared: comments and blank lines are ignored, and every line is shown. Computed once when this page opens; use “Compare again” after you edit.</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>
     <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>
@@ -314,6 +295,8 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="custom_reach_ok">✓ %1$d ms</string>
     <string name="custom_reach_fail">✗ Not working</string>
     <string name="history_verified"> · ✓ worked</string>
+    <string name="history_saved_unapplied"> · saved, not applied</string>
+    <string name="history_bad"> · ✗ failed the check</string>
     <string name="connection_row_direct">Direct ← %1$s</string>
     <string name="connection_row_reject">Rejected ← %1$s</string>
     <string name="connection_label_verdict">Result</string>

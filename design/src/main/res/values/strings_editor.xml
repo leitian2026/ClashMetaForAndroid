@@ -57,6 +57,35 @@
     <string name="editor_imported_no_undo">Imported %1$s (big file, cannot be undone; not saved yet)</string>
     <string name="editor_readonly_notice">Subscription and externally imported profiles cannot be edited here (the service refuses to write them); view and find only</string>
     <string name="editor_saved_applied">Saved and applied</string>
-    <string name="editor_apply_failed_title">Saved, but not applied</string>
-    <string name="editor_apply_failed">The core did not accept this config; the one in use is unchanged. Your edits are kept in the file; fix them and save again.\n\n%1$s</string>
+    <string name="editor_apply_failed_title">Not applied</string>
+    <string name="editor_apply_failed">The core did not accept this config, the config in use did not change. It is kept in the history marked “failed the check”; fix it and tap Apply again.\n\n%1$s</string>
+    <!-- CUSTOM (CUSTOM.md #56): history versions, apply, compare -->
+    <string name="editor_save_history">Save as history version</string>
+    <string name="editor_save_history_short">Keep</string>
+    <string name="editor_apply">Apply</string>
+    <string name="editor_history_menu">History versions…</string>
+    <string name="editor_compare_menu">Compare with the config in use…</string>
+    <string name="editor_history_saved">Saved as a history version. It is not applied: the config in use did not change.</string>
+    <string name="editor_history_saved_in_use">Saved as a history version (it is the config in use).</string>
+    <string name="editor_history_exists">An identical version is already in the history, nothing was added.</string>
+    <string name="editor_history_empty">An empty config is not kept in the history.</string>
+    <string name="editor_history_too_big">A config over 2 MB is not kept in the history.</string>
+    <string name="editor_applied">Applied. The config in use is now this one.</string>
+    <string name="editor_applied_no_history">Applied (this text is too big to be kept in the history).</string>
+    <string name="editor_apply_same">This is already the config in use, nothing to apply.</string>
+    <string name="editor_history_overwrite_title">Load this version?</string>
+    <string name="editor_history_overwrite">The page has changes that are not saved. Loading the version replaces them (you can undo it).</string>
+    <string name="editor_history_load">Load</string>
+    <string name="editor_history_loaded">Loaded the version of %1$s (undo is possible). It is not applied.</string>
+    <string name="editor_history_loaded_no_undo">Loaded the version of %1$s (too big to undo). It is not applied.</string>
+    <string name="editor_compare_title">Against the config in use</string>
+    <string name="editor_compare_loaded_title">Version %1$s against the config in use</string>
+    <string name="editor_compare_again">Compare again</string>
+    <string name="editor_compare_close">Close</string>
+    <string name="editor_compare_running">Comparing…</string>
+    <string name="editor_compare_failed">Could not compare.</string>
+    <string name="editor_leave_title_history">There are changes that are not kept as a history version</string>
+    <string name="editor_leave_save_history">Save as history version</string>
+    <string name="editor_leave_unapplied">What is on the page is not applied: the config in use did not change.</string>
+    <string name="editor_leave_unapplied_saved">There is a saved history version that is not applied: the config in use did not change.</string>
 </resources>

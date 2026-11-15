@@ -244,37 +244,11 @@
     <string name="check_flush_done_fakeip">已清除 DNS 缓存和 fake-ip 映射，并关闭了所有连接。还拿着旧假地址的应用会重新解析再连接。</string>
     <string name="check_flush_failed">清除失败（内核没有载入解析器）。</string>
     <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
-    <string name="history_entry_title">配置历史与检查</string>
-    <string name="history_entry_summary">把编辑过的订阅配置退回到以前的版本、查看改了什么，或检查配置有没有错</string>
-    <string name="history_menu_title">配置历史与检查</string>
-    <string name="history_no_profile">还没有导入的配置。</string>
-    <string name="history_no_file_profile">只有你自己编辑的配置（不是订阅）才有历史。订阅每次保存都会重新下载。</string>
-    <string name="history_menu_history">历史版本与回滚</string>
-    <string name="history_menu_check">检查配置有没有错</string>
-    <string name="history_pick_profile">哪个配置？</string>
-    <string name="history_none">还没有保存过历史版本。每次保存编辑过的配置时才会记一个版本。</string>
+    <string name="history_none">这个配置还没有历史版本。点\"存历史\"或\"应用\"时会记一个版本。</string>
     <string name="history_pick_version">%1$s 的历史版本</string>
     <string name="history_version_first">%1$s · %2$d 行 · 最早的记录</string>
     <string name="history_version_line">%1$s · %2$d 行 · 比前一版 +%3$d −%4$d</string>
     <string name="history_in_use"> · 正在使用</string>
-    <string name="history_action_diff">和正在使用的版本对比</string>
-    <string name="history_action_restore">恢复这个版本</string>
-    <string name="history_diff_title">恢复 %1$s 会改动</string>
-    <string name="history_diff_head">会删掉正在使用版本的 %1$d 行，增加 %2$d 行：</string>
-    <string name="history_diff_same">这个版本和正在使用的完全一样。</string>
-    <string name="history_diff_more">…… 还有 %1$d 行没有显示</string>
-    <string name="history_restore_confirm">恢复 %1$s 的版本？正在使用的版本会留在历史里，可以再退回去。没有保存的编辑会被丢弃。</string>
-    <string name="history_restoring">正在恢复……</string>
-    <string name="history_restore_done">已恢复并保存。如果这个配置正在使用，内核会重新载入。</string>
-    <string name="history_restore_failed">没有恢复，正在使用的配置保持不变：
-%1$s</string>
-    <string name="history_checking">正在检查……</string>
-    <string name="history_check_ok">没有发现错误，内核能解析这份配置。</string>
-    <string name="history_check_pending">
-
-（检查的是你还没保存的编辑。）</string>
-    <string name="history_check_bad">内核不接受这份配置：
-%1$s</string>
     <string name="diag_entry_title">导出诊断包</string>
     <string name="diag_entry_summary">一个 zip：配置（已隐藏密钥）、最近的错误、节点连接、崩溃记录和一次 DNS 检查</string>
     <string name="diag_confirm_title">导出诊断包</string>
@@ -306,6 +280,13 @@
     <string name="eff_tail_show">▸ 内核补充的默认块（%1$d 个），点开查看</string>
     <string name="eff_tail_hide">▾ 内核补充的默认块（%1$d 个），点这里收起</string>
     <string name="eff_tail_empty">其中没有被后面步骤改动的项。要看全部默认值，点最上面那一行“显示”。</string>
+    <!-- CUSTOM (CUSTOM.md #56): 一份文本相对正在用的配置，样式同最终生效配置 -->
+    <string name="cmp_summary">改写 %1$d 行 · 删除 %2$d 行 · 新增 %3$d 行（相对正在用的配置）</string>
+    <string name="cmp_legend_changed">改写（旧值划线）</string>
+    <string name="cmp_legend_removed">删除（正在用的有，这份没有）</string>
+    <string name="cmp_legend_added">新增</string>
+    <string name="cmp_no_diff">和正在用的配置没有差别。</string>
+    <string name="cmp_note">只比较配置内容：注释和空行不算，所有行都显示，不折叠。只在打开这一页时算一次，改了编辑框以后点“重新对比”。</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">日志级别已改为“%1$s”，立刻生效</string>
     <string name="log_level_next">已保存：日志级别“%1$s”，下次载入配置时生效</string>
@@ -314,6 +295,8 @@
     <string name="custom_reach_ok">✓ %1$d ms</string>
     <string name="custom_reach_fail">✗ 不通</string>
     <string name="history_verified"> · ✓ 用过没出错</string>
+    <string name="history_saved_unapplied"> · 已保存未应用</string>
+    <string name="history_bad"> · ✗ 未通过检查</string>
     <string name="connection_row_direct">直连 ← %1$s</string>
     <string name="connection_row_reject">拒绝 ← %1$s</string>
     <string name="connection_label_verdict">结果</string>

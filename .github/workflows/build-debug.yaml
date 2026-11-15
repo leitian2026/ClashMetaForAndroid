@@ -48,7 +48,8 @@ jobs:
         run: |
           rm -fv app/src/main/java/com/github/kr328/clash/custom/IssuesActivity.kt \
                  design/src/main/java/com/github/kr328/clash/design/custom/IssuesDesign.kt \
-                 design/src/main/res/layout/design_issues.xml
+                 design/src/main/res/layout/design_issues.xml \
+                 app/src/main/java/com/github/kr328/clash/custom/ConfigTools.kt
 
       # CUSTOM (CUSTOM.md #20): patch for the mihomo core (counts the open sockets per node). The build
       # stops here when a patch does not apply, so it is never silently left out.

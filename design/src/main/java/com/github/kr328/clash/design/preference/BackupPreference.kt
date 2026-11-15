@@ -14,15 +14,8 @@ fun PreferenceScreen.customBackup() {
     category(R.string.backup_category)
 
     // r35 (CUSTOM.md #32): "export backup" / "import backup" moved to the menu at the top right of the
-    // home page (MainCustomMenu); the config history and the diagnostic bundle stay here
-
-    clickable(
-        title = R.string.history_entry_title,
-        icon = R.drawable.ic_baseline_restore,
-        summary = R.string.history_entry_summary,
-    ) {
-        clicked { start(ACTION_HISTORY) }
-    }
+    // home page (MainCustomMenu); the diagnostic bundle stays here. r68 (CUSTOM.md #56): the config history moved
+    // into the editor page of a config (menu "History versions").
 
     clickable(
         title = R.string.diag_entry_title,
@@ -33,8 +26,7 @@ fun PreferenceScreen.customBackup() {
     }
 }
 
-// CUSTOM.md #27 #28 #29: same entries, same activity
-private const val ACTION_HISTORY = "com.github.kr328.clash.custom.action.CONFIG_HISTORY"
+// CUSTOM.md #29: same entry, same activity
 private const val ACTION_DIAG = "com.github.kr328.clash.custom.action.DIAGNOSTIC_EXPORT"
 
 private fun PreferenceScreen.start(action: String) {

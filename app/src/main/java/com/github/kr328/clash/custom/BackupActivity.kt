@@ -27,7 +27,6 @@ class BackupActivity : BaseActivity<BackupDesign>() {
             when (intent?.action) {
                 ACTION_EXPORT -> exportBackup(design)
                 ACTION_IMPORT -> importBackup(design)
-                ACTION_HISTORY -> ConfigTools.run(this, design) // CUSTOM.md #27 #28
                 ACTION_DIAG -> exportDiagnostics(design) // CUSTOM.md #29
                 ACTION_CLOUD_PUSH -> CloudBackupFlow.push(this, design) // CUSTOM.md #32
                 ACTION_CLOUD_PULL -> CloudBackupFlow.pull(this, design)
@@ -150,7 +149,6 @@ class BackupActivity : BaseActivity<BackupDesign>() {
     companion object {
         const val ACTION_EXPORT = "com.github.kr328.clash.custom.action.BACKUP_EXPORT"
         const val ACTION_IMPORT = "com.github.kr328.clash.custom.action.BACKUP_IMPORT"
-        const val ACTION_HISTORY = "com.github.kr328.clash.custom.action.CONFIG_HISTORY"
         const val ACTION_DIAG = "com.github.kr328.clash.custom.action.DIAGNOSTIC_EXPORT"
         // CUSTOM.md #32: same strings as in MainCustomMenu (design module)
         const val ACTION_CLOUD_PUSH = "com.github.kr328.clash.custom.action.CLOUD_PUSH"
