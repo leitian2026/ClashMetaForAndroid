@@ -12,7 +12,10 @@ import com.github.kr328.clash.core.model.EffectiveLine
  *
  * It does not run a YAML parser: the text is laid out as a tree by its indentation, and the nodes of one level are
  * matched by what names them: a key by its name, a list item by its `name:` (also inside `{...}`) or, without one,
- * by its first key or its whole text. Comments, blank lines and `---` are not compared. A node that has the same
+ * by its first key or its whole text. Blank lines and `---` are not compared. Comments are (CUSTOM.md #59): a whole-line
+ * comment belongs to the node that follows it (a comment after the last node is kept apart) and is matched by its
+ * text, so a comment that is added, removed or edited shows as a line added / removed; a comment at the end of a line
+ * is part of that line's value, so editing it shows the line as changed. A node that has the same
  * name in both texts is compared in place: its value, then what is under it.
  *
  * Pure Kotlin, in memory, runs once per call (nothing in the background).
@@ -20,6 +23,8 @@ import com.github.kr328.clash.core.model.EffectiveLine
 object ConfigDiff {
     private class Node(val indent: Int, val body: String, val isItem: Boolean) {
         val children = ArrayList<Node>()
+        val lead = ArrayList<Node>() // CUSTOM.md #59: the whole-line comments right before this node
+        var note: String = "" // CUSTOM.md #59: the `# comment` at the end of the line
         var key: String? = null // the key of a `key: value` line (for an item: of the text after "- ")
         var kvValue: String = "" // what follows the key's colon
         var rest: String = "" // an item: the text after "- "
@@ -30,7 +35,11 @@ object ConfigDiff {
     fun diff(old: String, new: String): EffectiveConfig {
         val out = ArrayList<EffectiveLine>()
 
-        diffLists(parse(old), parse(new), out)
+        val o = parse(old)
+        val n = parse(new)
+
+        diffLists(o.roots, n.roots, out)
+        diffLists(o.tail, n.tail, out) // CUSTOM.md #59: comments after the last node
 
         return EffectiveConfig(
             ok = true,
@@ -62,8 +71,7 @@ object ConfigDiff {
         for (i in lines.indices) {
             val t = lines[i].trimEnd('\r').trimStart(' ')
 
-            if (t.isEmpty() || t.startsWith("#") || t == "---" || t == "...") continue
-            if (stripComment(t).trimEnd().isEmpty()) continue
+            if (t.isEmpty() || t == "---" || t == "...") continue // CUSTOM.md #59: comment lines are counted now
 
             nodeLines.add(i)
         }
@@ -101,22 +109,39 @@ object ConfigDiff {
 
     // ---- reading -------------------------------------------------------------------------------
 
-    private fun parse(text: String): List<Node> {
+    private class Parsed(val roots: List<Node>, val tail: List<Node>)
+
+    private fun parse(text: String): Parsed {
         val roots = ArrayList<Node>()
         val stack = ArrayList<Node>()
+        var lead = ArrayList<Node>() // whole-line comments waiting for the node that follows
 
         for (raw in text.lineSequence()) {
             val line = raw.trimEnd('\r')
             val t = line.trimStart(' ')
 
-            if (t.isEmpty() || t.startsWith("#") || t == "---" || t == "...") continue
+            if (t.isEmpty() || t == "---" || t == "...") continue
+
+            val indent = line.length - t.length
+
+            if (t.startsWith("#")) {
+                val c = Node(indent, t.trimEnd(), false)
+
+                c.id = "c:" + c.body
+                lead.add(c)
+
+                continue
+            }
 
             val body = stripComment(t).trimEnd()
 
             if (body.isEmpty()) continue
 
-            val indent = line.length - t.length
             val node = makeNode(indent, body)
+
+            node.note = t.substring(body.length).trim()
+            node.lead.addAll(lead)
+            lead = ArrayList()
 
             while (stack.isNotEmpty()) {
                 val top = stack[stack.size - 1]
@@ -144,7 +169,7 @@ object ConfigDiff {
             stack.add(node)
         }
 
-        return roots
+        return Parsed(roots, lead)
     }
 
     private fun makeNode(indent: Int, body: String): Node {
@@ -258,23 +283,34 @@ object ConfigDiff {
 
     private fun preOf(n: Node): String = when {
         n.isItem -> "- "
-        n.key != null -> n.key + ":" + (if (n.kvValue.isNotEmpty()) " " else "")
+        n.key != null -> n.key + ":" + (if (n.kvValue.isNotEmpty() || n.note.isNotEmpty()) " " else "")
         else -> ""
     }
 
+    // CUSTOM.md #59: the comment at the end of the line is part of what the line says
+    private fun withNote(value: String, n: Node): String = when {
+        n.note.isEmpty() -> value
+        value.isEmpty() -> n.note
+        else -> value + " " + n.note
+    }
+
     private fun valueOf(n: Node): String = when {
-        n.isItem -> n.rest
-        n.key != null -> n.kvValue
-        else -> n.body
+        n.isItem -> withNote(n.rest, n)
+        n.key != null -> withNote(n.kvValue, n)
+        else -> withNote(n.body, n)
     }
 
     private fun emitAll(n: Node, status: Int, out: MutableList<EffectiveLine>) {
+        for (c in n.lead) out.add(EffectiveLine(indent = c.indent, pre = "", value = c.body, status = status))
+
         out.add(EffectiveLine(indent = n.indent, pre = preOf(n), value = valueOf(n), status = status))
 
         for (c in n.children) emitAll(c, status, out)
     }
 
     private fun diffPair(o: Node, n: Node, out: MutableList<EffectiveLine>) {
+        diffLists(o.lead, n.lead, out) // CUSTOM.md #59: the comments before the line
+
         val oldValue = valueOf(o)
         val newValue = valueOf(n)
 

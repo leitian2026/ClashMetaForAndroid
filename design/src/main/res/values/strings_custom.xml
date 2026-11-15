@@ -286,7 +286,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cmp_legend_removed">removed (in use, not in this text)</string>
     <string name="cmp_legend_added">added</string>
     <string name="cmp_no_diff">No difference from the config in use.</string>
-    <string name="cmp_note">Only the settings are compared: comments and blank lines are ignored, and every line is shown. Computed once when this page opens; use “Compare again” after you edit.</string>
+    <string name="cmp_note">The settings and the comments are compared: blank lines are ignored, and every line is shown. Computed once when this page opens; use “Compare again” after you edit.</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>
     <string name="log_level_next">Saved: log level “%1$s”, it counts when the profile is loaded again</string>

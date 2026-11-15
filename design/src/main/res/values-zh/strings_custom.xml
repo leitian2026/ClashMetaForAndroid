@@ -286,7 +286,7 @@
     <string name="cmp_legend_removed">删除（正在用的有，这份没有）</string>
     <string name="cmp_legend_added">新增</string>
     <string name="cmp_no_diff">和正在用的配置没有差别。</string>
-    <string name="cmp_note">只比较配置内容：注释和空行不算，所有行都显示，不折叠。只在打开这一页时算一次，改了编辑框以后点“重新对比”。</string>
+    <string name="cmp_note">比较配置内容和注释：空行不算，所有行都显示，不折叠。只在打开这一页时算一次，改了编辑框以后点“重新对比”。</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">日志级别已改为“%1$s”，立刻生效</string>
     <string name="log_level_next">已保存：日志级别“%1$s”，下次载入配置时生效</string>
