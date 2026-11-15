@@ -1,7 +1,6 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Spannable
@@ -12,9 +11,7 @@ import android.text.style.CharacterStyle
 
 /**
  * CUSTOM (CUSTOM.md #57, not upstream): every ✓ in the app is drawn green and every ✗ red, in the heaviest weight
- * (bold, plus the extra stroke of "fake bold") and in a deep colour. By day the colours are the darkest that still
- * read as green and red; at night (dark theme) the same marks would vanish on the dark background, so they are the
- * brightest ones instead.
+ * (bold, plus the extra stroke of "fake bold") and in the brightest green and red, by day and by night.
  *
  * It only looks at the text it is given, once, when the text is put on the screen (nothing runs on its own).
  */
@@ -24,14 +21,12 @@ object CheckMark {
     private const val CHECK_HEAVY = '\u2714' // ✔
     private const val CROSS_HEAVY = '\u2718' // ✘
 
-    private fun night(context: Context): Boolean {
-        return (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-            Configuration.UI_MODE_NIGHT_YES
-    }
+    private val GOOD = Color.parseColor("#00E676")
+    private val BAD = Color.parseColor("#FF5252")
 
-    fun good(context: Context): Int = if (night(context)) Color.parseColor("#00E676") else Color.parseColor("#005A0A")
+    fun good(context: Context): Int = GOOD
 
-    fun bad(context: Context): Int = if (night(context)) Color.parseColor("#FF5252") else Color.parseColor("#A50000")
+    fun bad(context: Context): Int = BAD
 
     private class MarkSpan(private val color: Int) : CharacterStyle() {
         override fun updateDrawState(tp: TextPaint) {

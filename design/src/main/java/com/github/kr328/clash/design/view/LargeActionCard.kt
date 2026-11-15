@@ -26,7 +26,7 @@ class LargeActionCard @JvmOverloads constructor(
     var subtext: CharSequence?
         get() = binding.subtextView.text
         set(value) {
-            binding.subtextView.text = value
+            binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value) // CUSTOM (CUSTOM.md #57): ✓ green, ✗ red
         }
 
     var icon: Drawable?
