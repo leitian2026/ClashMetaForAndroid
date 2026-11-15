@@ -225,7 +225,15 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         left.addView(headLeft, lp(w[0], hh))
 
-        val headRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        // CUSTOM.md #55: the grey of the header is one background on the whole row, not one per title; per title a
+        // title that wraps to two lines left a notch in the grey above it
+        val headBg = Color.parseColor("#22808080")
+        val headRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(headBg)
+        }
+
+        heads.forEach { it.setBackgroundColor(Color.TRANSPARENT) }
 
         heads.forEachIndexed { i, v -> headRow.addView(v, lp(w[i + 1], hh)) }
 
@@ -238,7 +246,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
             val cells = keys.mapIndexed { n, k -> cellOf(k, r, w[n + 1]) }
 
             // one height for the whole row, so the fixed IP column and the sideways part stay level
-            val h = maxOf(rowH, heightOf(ipView, w[0]), cells.mapIndexed { n, v -> heightOf(v, w[n + 1]) }.maxOrNull() ?: 0)
+            // CUSTOM.md #55: a little room more than measured, so the last line of a cell (the last port) is not cut
+            val h = maxOf(rowH, heightOf(ipView, w[0]), cells.mapIndexed { n, v -> heightOf(v, w[n + 1]) }.maxOrNull() ?: 0) + dp(4)
 
             left.addView(ipView.apply { setBackgroundColor(stripe) }, lp(w[0], h))
 

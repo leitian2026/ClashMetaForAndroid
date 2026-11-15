@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r63
+当前版本：2_11_36-r64
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -11,12 +11,12 @@
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 #37 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37） |
-| `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
+| `core/src/main/golang/native/tunnel/proxies.go` | #1 #55 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37） |
-| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
+| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 #55 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #53 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #53 | 低 | 重加 `customCards`、`setCustomCards()`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
@@ -26,7 +26,7 @@
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
 | `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
 | `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 #50 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(..., uuid, "", profile.type != Profile.Type.File))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
-| `design/src/main/res/layout/adapter_profile.xml` | #47 #53 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
+| `design/src/main/res/layout/adapter_profile.xml` | #47 #53 #55 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
 | `design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt` | #47 | 低 | 构造函数末尾加带默认值的 `onEditClicked`，`onBindViewHolder` 里加 `binding.setEdit { onEditClicked(current) }` |
 | `design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt` | #47 | 低 | `Request` 加 `EditConfig(profile)`；创建 `ProfileAdapter` 时多传一个 lambda（`requests.trySend(Request.EditConfig(it))`） |
 | `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 #50 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
@@ -837,3 +837,9 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **验证和局限：** 没编译过（本机没有 Android 构建环境），要靠 Actions 验证；版式没在平板上看过。最窄宽度是按 14 sp、字体缩放 1.0 估的，系统字体调大后最窄宽度之和可能超过平板宽度，那时会退回横向滚动（IP 列仍固定）。
 **新增文件：** `design/.../custom/ColoNames.kt`。**改了的自有文件：** `IpTestView.kt`。**删除的文件：** `app/.../custom/IssuesActivity.kt`、`design/.../custom/IssuesDesign.kt`、`design/.../layout/design_issues.xml`。
 **r62 补充（同一版本）：** 你解压 r62 后 Actions 仍报同样的错，因为压缩包解压覆盖不会删掉仓库里已有的旧文件。所以 `.github/workflows/build-debug.yaml` 在构建前加了一步 `Remove deleted custom files`，每次构建都先 `rm -f` 这三个文件；以后凡是删文件，都往这一步里加。同步上游时这一步属于 `build-debug.yaml` 要重加的内容（#54）。
+
+## 55. 编辑器普通文字换色、代理页卡片常显 IP、配置卡片铅笔居中、测 IP 表头灰底不再有缺口（r64）
+**编辑器（`EditorDesign.kt`）：** 没被高亮的普通文字（规则行 `DOMAIN-SUFFIX,xxx,...`、`select`、`ipv4` 这类）原来用接近黑色的默认文字色，和注释的灰（`#757575` / 夜间 `#7F8C98`）太像。现在编辑区的默认文字色是 `colorPlain`：浅色 `#AD1457`，夜间 `#F48FB1`。只是 `setTextColor` 一处，没有新增着色 span，不增加耗电。key / 字符串 / 数字 / 注释等原有颜色不变；查找、替换输入框不受影响。
+**代理页卡片常显 IP（`ipdelay.GetForDisplay`、`tunnel/proxies.go`、`ProxyView.kt`）：** 节点的 `server` 在配置 `hosts:` 里有条目时，没测过速也在卡片下方列出这些 IPv4（最多 `maxHostsIPs` = 8 个，在用的排前面，和测速时选的一样）。没测的 `delay = -1`：不写延迟数字，不写"N 分钟前"一行；之前测出过国家的显示国旗，没有就不显示国旗。测过之后和以前一样。**只读内存里已有的数据：不解析 DNS、不联网、不起定时器**；没有 `hosts:` 条目的节点（要靠解析才知道 IP）仍然测速后才显示。`Get` 本身没改（配置检查页还在用），代理页改调新函数 `GetForDisplay`。
+**配置卡片铅笔（`adapter_profile.xml`）：** 铅笔左边加 24 dp 间距，时间文字整体向左挪，铅笔落在时间和右边 ⋮ 的中间。
+**测 IP 表头（`IpTestView.kt`）：** 表头灰底原来是每个标题各画一块，标题折成两行的列（机房、最小 / 最大 / 平均延迟）上方会出现缺口。现在灰底画在整行容器上，标题格子透明。数据行高度在测量值上多留 4 dp，避免端口一格的最后一行被裁掉。

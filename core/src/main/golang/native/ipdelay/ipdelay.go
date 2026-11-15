@@ -532,6 +532,63 @@ func Get(name string) []IPDelay {
 	return out
 }
 
+// GetForDisplay is Get for the proxy page. A node that was never tested still lists the IPv4 addresses the user wrote
+// in `hosts:` for its server (at most maxHostsIPs, the ones in use first, like a test would pick them), with Delay -1
+// = "not tested". It only reads what is already in memory: no DNS lookup, no network, nothing runs by itself.
+// Nodes whose addresses would have to be resolved (no `hosts:` entry) show nothing until they are tested.
+func GetForDisplay(name string) []IPDelay {
+	if out := Get(name); len(out) > 0 {
+		return out
+	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+
+	raw := proxies[name]
+	if raw == nil {
+		return nil
+	}
+
+	server, _ := raw["server"].(string)
+	if server == "" {
+		return nil
+	}
+
+	if v, _ := raw["ip-version"].(string); v == "ipv6" {
+		return nil
+	}
+
+	if _, err := netip.ParseAddr(server); err == nil {
+		return nil
+	}
+
+	entry, found := hosts[server]
+	if !found {
+		return nil
+	}
+
+	all := onlyIPv4(toStrings(entry))
+	if len(all) == 0 {
+		return nil
+	}
+
+	inUse := inUseLocked(name)
+	ips, _ := pickIPs(all, inUse, maxHostsIPs, false)
+
+	usedNow := map[string]bool{}
+	for _, ip := range inUse {
+		usedNow[ip] = true
+	}
+
+	out := make([]IPDelay, len(ips))
+
+	for i, ip := range ips {
+		out[i] = IPDelay{IP: ip, Delay: -1, Country: countries[name+"|"+ip], InUse: usedNow[ip]}
+	}
+
+	return out
+}
+
 // TestGroup tests every IPv4 address of every node in the group. It blocks until
 // all tests finished (or timed out), like the core's own health check.
 func TestGroup(groupName string) {

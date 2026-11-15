@@ -240,12 +240,21 @@ class ProxyView(
                     (height - state.config.layoutPadding * 2) / 3f * 2
 
             ipDelays.forEachIndexed { index, item ->
-                val text = if (item.delay > 0) item.delay.toString() else ipTimeoutText
+                // CUSTOM.md #55: delay < 0 = listed but not tested yet: no number
+                val text = when {
+                    item.delay > 0 -> item.delay.toString()
+                    item.delay == 0 -> ipTimeoutText
+                    else -> ""
+                }
                 val y = subtitleY + ipRowStep * (index + 1) - textOffset
                 val textWidth = paint.measureText(text)
 
                 // flag of the exit country in front of the address; "？" when it could not be found
-                val flag = if (item.delay > 0) CountryFlag.of(item.country).ifEmpty { "？" } else ""
+                val flag = when {
+                    item.delay > 0 -> CountryFlag.of(item.country).ifEmpty { "？" }
+                    item.delay < 0 && item.country.isNotEmpty() -> CountryFlag.of(item.country) // known from an earlier test
+                    else -> ""
+                }
                 val base = if (flag.isEmpty()) item.ip else "$flag ${item.ip}"
                 val label = if (item.inUse) "● $base" else base // CUSTOM.md #1 (r41): the address in use
 

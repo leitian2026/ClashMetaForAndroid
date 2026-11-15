@@ -117,12 +117,13 @@
             android:text="@{IntervalKt.elapsedIntervalString(currentTime.value - profile.updatedAt, context)}"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Tooltip" />
 
-        <!-- CUSTOM (CUSTOM.md #47): straight to the editor of this profile's config.yaml -->
+        <!-- CUSTOM (CUSTOM.md #47; #55: 24dp more room before the pencil so it sits midway between the time and the menu): straight to the editor of this profile's config.yaml -->
         <FrameLayout
             android:id="@+id/edit_view"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
+            android:layout_marginStart="24dp"
             android:layout_marginEnd="0dp"
             android:layout_toStartOf="@id/menu_view"
             android:background="?attr/selectableItemBackground"

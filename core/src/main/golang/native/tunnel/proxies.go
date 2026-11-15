@@ -203,7 +203,7 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 			Type:     p.Type().String(),
 			Delay:    int(p.LastDelayForTestUrl(testURL)),
 			IsGroup:  isGroup,
-			IPDelays: ipdelay.Get(name), // CUSTOM
+			IPDelays: ipdelay.GetForDisplay(name), // CUSTOM (CUSTOM.md #55): also the not yet tested `hosts:` addresses
 		})
 	}
 	return result
