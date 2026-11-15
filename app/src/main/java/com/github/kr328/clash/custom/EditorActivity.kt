@@ -13,6 +13,7 @@ import com.github.kr328.clash.common.util.grantPermissions
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.design.custom.CheckMark
 import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.editor.EditorDesign
 import com.github.kr328.clash.remote.FilesClient
@@ -522,7 +523,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
                 if (v.verified) label += getString(R.string.history_verified) // CUSTOM.md #38
 
-                label
+                CheckMark.paint(this@EditorActivity, label) ?: label // CUSTOM.md #57: ✓ green, ✗ red
             }
         }
 

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r68
+当前版本：2_11_36-r69
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -40,8 +40,9 @@
 | `build.gradle.kts` | #44 | 低（只加一个 `customRev` 和两处 `versionNameSuffix`） | 重加 `queryConfigProperty` 后面的 `customRev`（读 `CUSTOM.md` 的"当前版本："那一行，取最后的 `r<数字>`），`release` 构建类型里的 `versionNameSuffix = customRev`，`debug` 构建类型里的 `versionNameSuffix` 改成 `".debug$customRev"`（后缀必须放在构建类型里，才会排在变体后缀 `.Alpha` / `.Meta` 的后面） |
 | `design/src/main/res/layout/design_about.xml` | #44 | 低 | 内层竖向 `LinearLayout`（App 名字和版本号那一层）的 `layout_width` 由 `match_parent` 改成 `0dp`，加 `layout_weight=1`，版本号太长时才会换行 |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileWorker.kt` | #53 | 低 | `completed()` 和 `failed()` 末尾各加一行 `IssueNotifier.subscription(this, name, null / reason)` |
+| `design/src/main/java/com/github/kr328/clash/design/view/LargeActionLabel.kt` | #57 | 低 | `subtext` 的 setter 里，`binding.subtextView.text = value` 改成 `binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)`（首页代理卡片的 ✓ 绿 / ✗ 红） |
 
-共 32 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 33 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -865,3 +866,11 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **新增文件：** `design/.../custom/ConfigDiff.kt`；文案 `editor_*`（`strings_editor.xml`）、`cmp_*`、`history_saved_unapplied`、`history_bad`（`strings_custom.xml`）。
 **改了的自家文件：** `ConfigHistory.kt`（重写）、`EditorActivity.kt`、`EditorDesign.kt`、`EffectiveText.kt`（`compare` 参数）、`ProfileProcessor.kt`（见总表）。
 **局限：** 没编译、没在手机上看过。顶部条上多了一个按钮，窄屏上标题会被挤得很短（按钮间距已收紧）。
+
+## 57. 全 App 的 ✓ 和 ✗ 上色：✓ 绿、✗ 红，最粗最深（r69）
+**效果：** 所有显示 ✓ / ✗（也包括 ✔ / ✘）的地方，✓ 一律绿色、✗ 一律红色，字重用最粗的（粗体再加一层"伪粗体"描边），颜色用最深的：白天 ✓ 深绿 `#005A0A`、✗ 深红 `#A50000`；深色主题下深色在黑底上看不见，改用最亮的 `#00E676` / `#FF5252`。
+- **涉及的地方：** 首页代理卡片的"✓ 123 ms / ✗ 不通"（#37）；编辑页历史版本列表的"✓ 用过没出错 / ✗ 未通过检查"（#38 #56）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26）；测 IP 表格里不通的端口前的 ✗（#52）。
+- **怎么做：** 新文件 `design/.../custom/CheckMark.kt`：`paint(context, 文字)` 扫一遍文字，给每个 ✓ / ✗ 单独加一个字符样式（`CharacterStyle`：颜色、粗体、`isFakeBoldText`）；`apply(...)` 给正在拼的文字的一段加样式。文字本身不变，复制出来的纯文本不受影响。以后新加带 ✓ / ✗ 的地方，调用其中一个即可。
+- **首页卡片：** 文字是上游的 `LargeActionLabel.subtext` 显示的，所以在它的 setter 里调了一次 `CheckMark.paint`（上游文件，已登记到总表）。
+**功耗：** 文字显示时扫一遍，没有定时器。
+**局限：** 没编译、没在手机上看过。

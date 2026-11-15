@@ -163,6 +163,7 @@ class DnsCheckView(
         }
 
         add(sb, "  $mark ${s.address}")
+        CheckMark.apply(context, sb, start, sb.length) // CUSTOM.md #57
 
         if (!isPrimary(s)) add(sb, " [${s.roles.joinToString(", ")}]", colorMuted)
 

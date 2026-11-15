@@ -510,7 +510,10 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         for (p in r.ports) {
             if (sb.isNotEmpty()) sb.append(' ')
 
+            val from = sb.length
+
             add(sb, (if (p.ok) "" else "✗") + p.port, if (p.ok) colorGood else colorMuted)
+            CheckMark.apply(context, sb, from, sb.length) // CUSTOM.md #57: the ✗ in red
         }
 
         cell.text = sb
