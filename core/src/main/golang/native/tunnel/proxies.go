@@ -102,7 +102,17 @@ func QueryProxyGroup(name string, sortMode SortMode, uiSubtitlePattern *regexp2.
 		return nil
 	}
 
-	proxies := convertProxies(g.Proxies(), uiSubtitlePattern)
+	members := g.Proxies()
+
+	// CUSTOM (CUSTOM.md #55): resolve once the server domains the proxy page will list addresses for
+	memberNames := make([]string, 0, len(members))
+	for _, m := range members {
+		memberNames = append(memberNames, m.Name())
+	}
+
+	ipdelay.PrepareDisplay(memberNames)
+
+	proxies := convertProxies(members, uiSubtitlePattern)
 	// 	proxies := collectProviders(g.Providers(), uiSubtitlePattern)
 
 	switch sortMode {

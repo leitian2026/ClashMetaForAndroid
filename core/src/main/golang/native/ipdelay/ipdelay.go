@@ -63,6 +63,7 @@ const (
 	gapMin         = 1 * time.Second // CUSTOM.md #1 (r44): the tests of one node go one after the other, with a random pause of gapMin to gapMax between two
 	gapMax         = 3 * time.Second
 	testTimeout    = 5 * time.Second
+	displayResolveTimeout = 3 * time.Second // CUSTOM.md #55: how long the proxy page waits for the domains it resolves
 	geoTimeout     = 4 * time.Second
 	retryAfter     = 5 * time.Minute
 	defaultTestURL = "https://www.gstatic.com/generate_204"
@@ -72,6 +73,14 @@ type used struct {
 	node string
 	ip   string
 }
+
+// CUSTOM.md #55: addresses found for the proxy page by resolving a server domain that has no `hosts:` entry:
+// server name -> sorted IPv4 addresses, resolved once per profile load (a failed lookup is tried again after
+// retryAfter, and only when the proxy page is opened). Guarded by `lock`.
+var (
+	displayIPs    = map[string][]string{}
+	displayFailed = map[string]time.Time{}
+)
 
 var (
 	lock       sync.RWMutex
@@ -367,6 +376,8 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	proxies = newProxies
 	hosts = newHosts
 	results = map[string][]IPDelay{}
+	displayIPs = map[string][]string{} // CUSTOM.md #55
+	displayFailed = map[string]time.Time{}
 	tracked = newTracked
 	nodeIPs = newNodeIPs
 	ambiguous = newAmbiguous
@@ -532,10 +543,10 @@ func Get(name string) []IPDelay {
 	return out
 }
 
-// GetForDisplay is Get for the proxy page. A node that was never tested still lists the IPv4 addresses the user wrote
-// in `hosts:` for its server (at most maxHostsIPs, the ones in use first, like a test would pick them), with Delay -1
-// = "not tested". It only reads what is already in memory: no DNS lookup, no network, nothing runs by itself.
-// Nodes whose addresses would have to be resolved (no `hosts:` entry) show nothing until they are tested.
+// GetForDisplay is Get for the proxy page. A node that was never tested still lists its IPv4 addresses (at most
+// maxHostsIPs, the ones in use first, like a test would pick them), with Delay -1 = "not tested": the one address of a
+// server that is an IP, the ones written in `hosts:`, or the ones PrepareDisplay resolved once. It only reads what is
+// already in memory: no DNS lookup, no network.
 func GetForDisplay(name string) []IPDelay {
 	if out := Get(name); len(out) > 0 {
 		return out
@@ -558,16 +569,23 @@ func GetForDisplay(name string) []IPDelay {
 		return nil
 	}
 
-	if _, err := netip.ParseAddr(server); err == nil {
-		return nil
+	var all []string
+
+	if lit, err := netip.ParseAddr(server); err == nil {
+		// the server is one address: that is the only one there is
+		lit = lit.Unmap()
+
+		if !lit.Is4() {
+			return nil
+		}
+
+		all = []string{lit.String()}
+	} else if entry, found := hosts[server]; found {
+		all = onlyIPv4(toStrings(entry)) // the order the user wrote
+	} else {
+		all = displayIPs[server] // filled by PrepareDisplay
 	}
 
-	entry, found := hosts[server]
-	if !found {
-		return nil
-	}
-
-	all := onlyIPv4(toStrings(entry))
 	if len(all) == 0 {
 		return nil
 	}
@@ -587,6 +605,98 @@ func GetForDisplay(name string) []IPDelay {
 	}
 
 	return out
+}
+
+// PrepareDisplay resolves, once, the server domains of the given nodes that have no `hosts:` entry, so that
+// GetForDisplay can list their addresses (CUSTOM.md #55). Called when the proxy page loads a group: the domains are
+// resolved side by side and the call waits for them at most displayResolveTimeout; what is already known (or failed
+// lately) is not asked again, so reopening the page costs nothing. Nothing runs by itself.
+func PrepareDisplay(names []string) {
+	lock.RLock()
+
+	todo := map[string]bool{}
+
+	for _, name := range names {
+		raw := proxies[name]
+		if raw == nil {
+			continue
+		}
+
+		server, _ := raw["server"].(string)
+		if server == "" {
+			continue
+		}
+
+		if v, _ := raw["ip-version"].(string); v == "ipv6" {
+			continue
+		}
+
+		if _, err := netip.ParseAddr(server); err == nil {
+			continue
+		}
+
+		if _, found := hosts[server]; found {
+			continue
+		}
+
+		if _, done := displayIPs[server]; done {
+			continue
+		}
+
+		if at, failed := displayFailed[server]; failed && time.Since(at) < retryAfter {
+			continue
+		}
+
+		todo[server] = true
+	}
+
+	lock.RUnlock()
+
+	if len(todo) == 0 {
+		return
+	}
+
+	wg := &sync.WaitGroup{}
+
+	for server := range todo {
+		wg.Add(1)
+
+		go func(server string) {
+			defer wg.Done()
+
+			defer func() {
+				if r := recover(); r != nil {
+					log.Warnln("IP display resolve %s: %v", server, r)
+				}
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), displayResolveTimeout)
+			defer cancel()
+
+			addrs, err := resolver.LookupIP(ctx, server)
+
+			list := make([]string, 0, len(addrs))
+			for _, a := range addrs {
+				list = append(list, fmt.Sprint(a))
+			}
+
+			list = onlyIPv4(list)
+
+			sort.Slice(list, func(i, j int) bool {
+				return netip.MustParseAddr(list[i]).Less(netip.MustParseAddr(list[j]))
+			})
+
+			lock.Lock()
+			if err != nil || len(list) == 0 {
+				displayFailed[server] = time.Now()
+			} else {
+				displayIPs[server] = list
+			}
+			lock.Unlock()
+		}(server)
+	}
+
+	wg.Wait()
 }
 
 // TestGroup tests every IPv4 address of every node in the group. It blocks until
