@@ -1,14 +1,14 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r62
+当前版本：2_11_36-r63
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
 ## 上游文件总表（同步上游时冲突只会出现在这里）
 | 上游文件 | 对应条目 | 冲突风险 | 冲突时怎么办 |
 |---|---|---|---|
-| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40） |
+| `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 #37 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37） |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 | 低 | 重加 `IPDelays` 字段和填充行 |
@@ -836,3 +836,4 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **功耗：** 没有新增定时器或轮询；量字号用的是只在重排时才做的一次性测量，最多 20 行。
 **验证和局限：** 没编译过（本机没有 Android 构建环境），要靠 Actions 验证；版式没在平板上看过。最窄宽度是按 14 sp、字体缩放 1.0 估的，系统字体调大后最窄宽度之和可能超过平板宽度，那时会退回横向滚动（IP 列仍固定）。
 **新增文件：** `design/.../custom/ColoNames.kt`。**改了的自有文件：** `IpTestView.kt`。**删除的文件：** `app/.../custom/IssuesActivity.kt`、`design/.../custom/IssuesDesign.kt`、`design/.../layout/design_issues.xml`。
+**r62 补充（同一版本）：** 你解压 r62 后 Actions 仍报同样的错，因为压缩包解压覆盖不会删掉仓库里已有的旧文件。所以 `.github/workflows/build-debug.yaml` 在构建前加了一步 `Remove deleted custom files`，每次构建都先 `rm -f` 这三个文件；以后凡是删文件，都往这一步里加。同步上游时这一步属于 `build-debug.yaml` 要重加的内容（#54）。
