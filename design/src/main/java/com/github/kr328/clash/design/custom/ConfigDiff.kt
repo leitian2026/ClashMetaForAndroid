@@ -41,6 +41,62 @@ object ConfigDiff {
         )
     }
 
+    /**
+     * CUSTOM.md #58: the same comparison as [diff], laid on the lines of the new text, for the editor to draw on its own
+     * lines. [status] maps a 0-based line of [new] to [EffectiveLine.ADDED] or [EffectiveLine.CHANGED]; [removed] maps a
+     * 0-based line of [new] to the lines the old text had there and the new one has not (shown before that line; the key
+     * is the number of lines of [new] when they come after the last one). Nothing is marked when the lines of the
+     * comparison and the lines of the text do not add up (it never marks the wrong lines).
+     */
+    class Marks(val status: Map<Int, Int>, val removed: Map<Int, List<String>>) {
+        val isEmpty: Boolean get() = status.isEmpty() && removed.isEmpty()
+    }
+
+    fun marks(old: String, new: String): Marks {
+        val out = diff(old, new).lines
+        val lines = new.split('\n')
+
+        // the lines of the new text that the comparison counts (see parse): the same rule
+        val nodeLines = ArrayList<Int>()
+
+        for (i in lines.indices) {
+            val t = lines[i].trimEnd('\r').trimStart(' ')
+
+            if (t.isEmpty() || t.startsWith("#") || t == "---" || t == "...") continue
+            if (stripComment(t).trimEnd().isEmpty()) continue
+
+            nodeLines.add(i)
+        }
+
+        if (out.count { it.status != EffectiveLine.REMOVED } != nodeLines.size) return Marks(emptyMap(), emptyMap())
+
+        val status = HashMap<Int, Int>()
+        val removed = HashMap<Int, ArrayList<String>>()
+        var pending = ArrayList<String>()
+        var k = 0
+
+        for (l in out) {
+            if (l.status == EffectiveLine.REMOVED) {
+                pending.add(" ".repeat(l.indent) + l.pre + l.value)
+
+                continue
+            }
+
+            val line = nodeLines[k++]
+
+            if (pending.isNotEmpty()) {
+                removed[line] = pending
+                pending = ArrayList()
+            }
+
+            if (l.status == EffectiveLine.ADDED || l.status == EffectiveLine.CHANGED) status[line] = l.status
+        }
+
+        if (pending.isNotEmpty()) removed[lines.size] = pending
+
+        return Marks(status, removed)
+    }
+
     // ---- reading -------------------------------------------------------------------------------
 
     private fun parse(text: String): List<Node> {

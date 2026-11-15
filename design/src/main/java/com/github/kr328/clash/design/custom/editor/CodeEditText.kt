@@ -13,10 +13,12 @@ import android.text.InputFilter
 import android.text.InputType
 import android.text.Layout
 import android.text.Spannable
+import android.text.Spanned
 import android.text.TextUtils
 import android.text.TextWatcher
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
+import android.text.style.LineHeightSpan
 import android.view.Gravity
 import android.view.GestureDetector
 import android.view.ScaleGestureDetector
@@ -32,6 +34,8 @@ import android.widget.OverScroller
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatEditText
+import com.github.kr328.clash.core.model.EffectiveLine
+import com.github.kr328.clash.design.custom.ConfigDiff
 
 // CUSTOM (CUSTOM.md #46, not upstream): the text field of the built-in editor. It keeps the normal EditText (keyboard,
 // selection, cursor) and adds: line numbers, YAML colours for the lines on the screen, undo / redo, find and
@@ -67,6 +71,15 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorDiagError = Color.parseColor("#E53935")
     private val colorDiagWarn = Color.parseColor("#FB8C00")
 
+    // CUSTOM.md #58: the marks of a history version against the config in use. Pink, brown and blue-grey: none of them is
+    // a colour of the text above (blue, green, orange, purple, yellow, grey, teal) or of the other bands (yellow, red, orange)
+    private val colorAddBg = if (night) Color.parseColor("#55F06EB4") else Color.parseColor("#33E91E8C")
+    private val colorAddBar = if (night) Color.parseColor("#FF4DB8") else Color.parseColor("#E91E8C")
+    private val colorChangeBg = if (night) Color.parseColor("#66A1887F") else Color.parseColor("#559C7B6B")
+    private val colorChangeBar = if (night) Color.parseColor("#A1887F") else Color.parseColor("#8D6E63")
+    private val colorDelBg = if (night) Color.parseColor("#4490A4AE") else Color.parseColor("#4078909C")
+    private val colorDelBar = if (night) Color.parseColor("#90A4AE") else Color.parseColor("#607D8B")
+
     private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
         textAlign = Paint.Align.RIGHT
@@ -80,6 +93,11 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         strokeWidth = maxOf(1f, density)
     }
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.MONOSPACE
+        color = colorDelBar
+        isStrikeThruText = true
+    }
     private val tabPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
         textAlign = Paint.Align.CENTER
@@ -89,6 +107,35 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private class TokSpan(color: Int) : ForegroundColorSpan(color)
 
     private class MatchSpan(color: Int) : BackgroundColorSpan(color)
+
+    // CUSTOM.md #58: a line of the text that a history version added or changed (drawn as a band behind the line; the
+    // spans follow the text when it is edited and are not part of it)
+    private class DiffSpan(val status: Int)
+
+    /**
+     * CUSTOM.md #58: lines that the old text had and this one has not. They are not in the text: the line they sit
+     * before (or, [atEnd], the line they sit after) is made taller by their height and [drawDiff] draws them in that room.
+     */
+    private class GhostSpan(val rows: List<String>, val rowH: Int, val atEnd: Boolean) : LineHeightSpan {
+        override fun chooseHeight(text: CharSequence, start: Int, end: Int, spanstartv: Int, lineHeight: Int, fm: Paint.FontMetricsInt) {
+            val s = text as? Spanned ?: return
+            val extra = rows.size * rowH
+
+            if (!atEnd) {
+                if (start == s.getSpanStart(this)) {
+                    fm.ascent -= extra
+                    fm.top -= extra
+                }
+            } else {
+                val e = s.getSpanEnd(this)
+
+                if (start < e && end >= e) {
+                    fm.descent += extra
+                    fm.bottom += extra
+                }
+            }
+        }
+    }
 
     val undo = UndoStack()
 
@@ -475,6 +522,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     fun replaceWhole(replacement: String): Boolean {
         val t = text ?: return true
 
+        clearDiffMarks()
+
         if (isWindowed || replacement.length > WINDOW_CHARS || countNewlines(replacement) >= WINDOW_LINES) {
             if (fullText() == replacement) return true
 
@@ -596,6 +645,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 )
             }
 
+            drawDiff(canvas, l, t, first, last, padLeft, padTop, false)
+
             drawPair(canvas, l, t, padLeft, padTop)
 
             // CUSTOM.md #50: indent guides and visible Tabs / trailing spaces, only for the lines on the screen
@@ -637,9 +688,143 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                     }
                 }
             }
+
+            drawDiff(canvas, l, t, first, last, padLeft, padTop, true)
         }
 
         super.onDraw(canvas)
+    }
+
+    // ---- the marks of a history version (CUSTOM.md #58) ------------------------------------------------
+
+    /**
+     * Marks the lines of the text that [marks] says were added or changed (a band behind the line, a bar in the number
+     * column) and shows the lines it says were removed, struck through, where they stood. Nothing is put in the text.
+     * Only the lines that are in the text box are marked (a big text: the first window); the marks stay with the lines
+     * while the text is edited and are taken off when another text is put in. Null takes them all off.
+     */
+    fun setDiffMarks(marks: ConfigDiff.Marks?) {
+        clearDiffMarks()
+
+        val t = text ?: return
+
+        if (marks == null || marks.isEmpty) return
+
+        val rowH = lineHeight
+
+        for ((line, status) in marks.status) {
+            val local = line - lineOffset
+
+            if (local !in lineStarts.indices) continue
+
+            val a = lineStarts[local]
+            val b = lineEnd(local, t.length)
+
+            if (b > a) t.setSpan(DiffSpan(status), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+
+        for ((line, rows) in marks.removed) {
+            val local = line - lineOffset
+
+            if (local in lineStarts.indices) {
+                val a = lineStarts[local]
+                val b = lineEnd(local, t.length)
+
+                if (b > a) {
+                    t.setSpan(GhostSpan(rows, rowH, false), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+                    continue
+                }
+            }
+
+            // after the last line: shown under the last line that has text
+            if (afterLines == 0 && line >= lineOffset + lineStarts.size) {
+                var k = lineStarts.size - 1
+
+                while (k > 0 && lineEnd(k, t.length) <= lineStarts[k]) k--
+
+                val a = lineStarts[k]
+                val b = lineEnd(k, t.length)
+
+                if (b > a) t.setSpan(GhostSpan(rows, rowH, true), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+
+        invalidate()
+    }
+
+    private fun clearDiffMarks() {
+        val t = text ?: return
+
+        for (s in t.getSpans(0, t.length, DiffSpan::class.java)) t.removeSpan(s)
+        for (s in t.getSpans(0, t.length, GhostSpan::class.java)) t.removeSpan(s)
+    }
+
+    // [gutter] false: the bands and the removed lines behind / in the text; true: the bars in the number column
+    private fun drawDiff(canvas: Canvas, l: Layout, t: Editable, first: Int, last: Int, padLeft: Int, padTop: Int, gutter: Boolean) {
+        val from = l.getLineStart(first)
+        val to = l.getLineEnd(last)
+        val marked = t.getSpans(from, to, DiffSpan::class.java)
+        val ghosts = t.getSpans(from, to, GhostSpan::class.java)
+
+        if (marked.isEmpty() && ghosts.isEmpty()) return
+
+        val left = scrollX.toFloat()
+        val right = (scrollX + width).toFloat()
+        val barLeft = scrollX + gutterWidth - 3 * density
+
+        for (s in marked) {
+            val a = t.getSpanStart(s)
+            val b = t.getSpanEnd(s)
+
+            if (a < 0 || b <= a) continue
+
+            val top = (l.getLineTop(l.getLineForOffset(a)) + padTop).toFloat()
+            val bottom = (l.getLineBottom(l.getLineForOffset(b - 1)) + padTop).toFloat()
+            val added = s.status == EffectiveLine.ADDED
+
+            if (gutter) {
+                fillPaint.color = if (added) colorAddBar else colorChangeBar
+                canvas.drawRect(barLeft, top, scrollX + gutterWidth.toFloat(), bottom, fillPaint)
+            } else {
+                fillPaint.color = if (added) colorAddBg else colorChangeBg
+                canvas.drawRect(left, top, right, bottom, fillPaint)
+            }
+        }
+
+        if (ghosts.isEmpty()) return
+
+        ghostPaint.textSize = textSize
+
+        val fm = ghostPaint.fontMetrics
+        val textH = fm.descent - fm.ascent
+
+        for (g in ghosts) {
+            val a = t.getSpanStart(g)
+            val b = t.getSpanEnd(g)
+
+            if (a < 0 || b <= a) continue
+
+            val n = g.rows.size
+            val top = if (g.atEnd) {
+                l.getLineBottom(l.getLineForOffset(b - 1)) + padTop - n * g.rowH
+            } else {
+                l.getLineTop(l.getLineForOffset(a)) + padTop
+            }
+
+            for (i in 0 until n) {
+                val y = (top + i * g.rowH).toFloat()
+
+                if (gutter) {
+                    fillPaint.color = colorDelBar
+                    canvas.drawRect(barLeft, y, scrollX + gutterWidth.toFloat(), y + g.rowH, fillPaint)
+                } else {
+                    fillPaint.color = colorDelBg
+                    canvas.drawRect(left, y, right, y + g.rowH, fillPaint)
+                    canvas.drawText(g.rows[i], padLeft.toFloat(), y + (g.rowH - textH) / 2f - fm.ascent, ghostPaint)
+                }
+            }
+        }
     }
 
     // ---- guides, whitespace, pairs (CUSTOM.md #50) -----------------------------------------------------

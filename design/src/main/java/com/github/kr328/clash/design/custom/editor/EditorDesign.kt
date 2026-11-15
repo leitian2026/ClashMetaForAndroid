@@ -26,6 +26,7 @@ import androidx.databinding.Observable
 import androidx.core.view.WindowInsetsCompat
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
+import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.EffectiveText
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.ui.ToastDuration
@@ -436,6 +437,15 @@ class EditorDesign(
         refreshStatus()
 
         return undoable
+    }
+
+    /**
+     * CUSTOM.md #58: marks on the page what the text on it changes against another one (a history version against the
+     * config in use): added and changed lines get a band, removed lines are shown struck through where they stood.
+     * The text is not changed; null takes the marks off. Drawn by the text box (no page, no dialog).
+     */
+    fun showDiffMarks(marks: ConfigDiff.Marks?) {
+        editor.setDiffMarks(marks)
     }
 
     fun markSaved() {

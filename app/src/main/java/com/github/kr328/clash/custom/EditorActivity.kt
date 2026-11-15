@@ -556,8 +556,22 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         design.markSaved() // it is a version of the history, so there is nothing on the page that is not kept
         design.toast(getString(if (undoable) R.string.editor_history_loaded else R.string.editor_history_loaded_no_undo, date))
 
-        // computed once now; "compare again" computes it again for what is on the page then
-        compare(design, getString(R.string.editor_compare_loaded_title, date))
+        // CUSTOM.md #58: no page, no dialog: what this version changes against the config in use is marked on the editor
+        // itself (computed once now, nothing in the background); the menu's compare page is unchanged
+        val uuidNow = profileUuid()
+        val marks = try {
+            withContext(Dispatchers.Default) {
+                val used = ConfigHistory.current(this@EditorActivity, uuidNow)?.readText(Charsets.UTF_8) ?: ""
+
+                ConfigDiff.marks(used, text)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+        design.showDiffMarks(marks)
     }
 
     /** The page of what the text on the page would change against the config in use. */
