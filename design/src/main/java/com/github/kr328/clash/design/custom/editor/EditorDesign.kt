@@ -31,9 +31,9 @@ import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.EffectiveText
 import com.github.kr328.clash.design.R
-import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.design.util.resolveThemedResourceId
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -538,8 +538,24 @@ class EditorDesign(
         editor.goToLine(line, mark)
     }
 
+    // CUSTOM.md #61: the hint comes from the top of the page (under the status bar), not from the bottom: at the bottom the
+    // keyboard and the text being typed are there. Fades in and out in place (the slide of a Snackbar goes from the bottom).
     suspend fun toast(text: CharSequence) {
-        showToast(text, ToastDuration.Short)
+        withContext(Dispatchers.Main) {
+            Snackbar.make(root, text, Snackbar.LENGTH_SHORT).apply {
+                animationMode = Snackbar.ANIMATION_MODE_FADE
+
+                val lp = view.layoutParams
+
+                if (lp is FrameLayout.LayoutParams) {
+                    val horizontal = if (lp.gravity < 0) 0 else lp.gravity and Gravity.HORIZONTAL_GRAVITY_MASK
+
+                    lp.gravity = horizontal or Gravity.TOP
+                    lp.topMargin = maxOf(barTop, surface.insets.top) + (8 * context.resources.displayMetrics.density).toInt()
+                    view.layoutParams = lp
+                }
+            }.show()
+        }
     }
 
     /** A message with an OK button; returns when it is closed. */
