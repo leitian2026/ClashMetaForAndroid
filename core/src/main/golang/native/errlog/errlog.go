@@ -85,8 +85,9 @@ type Snapshot struct {
 	Folded []Fold  `json:"folded"` // the folded kinds that happened, in a fixed order
 }
 
-// Hook, when set, is called with the payload of every recorded WARNING / ERROR line (CUSTOM.md #53).
-var Hook func(payload string)
+// Hook, when set, is called with the payload of every WARNING / ERROR line (CUSTOM.md #53); true = the line was taken
+// (it is not recorded here).
+var Hook func(payload string) bool
 
 var (
 	mu      sync.Mutex

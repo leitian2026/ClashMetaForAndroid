@@ -21,4 +21,5 @@ data class ErrorsReport(
     val ipv6Skipped: List<String> = emptyList(),
     val testedAt: Long = 0,
     val networkChangedAt: Long = 0,
+    val issues: com.github.kr328.clash.core.custom.IssuesSnapshot? = null, // CUSTOM.md #53
 )

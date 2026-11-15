@@ -205,13 +205,25 @@ func dohExchangeLikeCore(ctx context.Context, server string, query []byte) ([]by
 }
 
 func dohDo(ctx context.Context, server string, query []byte, like bool) ([]byte, string, error) {
+	return dohDoDial(ctx, server, query, like, nil)
+}
+
+// dohDoDial is dohDo with its own way of dialing (CUSTOM.md #53: the runtime check reaches a server that the profile
+// sends through a proxy group by dialing through that group); nil = the core's dialer, straight out.
+func dohDoDial(ctx context.Context, server string, query []byte, like bool, dial dialFunc) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, dohTimeout)
 	defer cancel()
+
+	if dial == nil {
+		dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, addr) // the socket does not go through the VPN
+		}
+	}
 
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return dialer.DialContext(ctx, network, addr) // the socket does not go through the VPN
+				return dial(ctx, network, addr)
 			},
 			TLSClientConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
 			ForceAttemptHTTP2: true,

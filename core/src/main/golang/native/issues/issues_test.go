@@ -16,7 +16,9 @@ func TestFromLog(t *testing.T) {
 	FromLog("[GEO] update GEO database error: boom")
 	FromLog("GeoSite.dat invalid, remove and download")
 	FromLog("[DNS] skip invalid nameserver policy: x")
-	FromLog("something unrelated")
+	if FromLog("something unrelated") || FromLog("[Provider] x started") {
+		t.Fatal("unrelated line taken")
+	}
 
 	s := Query()
 	if s.Active != 4 {

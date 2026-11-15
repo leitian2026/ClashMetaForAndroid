@@ -105,15 +105,29 @@
                 android:clipToPadding="false"
                 android:paddingBottom="@{self.surface.insets.bottom}">
 
-                <TextView
-                    android:id="@+id/errors_text_view"
+                <!-- CUSTOM (CUSTOM.md #53): problems of the running config (rows with an ignore button), filled by ErrorsDesign -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingHorizontal="@dimen/item_tailing_margin"
-                    android:paddingVertical="@dimen/item_padding_vertical"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textIsSelectable="true" />
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/issues_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:id="@+id/errors_text_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="@dimen/item_tailing_margin"
+                        android:paddingVertical="@dimen/item_padding_vertical"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textIsSelectable="true" />
+
+                </LinearLayout>
             </androidx.core.widget.NestedScrollView>
         </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

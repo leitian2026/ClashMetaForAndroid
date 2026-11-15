@@ -453,7 +453,7 @@ func ask(ctx context.Context, spec serverSpec, domain string, qtype uint16, dial
 	case kindDoH:
 		var contentType string
 
-		msg, contentType, err = dohExchangeLikeCore(ctx, spec.URL, query)
+		msg, contentType, err = dohDoDial(ctx, spec.URL, query, true, spec.Dial) // spec.Dial: CUSTOM.md #53
 		if err == nil {
 			ans, perr := parseReply(msg, id)
 			if perr != nil {

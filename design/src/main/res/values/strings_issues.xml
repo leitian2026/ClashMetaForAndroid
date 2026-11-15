@@ -2,10 +2,6 @@
 <resources>
     <!-- CUSTOM.md #53 -->
     <string name="issues_title">Config problems</string>
-    <string name="issues_hint">Problems found while the proxy runs: DNS servers and node addresses are checked after a profile loads and after the network changes; other items come from the core\'s log or a failed subscription update. Ignored items stay quiet.</string>
-    <string name="issues_clear">Clear resolved and not-ignored</string>
-    <string name="issues_empty">No problems found</string>
-    <string name="issues_empty_not_running">No problems recorded. Most checks run only while the proxy is running.</string>
     <string name="issues_section_active">Problems (%1$d)</string>
     <string name="issues_section_ignored">Ignored (%1$d)</string>
     <string name="issues_section_resolved">Working again (%1$d)</string>
@@ -20,7 +16,6 @@
     <string name="issue_geo">Geo file problem: %1$s</string>
     <string name="issue_provider">Provider update failed: %1$s</string>
     <string name="issue_other">Problem: %1$s</string>
-    <string name="main_issues_card_sub">%1$s</string>
     <string name="main_issues_card_more">tap to see all</string>
     <string name="issues_card_title">%1$d config problem(s)</string>
 </resources>

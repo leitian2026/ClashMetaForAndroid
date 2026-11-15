@@ -156,12 +156,6 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/mux_title" />
-        <!-- CUSTOM (CUSTOM.md #53) -->
-        <activity
-            android:name=".custom.IssuesActivity"
-            android:configChanges="uiMode"
-            android:exported="false"
-            android:label="@string/issues_title" />
         <!-- CUSTOM (CUSTOM.md #21) -->
         <activity
             android:name=".custom.ErrorsActivity"

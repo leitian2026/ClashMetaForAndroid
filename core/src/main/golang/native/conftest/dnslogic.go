@@ -51,9 +51,10 @@ type serverSpec struct {
 	URL      string // DoH: the https URL without #options
 	HostPort string // the others
 	Host     string
-	Via      string // `#name`: the core reaches this server through a proxy group / interface of that name
-	H3       bool   // `#h3=true` on a DoH server
-	Scheme   string // the scheme of an unsupported server
+	Dial     dialFunc // CUSTOM.md #53: set only by ProbeIssues, dials through the proxy group of Via (DoH uses it)
+	Via      string   // `#name`: the core reaches this server through a proxy group / interface of that name
+	H3       bool     // `#h3=true` on a DoH server
+	Scheme   string   // the scheme of an unsupported server
 }
 
 // normKey makes key names comparable whatever the casing / separators of the struct that was marshalled:

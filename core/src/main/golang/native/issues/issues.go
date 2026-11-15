@@ -332,15 +332,19 @@ var (
 )
 
 // FromLog is called with every WARNING / ERROR line of the core (by package errlog) and turns the ones that mean a
-// problem of the configuration into issues. Everything else is ignored here (it is in the errors page anyway).
-func FromLog(payload string) {
+// problem of the configuration into issues; true = this line is one (the errors page shows it as an issue, not as a
+// plain log line). Everything else is left to errlog.
+func FromLog(payload string) bool {
 	p := strings.TrimSpace(payload)
 
 	switch {
 	case strings.HasPrefix(p, "[Provider]"):
-		if m := reProvider.FindStringSubmatch(p); m != nil {
-			Report(KindProvider, m[1], "", m[2], "")
+		m := reProvider.FindStringSubmatch(p)
+		if m == nil {
+			return false
 		}
+
+		Report(KindProvider, m[1], "", m[2], "")
 	case reGeo.MatchString(p):
 		name := "geo"
 
@@ -358,5 +362,9 @@ func FromLog(payload string) {
 		Report(KindDNS, "resolve", "dns", p, "")
 	case reECH.MatchString(p):
 		Report(KindECH, "ech", "", p, "")
+	default:
+		return false
 	}
+
+	return true
 }

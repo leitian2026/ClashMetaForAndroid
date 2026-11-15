@@ -19,13 +19,13 @@ import com.github.kr328.clash.service.util.sendBroadcastSelf
 // CUSTOM (CUSTOM.md #53): the notification for problems of the running config. Called only when the core says the
 // list changed (an event) and when a subscription update ended; there is no timer.
 //
-// One line per problem, the two newest shown; tapping opens the problems page. It alerts (sound / heads-up) only when
+// One line per problem, the two newest shown; tapping opens the errors page (its first block lists them). It alerts (sound / heads-up) only when
 // a problem appears that was not notified before; other changes update it silently. It is removed when no problem is
 // left that is neither ignored nor resolved.
 object IssueNotifier {
     private const val CHANNEL = "custom_issues_channel"
     private const val NOTIFICATION_ID = 0x1ECA // fixed: one notification that is updated in place
-    private const val PAGE = "com.github.kr328.clash.custom.IssuesActivity" // lives in the app module
+    private const val PAGE = "com.github.kr328.clash.custom.ErrorsActivity" // the errors page, lives in the app module
 
     private val notified = HashSet<String>() // ids that already alerted
 

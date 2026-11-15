@@ -3,6 +3,8 @@ package com.github.kr328.clash.custom
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.BaseActivity.Event
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.core.custom.IssuesSnapshot
+import com.github.kr328.clash.service.remote.IClashManager
 import com.github.kr328.clash.common.custom.NetworkIpv6
 import com.github.kr328.clash.core.model.ErrorSnapshot
 import com.github.kr328.clash.core.model.NodeInfo
@@ -45,19 +47,20 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                         else -> Unit
                     }
                 }
+                design.issueRequests.onReceive { (id, ignore) -> // CUSTOM.md #53
+                    val prefix = if (ignore) CustomConnections.ISSUE_IGNORE else CustomConnections.ISSUE_UNIGNORE
+
+                    askCore { closeCustomConnection(prefix + id) }
+                    design.refresh()
+                }
                 design.requests.onReceive {
                     when (it) {
                         ErrorsDesign.Request.Refresh -> design.refresh()
                         ErrorsDesign.Request.Copy -> design.copyAll()
                         ErrorsDesign.Request.Clear -> {
-                            if (clashRunning) {
-                                try {
-                                    withClash { closeCustomConnection(CustomConnections.CLEAR_ERRORS) }
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    // the core could not be asked; the crash records are still cleared
-                                }
+                            askCore { // the core could not be asked: the crash records are still cleared
+                                closeCustomConnection(CustomConnections.CLEAR_ERRORS)
+                                closeCustomConnection(CustomConnections.ISSUE_CLEAR) // CUSTOM.md #53
                             }
                             withContext(Dispatchers.IO) { CrashRecorder.clear(this@ErrorsActivity) }
                             dismissTimeouts()
@@ -70,6 +73,18 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         }
     }
 
+    private suspend fun askCore(block: suspend IClashManager.() -> Unit) {
+        if (!clashRunning) return
+
+        try {
+            withClash { block() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // the core could not be asked
+        }
+    }
+
     private suspend fun ErrorsDesign.refresh() {
         val running = clashRunning
 
@@ -77,6 +92,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         var timeouts: List<String>? = null
         var skipped: List<String> = emptyList() // CUSTOM.md #23
         var info: NodeInfo? = null // CUSTOM.md #23 #24
+        var issues: IssuesSnapshot? = null // CUSTOM.md #53
 
         if (running) {
             try {
@@ -87,6 +103,14 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 throw e
             } catch (e: Exception) {
                 // shown as "not available": the other blocks still work
+            }
+
+            try { // CUSTOM.md #53: the problems of the running config
+                issues = IssuesSnapshot.parse(withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // the block stays empty
             }
 
             try {
@@ -142,6 +166,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 ipv6Skipped = skipped,
                 testedAt = info?.testedAt ?: 0,
                 networkChangedAt = info?.networkChangedAt ?: 0,
+                issues = issues,
             ),
         )
     }

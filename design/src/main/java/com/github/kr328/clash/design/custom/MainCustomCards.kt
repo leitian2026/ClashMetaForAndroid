@@ -26,7 +26,7 @@ class MainCustomCards(
         root.findViewById<com.github.kr328.clash.design.view.LargeActionCard>(R.id.custom_issues_card)?.apply {
             // the page lives in the app module, so address it by name
             setOnClickListener {
-                context.startActivity(Intent().setClassName(context, "com.github.kr328.clash.custom.IssuesActivity"))
+                context.startActivity(Intent().setClassName(context, "com.github.kr328.clash.custom.ErrorsActivity"))
             }
         }
 

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r59
+当前版本：2_11_36-r60
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -24,7 +24,7 @@
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
 | `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 #53 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
 | `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 #50 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(..., uuid, "", profile.type != Profile.Type.File))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
 | `design/src/main/res/layout/adapter_profile.xml` | #47 #53 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
 | `design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt` | #47 | 低 | 构造函数末尾加带默认值的 `onEditClicked`，`onBindViewHolder` 里加 `binding.setEdit { onEditClicked(current) }` |
@@ -803,23 +803,26 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **验证和局限：** Go：`iptest.go`、`iptest_probe.go`、`iptry_download.go` 用桩代码（假的 `errlog` / `ipdelay` 其余部分 / `dialer` / `constant`）做了 `go vet` 和单元测试：10 次统计、端口读取、机房列表读取、本机 TLS 服务器上的直连测（h2、`Cf-Ray`、端口通 / 不通、归属地从缓存取）、全部失败、取消（几百毫秒内返回）、各种错误、本机 TLS 服务器上的下载（字节数、`Host`）、限时和限字节的下载、读列表。**没编译的：** 真正的 `ipdelay` 包（`DownloadVia` 用了 `newVariant`、`closeProxy`、`selfDialing`，都是照 `TryIP` 抄的，没跑过）和全部 Kotlin（表格、弹窗、循环），要靠 Actions 构建验证，也没在手机上看过版式（列宽、行高、左列固定是估的）。机房列表地址、`ipinfo.io` / `ipwho.is` 的格式没在真实网络里试过。
 
 
-## 53. 编辑器上下边距、配置卡片铅笔、双指缩放字号、键盘不打乱选中、运行中配置问题的通知和首页卡片（r59）
+## 53. 编辑器上下边距、配置卡片铅笔、双指缩放字号、键盘不打乱选中、运行中配置问题（并进错误与诊断页）（r59，r60 合并并补探测）
 **编辑器 / 配置页（小改）：**
 - 编辑器顶部不再和状态栏重叠：`EditorDesign` 的内边距取"系统栏（ViewCompat 监听）"和"`surface.insets`（其他页面用的那个）"里较大的，键盘出来时底部取键盘高度。
 - 底部变矮：原来的提示行、"勾（问题）"行合并进状态行（状态文字后面直接跟当前问题的描述，窗口提示也在这一行），问题按钮只在有问题时出现在同一行里，符号行和按钮高度降到 34 / 32dp。
 - 配置页卡片：铅笔图标 18dp（原来 24dp 加更大的内边距），和右边时间、左边文字的间距缩小（`adapter_profile.xml`）。
 - 双指缩放字号：`CodeEditText` 用 `ScaleGestureDetector`，每放大或缩小 1.08 倍加或减一个字号，手指不抬可以连续缩放；缩放时保持顶部那一行不跳。
-- 长按选 IP 后弹键盘打乱选中：**没法在手上复现，这是按读代码得出的原因做的缓解**——手指还按着时，不做"滚到光标"，也不把键盘高度加进内边距（等手指抬起再做），避免选区在布局变化中被重算。API < 30 的 `adjustResize` 由系统调整窗口，延不了。如果还有，告诉我是哪种手势、哪个机型。
-**运行中配置问题：** 内核运行时发现的问题，一个问题一条：通知（最多显示两条，点开进列表页，只有出现新问题才响，没有问题时自动撤掉）、首页顶部一张卡片（显示前两条，放不下就写"点此查看全部"，点开进列表页）、列表页 `IssuesActivity`（每条有"忽略"，已忽略和已恢复的分开列在下面，可取消忽略，右上角清除）。忽略记在内核 home 目录的 `issues-ignored.json`，重启后仍然有效。
+- 长按选 IP 后弹键盘打乱选中：**没法在手上复现，这是按读代码得出的原因做的缓解**——手指还按着时，不做"滚到光标"，也不把键盘高度加进内边距（等手指抬起再做）。API < 30 的 `adjustResize` 由系统调整窗口，延不了。
+**运行中配置问题：** 内核运行时发现有配置没生效，一个问题一条：
+- **通知**（最多显示两条，只有出现新问题才响，没有问题时自动撤掉）、**首页顶部一张卡片**（显示前两条，放不下写"点此查看全部"）；两者点开都进**错误与诊断页**，页面最上面是"配置问题"块：每条有"忽略"，已忽略和已恢复的分开列在下面，可取消忽略；右上角"清除记录"同时清除已恢复和未忽略的问题。忽略记在内核 home 目录的 `issues-ignored.json`，重启后仍然有效。复制全部时，未忽略的问题排在最前面。
+- **不重复：** 从内核日志读到的问题（下面第 4、5 类）只出现在"配置问题"块，不再同时出现在错误页的"其他警告 / 错误"里（`errlog.Hook` 返回 true 就不记进那份列表）。
+- **原则：** 只要发现有不生效的就报，不因为整体还能跑通就不报；唯一不报的是"没网"、"网络不可达（没 IPv6）"，以及探测不了的（见局限）。
 - **能发现的（都是已有的事件，不新开定时器）：**
-  1. 自建 DNS 服务器不通（`doh`；DoH / DoT / TCP / UDP 服务器，走代理组的不测）：配置加载后、网络变化后，对每个服务器问一次 `www.cloudflare.com`（复用 DNS 检查 `conftest.RunDNS`），**连续两次（隔 8 秒）都失败才报**。
-  2. 节点 IP 不通（`ip`）：同样的两个时机，对节点的字面 IP / `hosts:` 里的 IP 各做一次 TCP 连接（每个节点最多 8 个、共 40 个、最多 8 个并行、每个 3 秒），隔 8 秒复测，两次都失败才报。跳过 hysteria / tuic / wireguard 等 UDP 类型、带 `dialer-proxy` 的节点、"网络不可达"（没 IPv6）。**连续多次不通会在"连续 N 次"里累加，这就是"长时间不通"。**
+  1. DNS 服务器不通（`doh`；DoH / DoT / TCP / UDP 服务器）：配置加载后、网络变化后，对每个服务器问一次 `www.cloudflare.com`（`conftest.ProbeIssues`，和 DNS 检查同一套问法），**连续两次（隔 8 秒）都失败才报**。**r60：** 写了 `#代理组名` 的服务器改成**通过那个代理组**去问（DoH / DoT / TCP；`dohDoDial`、`serverSpec.Dial`）；`#名字` 不是配置里的代理或代理组（比如网卡名）的、以及走代理的 UDP 服务器，没法如实探测，不判断。
+  2. 节点地址不通（`ip`）：同样的两个时机，**连续两次都失败才报**。普通 TCP 节点（有字面 IP / `hosts:` 里的 IP）：每个地址做一次 TCP 连接（每个节点最多 8 个、共 40 个、最多 8 个并行、每个 3 秒）。**r60：** hysteria / hysteria2 / tuic / wireguard 等 UDP 类型、带 `dialer-proxy` 的节点、服务器写域名又没有 `hosts:` 地址的节点，改成**通过节点本身**发一次延迟请求（`ipdelay.ProbeNode`：和内核自己的延迟测试同一个请求，走节点真实的传输，不额外查出口国家）；节点构建不了时不判断。连续多次不通会在"连续 N 次"里累加，这就是"长时间不通"。
   3. 订阅更新失败（`sub`）：`ProfileWorker.failed()` 末尾通知；更新成功会标"已恢复"。
-  4. 订阅源（provider）更新失败、GeoSite / GeoIP / MMDB / ASN 文件缺失或损坏或更新失败、`nameserver-policy` 里有无效项、所有 DNS 请求失败（`provider` / `geo` / `dns`）：来自内核日志的 WARNING / ERROR 行（`errlog` 的同一个监听，加了一个钩子 `errlog.Hook`）。日志行的措辞**对照 mihomo 3f27ef39 源码**确认过。
+  4. 订阅源（provider）更新失败、GeoSite / GeoIP / MMDB / ASN 文件缺失或损坏或更新失败、`nameserver-policy` 里有无效项、所有 DNS 请求失败（`provider` / `geo` / `dns`）：来自内核日志的 WARNING / ERROR 行。措辞**对照 mihomo 3f27ef39 源码**确认过。
   5. ECH 被拒绝 / 过期（`ech`）：按日志里同时出现 `ech` 和 reject / expired / retry / fail / invalid 的行判断，**这一条的措辞没有在内核源码里逐行对过，是尽力匹配，可能漏报**。
 - **没网时不报：** 一轮开头先试 1.1.1.1 和 223.5.5.5 的 443，两个都连不上就当没网，整轮不报。
-- **做法：** Go 侧新包 `issues`（存储：`Report` / `Resolve` / `ResolveExcept` / `SetIgnored` / `Clear` / `Query`，变化后延迟 1.5 秒回调一次）、`issuecheck`（`Trigger` 单飞：探测 DNS 和节点 IP）；`ipdelay.CaptureDNS` 末尾调 `OnLoaded` 钩子（配置加载）；`retest.go` 的 `changed` 触发 `issuecheck.Trigger()`（网络变化）；`connections.go` 加排序码 10（`SORT_ISSUES`，过滤字段为命令：空 = 列表，`sub|名|原因`，`subok|名`）和 `!issue-ignore:` / `!issue-unignore:` / `!issue-clear` 三种关闭 id；`nodeip.go` 里订阅回调时设置钩子，变化时用 `fetch_report("issues")` 通知。Kotlin：`NodeIpWatcher.start(onIssues, onChange)`；服务侧 `IssueNotifier`（通知，渠道 `custom_issues_channel`）；`ACTION_ISSUES_CHANGED` 自广播，首页的 `customNodeIpEvents` 多监听这一个动作；首页卡片 `custom_issues_card`（`design_main.xml` 里一张 `LargeActionCard`，由 `MainCustomCards.setIssues` 填）；`refreshIssues` 在每次首页获取和每次事件时查询。
-**新增文件：** `core/.../native/issues/issues.go`、`issues_test.go`、`issuecheck/issuecheck.go`、`issuecheck_test.go`；`core/.../core/custom/IssuesSnapshot.kt`；`service/.../custom/IssueNotifier.kt`；`design/.../custom/IssuesDesign.kt`、`IssueText.kt`、`design_issues.xml`；`app/.../custom/IssuesActivity.kt`；`strings_issues.xml`（design 和 service 各自 `values` / `values-zh`）。
-**改了的自有文件：** `errlog.go`（`Hook`）、`ipdelay.go`（`OnLoaded`）、`retest.go`、`connections.go`、`nodeip.go`、`CustomConnections.kt`、`NodeIpWatcher.kt`、`NodeIpNotifier.kt`、`CustomIntents.kt`、`NodeIpEvents.kt`、`MainCustomCards.kt`、`MainCustomRefresh.kt`、`EditorDesign.kt`、`CodeEditText.kt`。上游文件见上面的表（`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`、`adapter_profile.xml`、`ProfileWorker.kt`）。
-**功耗：** 没有定时器、没有轮询。探测只在"配置加载后"和"网络变化后"各跑一轮（失败时多一次 8 秒后的复测），一轮最多 40 次 TCP 连接和一次 DNS 检查；通知和卡片只在问题列表变化时更新。退出编辑器等页面不会留下后台任务。
-**验证和局限：** `issues`、`issuecheck` 用桩代码做了 `go vet` 和单元测试（日志解析、忽略持久化、清除、命令、DNS 连续失败才报、没网不报）；真正的 `conftest.RunDNS`、`ipdelay`、mihomo 的 `dialer` 和全部 Kotlin 都**没编译过**，要靠 Actions 验证，版式（卡片、列表行）也没在手机上看过。日志来源的问题（provider / geo / dns / ech）保持到你忽略、点清除或内核重启为止，不会自己标"已恢复"。DoH / IP 探测只在配置加载和网络变化时跑，运行中途才坏掉要等下一次事件才发现。
+- **做法：** Go 侧新包 `issues`（存储，变化后延迟 1.5 秒回调一次）、`issuecheck`（`Trigger` 单飞：探测 DNS 和节点）；`conftest/dnsissue.go`（`ProbeIssues`）；`ipdelay/issueprobe.go`（`WithSelfDial`、`ProbeNode`）；`ipdelay.CaptureDNS` 末尾调 `OnLoaded` 钩子（配置加载）；`retest.go` 的 `changed` 触发 `issuecheck.Trigger()`（网络变化）；`connections.go` 加排序码 10（`SORT_ISSUES`，过滤字段为命令：空 = 列表，`sub|名|原因`，`subok|名`）和 `!issue-ignore:` / `!issue-unignore:` / `!issue-clear`；`nodeip.go` 里订阅回调时设置钩子，变化时用 `fetch_report("issues")` 通知。Kotlin：`NodeIpWatcher.start(onIssues, onChange)`；服务侧 `IssueNotifier`（通知，渠道 `custom_issues_channel`，点开进 `ErrorsActivity`）；`ACTION_ISSUES_CHANGED` 自广播，首页的 `customNodeIpEvents` 多监听这一个动作；首页卡片 `custom_issues_card`（`design_main.xml` 里一张 `LargeActionCard`，由 `MainCustomCards.setIssues` 填，点开进错误页）；`refreshIssues` 在每次首页获取和每次事件时查询；错误页的"配置问题"块由 `IssuesBlock` 画进 `design_errors.xml` 里的 `issues_list`。
+**新增文件：** `core/.../native/issues/issues.go`、`issues_test.go`、`issuecheck/issuecheck.go`、`issuecheck_test.go`、`conftest/dnsissue.go`、`ipdelay/issueprobe.go`；`core/.../core/custom/IssuesSnapshot.kt`；`service/.../custom/IssueNotifier.kt`；`design/.../custom/IssuesBlock.kt`、`IssueText.kt`；`strings_issues.xml`（design 和 service 各自 `values` / `values-zh`）。（r59 的 `IssuesActivity.kt`、`IssuesDesign.kt`、`design_issues.xml` 在 r60 删除，见交付说明。）
+**改了的自有文件：** `errlog.go`（`Hook`）、`ipdelay.go`（`OnLoaded`）、`doh.go`（`dohDoDial`）、`dnslogic.go`（`serverSpec.Dial`）、`dnscheck.go`（DoH 用 `spec.Dial`）、`retest.go`、`connections.go`、`nodeip.go`、`CustomConnections.kt`、`NodeIpWatcher.kt`、`NodeIpNotifier.kt`、`CustomIntents.kt`、`NodeIpEvents.kt`、`MainCustomCards.kt`、`MainCustomRefresh.kt`、`ErrorsActivity.kt`、`ErrorsDesign.kt`、`ErrorsReport.kt`、`design_errors.xml`、`EditorDesign.kt`、`CodeEditText.kt`。上游文件见上面的表（`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`adapter_profile.xml`、`ProfileWorker.kt`）。
+**功耗：** 没有定时器、没有轮询。探测只在"配置加载后"和"网络变化后"各跑一轮（失败时多一次 8 秒后的复测），一轮最多 40 个节点测试和一次 DNS 检查；通知和卡片只在问题列表变化时更新。退出编辑器等页面不会留下后台任务。
+**验证和局限：** `issues`、`issuecheck` 用桩代码做了 `go vet` 和单元测试（日志解析、忽略持久化、清除、命令、DNS 连续失败才报、没网不报、TCP / UDP / 域名 / dialer-proxy 节点分别走哪种测法）；真正的 `conftest.ProbeIssues`（经代理组拨号：`tunnel.Proxies()` 的 `DialContext`，目标是 IP 时填 `DstIP`）、`ipdelay.ProbeNode` 和全部 Kotlin 都**没编译过**，要靠 Actions 验证，版式也没在手机上看过。日志来源的问题保持到你忽略、点清除或内核重启为止，不会自己标"已恢复"。DNS / 节点探测只在配置加载和网络变化时跑，运行中途才坏掉要等下一次事件才发现。**仍然发现不了的：** 内核悄悄忽略的配置项（比如不认识的字段，需要对照内核的配置解析源码才能做对）；走代理的 UDP DNS 服务器；`#网卡名` 的 DNS 服务器。

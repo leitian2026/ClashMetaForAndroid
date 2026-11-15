@@ -29,6 +29,12 @@ class ErrorsDesign(context: Context) : Design<ErrorsDesign.Request>(context) {
 
     private var shown: String = ""
 
+    // CUSTOM (CUSTOM.md #53): "ignore" / "un-ignore" taps of the config problems block, (id, ignore)
+    val issueRequests = kotlinx.coroutines.channels.Channel<Pair<String, Boolean>>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+
+    private val issuesBlock = IssuesBlock(context) { id, ignore -> issueRequests.trySend(id to ignore) }
+    private var issuesPlain: String = ""
+
     fun request(request: Request) {
         requests.trySend(request)
     }
@@ -42,13 +48,17 @@ class ErrorsDesign(context: Context) : Design<ErrorsDesign.Request>(context) {
                 binding.errorsTextView.text = text
             }
             shown = text
+
+            // CUSTOM (CUSTOM.md #53): the config problems block above the text
+            issuesBlock.fill(binding.issuesList, report.issues)
+            issuesPlain = issuesBlock.plain(report.issues)
         }
     }
 
     suspend fun copyAll() {
         withContext(Dispatchers.Main) {
             context.getSystemService<ClipboardManager>()
-                ?.setPrimaryClip(ClipData.newPlainText("errors", shown))
+                ?.setPrimaryClip(ClipData.newPlainText("errors", if (issuesPlain.isEmpty()) shown else issuesPlain + "\n\n" + shown))
         }
 
         showToast(R.string.copied, ToastDuration.Short)
