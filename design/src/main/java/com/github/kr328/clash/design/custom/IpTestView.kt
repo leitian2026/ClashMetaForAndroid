@@ -30,6 +30,9 @@ import java.util.Locale
 // the other apps have it, with the live status under it. The IP column stays on the left while the rest scrolls
 // sideways. Everything here is laid out again from the rows it is given (at most 20); nothing runs on its own, the
 // activity gives it one more row after each address and one more line after each event.
+// r62 (CUSTOM.md #54): text is 2 sp bigger than before; the columns share the whole width of the page when it is wide
+// enough (a tablet), so nothing hides off screen, and long text wraps (the rows are as high as their tallest cell);
+// only when even the narrowest columns do not fit (a phone) the table scrolls sideways with the IP column fixed.
 class IpTestView(private val context: Context, private val direct: Boolean) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "测速" of a row
@@ -54,9 +57,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     private val colorMuted = if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161")
     private val colorText = themeColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK)
 
-    private val rowH = dp(52)
-    private val headH = dp(38)
-    private val ipW = dp(150)
+    private val rowH = dp(48) // the least height of a row; a row with wrapped text is taller
+    private val headH = dp(40)
 
     private var rows: List<IpTestRow> = emptyList()
     private var colos: Map<String, String> = emptyMap()
@@ -69,7 +71,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
     private val info = TextView(context).apply {
-        textSize = 13f
+        textSize = 15f
         setPadding(0, 0, 0, dp(8))
     }
 
@@ -77,21 +79,21 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
     private val hint = TextView(context).apply {
         setText(R.string.iptest_table_hint)
-        textSize = 11f
+        textSize = 13f
         setTextColor(colorMuted)
         setPadding(0, dp(6), 0, dp(10))
     }
 
     private val logTitle = TextView(context).apply {
         setText(R.string.iptest_log_title)
-        textSize = 12f
+        textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
         setPadding(0, 0, 0, dp(4))
     }
 
     private val logView = TextView(context).apply {
         typeface = Typeface.MONOSPACE
-        textSize = 11f
+        textSize = 13f
         setTextColor(colorText)
         setPadding(dp(8), dp(6), dp(8), dp(6))
     }
@@ -114,6 +116,12 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     }
 
     init {
+        // the table is laid out for the width the page gives it: laid out again when that width changes (rotation,
+        // split screen), and only then
+        tableBox.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
+            if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) tableBox.post { redraw() }
+        }
+
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -201,39 +209,106 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         if (rows.isEmpty()) return
 
+        val w = widths()
+        val gridW = w.drop(1).sum()
+
         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
-        left.addView(headCell(context.getString(R.string.iptest_col_ip), ipW), lp(ipW, headH))
+        // header: as high as its tallest title (a narrow column wraps)
+        val heads = ArrayList<View>()
+        val headLeft = headCell(context.getString(R.string.iptest_col_ip), w[0])
+
+        keys.forEachIndexed { i, k -> heads += headCell(title(k), w[i + 1]) }
+
+        val hh = maxOf(headH, heightOf(headLeft, w[0]), heads.mapIndexed { i, v -> heightOf(v, w[i + 1]) }.maxOrNull() ?: 0)
+
+        left.addView(headLeft, lp(w[0], hh))
 
         val headRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
-        for (k in keys) headRow.addView(headCell(title(k), width(k)), lp(width(k), headH))
+        heads.forEachIndexed { i, v -> headRow.addView(v, lp(w[i + 1], hh)) }
 
-        grid.addView(headRow, lp(ViewGroup.LayoutParams.WRAP_CONTENT, headH))
+        grid.addView(headRow, lp(gridW, hh))
 
         rows.forEachIndexed { i, r ->
             val stripe = if (i % 2 == 1) Color.parseColor("#14808080") else Color.TRANSPARENT
 
-            left.addView(ipCell(r).apply { setBackgroundColor(stripe) }, lp(ipW, rowH))
+            val ipView = ipCell(r)
+            val cells = keys.mapIndexed { n, k -> cellOf(k, r, w[n + 1]) }
+
+            // one height for the whole row, so the fixed IP column and the sideways part stay level
+            val h = maxOf(rowH, heightOf(ipView, w[0]), cells.mapIndexed { n, v -> heightOf(v, w[n + 1]) }.maxOrNull() ?: 0)
+
+            left.addView(ipView.apply { setBackgroundColor(stripe) }, lp(w[0], h))
 
             val line = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(stripe)
             }
 
-            for (k in keys) line.addView(cellOf(k, r), lp(width(k), rowH))
+            cells.forEachIndexed { n, v -> line.addView(v, lp(w[n + 1], h)) }
 
-            grid.addView(line, lp(ViewGroup.LayoutParams.WRAP_CONTENT, rowH))
+            grid.addView(line, lp(gridW, h))
         }
 
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = true
-            addView(grid, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(grid, ViewGroup.LayoutParams(gridW, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
-        tableBox.addView(left, LinearLayout.LayoutParams(ipW, ViewGroup.LayoutParams.WRAP_CONTENT))
+        tableBox.addView(left, LinearLayout.LayoutParams(w[0], ViewGroup.LayoutParams.WRAP_CONTENT))
         tableBox.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    }
+
+    private fun heightOf(v: View, w: Int): Int {
+        v.measure(
+            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+
+        return v.measuredHeight
+    }
+
+    // [0] the IP column, then one per key. The narrowest widths that read well; when the page is wider than their sum
+    // the rest is shared out (the columns with the longest text get the most), so the table fills the page exactly
+    private fun widths(): IntArray {
+        val min = IntArray(keys.size + 1)
+
+        min[0] = ipMin()
+
+        keys.forEachIndexed { i, k -> min[i + 1] = width(k) }
+
+        val avail = tableBox.width
+        val sum = min.sum()
+
+        if (avail <= sum) return min
+
+        val weight = DoubleArray(min.size) { i ->
+            val long = i > 0 && keys[i - 1].let { it == Key.COLO || it == Key.ASN || it == Key.PORTS }
+
+            min[i] * (if (long) 1.8 else 1.0)
+        }
+
+        val total = weight.sum()
+        val extra = avail - sum
+        val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
+
+        out[out.size - 1] += avail - out.sum()
+
+        return out
+    }
+
+    // the longest IP in the 15 sp bold of the cell, so it is never cut
+    private fun ipMin(): Int {
+        val paint = TextView(context).apply {
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+        }.paint
+
+        val longest = rows.maxOfOrNull { paint.measureText(it.ip) } ?: 0f
+
+        return (longest.toInt() + dp(16)).coerceIn(dp(112), dp(150))
     }
 
     private fun title(k: Key): String {
@@ -257,16 +332,16 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     private fun width(k: Key): Int {
         return dp(
             when (k) {
-                Key.COLO -> 112
-                Key.ASN -> 150
-                Key.PORTS -> 130
-                Key.PORT -> 64
-                Key.LOSS -> 62
-                Key.MIN, Key.MAX, Key.AVG -> 82
-                Key.EXIT -> 60
-                Key.FASTER -> 92
-                Key.TEST -> 72
-                Key.SPEED -> 84
+                Key.COLO -> 84
+                Key.ASN -> 84
+                Key.PORTS -> 84
+                Key.PORT -> 56
+                Key.LOSS -> 52
+                Key.MIN, Key.MAX, Key.AVG -> 54
+                Key.EXIT -> 50
+                Key.FASTER -> 70
+                Key.TEST -> 52
+                Key.SPEED -> 58
             },
         )
     }
@@ -284,12 +359,15 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         else -> colorBad
     }
 
-    private fun cityOf(code: String): String {
+    // "SJC（圣何塞）": the code and, in brackets, its Chinese name (built in); when that is not known, the city from the
+    // network list; when neither is known, the bare code
+    private fun coloLabel(code: String): String {
         if (code.isEmpty()) return "-"
 
-        val city = colos[code.uppercase(Locale.US)]
+        val up = code.uppercase(Locale.US)
+        val name = ColoNames.cn(up) ?: colos[up]
 
-        return if (city.isNullOrEmpty()) code else "$code\n$city"
+        return if (name.isNullOrEmpty()) code else "$code（$name）"
     }
 
     private fun speedText(r: IpTestRow): String {
@@ -312,7 +390,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         val ms = { v: Int -> if (tested) context.getString(R.string.iptest_ms_short, v) else "-" }
 
         return when (k) {
-            Key.COLO -> cityOf(r.colo).replace('\n', ' ')
+            Key.COLO -> coloLabel(r.colo)
             Key.ASN -> r.asn.ifEmpty { "-" }
             Key.PORTS -> portsPlain(r)
             Key.PORT -> r.port.ifEmpty { "-" }
@@ -327,9 +405,10 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         }
     }
 
-    private fun cellOf(k: Key, r: IpTestRow): View {
+    private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
         return when (k) {
             Key.PORTS -> portsCell(r)
+            Key.COLO -> coloCell(r, w)
             Key.TEST -> testCell(r)
             else -> {
                 val color = when (k) {
@@ -337,7 +416,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
                     Key.AVG -> if (r.ok) latencyColor(r.avg) else colorMuted
                     Key.FASTER -> if (r.faster > 0) colorGood else colorMuted
                     Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted
-                    Key.COLO, Key.ASN, Key.PORT -> colorText
+                    Key.ASN, Key.PORT -> colorText
                     else -> colorText
                 }
 
@@ -346,15 +425,26 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         }
     }
 
+    // the code and its name on one line when the column is wide enough, else the name under the code (never cut in the
+    // middle of the code)
+    private fun coloCell(r: IpTestRow, w: Int): View {
+        val one = coloLabel(r.colo)
+        val cell = textCell(one, colorText)
+
+        if (r.colo.isNotEmpty() && one.length > r.colo.length && cell.paint.measureText(one) > w - dp(8)) {
+            cell.text = r.colo + "\n" + one.substring(r.colo.length)
+        }
+
+        return cell
+    }
+
     private fun textCell(text: String, color: Int, bold: Boolean = false): TextView {
         return TextView(context).apply {
             this.text = text
-            textSize = 12f
+            textSize = 14f
             gravity = Gravity.CENTER
-            maxLines = 3
-            ellipsize = TextUtils.TruncateAt.END
             setTextColor(color)
-            setPadding(dp(4), 0, dp(4), 0)
+            setPadding(dp(4), dp(5), dp(4), dp(5))
 
             if (bold) setTypeface(typeface, Typeface.BOLD)
         }
@@ -363,13 +453,13 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     private fun headCell(text: String, w: Int): TextView {
         return TextView(context).apply {
             this.text = text
-            textSize = 12f
+            textSize = 14f
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(colorMuted)
             setBackgroundColor(Color.parseColor("#22808080"))
             minWidth = w
-            setPadding(dp(4), 0, dp(4), 0)
+            setPadding(dp(4), dp(6), dp(4), dp(6))
         }
     }
 
@@ -429,10 +519,11 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         val button = TextView(context).apply {
             text = context.getString(if (running) R.string.check_cancel else R.string.iptest_btn_speed)
-            textSize = 12f
+            textSize = 14f
             gravity = Gravity.CENTER
+            maxLines = 1
             setTextColor(colorLink)
-            setPadding(dp(10), dp(5), dp(10), dp(5))
+            setPadding(dp(6), dp(5), dp(6), dp(5))
             alpha = if (enabled) 1f else 0.35f
             background = GradientDrawable().apply {
                 setStroke(dp(1), colorLink)
@@ -460,7 +551,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         val ip = DashedTextView(context).apply {
             text = r.ip
-            textSize = 13f
+            textSize = 15f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.TOP or Gravity.START
@@ -476,8 +567,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         if (small.isNotEmpty()) {
             val t = TextView(context).apply {
                 text = small
-                textSize = 10f
-                maxLines = 2
+                textSize = 12f
+                maxLines = 6
                 ellipsize = TextUtils.TruncateAt.END
                 setTextColor(if (r.ok) colorMuted else colorBad)
             }

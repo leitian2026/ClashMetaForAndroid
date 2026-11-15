@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r61
+当前版本：2_11_36-r62
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -826,3 +826,13 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **改了的自有文件：** `errlog.go`（`Hook`）、`doh.go`（`dohDoDial`）、`dnslogic.go`（`serverSpec.Dial`）、`dnscheck.go`（DoH 用 `spec.Dial`）、`connections.go`、`nodeip.go`、`CustomConnections.kt`、`NodeIpWatcher.kt`、`NodeIpNotifier.kt`、`CustomIntents.kt`、`NodeIpEvents.kt`、`MainCustomCards.kt`、`MainCustomRefresh.kt`、`ErrorsActivity.kt`、`ErrorsDesign.kt`、`ErrorsReport.kt`、`design_errors.xml`、`EditorDesign.kt`、`CodeEditText.kt`。上游文件见上面的表（`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`adapter_profile.xml`、`ProfileWorker.kt`）。
 **功耗：** 没有定时器、没有轮询，也没有任何主动探测的周期：读日志是订阅内核本来就在发的日志事件（`errlog` 早就在读）；只有"所有 DNS 都失败"时才问一轮 DNS 服务器，一分钟内最多一轮。通知和卡片只在问题列表变化时更新。退出编辑器等页面不会留下后台任务。
 **验证和局限：** `issues`、`issuecheck` 用桩代码做了 `go vet` 和单元测试（日志解析、拨号失败里的节点地址（含 IPv6，不算 DIRECT / 目标本身 / 取消 / 没网）、忽略持久化、清除、命令、冷却和单飞、没网不报、报告和恢复）；真正的 `conftest.ProbeIssues`（经代理组拨号：`tunnel.Proxies()` 的 `DialContext`，目标是 IP 时填 `DstIP`）和全部 Kotlin 都**没编译过**，要靠 Actions 验证，版式也没在手机上看过。**发现不了的：** 只坏一个 DNS 服务器而别的服务器还能答（内核没有任何日志，不触发）；节点没被真实流量用到时坏了（没有失败的连接）；QUIC / UDP 类节点地址读不出来的失败；内核悄悄忽略的配置项（需要对照内核的配置解析源码）；走代理的 UDP DNS 服务器和 `#网卡名` 的 DNS 服务器（探测时不判断）。日志来源的问题（含节点地址）保持到你忽略、点清除或内核重启为止，不会自己标"已恢复"（DNS 服务器除外：下一轮问通了会标）。
+
+## 54. 测 IP 表格：字号加 2、列铺满页面不再藏到屏外、长文字换行、机房名后加中文；清掉 r59 的旧文件（r62）
+**构建错误的原因：** r60 起"配置问题"并进了错误与诊断页（#53），r59 的 `IssuesActivity.kt`、`IssuesDesign.kt`、`design_issues.xml` 本该删掉，但增量压缩包没法带上"删除"，仓库里还留着它们；`design_issues.xml` 用到的 `issues_clear` / `issues_hint`（`IssuesDesign.kt` 还用 `issues_empty` / `issues_empty_not_running`）早就没有定义，AAPT 资源链接失败。**r62 把这三个文件删掉了**（没有别的地方引用它们，已全仓库搜过；也对照所有 `R.string.*` / `@string/*` 的使用和定义查过，没有别的缺失，只剩构建时生成的 `application_name` / `launch_name` / `release_name`）。*以后增量包里凡是要删的文件，在交付说明里单独列出来。*
+**字号（sp）全部加 2（只改 `IpTestView.kt`）：** 表格里的 IP 13→15（粗体、虚线）；IP 下面的灰色小字 10→12；表头 12→14（粗体）；数据格 12→14；测速按钮 12→14；表格上方说明 13→15；表格下面的提示 11→13；"实时状态"标题 12→14（粗体）；实时状态日志 11→13（等宽）。配置检查页本身的输入框、按钮、灰色说明没动。
+**列宽（`IpTestView.widths()`）：** 不再用固定宽度加横向滚动。每列有一个**最窄宽度**（IP 列按这一页最长的 IP 在 15 sp 粗体里量出来，112 到 150 dp；机房 / 归属地 / 端口 84 dp，丢包率 52，最小 / 最大 / 平均延迟 54，测速 52，速度 58 dp）；页面比这些最窄宽度之和更宽（平板）时，多出来的宽度按比例分给各列（机房、归属地、端口分得多一点，权重 1.8 倍），表格正好铺满页面，**不需要横向滚动，所有列都在屏幕里**；页面比最窄宽度之和还窄（手机竖屏）时才退回原来的样子：IP 列固定在左边，其余横向滚动。宽度变了（转屏、分屏）才重排一次（`tableBox` 的 `OnLayoutChangeListener`，宽度没变不动），没有定时器、没有轮询。
+**换行：** 数据格、表头不再限制 3 行加省略号，全部换行；每一行的高度取这一行里最高的那一格（`heightOf` 先按列宽量一遍），固定的 IP 列和右边部分用同一个高度，所以两边始终对齐；表头同理。端口一格里的端口按空格换行，归属地（"AS13335 Cloudflare, Inc."）按词换行，IP 下面的小字最多 6 行。测速按钮的左右内边距从 10 dp 缩到 6 dp，这样 54 dp 的列里放得下"测速" / "取消"。
+**机房名后加中文（`ColoNames.kt`，新文件）：** 机房一格显示 `SJC（圣何塞）`。中文名是**内置的**（约 330 个 Cloudflare 机房的 IATA 代码，按记忆整理，个别冷门代码可能没收或写得不准）——因为网络上的机房列表只有英文，而且这次就是 HTTP 403 没取到。没有内置中文名的代码用网络列表里的英文城市放括号里，两个都没有就只显示代码。列够宽时代码和括号在一行，不够宽时括号部分换到下一行（不会把代码切开）。重名的城市写了区分：`SAN` 圣地亚哥·美国 / `SCL` 圣地亚哥·智利，`SJC` 圣何塞 / `SJO` 圣何塞·哥斯达黎加，`MAN` 曼彻斯特·英国 / `MHT` 曼彻斯特·美国，`SSA` 萨尔瓦多·巴西。复制按钮复制出来的表格里机房也是这个写法（一行）。
+**功耗：** 没有新增定时器或轮询；量字号用的是只在重排时才做的一次性测量，最多 20 行。
+**验证和局限：** 没编译过（本机没有 Android 构建环境），要靠 Actions 验证；版式没在平板上看过。最窄宽度是按 14 sp、字体缩放 1.0 估的，系统字体调大后最窄宽度之和可能超过平板宽度，那时会退回横向滚动（IP 列仍固定）。
+**新增文件：** `design/.../custom/ColoNames.kt`。**改了的自有文件：** `IpTestView.kt`。**删除的文件：** `app/.../custom/IssuesActivity.kt`、`design/.../custom/IssuesDesign.kt`、`design/.../layout/design_issues.xml`。
