@@ -228,9 +228,10 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             InputFilter { _, _, _, dest, dstart, dend -> if (!readOnly || loading) null else dest.subSequence(dstart, dend) },
         )
 
-        // no suggestions or corrections of the keyboard: the text is code
+        // no suggestions or corrections of the keyboard: the text is code (CUSTOM.md #59: no VISIBLE_PASSWORD any more,
+        // many keyboards treat it as a password box and refuse the Chinese layout, so notes and names could not be typed)
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
 
         numberPaint.textSize = textSize * 0.9f

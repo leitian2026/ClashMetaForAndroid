@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r75
+当前版本：2_11_36-r76
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -887,3 +887,9 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **功耗：** 载入时算一次，之后只在绘制时画屏幕上看得到的行；没有定时器、没有轮询、没有后台工作。
 **新增 / 改动文件：** `ConfigDiff.kt`（新增 `Marks` 和 `marks()`）、`CodeEditText.kt`（`setDiffMarks`、`drawDiff`、两种 span、三个颜色的只读属性）、`EditorDesign.kt`（`showDiffMarks`、说明栏 `diffNote`）、`EditorActivity.kt`（`history()` 末尾）、两份 `strings_editor.xml`（`editor_diff_note`；其余文案用 #56 的 `cmp_*`）。没有改上游文件。`editor_compare_loaded_title` 文案不再有人用（没删）。
 **局限：** 没编译、没在手机上看过。超过 3000 行的大文件只标第一段（分段显示时翻到别的段，标记就没了）。载入后再手动改动文字，标记跟着行走但不会重新计算。深色 / 浅色下的颜色只是按上面的色相选的，实际好不好看要装上看。
+
+## 59. 编辑框能打中文：去掉"可见密码"输入类型（r76）
+**效果：** 编辑页的编辑框以前的输入类型带 `TYPE_TEXT_VARIATION_VISIBLE_PASSWORD`，很多输入法把它当密码框，自动切英文、不让切中文拼音，写注释、改节点名打不了中文。现在只留"文本 + 多行 + 不要联想纠正（`NO_SUGGESTIONS`）"，输入法可以正常用中文。代码注释也改成了说明这件事。
+**改动文件：** 只有 `design/.../custom/editor/CodeEditText.kt` 的 `inputType` 那两行（和它上面的注释）。没有改上游文件，没有新文件。
+**功耗：** 没有影响：只是输入类型的标志位，没有定时器、没有新的绘制。
+**局限：** 没编译、没在手机上看过。个别输入法在 `NO_SUGGESTIONS` 下仍可能自己显示候选条，那是输入法自己的设置。`BackupDesign.kt` 里密码类输入框用的 `VISIBLE_PASSWORD` 是对的（填账号密码），没动。
