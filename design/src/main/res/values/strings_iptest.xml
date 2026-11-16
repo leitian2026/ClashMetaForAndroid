@@ -59,6 +59,7 @@
     <string name="iptest_speed_failed">failed</string>
     <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for each port; Test downloads for that row only (at most 10 MB or 5 seconds); the table scrolls sideways, Speed is at the far right</string>
     <string name="iptest_log_title">Live status</string>
+    <string name="iptest_log_progress">(%2$d of %1$d IPs tested)</string>
     <string name="iptest_port_title">Ports: %1$s</string>
     <string name="iptest_port_ok">%1$d  works, %2$d ms</string>
     <string name="iptest_port_fail">%1$d  fails: %2$s</string>

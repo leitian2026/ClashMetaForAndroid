@@ -197,6 +197,16 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) { ipView?.setColos(colos, countries) }
     }
 
+    /** [total] is the number of IPs in this round; [tested] counts completed probes. */
+    suspend fun ipProgress(total: Int, tested: Int) {
+        withContext(Dispatchers.Main) {
+            ipView?.let {
+                it.setProgress(total, tested)
+                shown = it.plain()
+            }
+        }
+    }
+
     /** [ip]: the row whose download is running (null: none). */
     suspend fun ipSpeedBusy(ip: String?) {
         withContext(Dispatchers.Main) { ipView?.setBusy(false, ip) }

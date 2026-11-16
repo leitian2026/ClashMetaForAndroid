@@ -59,6 +59,7 @@
     <string name="iptest_speed_failed">失败</string>
     <string name="iptest_table_hint">点 IP 复制；点端口格看每个端口的结果；点"测速"只下载这一行（最多 10 MB 或 5 秒）；表格能横向滑动，最右边是"速度"</string>
     <string name="iptest_log_title">实时状态</string>
+    <string name="iptest_log_progress">（共 %1$d 个 IP，已测 %2$d 个）</string>
     <string name="iptest_port_title">端口结果：%1$s</string>
     <string name="iptest_port_ok">%1$d　通，%2$d 毫秒</string>
     <string name="iptest_port_fail">%1$d　不通：%2$s</string>

@@ -241,6 +241,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             begun = true
             design.setIpRunning(true)
             ipTesting = true
+            design.ipProgress(targets.size, 0)
 
             design.ipLog(
                 getString(
@@ -255,6 +256,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             )
 
             var landNoNodeSaid = false
+            var tested = 0
 
             fetchColos(design) // CUSTOM.md #63: the through-node table has the data centre column too
 
@@ -276,6 +278,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
 
                 if (report.cancelled) break
+
+                tested++
+                design.ipProgress(targets.size, tested)
 
                 val row = report.rows.firstOrNull()
 

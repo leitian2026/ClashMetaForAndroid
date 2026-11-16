@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r101
+当前版本：2_11_36-r102
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1156,3 +1156,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗 / 网络：** 仅调整静态 XML 布局间距，没有新增监听、定时器、轮询、网络请求或后台任务。
 - **改动文件：** `design/src/main/res/layout/adapter_profile.xml` 和 `CUSTOM.md`；没有新增或修改上游文件总表中的挂钩。
 - **验证：** 完成源码差异检查；未运行 Android 编译、未做真机截图验证。需用户手动触发 Build Debug 后检查实际视觉间距；不会自动触发构建。
+
+## 85. 测 IP 实时状态标题显示总数和已测数量（r102）
+- **原因：** 测 IP 页面下方的“实时状态”只有标题和日志，测试过程中不方便直接判断本轮共有多少个 IP、已经完成多少个。
+- **修复：** 在“实时状态”标题右侧显示“共 N 个 IP，已测 M 个”。总数取内核解析后的本轮实际测试列表（遵守去重、直连 / 套入节点规则及 20 个上限）；已测数在每个 IP 探测返回结果后递增，失败但已返回的探测也计入，取消时尚未完成的当前探测不计入。测试开始显示 0，进度随每个 IP 完成即时更新。
+- **同步：** 复制测试结果时，实时状态标题也包含当时的总数和已测数量；英文资源同步增加对应文案。
+- **保留：** 不改变 IP 解析、去重、测试顺序、并发 / 间隔、测速逻辑、日志内容及表格；不增加额外网络请求、定时器、轮询或后台任务。
+- **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt、app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt、design/src/main/res/values-zh/strings_iptest.xml、design/src/main/res/values/strings_iptest.xml 和本登记文件；没有修改上游文件。
+- **验证：** 完成源码差异检查；未运行 Android 编译、未做真机 UI 验证。需用户手动触发 Build Debug 检查标题布局和进度更新；不会自动触发构建。

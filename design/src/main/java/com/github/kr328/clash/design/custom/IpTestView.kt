@@ -108,8 +108,24 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(colorText)
+    }
+
+    private val logProgress = TextView(context).apply {
+        textSize = 13f
+        setTextColor(colorMuted)
+        gravity = Gravity.CENTER_VERTICAL
+    }
+
+    private val logHeader = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(logTitle, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(logProgress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setPadding(0, 0, 0, dp(4))
     }
+
+    private var totalIps = 0
+    private var testedIps = 0
 
     private val logView = TextView(context).apply {
         typeface = Typeface.MONOSPACE
@@ -145,7 +161,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(logTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(logHeader, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logScroll, lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)))
 
         redraw()
@@ -183,6 +199,17 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         redraw()
     }
 
+    /** Progress counts completed IP probes, including failed results; a cancelled in-flight probe is not counted. */
+    fun setProgress(total: Int, tested: Int) {
+        totalIps = total.coerceAtLeast(0)
+        testedIps = tested.coerceIn(0, totalIps)
+        logProgress.text = if (totalIps > 0) {
+            context.getString(R.string.iptest_log_progress, totalIps, testedIps)
+        } else {
+            ""
+        }
+    }
+
     /** One line of the live status, `[HH:MM:SS] text`; at most 200 lines are kept. */
     fun log(text: String) {
         logLines += "[" + SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + "] " + text
@@ -213,8 +240,9 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             sb.append('\n')
         }
 
-        sb.append('\n').append(context.getString(R.string.iptest_log_title)).append('\n')
-        sb.append(logLines.joinToString("\n"))
+        sb.append('\n').append(context.getString(R.string.iptest_log_title))
+        if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
+        sb.append('\n').append(logLines.joinToString("\n"))
 
         return sb.toString()
     }
