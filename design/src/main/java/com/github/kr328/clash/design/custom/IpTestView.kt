@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
@@ -20,6 +21,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.design.R
 import java.text.SimpleDateFormat
@@ -65,8 +67,12 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
     private val colorGood = if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")
     private val colorLink = if (night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
-    private val colorMuted = if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161")
+    // App theme colours: keep semantic result colours below, but use the same text and surface roles as native pages.
+    private val colorMuted = themeColor(android.R.attr.textColorSecondary, if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161"))
     private val colorText = themeColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK)
+    private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, if (night) Color.parseColor("#1F2328") else Color.WHITE)
+    private val colorHighlight = themeColor(android.R.attr.colorControlHighlight, if (night) Color.WHITE else Color.BLACK)
+    private val colorStripe = Color.argb(0x14, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
 
     private val rowH = dp(48) // the least height of a row; a row with wrapped text is taller
     private val headH = dp(40)
@@ -84,6 +90,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private val info = TextView(context).apply {
         textSize = 15f
+        setTextColor(colorText)
         setPadding(0, 0, 0, dp(8))
     }
 
@@ -100,6 +107,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         setText(R.string.iptest_log_title)
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
+        setTextColor(colorText)
         setPadding(0, 0, 0, dp(4))
     }
 
@@ -113,7 +121,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private val logScroll = ScrollView(context).apply {
         // the log has its own colour that follows the app theme (light or dark), not a fixed dark one
         background = GradientDrawable().apply {
-            setColor(if (night) Color.parseColor("#232323") else Color.parseColor("#F1F1F1"))
+            setColor(colorSurface)
             cornerRadius = dp(6).toFloat()
         }
 
@@ -243,7 +251,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         // CUSTOM.md #55: the grey of the header is one background on the whole row, not one per title; per title a
         // title that wraps to two lines left a notch in the grey above it
-        val headBg = Color.parseColor("#22808080")
+        val headBg = colorSurface
         val headRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(headBg)
@@ -256,7 +264,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         grid.addView(headRow, lp(gridW, hh))
 
         rows.forEachIndexed { i, r ->
-            val stripe = if (i % 2 == 1) Color.parseColor("#14808080") else Color.TRANSPARENT
+            val stripe = if (i % 2 == 1) colorStripe else Color.TRANSPARENT
 
             val ipView = ipCell(r)
             val cells = keys.mapIndexed { n, k -> cellOf(k, r, w[n + 1]) }
@@ -621,7 +629,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(colorMuted)
-            setBackgroundColor(Color.parseColor("#22808080"))
+            setBackgroundColor(colorSurface)
             minWidth = w
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
@@ -687,23 +695,25 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         val running = speedIp == r.ip
         val enabled = !testing && (speedIp == null || running)
 
-        val button = TextView(context).apply {
+        val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = context.getString(if (running) R.string.check_cancel else R.string.iptest_btn_speed)
-            textSize = 14f
+            textSize = 13f
+            isAllCaps = false
             gravity = Gravity.CENTER
             maxLines = 1
+            minWidth = 0
+            minHeight = dp(32)
+            insetTop = 0
+            insetBottom = 0
+            cornerRadius = dp(5)
+            strokeWidth = dp(1)
+            strokeColor = ColorStateList.valueOf(colorLink)
             setTextColor(colorLink)
-            setPadding(dp(6), dp(5), dp(6), dp(5))
+            setPadding(dp(4), 0, dp(4), 0)
+            isEnabled = enabled
             alpha = if (enabled) 1f else 0.35f
-            background = GradientDrawable().apply {
-                setStroke(dp(1), colorLink)
-                cornerRadius = dp(5).toFloat()
-            }
 
-            if (enabled) {
-                isClickable = true
-                setOnClickListener { if (running) onSpeedCancel() else onSpeed(r.ip) }
-            }
+            if (enabled) setOnClickListener { if (running) onSpeedCancel() else onSpeed(r.ip) }
         }
 
         box.addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
