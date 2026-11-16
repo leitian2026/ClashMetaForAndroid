@@ -11,6 +11,7 @@ import com.github.kr328.clash.design.custom.AgeText
 import com.github.kr328.clash.design.custom.ErrorsText
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
+import com.github.kr328.clash.design.custom.CountryName
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
@@ -228,6 +229,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 ),
             )
 
+            var landNoNodeSaid = false
+
             if (direct) fetchColos(design)
 
             for ((i, t) in targets.withIndex()) {
@@ -295,6 +298,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                                 getString(R.string.iptest_log_asn_none, row.ip)
                             },
                         )
+
+                        // CUSTOM.md #62: the registered country comes with the operator, the exit country is asked through a
+                        // node of the config whose server is the typed domain (no such node: said once, then silent)
+                        if (row.geo.isNotEmpty()) {
+                            design.ipLog(getString(R.string.iptest_log_geo, row.ip, CountryName.label(row.geo)))
+                        }
+
+                        if (report.landNode.isEmpty()) {
+                            if (!landNoNodeSaid) {
+                                landNoNodeSaid = true
+                                design.ipLog(getString(R.string.iptest_log_land_no_node, domain))
+                            }
+                        } else if (row.country.isNotEmpty()) {
+                            design.ipLog(getString(R.string.iptest_log_land_ok, row.ip, CountryName.label(row.country), report.landNode))
+                        } else {
+                            design.ipLog(getString(R.string.iptest_log_land_none, row.ip, report.landNode))
+                        }
                     }
                 } else {
                     design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, ErrorsText.explain(this, row.code), row.loss))
@@ -315,7 +335,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
     }
 
-    // the data centre list (code -> city) of Cloudflare, fetched online once per round; without it only codes are shown
+    // the data centre list (code -> city, code -> country) of Cloudflare, fetched online once per round; without it the
+    // data centres have no English name and no flag (the Chinese names are built in)
     private suspend fun fetchColos(design: ConfigCheckDesign) {
         try {
             val report = IpTestReport.parse(
@@ -328,7 +349,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             )
 
             if (report.colos.isNotEmpty()) {
-                design.ipColos(report.colos)
+                design.ipColos(report.colos, report.coloCountries)
                 design.ipLog(getString(R.string.iptest_log_colo_ok, report.colos.size))
             } else {
                 design.ipLog(getString(R.string.iptest_log_colo_fail, report.error.removePrefix("colo: ").ifEmpty { "-" }))

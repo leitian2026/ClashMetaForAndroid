@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,6 +53,8 @@ const (
 
 	coloListURL = "https://speed.cloudflare.com/locations"
 	coloTimeout = 6 * time.Second
+	// CUSTOM.md #62: a browser's User-Agent for the request of the list
+	coloUserAgent = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
 
 	echCacheTTL = 2 * time.Minute
 )
@@ -160,6 +163,29 @@ func parseColos(body []byte) map[string]string {
 	return out
 }
 
+// parseColoCountries (CUSTOM.md #62) reads the same list into code -> country code ("cca2"), for the flag of a data centre.
+func parseColoCountries(body []byte) map[string]string {
+	var list []struct {
+		IATA string `json:"iata"`
+		CCA2 string `json:"cca2"`
+	}
+
+	out := map[string]string{}
+
+	if json.Unmarshal(body, &list) != nil {
+		return out
+	}
+
+	for _, e := range list {
+		code, cc := strings.ToUpper(strings.TrimSpace(e.IATA)), strings.ToUpper(strings.TrimSpace(e.CCA2))
+		if code != "" && validCC(cc) {
+			out[code] = cc
+		}
+	}
+
+	return out
+}
+
 // beginRun registers the cancel of a run (an earlier one still going is stopped); done() unregisters it.
 func beginRun() (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -194,11 +220,12 @@ func runOne(req IPRequest, rep IPReport) IPReport {
 
 	switch req.Mode {
 	case "colo":
-		colos, err := fetchColos(ctx)
+		colos, countries, err := fetchColos(ctx)
 		if err != nil {
 			rep.Error = "colo: " + err.Error()
 		} else {
 			rep.Colos = colos
+			rep.ColoCountries = countries
 		}
 	case "probe":
 		probeDirect(ctx, &rep, req)
@@ -270,7 +297,7 @@ func firstTarget(text string, domains bool) (target, bool) {
 	return target{}, false
 }
 
-func fetchColos(ctx context.Context) (map[string]string, error) {
+func fetchColos(ctx context.Context) (map[string]string, map[string]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, coloTimeout)
 	defer cancel()
 
@@ -287,30 +314,52 @@ func fetchColos(ctx context.Context) (map[string]string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, coloListURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	// CUSTOM.md #62: the list is the data of Cloudflare's own speed test page, which answered a bare request (Go's
+	// default User-Agent, no Origin) with HTTP 403. The headers of a page of that site are sent now.
+	req.Header.Set("User-Agent", coloUserAgent)
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Origin", "https://speed.cloudflare.com")
+	req.Header.Set("Referer", "https://speed.cloudflare.com/")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		// what the answer says about who refused: the log shows it, so a block can be told from a network problem
+		extra := ""
+
+		if v := resp.Header.Get("Cf-Mitigated"); v != "" {
+			extra += ", cf-mitigated: " + v
+		}
+
+		if v := resp.Header.Get("Server"); v != "" {
+			extra += ", server: " + v
+		}
+
+		if extra != "" {
+			extra = " (" + strings.TrimPrefix(extra, ", ") + ")"
+		}
+
+		return nil, nil, fmt.Errorf("HTTP %d%s", resp.StatusCode, extra)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	colos := parseColos(body)
 	if len(colos) == 0 {
-		return nil, errors.New("no entries")
+		return nil, nil, errors.New("no entries")
 	}
 
-	return colos, nil
+	return colos, parseColoCountries(body), nil
 }
 
 // the ECH config of the domain, kept for a short time so that the addresses of one round ask for it once
@@ -494,12 +543,50 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	row.Ports = probePorts(ctx, row.IP, rep.Domain, parsePorts(req.Ports), row)
 
-	// the operator, from the public services (a failure, or a limit they set, only leaves it empty)
+	// the operator and the registered country, from the public services (a failure, or a limit they set, only leaves
+	// them empty); both come from one answer
 	actx, cancel := context.WithTimeout(ctx, 2*asnTimeout+time.Second)
-	row.ASN = lookupASN(actx, row.IP)
+	row.ASN, row.Geo = lookupOwner(actx, row.IP)
 	cancel()
 
+	// CUSTOM.md #62: the exit country (落地) is seen from outside, so it needs a request through a node: the node of
+	// the config whose server is the typed domain, with this address as its server. Without such a node it stays empty.
+	if ctx.Err() == nil {
+		if node := nodeOfDomain(rep.Domain); node != "" {
+			rep.LandNode = node
+			row.Country = ipdelay.ExitCountry(node, row.IP)
+		}
+	}
+
 	rep.Rows = []IPRow{row}
+}
+
+// nodeOfDomain (CUSTOM.md #62) is the name of the node whose `server` (or `servername` / `sni`) is the domain; the first
+// in name order when there are several, "" when there is none.
+func nodeOfDomain(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return ""
+	}
+
+	raws := ipdelay.RawProxies()
+	names := make([]string, 0, len(raws))
+
+	for name := range raws {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	for _, name := range names {
+		for _, key := range []string{"server", "servername", "sni"} {
+			if v, ok := raws[name][key].(string); ok && strings.EqualFold(strings.TrimSpace(v), domain) {
+				return name
+			}
+		}
+	}
+
+	return ""
 }
 
 // probePorts tries a handshake on every port of the list (SNI = domain, no ECH), in parallel. The port the ten tries

@@ -36,7 +36,8 @@
     <string name="iptest_url_label">Download test address (downloaded only when you tap Speed on a row; goes straight to the IP, SNI and Host from the address)</string>
     <string name="iptest_col_ip">IP</string>
     <string name="iptest_col_colo">Data centre (city)</string>
-    <string name="iptest_col_asn">Owner</string>
+    <string name="iptest_col_asn">Operator</string>
+    <string name="iptest_col_geo">Registered</string>
     <string name="iptest_col_port">Ports</string>
     <string name="iptest_col_loss">Loss</string>
     <string name="iptest_col_min">Min</string>
@@ -51,7 +52,7 @@
     <string name="iptest_faster_cell">%1$d ms faster</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">failed</string>
-    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for each port; Test downloads for that row only (at most 10 MB or 5 seconds)</string>
+    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for each port; Test downloads for that row only (at most 10 MB or 5 seconds); the table scrolls sideways, Speed is at the far right</string>
     <string name="iptest_log_title">Live status</string>
     <string name="iptest_port_title">Ports: %1$s</string>
     <string name="iptest_port_ok">%1$d  works, %2$d ms</string>
@@ -62,13 +63,13 @@
     <string name="iptest_log_mode_direct">direct, domain %1$s</string>
     <string name="iptest_log_mode_node">through node %1$s</string>
     <string name="iptest_log_colo_ok">Data centre list fetched (%1$d entries)</string>
-    <string name="iptest_log_colo_fail">Data centre list not fetched (%1$s), only codes are shown</string>
+    <string name="iptest_log_colo_fail">Data centre list not fetched (%1$s): no English names or flags for data centres</string>
     <string name="iptest_log_ip_start">[%1$d/%2$d] testing %3$s (10 tries)</string>
     <string name="iptest_log_ip_ok">%1$s done: average %2$d ms, loss %3$d%%, ports open: %4$s</string>
     <string name="iptest_log_ip_ok_noports">%1$s done: average %2$d ms, loss %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s failed: %2$s (loss %3$d%%)</string>
-    <string name="iptest_log_asn_ok">%1$s owner: %2$s</string>
-    <string name="iptest_log_asn_none">%1$s owner: not found (maybe rate limited; the result is not affected)</string>
+    <string name="iptest_log_asn_ok">%1$s operator: %2$s</string>
+    <string name="iptest_log_asn_none">%1$s operator: not found (maybe rate limited; the result is not affected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>
     <string name="iptest_log_done">All done, %1$d tested</string>
     <string name="iptest_log_speed_start">%1$s download test started (at most 10 MB or 5 seconds, the first second is left out)</string>
@@ -76,4 +77,8 @@
     <string name="iptest_log_speed_fail">%1$s download test failed: %2$s</string>
     <string name="iptest_log_speed_cancelled">%1$s download test cancelled</string>
     <string name="iptest_log_error">Error: %1$s</string>
+    <string name="iptest_log_geo">%1$s registered in: %2$s</string>
+    <string name="iptest_log_land_ok">%1$s exit: %2$s (through node %3$s)</string>
+    <string name="iptest_log_land_none">%1$s exit: not found (through node %2$s)</string>
+    <string name="iptest_log_land_no_node">No node of the config has %1$s as its server, so the exit is not asked (it can only be seen through a node)</string>
 </resources>

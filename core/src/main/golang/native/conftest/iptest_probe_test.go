@@ -59,6 +59,18 @@ func TestParseColos(t *testing.T) {
 	}
 }
 
+// CUSTOM.md #62: the country of a data centre, from "cca2" of the same list
+func TestParseColoCountries(t *testing.T) {
+	got := parseColoCountries([]byte(`[{"iata":"hkg","city":"Hong Kong","cca2":"hk"},{"iata":"","cca2":"US"},{"iata":"LAX","city":"Los Angeles"},{"iata":"NRT","cca2":"JPN"}]`))
+	if !reflect.DeepEqual(got, map[string]string{"HKG": "HK"}) {
+		t.Errorf("%v", got)
+	}
+
+	if len(parseColoCountries([]byte(`nope`))) != 0 {
+		t.Error("garbage")
+	}
+}
+
 func TestProbeDirectLocal(t *testing.T) {
 	ip, port := serveLocalTLS(t, true)
 	ipPort = port

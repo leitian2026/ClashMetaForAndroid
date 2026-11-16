@@ -33,16 +33,20 @@ import java.util.Locale
 // r62 (CUSTOM.md #54): text is 2 sp bigger than before; the columns share the whole width of the page when it is wide
 // enough (a tablet), so nothing hides off screen, and long text wraps (the rows are as high as their tallest cell);
 // only when even the narrowest columns do not fit (a phone) the table scrolls sideways with the IP column fixed.
+// r79 (CUSTOM.md #62): direct mode has the columns IP | 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | 最小 / 最大 / 平均延迟 |
+// 测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
+// the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
+// fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
 class IpTestView(private val context: Context, private val direct: Boolean) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
-    private enum class Key { COLO, ASN, PORTS, LOSS, MIN, MAX, AVG, EXIT, PORT, FASTER, TEST, SPEED }
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, EXIT, PORT, FASTER, TEST, SPEED }
 
     private val keys = if (direct) {
-        listOf(Key.COLO, Key.ASN, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
     } else {
         listOf(Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.FASTER, Key.TEST, Key.SPEED)
     }
@@ -62,6 +66,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
     private var rows: List<IpTestRow> = emptyList()
     private var colos: Map<String, String> = emptyMap()
+    private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
     private var speedIp: String? = null
     private var testing = false
 
@@ -145,8 +150,9 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         info.text = sb
     }
 
-    fun setColos(map: Map<String, String>) {
+    fun setColos(map: Map<String, String>, countries: Map<String, String>) {
         colos = map
+        coloCountries = countries
         redraw()
     }
 
@@ -221,7 +227,9 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         keys.forEachIndexed { i, k -> heads += headCell(title(k), w[i + 1]) }
 
-        val hh = maxOf(headH, heightOf(headLeft, w[0]), heads.mapIndexed { i, v -> heightOf(v, w[i + 1]) }.maxOrNull() ?: 0)
+        // CUSTOM.md #62: a little room more than measured, like the rows have: the second line of a title that wraps
+        // (机房（城市）, 最小延迟) sat on the lower edge of the grey and looked cut
+        val hh = maxOf(headH, heightOf(headLeft, w[0]), heads.mapIndexed { i, v -> heightOf(v, w[i + 1]) }.maxOrNull() ?: 0) + dp(6)
 
         left.addView(headLeft, lp(w[0], hh))
 
@@ -290,42 +298,66 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
         val avail = tableBox.width
         val sum = min.sum()
+        val speedAt = keys.indexOf(Key.SPEED) + 1 // 0 when there is no such column
 
-        if (avail <= sum) {
-            // CUSTOM.md #55 (r67): a little too wide (a long IP in the first column): the other columns give up to 15%
-            // (their text just wraps one more time) so that the last column is not pushed off the screen; only when that
-            // is not enough the table scrolls sideways as before
-            val rest = sum - min[0]
-            val need = sum - avail
+        // how the spare width is shared: the columns with the longest text get the most
+        fun weightOf(i: Int): Double {
+            val factor = if (i == 0) 1.0 else when (keys[i - 1]) {
+                Key.COLO, Key.ASN, Key.PORTS -> 1.8
+                Key.GEO, Key.LAND -> 1.3
+                else -> 1.0
+            }
 
-            if (rest > 0 && need <= rest * 0.15) {
-                val out = IntArray(min.size)
+            return min[i] * factor
+        }
 
-                out[0] = min[0]
+        if (avail >= sum) {
+            val weight = DoubleArray(min.size) { weightOf(it) }
+            val total = weight.sum()
+            val extra = avail - sum
+            val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
 
-                for (i in 1 until min.size) out[i] = (min[i] * (rest - need).toDouble() / rest).toInt()
+            out[out.size - 1] += avail - out.sum()
 
-                out[out.size - 1] += avail - out.sum()
+            return out
+        }
+
+        // CUSTOM.md #62: everything but 速度 fits: those columns keep their natural widths and fill the page, and 速度
+        // stays behind the right edge (the table scrolls sideways to it)
+        if (speedAt > 0) {
+            val sumNoSpeed = sum - min[speedAt]
+
+            if (avail >= sumNoSpeed) {
+                val weight = DoubleArray(min.size) { if (it == speedAt) 0.0 else weightOf(it) }
+                val total = weight.sum()
+                val extra = avail - sumNoSpeed
+                val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
+
+                out[1] += avail - sumNoSpeed - (0 until min.size).filter { it != speedAt }.sumOf { out[it] - min[it] }
 
                 return out
             }
-
-            return min
         }
 
-        val weight = DoubleArray(min.size) { i ->
-            val long = i > 0 && keys[i - 1].let { it == Key.COLO || it == Key.ASN || it == Key.PORTS }
+        // CUSTOM.md #55 (r67): a little too wide (a long IP in the first column): the other columns give up to 15%
+        // (their text just wraps one more time) so that the last column is not pushed off the screen; only when that
+        // is not enough the table scrolls sideways as before
+        val rest = sum - min[0]
+        val need = sum - avail
 
-            min[i] * (if (long) 1.8 else 1.0)
+        if (rest > 0 && need <= rest * 0.15) {
+            val out = IntArray(min.size)
+
+            out[0] = min[0]
+
+            for (i in 1 until min.size) out[i] = (min[i] * (rest - need).toDouble() / rest).toInt()
+
+            out[out.size - 1] += avail - out.sum()
+
+            return out
         }
 
-        val total = weight.sum()
-        val extra = avail - sum
-        val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
-
-        out[out.size - 1] += avail - out.sum()
-
-        return out
+        return min
     }
 
     // the longest IP in the 15 sp bold of the cell, so it is never cut
@@ -345,12 +377,13 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
             when (k) {
                 Key.COLO -> R.string.iptest_col_colo
                 Key.ASN -> R.string.iptest_col_asn
+                Key.GEO -> R.string.iptest_col_geo
+                Key.LAND, Key.EXIT -> R.string.iptest_col_exit
                 Key.PORTS, Key.PORT -> R.string.iptest_col_port
                 Key.LOSS -> R.string.iptest_col_loss
                 Key.MIN -> R.string.iptest_col_min
                 Key.MAX -> R.string.iptest_col_max
                 Key.AVG -> R.string.iptest_col_avg
-                Key.EXIT -> R.string.iptest_col_exit
                 Key.FASTER -> R.string.iptest_col_faster
                 Key.TEST -> R.string.iptest_col_test
                 Key.SPEED -> R.string.iptest_col_speed
@@ -363,11 +396,12 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
             when (k) {
                 Key.COLO -> 84
                 Key.ASN -> 84
+                Key.GEO, Key.LAND -> 76
                 Key.PORTS -> 84
                 Key.PORT -> 56
                 Key.LOSS -> 52
                 Key.MIN, Key.MAX, Key.AVG -> 54
-                Key.EXIT -> 50
+                Key.EXIT -> 76
                 Key.FASTER -> 70
                 Key.TEST -> 52
                 Key.SPEED -> 58
@@ -388,15 +422,26 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         else -> colorBad
     }
 
-    // "SJC（圣何塞）": the code and, in brackets, its Chinese name (built in); when that is not known, the city from the
-    // network list; when neither is known, the bare code
+    // CUSTOM.md #62: "🇺🇸 LAS（拉斯维加斯 Las Vegas）". The flag is the country of the data centre and the English city
+    // is what the network list says; both are missing when that list was not fetched. The Chinese name is built in
+    // (ColoNames); a code it does not have keeps the English city, and with neither the bare code stays.
+    private fun coloHead(code: String): String {
+        val flag = CountryFlag.of(coloCountries[code.uppercase(Locale.US)])
+
+        return if (flag.isEmpty()) code else "$flag $code"
+    }
+
+    private fun coloTail(code: String): String {
+        val up = code.uppercase(Locale.US)
+        val names = listOfNotNull(ColoNames.cn(up), colos[up]).filter { it.isNotEmpty() }.distinct()
+
+        return if (names.isEmpty()) "" else "（" + names.joinToString(" ") + "）"
+    }
+
     private fun coloLabel(code: String): String {
         if (code.isEmpty()) return "-"
 
-        val up = code.uppercase(Locale.US)
-        val name = ColoNames.cn(up) ?: colos[up]
-
-        return if (name.isNullOrEmpty()) code else "$code（$name）"
+        return coloHead(code) + coloTail(code)
     }
 
     private fun speedText(r: IpTestRow): String {
@@ -421,13 +466,15 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         return when (k) {
             Key.COLO -> coloLabel(r.colo)
             Key.ASN -> r.asn.ifEmpty { "-" }
+            Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
+            Key.LAND -> if (tested) CountryName.label(r.country) else "-"
             Key.PORTS -> portsPlain(r)
             Key.PORT -> r.port.ifEmpty { "-" }
             Key.LOSS -> "${r.loss}%"
             Key.MIN -> ms(r.min)
             Key.MAX -> ms(r.max)
             Key.AVG -> ms(r.avg)
-            Key.EXIT -> if (tested) CountryFlag.of(r.country).ifEmpty { "？" } else "-"
+            Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
             Key.FASTER -> if (r.faster > 0) context.getString(R.string.iptest_faster_cell, r.faster) else "-"
             Key.TEST -> ""
             Key.SPEED -> speedText(r)
@@ -454,14 +501,16 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         }
     }
 
-    // the code and its name on one line when the column is wide enough, else the name under the code (never cut in the
-    // middle of the code)
+    // the flag, the code and its names on one line when the column is wide enough, else the names under the code
+    // (never cut in the middle of the code)
     private fun coloCell(r: IpTestRow, w: Int): View {
         val one = coloLabel(r.colo)
         val cell = textCell(one, colorText)
 
-        if (r.colo.isNotEmpty() && one.length > r.colo.length && cell.paint.measureText(one) > w - dp(8)) {
-            cell.text = r.colo + "\n" + one.substring(r.colo.length)
+        if (r.colo.isNotEmpty() && cell.paint.measureText(one) > w - dp(8)) {
+            val tail = coloTail(r.colo)
+
+            if (tail.isNotEmpty()) cell.text = coloHead(r.colo) + "\n" + tail
         }
 
         return cell

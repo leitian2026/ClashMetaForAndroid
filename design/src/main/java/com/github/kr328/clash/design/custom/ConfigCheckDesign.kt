@@ -192,8 +192,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
-    suspend fun ipColos(colos: Map<String, String>) {
-        withContext(Dispatchers.Main) { ipView?.setColos(colos) }
+    suspend fun ipColos(colos: Map<String, String>, countries: Map<String, String>) {
+        withContext(Dispatchers.Main) { ipView?.setColos(colos, countries) }
     }
 
     /** [ip]: the row whose download is running (null: none). */

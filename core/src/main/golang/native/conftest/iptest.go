@@ -78,14 +78,15 @@ type IPRow struct {
 	InHosts  bool   `json:"inHosts"`
 
 	// node mode
-	Country string `json:"country"`
-	Faster  int    `json:"faster"` // milliseconds quicker than the reference address, 0 when not quicker
+	Country string `json:"country"` // the exit country (落地); direct mode (CUSTOM.md #62): only when a node of the config has the typed domain as its server
+	Faster  int    `json:"faster"`  // milliseconds quicker than the reference address, 0 when not quicker
 
 	// direct mode
 	TLS  string `json:"tls"`  // "1.2" / "1.3"
 	ALPN string `json:"alpn"` // "h2" / "http/1.1"
 	ECH  string `json:"ech"`  // "accepted", "notaccepted", "rejected", "none" (the domain has no ECH config)
 	ASN  string `json:"asn"`  // "AS13335 Cloudflare, Inc." (only after a "look up": mode "asn", or kept from an earlier one)
+	Geo  string `json:"geo"`  // CUSTOM.md #62: the country the address is registered in (归属地), "US"; from the same answer as ASN
 	CF   bool   `json:"cf"`   // the answer of the server shows Cloudflare (a positive sign only)
 	Colo string `json:"colo"` // Cloudflare data centre
 
@@ -128,6 +129,11 @@ type IPReport struct {
 	Error     string   `json:"error"`
 	// CUSTOM.md #52: mode "colo": data centre code -> city, as Cloudflare lists them
 	Colos map[string]string `json:"colos"`
+	// CUSTOM.md #62: mode "colo": data centre code -> country code ("cca2" of the same list)
+	ColoCountries map[string]string `json:"coloCountries"`
+	// CUSTOM.md #62: mode "probe": the node whose server is the typed domain, through which the exit country was asked
+	// ("" when the config has none, then no exit country is shown)
+	LandNode string `json:"landNode"`
 }
 
 // ipPort is the port tested in direct mode (a variable only so that a test can point it at a local server).
@@ -138,6 +144,7 @@ var (
 	ipRunCancel context.CancelFunc
 
 	asnCache sync.Map // address -> "AS13335 Cloudflare, Inc." (only what was found)
+	geoCache sync.Map // address -> "US" (CUSTOM.md #62, only what was found)
 )
 
 // CancelIPTest stops the running IP test (the rows done so far are still returned by RunIP).
@@ -414,6 +421,10 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 		row.ASN = v.(string)
 	}
 
+	if v, ok := geoCache.Load(row.IP); ok {
+		row.Geo = v.(string)
+	}
+
 	return row
 }
 
@@ -545,8 +556,25 @@ func lookupOwners(rep *IPReport, text string) {
 // lookupASN asks a public service who runs the address (only when the user taps "look up"). "" when it cannot be
 // found (the answer is kept for the next run when it is found).
 func lookupASN(ctx context.Context, ip string) string {
+	asn, _ := lookupOwner(ctx, ip)
+
+	return asn
+}
+
+func validCC(code string) bool {
+	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
+}
+
+// lookupOwner (CUSTOM.md #62) asks a public service who runs the address ("AS13335 Cloudflare, Inc.") and which
+// country it is registered in ("US"). Both come from one answer (ipinfo.io/<ip>/json), the second service is asked
+// only for what the first did not give, so the number of requests is the same as before. An answer that was found
+// before is returned from memory without asking again.
+func lookupOwner(ctx context.Context, ip string) (asn, geo string) {
 	if v, ok := asnCache.Load(ip); ok {
-		return v.(string)
+		g, _ := geoCache.Load(ip)
+		gs, _ := g.(string)
+
+		return v.(string), gs
 	}
 
 	client := &http.Client{
@@ -582,35 +610,54 @@ func lookupASN(ctx context.Context, ip string) string {
 		return body
 	}
 
-	text := ""
+	// ipinfo.io/<ip>/json answers {"org":"AS13335 Cloudflare, Inc.","country":"US",...}
+	if body := get("https://ipinfo.io/" + ip + "/json"); len(body) > 0 {
+		var v struct {
+			Org     string `json:"org"`
+			Country string `json:"country"`
+		}
 
-	// ipinfo.io/<ip>/org answers "AS13335 Cloudflare, Inc."
-	if body := get("https://ipinfo.io/" + ip + "/org"); len(body) > 0 {
-		s := strings.TrimSpace(string(body))
-		if strings.HasPrefix(s, "AS") && len(s) < 200 {
-			text = s
+		if json.Unmarshal(body, &v) == nil {
+			if s := strings.TrimSpace(v.Org); strings.HasPrefix(s, "AS") && len(s) < 200 {
+				asn = s
+			}
+
+			if c := strings.ToUpper(strings.TrimSpace(v.Country)); validCC(c) {
+				geo = c
+			}
 		}
 	}
 
-	if text == "" {
-		if body := get("https://ipwho.is/" + ip + "?fields=success,connection"); len(body) > 0 {
+	if asn == "" || geo == "" {
+		if body := get("https://ipwho.is/" + ip + "?fields=success,country_code,connection"); len(body) > 0 {
 			var v struct {
-				Success    bool `json:"success"`
-				Connection struct {
+				Success     bool   `json:"success"`
+				CountryCode string `json:"country_code"`
+				Connection  struct {
 					ASN int    `json:"asn"`
 					Org string `json:"org"`
 				} `json:"connection"`
 			}
 
-			if json.Unmarshal(body, &v) == nil && v.Success && v.Connection.ASN > 0 {
-				text = asnText(strconv.Itoa(v.Connection.ASN), v.Connection.Org)
+			if json.Unmarshal(body, &v) == nil && v.Success {
+				if asn == "" && v.Connection.ASN > 0 {
+					asn = asnText(strconv.Itoa(v.Connection.ASN), v.Connection.Org)
+				}
+
+				if c := strings.ToUpper(strings.TrimSpace(v.CountryCode)); geo == "" && validCC(c) {
+					geo = c
+				}
 			}
 		}
 	}
 
-	if text != "" {
-		asnCache.Store(ip, text)
+	if asn != "" {
+		asnCache.Store(ip, asn)
 	}
 
-	return text
+	if geo != "" {
+		geoCache.Store(ip, geo)
+	}
+
+	return asn, geo
 }

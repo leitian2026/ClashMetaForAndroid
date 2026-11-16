@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * CUSTOM (CUSTOM.md #43, not upstream): the result for one address in "test other IPs". [code] is an error code
- * of the errors page (or "echrejected"), "" when [ok]. [country], [faster] are filled in node mode; [tls], [alpn],
+ * of the errors page (or "echrejected"), "" when [ok]. [country] (exit country, 落地) is filled in node mode, and in direct mode when the config has a node whose server is the typed domain; [faster] in node mode; [tls], [alpn],
  * [ech] ("accepted", "notaccepted", "rejected", "none", or "" when unknown), [cf] (the answer of the server shows
  * Cloudflare; a positive sign only), [colo] in direct mode. [asn] is filled only after a "look up" (mode "asn").
  */
@@ -26,6 +26,7 @@ data class IpTestRow(
     val asn: String = "",
     val cf: Boolean = false,
     val colo: String = "",
+    val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found
     // CUSTOM.md #52: ten tries (percent lost; milliseconds of the ones that worked), the ports, the download test
     val sent: Int = 0,
     val loss: Int = 0,
@@ -80,6 +81,8 @@ data class IpTestReport(
     val cancelled: Boolean = false,
     val error: String = "",
     val colos: Map<String, String> = emptyMap(), // CUSTOM.md #52: mode "colo": data centre code -> city
+    val coloCountries: Map<String, String> = emptyMap(), // CUSTOM.md #62: mode "colo": data centre code -> country code
+    val landNode: String = "", // CUSTOM.md #62: direct mode: the node through which the exit country was asked, "" when none
 ) {
     companion object {
         private val json = Json {

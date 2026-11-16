@@ -84,3 +84,31 @@ func TryIP(name, server string, isDomain bool) TryResult {
 
 	return TryResult{Delay: delay, Country: country}
 }
+
+// ExitCountry (CUSTOM.md #62) is the country that an outside service sees for traffic of node `name` with its server
+// replaced by the address `server`: the one already known for this node and address when there is one, else asked
+// once through a copy of the node (api.country.is, then ipinfo.io). "" when it cannot be found. Nothing is stored.
+func ExitCountry(name, server string) string {
+	if c := CountryOf(name, server); c != "" {
+		return c
+	}
+
+	lock.RLock()
+	raw := proxies[name]
+	lock.RUnlock()
+
+	if raw == nil {
+		return ""
+	}
+
+	atomic.AddInt32(&selfDialing, 1) // our own sockets are not real traffic
+	defer atomic.AddInt32(&selfDialing, -1)
+
+	px := newVariant(raw, server)
+	if px == nil {
+		return ""
+	}
+	defer closeProxy(px)
+
+	return lookupCountry(px)
+}
