@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r85
+当前版本：2_11_36-r86
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -982,3 +982,20 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **新增文件：** `core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/conftest/iptest_phase.go`（`meanOf`、`addPhases`）。**改了的自有文件：** `ipdelay/iptry.go`（`TryResult.Ph`、`TryIP`）、`ipdelay/iptry_target.go`（`TargetResult.Ph`、`TryTarget`）、`conftest/iptest.go`（`IPRow.Jitter` / `Dial` / `Shake` / `First`、`handshakeSplit`、`fetchEvidenceTimed`）、`conftest/iptest_probe.go`（`summarize`、`setStats`、`handshakeECHSplit`、`probeDirect`、`probeNode`）、`conftest/iptest_probe_test.go`（两个单测）、`IpTestReport.kt`、`IpTestView.kt`（`Key.JITTER` / `Key.PHASE`、三份列表、`phaseText`）、`ConfigCheckActivity.kt`（日志）、两份 `strings_iptest.xml`。没有改上游文件，上游文件总表不变。
 - **验证：** **这次什么都没跑过**：这个环境里没有 Go（连 `gofmt` 都没有），也没有 Android / mihomo 编译环境，所以 Go 和 Kotlin 都只靠人工对照检查。两个新单测（`TestSummarizeJitter`、`TestPhaseHelpers`）是按手算的结果写的，没执行。请以 Actions 的构建和 `go test` 为准。
 
+
+## 69. 测其他 IP 的对话框加"读取配置的 IP"（r86）
+只在点按钮时读一次，读出来让你勾选，勾上的填进地址输入框，之后的测试（直连测、套入节点测）照旧，没有新的测试逻辑。
+- **入口：** "测其他 IP"对话框里输入框下面多一个按钮"读取配置的 IP"。点了以后内核读一遍当前配置，弹出一个勾选列表（默认全勾），每个地址下面写"节点：哪几个节点用它 · 来源"，来源是 `server 直接写的这个 IP` / `hosts：键` / `hosts 别名：键` / `由 域名 解析得到`。点"填入"把勾上的追加到输入框（已在输入框里的不重复加）。超过 20 个时，开始测试时仍按原来的上限截断，并显示"超过 20 个的上限，还有 N 个没测"。
+- **读什么：** `proxies:` 里每个有 `server` 的节点：
+  - server 是 IP（`1.2.3.4`、`2606::1`、`[2606::1]` 都认）：就是它；带 zone id 的链路本地地址测不了，列在"没读到"里。
+  - server 是名字，`hosts:` 里有（精确键，或通配键 `+.a.com` / `*.a.com` / `.a.com`，精确键优先，通配里取标签最多的）：取那个条目的全部地址；条目里写成单个字符串或列表都行；值如果又是一个名字（别名）就接着往下找，最多 3 层，绕圈或太深报"hosts 别名太深或绕成了圈"；既不是地址也不是名字的值直接丢掉。
+  - server 是名字，`hosts:` 里没有：问内核自己的解析器（`askCore`，和检查 DNS 页同一个函数，A 和 AAAA 各一个问题）。每个域名最多取 8 个（IPv4 在前、从小到大排序），多出来的数在列表上方说明；解析失败、有回应但没地址、只回了 198.18.0.0/15（默认 fake-ip 段）的地址、超时，分别写在列表上方，不当成空结果。
+  - 节点写了 `ip-version: ipv4` / `ipv6` 时，另一种地址不列（数量在说明里写）。
+  - 不属于任何节点的 `hosts:` 条目（如 `dns:` 里 DoH 域名的地址）不读；provider 里的节点不在 `proxies:` 里，也读不到。
+  - 同一个地址被几个节点用，合成一行，列出所有节点；这一行只有在用它的节点全有 `dialer-proxy`（链式）时才标"链式节点，直连测可能连不上"。
+  - 套入节点测用的是所选节点的**自己的端口和 sni**（`newVariant` 只换 server），所以这一点没改；直连测的端口仍是对话框里"端口"那一格，没有每节点端口。
+- **功耗：** 没有定时器、没有轮询、不监听配置变化。读配置是内存里读一遍；只有解析域名才发请求，每个不同的域名一次（A 和 AAAA 各一个问题），同一个域名几个节点共用只问一次，同时最多问 4 个，整个读取最多 10 秒。关掉对话框会取消等待（内核那一边最多再跑到各自超时）。
+- **新增文件：** `core/src/main/golang/native/conftest/iptest_config.go`、`iptest_config_test.go`、`core/src/main/golang/native/ipdelay/rawhosts.go`（`RawHosts`、`ToStrings`，只读）。**改了的自有文件：** `conftest/iptest.go`（`IPReport` 多 `Config` / `ConfigFail` / `ConfigOmitted` / `ConfigFamily`，`RunIP` 多一个 `config` 模式）、`IpTestReport.kt`（`IpTestConfigIp`、`IpTestConfigFail`、四个字段）、`IpTestDialog.kt`（按钮和勾选框）、`ConfigCheckDesign.kt`（`askIpTest` 多一个参数）、`ConfigCheckActivity.kt`（传入读取函数）、两份 `strings_iptest.xml`（`iptest_cfg_*`）。没有改上游文件，上游文件总表不变。
+- **没对照内核源码的地方（必须知道）：** 内核源码不在这份仓库里（子模块没拉下来），所以下面两点是按我对 mihomo `hosts` 文档的记忆写的，没对照源码：① 通配键的匹配规则（`+.` = 域名本身和所有子域，`*.` = 只下面一层，`.` = 所有子域不含自己）和"精确优先、通配取标签最多"；② `hosts` 的值可以是一个名字（别名）。如果你的内核表现不一样，把 mihomo 源码地址发我，我对照着改。另外 fake-ip 段只认默认的 `198.18.0.0/15`，你自己改了 `fake-ip-range` 的话，解析器回的假地址不会被识别。解析器在 fake-ip 模式下回真实地址，是按"和控制接口 `/dns/query` 同一个调用"理解的，没核实。
+- **局限：** 解析结果只是这一刻的快照，Cloudflare 这类域名每次、每个 DNS 返回的可能不同；只问内核解析器一次，不合并每个 DNS 服务器的结果。
+- **验证：** 这次什么都没跑过：环境里没有 Go（`gofmt` 和 `go vet` 都没跑），也没有 Android 编译环境，Go 和 Kotlin 都只靠人工对照检查。`iptest_config_test.go` 里的三个单测是按手算的结果写的，没执行（里面一个 map 的对齐可能不是 gofmt 的样子）。请以 Actions 的构建和 `go test` 为准。

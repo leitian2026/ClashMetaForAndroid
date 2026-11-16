@@ -103,4 +103,27 @@
     <string name="iptest_soft_region">Page says region not available (guess)</string>
     <string name="iptest_log_soft_redirect">%1$s target page moves the browser on by itself (meta refresh or script) to: %2$s</string>
     <string name="iptest_log_soft_region">%1$s target page seems to refuse this region (found the words: %2$s); a guess from the first 64 KB of the page</string>
+
+    <!-- CUSTOM.md #69: read the IPs of the config -->
+    <string name="iptest_cfg_button">Read the IPs of the config</string>
+    <string name="iptest_cfg_reading">Reading…</string>
+    <string name="iptest_cfg_error">Could not read the config</string>
+    <string name="iptest_cfg_title">IPs in the config</string>
+    <string name="iptest_cfg_fill">Fill in</string>
+    <string name="iptest_cfg_none">No address found in the nodes of the config.</string>
+    <string name="iptest_cfg_item">Node: %1$s · %2$s</string>
+    <string name="iptest_cfg_via_server">server is written as this IP</string>
+    <string name="iptest_cfg_via_hosts">hosts: %1$s</string>
+    <string name="iptest_cfg_via_alias">hosts alias: %1$s</string>
+    <string name="iptest_cfg_via_dns">resolved from %1$s</string>
+    <string name="iptest_cfg_chain">chained (dialer-proxy), a direct test may not connect</string>
+    <string name="iptest_cfg_fail">%1$s (node: %2$s): %3$s</string>
+    <string name="iptest_cfg_fail_failed">could not be resolved</string>
+    <string name="iptest_cfg_fail_empty">answered with no address</string>
+    <string name="iptest_cfg_fail_fake">only fake-ip addresses came back</string>
+    <string name="iptest_cfg_fail_loop">hosts aliases go too deep or in a circle</string>
+    <string name="iptest_cfg_fail_timeout">not answered in time</string>
+    <string name="iptest_cfg_fail_zone">a link-local address with a zone id cannot be tested</string>
+    <string name="iptest_cfg_omitted">A resolved domain gives at most 8 addresses; %1$d more were left out.</string>
+    <string name="iptest_cfg_family">%1$d addresses were left out because the node ip-version is the other family.</string>
 </resources>

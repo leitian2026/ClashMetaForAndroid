@@ -73,6 +73,29 @@ data class IpTestRef(
 )
 
 /**
+ * CUSTOM.md #69: one address the profile uses for its nodes (mode "config"). [via] is "server" (written as the
+ * node's server), "hosts", "alias" (through a hosts value that is a name) or "dns" (resolved); [name] the hosts key
+ * or domain it came from; [chain] every node that uses it has a `dialer-proxy`.
+ */
+@Serializable
+data class IpTestConfigIp(
+    val ip: String = "",
+    val from: List<String> = emptyList(),
+    val via: String = "",
+    val name: String = "",
+    val chain: Boolean = false,
+)
+
+/** CUSTOM.md #69: a server that gave no address. [reason]: failed, empty, fake, loop, timeout, zone. */
+@Serializable
+data class IpTestConfigFail(
+    val name: String = "",
+    val nodes: List<String> = emptyList(),
+    val reason: String = "",
+    val detail: String = "",
+)
+
+/**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
  * "direct", "node" or "nodes" (then only [nodes] is filled: the nodes that can be chosen). [error] is a short code:
  * "no domain", "no node", "no address", "domain only node" (direct mode, and only domains were typed),
@@ -96,6 +119,12 @@ data class IpTestReport(
     val colos: Map<String, String> = emptyMap(), // CUSTOM.md #52: mode "colo": data centre code -> city
     val coloCountries: Map<String, String> = emptyMap(), // CUSTOM.md #62: mode "colo": data centre code -> country code
     val landNode: String = "", // CUSTOM.md #62: direct mode: the node through which the exit country was asked, "" when none
+    // CUSTOM.md #69: mode "config": the addresses of the profile, the servers that gave none, the addresses of a resolved
+    // domain over the limit, the ones left out by a node's ip-version
+    val config: List<IpTestConfigIp> = emptyList(),
+    val configFail: List<IpTestConfigFail> = emptyList(),
+    val configOmitted: Int = 0,
+    val configFamily: Int = 0,
 ) {
     companion object {
         private val json = Json {

@@ -6,14 +6,23 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
+import com.github.kr328.clash.core.model.IpTestConfigIp
+import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -31,7 +40,12 @@ data class IpTestChoice(
 // CUSTOM (CUSTOM.md #43, not upstream): the dialog of "test other IPs": the addresses to test (what was typed last
 // time is put back), the node to put them into, and the two ways to test. Built in code, no layout file.
 object IpTestDialog {
-    suspend fun ask(context: Context, prefs: SharedPreferences, nodes: List<String>): IpTestChoice? {
+    suspend fun ask(
+        context: Context,
+        prefs: SharedPreferences,
+        nodes: List<String>,
+        readConfig: (suspend () -> IpTestReport?)? = null, // CUSTOM.md #69: null = no "read the IPs of the config" button
+    ): IpTestChoice? {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<IpTestChoice?> { ctx ->
                 val density = context.resources.displayMetrics.density
@@ -140,8 +154,58 @@ object IpTestDialog {
                     }
                 }
 
+                // CUSTOM.md #69: reads the addresses of the profile (one tap, nothing runs by itself); the scope is
+                // cancelled when the dialog goes away, so a late answer does not open a second dialog
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+                val readButton = Button(context).apply {
+                    setText(R.string.iptest_cfg_button)
+                    isAllCaps = false
+
+                    setOnClickListener {
+                        val read = readConfig ?: return@setOnClickListener
+
+                        isEnabled = false
+                        setText(R.string.iptest_cfg_reading)
+
+                        scope.launch {
+                            val report = try {
+                                read()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                null
+                            }
+
+                            isEnabled = true
+                            setText(R.string.iptest_cfg_button)
+
+                            if (report == null) {
+                                android.widget.Toast.makeText(context, R.string.iptest_cfg_error, android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                pickConfig(context, report) { text ->
+                                    val have = input.text.toString()
+                                    val words = have.split(Regex("[\\s,;，；、]+")).filter { it.isNotEmpty() }.toSet()
+                                    val add = text.filter { it !in words }
+
+                                    if (add.isNotEmpty()) {
+                                        val head = if (have.isBlank()) "" else have.trimEnd() + "\n"
+
+                                        input.setText(head + add.joinToString("\n"))
+                                        input.setSelection(input.text.length)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                if (readConfig != null) {
+                    box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+
                 box.addView(nodeLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 if (nodes.isNotEmpty()) {
@@ -183,9 +247,97 @@ object IpTestDialog {
                     .setNeutralButton(R.string.iptest_btn_direct) { _, _ -> done("direct") }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
-                    .setOnDismissListener { if (!ctx.isCompleted) ctx.resume(null) }
+                    .setOnDismissListener {
+                        scope.cancel()
+
+                        if (!ctx.isCompleted) ctx.resume(null)
+                    }
             }
         }
+    }
+
+    // CUSTOM.md #69: the list of what the profile uses, each with the nodes it comes from, to tick; [onPick] gets the
+    // ticked addresses. The servers that gave nothing and the limits are told above the list.
+    private fun pickConfig(context: Context, report: IpTestReport, onPick: (List<String>) -> Unit) {
+        val density = context.resources.displayMetrics.density
+        val pad = (20 * density).toInt()
+
+        val box = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+        }
+
+        val notes = ArrayList<String>()
+
+        for (f in report.configFail) {
+            val reason = when (f.reason) {
+                "empty" -> context.getString(R.string.iptest_cfg_fail_empty)
+                "fake" -> context.getString(R.string.iptest_cfg_fail_fake)
+                "loop" -> context.getString(R.string.iptest_cfg_fail_loop)
+                "timeout" -> context.getString(R.string.iptest_cfg_fail_timeout)
+                "zone" -> context.getString(R.string.iptest_cfg_fail_zone)
+                else -> context.getString(R.string.iptest_cfg_fail_failed) + if (f.detail.isNotEmpty()) " (${f.detail})" else ""
+            }
+
+            notes += context.getString(R.string.iptest_cfg_fail, f.name, f.nodes.joinToString("、"), reason)
+        }
+
+        if (report.configOmitted > 0) notes += context.getString(R.string.iptest_cfg_omitted, report.configOmitted)
+        if (report.configFamily > 0) notes += context.getString(R.string.iptest_cfg_family, report.configFamily)
+
+        if (report.config.isEmpty()) notes.add(0, context.getString(R.string.iptest_cfg_none))
+
+        if (notes.isNotEmpty()) {
+            box.addView(
+                TextView(context).apply {
+                    text = notes.joinToString("\n")
+                    textSize = 13f
+                    alpha = 0.8f
+                    setPadding(0, 0, 0, pad / 2)
+                },
+                ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            )
+        }
+
+        val boxes = ArrayList<Pair<CheckBox, IpTestConfigIp>>()
+
+        for (c in report.config) {
+            val via = when (c.via) {
+                "hosts" -> context.getString(R.string.iptest_cfg_via_hosts, c.name)
+                "alias" -> context.getString(R.string.iptest_cfg_via_alias, c.name)
+                "dns" -> context.getString(R.string.iptest_cfg_via_dns, c.name)
+                else -> context.getString(R.string.iptest_cfg_via_server)
+            }
+
+            val chain = if (c.chain) " · " + context.getString(R.string.iptest_cfg_chain) else ""
+
+            val box1 = CheckBox(context).apply {
+                text = c.ip + "\n" + context.getString(R.string.iptest_cfg_item, c.from.joinToString("、"), via) + chain
+                isChecked = true
+                textSize = 14f
+            }
+
+            boxes += box1 to c
+
+            box.addView(box1, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        val scroll = ScrollView(context).apply {
+            addView(box, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        val builder = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.iptest_cfg_title)
+            .setView(scroll)
+            .setNegativeButton(android.R.string.cancel) { _, _ -> }
+
+        if (report.config.isNotEmpty()) {
+            builder.setPositiveButton(R.string.iptest_cfg_fill) { _, _ ->
+                onPick(boxes.filter { it.first.isChecked }.map { it.second.ip })
+            }
+        }
+
+        builder.show()
     }
 
     private const val DEFAULT_PORTS = "443 2053 2083 2087 2096 8443"

@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.Toast
 import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
+import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
@@ -126,8 +127,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     /** CUSTOM.md #43: the dialog of "test other IPs"; null when cancelled. */
-    suspend fun askIpTest(nodes: List<String>): IpTestChoice? {
-        return IpTestDialog.ask(context, prefs, nodes)
+    suspend fun askIpTest(nodes: List<String>, readConfig: (suspend () -> IpTestReport?)? = null): IpTestChoice? {
+        return IpTestDialog.ask(context, prefs, nodes, readConfig) // CUSTOM.md #69: readConfig = "read the IPs of the config"
     }
 
     // CUSTOM (CUSTOM.md #52): the IP test page is a table (IpTestView) with the live status under it. The activity

@@ -158,6 +158,12 @@ type IPReport struct {
 	// CUSTOM.md #62: mode "probe": the node whose server is the typed domain, through which the exit country was asked
 	// ("" when the config has none, then no exit country is shown)
 	LandNode string `json:"landNode"`
+	// CUSTOM.md #69: mode "config": the addresses the profile uses for its nodes, the servers that gave none, the
+	// addresses of resolved domains over the per-domain limit, and the ones left out by a node's `ip-version`
+	Config        []ConfigIP   `json:"config"`
+	ConfigFail    []ConfigFail `json:"configFail"`
+	ConfigOmitted int          `json:"configOmitted"`
+	ConfigFamily  int          `json:"configFamily"`
 }
 
 // ipPort is the port tested in direct mode (a variable only so that a test can point it at a local server).
@@ -191,7 +197,7 @@ func RunIP(filter string) IPReport {
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	req.Domain = strings.TrimSpace(req.Domain)
-	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Skipped: []string{}, Nodes: []string{}}
+	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Skipped: []string{}, Nodes: []string{}, Config: []ConfigIP{}, ConfigFail: []ConfigFail{}}
 
 	if req.Mode == "nodes" {
 		for name, raw := range ipdelay.RawProxies() {
@@ -201,6 +207,18 @@ func RunIP(filter string) IPReport {
 		}
 
 		sort.Strings(rep.Nodes)
+
+		return rep
+	}
+
+	if req.Mode == "config" { // CUSTOM.md #69: read the addresses of the profile (iptest_config.go)
+		read := readConfigIPs(context.Background())
+
+		rep.Config = read.IPs
+		rep.ConfigFail = read.Fails
+		rep.ConfigOmitted = read.Omitted
+		rep.ConfigFamily = read.Family
+		rep.At = time.Now().UnixMilli()
 
 		return rep
 	}

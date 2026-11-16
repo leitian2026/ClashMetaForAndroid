@@ -153,7 +153,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 },
             ).nodes
 
-            val choice = design.askIpTest(nodes) ?: return
+            // CUSTOM.md #69: "read the IPs of the config" in the dialog; only when tapped. null = could not be read
+            val choice = design.askIpTest(nodes) {
+                try {
+                    IpTestReport.parse(
+                        withClash {
+                            queryCustomConnections(
+                                CustomConnections.SORT_CHECK,
+                                JSONObject().put("kind", "ip").put("mode", "config").toString(),
+                            )
+                        },
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
+            } ?: return
 
             if (choice.ips.isBlank()) {
                 design.showText(getString(R.string.iptest_need_ips))

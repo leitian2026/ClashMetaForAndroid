@@ -103,4 +103,27 @@
     <string name="iptest_soft_region">页面疑似写了地区不可用</string>
     <string name="iptest_log_soft_redirect">%1$s 目标页面自己把浏览器转走（meta refresh 或脚本），去：%2$s</string>
     <string name="iptest_log_soft_region">%1$s 目标页面疑似拒绝这个地区（页面里找到了这句：%2$s）；只是读页面前 64 KB 的猜测</string>
+
+    <!-- CUSTOM.md #69: read the IPs of the config -->
+    <string name="iptest_cfg_button">读取配置的 IP</string>
+    <string name="iptest_cfg_reading">读取中…</string>
+    <string name="iptest_cfg_error">读取配置失败</string>
+    <string name="iptest_cfg_title">配置里的 IP</string>
+    <string name="iptest_cfg_fill">填入</string>
+    <string name="iptest_cfg_none">配置的节点里没有读到地址。</string>
+    <string name="iptest_cfg_item">节点：%1$s · %2$s</string>
+    <string name="iptest_cfg_via_server">server 直接写的这个 IP</string>
+    <string name="iptest_cfg_via_hosts">hosts：%1$s</string>
+    <string name="iptest_cfg_via_alias">hosts 别名：%1$s</string>
+    <string name="iptest_cfg_via_dns">由 %1$s 解析得到</string>
+    <string name="iptest_cfg_chain">链式节点（dialer-proxy），直连测可能连不上</string>
+    <string name="iptest_cfg_fail">%1$s（节点：%2$s）：%3$s</string>
+    <string name="iptest_cfg_fail_failed">解析失败</string>
+    <string name="iptest_cfg_fail_empty">有回应但没有地址</string>
+    <string name="iptest_cfg_fail_fake">只回了 fake-ip 地址</string>
+    <string name="iptest_cfg_fail_loop">hosts 别名太深或绕成了圈</string>
+    <string name="iptest_cfg_fail_timeout">没在时限内得到回应</string>
+    <string name="iptest_cfg_fail_zone">带 zone id 的链路本地地址测不了</string>
+    <string name="iptest_cfg_omitted">解析出来的域名每个最多取 8 个地址，另有 %1$d 个没列出。</string>
+    <string name="iptest_cfg_family">有 %1$d 个地址因节点的 ip-version 是另一种而没列出。</string>
 </resources>
