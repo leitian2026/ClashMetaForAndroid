@@ -658,7 +658,6 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             withContext(Dispatchers.IO) {
                 when {
                     !discarded && !ConfigHistory.isInUse(this@EditorActivity, uuid, text) -> R.string.editor_leave_unapplied
-                    ConfigHistory.unapplied(this@EditorActivity, uuid) != null -> R.string.editor_leave_unapplied_saved
                     else -> 0
                 }
             }
