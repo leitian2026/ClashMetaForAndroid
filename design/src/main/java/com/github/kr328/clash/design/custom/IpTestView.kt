@@ -104,23 +104,9 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
 
     private val logTitle = TextView(context).apply {
-        setText(R.string.iptest_log_title)
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(colorText)
-    }
-
-    private val logProgress = TextView(context).apply {
-        textSize = 13f
-        setTextColor(colorMuted)
-        gravity = Gravity.CENTER_VERTICAL
-    }
-
-    private val logHeader = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(logTitle, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        addView(logProgress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setPadding(0, 0, 0, dp(4))
     }
 
@@ -161,7 +147,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(logHeader, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(logTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logScroll, lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)))
 
         redraw()
@@ -203,11 +189,13 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun setProgress(total: Int, tested: Int) {
         totalIps = total.coerceAtLeast(0)
         testedIps = tested.coerceIn(0, totalIps)
-        logProgress.text = if (totalIps > 0) {
-            context.getString(R.string.iptest_log_progress, totalIps, testedIps)
-        } else {
-            ""
+        val title = SpannableStringBuilder(context.getString(R.string.iptest_log_title))
+        if (totalIps > 0) {
+            val start = title.length
+            title.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
+            title.setSpan(ForegroundColorSpan(colorMuted), start, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
+        logTitle.text = title
     }
 
     /** One line of the live status, `[HH:MM:SS] text`; at most 200 lines are kept. */
