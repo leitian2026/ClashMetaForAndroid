@@ -63,6 +63,8 @@ type IPRequest struct {
 	// CUSTOM.md #52: the per-address modes "probe", "nodeone", "download", "colo" (iptest_probe.go)
 	Ports string `json:"ports"` // probe: the ports to try, as typed ("" = the default list)
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
+	// CUSTOM.md #66: nodeone: the address of a site the user really uses; the tries go to it through the node ("" = the node's own test URL)
+	Target string `json:"target"`
 	// parse: read the typed list without testing; Direct drops the domains (only node mode tests them)
 	Direct bool `json:"direct"`
 }
@@ -92,6 +94,12 @@ type IPRow struct {
 	// CUSTOM.md #63: node mode: why the data centre was not read ("nosni" = the node has no domain to use as SNI, else the
 	// failure of the extra direct connection), "" when it was read or not asked
 	ColoErr string `json:"coloErr"`
+	// CUSTOM.md #66: node mode with a target address: what the site itself answered (the first, most common status; 0 = no
+	// answer), where it redirected to, and the data centre of the answer's `Cf-Ray` (the exit side, not the entry side
+	// of `Colo`; "" when the site is not behind Cloudflare)
+	TargetStatus int    `json:"targetStatus"`
+	TargetNote   string `json:"targetNote"`
+	TargetColo   string `json:"targetColo"`
 
 	// CUSTOM.md #52: ten tries, the ports and the download test (iptest_probe.go)
 	Sent  int       `json:"sent"`  // tries made

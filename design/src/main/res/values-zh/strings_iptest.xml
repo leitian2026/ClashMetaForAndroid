@@ -84,4 +84,12 @@
     <string name="iptest_log_node_colo_ok">%1$s 机房：%2$s（对这个 IP 额外直连一次，用节点自己的域名当 SNI 读到的；通常和节点走的一致，不保证每次相同）</string>
     <string name="iptest_log_node_colo_nosni">%1$s 机房：没读，这个节点没有域名可当 SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s 机房：没读到（额外直连一次失败：%2$s）</string>
+    <string name="iptest_target_label">目标网址（只用于套入节点测，可不填：填一个你实际要用的网站，测试就经过节点对它发请求）</string>
+    <string name="iptest_target_hint">https://example.com/</string>
+    <string name="iptest_target_bad">目标网址必须以 http:// 或 https:// 开头</string>
+    <string name="iptest_target_sub">目标网址：%1$s（延迟、丢包都是经过节点对它测的；"目标站反应"是它自己的回应，"出口机房"读它回应里的 Cf-Ray，目标站不在 Cloudflare 上就是空的）</string>
+    <string name="iptest_col_target">目标站反应</string>
+    <string name="iptest_col_tcolo">出口机房</string>
+    <string name="iptest_log_target">%1$s 目标站：HTTP %2$d，跳转 %3$s，出口机房 %4$s</string>
+    <string name="iptest_log_target_none">%1$s 目标站：没有回应</string>
 </resources>

@@ -173,6 +173,14 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 return
             }
 
+            // CUSTOM.md #66: the target address (through-node test only): a site the user really uses, http(s) only
+            val target = if (direct) "" else choice.target
+
+            if (target.isNotEmpty() && !Regex("^https?://[^/\\s]+.*$", RegexOption.IGNORE_CASE).matches(target)) {
+                design.showText(getString(R.string.iptest_target_bad))
+                return
+            }
+
             // the list as the core reads it (addresses, domains, words it does not understand, the limit of 20)
             val parsed = IpTestReport.parse(
                 withClash {
@@ -212,7 +220,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
             ipRows = ArrayList()
 
-            design.ipBegin(direct, head, "", warnings)
+            design.ipBegin(direct, head, "", warnings, target.isNotEmpty())
             begun = true
             design.setIpRunning(true)
             ipTesting = true
@@ -243,6 +251,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     .put("mode", if (direct) "probe" else "nodeone")
                     .put("domain", domain)
                     .put("node", choice.node)
+                    .put("target", target)
                     .put("ips", t.ip)
                     .put("ports", choice.ports)
                     .toString()
@@ -266,6 +275,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     } else {
                         getString(R.string.iptest_ech_none)
                     }
+                } else if (target.isNotEmpty()) {
+                    getString(R.string.iptest_target_sub, target) // CUSTOM.md #66: no reference, the tries went to the target
                 } else {
                     val ref = report.ref
 
@@ -319,6 +330,16 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
                     // CUSTOM.md #63: through a node: the data centre comes from one extra direct connection (SNI = the node's
                     // own domain), the operator and the registered country from the public service
+                    if (!direct && target.isNotEmpty()) {
+                        design.ipLog(
+                            if (row.targetStatus == 0) {
+                                getString(R.string.iptest_log_target_none, row.ip)
+                            } else {
+                                getString(R.string.iptest_log_target, row.ip, row.targetStatus, row.targetNote.ifEmpty { "-" }, row.targetColo.ifEmpty { "-" })
+                            },
+                        )
+                    }
+
                     if (!direct && !row.isDomain) {
                         design.ipLog(
                             when {

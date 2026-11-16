@@ -138,9 +138,9 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
     private var ipView: IpTestView? = null
 
-    suspend fun ipBegin(direct: Boolean, head: String, sub: String, warnings: List<String>) {
+    suspend fun ipBegin(direct: Boolean, head: String, sub: String, warnings: List<String>, target: Boolean = false) {
         withContext(Dispatchers.Main) {
-            val view = IpTestView(context, direct)
+            val view = IpTestView(context, direct, target) // CUSTOM.md #66: target = the through-node table has the target address columns
 
             view.onCopy = { text ->
                 context.getSystemService<ClipboardManager>()

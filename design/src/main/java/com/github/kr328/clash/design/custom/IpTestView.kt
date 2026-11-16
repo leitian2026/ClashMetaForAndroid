@@ -37,16 +37,20 @@ import java.util.Locale
 // 测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
-class IpTestView(private val context: Context, private val direct: Boolean) {
+class IpTestView(private val context: Context, private val direct: Boolean, private val target: Boolean = false) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, EXIT, PORT, FASTER, TEST, SPEED }
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
 
     private val keys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
+    } else if (target) {
+        // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
+        // 比对照快 is dropped (the reference was measured against another address)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.TARGET, Key.TCOLO, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
     } else {
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.FASTER, Key.TEST, Key.SPEED)
@@ -304,7 +308,7 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         // how the spare width is shared: the columns with the longest text get the most
         fun weightOf(i: Int): Double {
             val factor = if (i == 0) 1.0 else when (keys[i - 1]) {
-                Key.COLO, Key.ASN, Key.PORTS -> 1.8
+                Key.COLO, Key.TCOLO, Key.ASN, Key.PORTS -> 1.8
                 Key.GEO, Key.LAND -> 1.3
                 else -> 1.0
             }
@@ -386,6 +390,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
                 Key.MAX -> R.string.iptest_col_max
                 Key.AVG -> R.string.iptest_col_avg
                 Key.FASTER -> R.string.iptest_col_faster
+                Key.TARGET -> R.string.iptest_col_target
+                Key.TCOLO -> R.string.iptest_col_tcolo
                 Key.TEST -> R.string.iptest_col_test
                 Key.SPEED -> R.string.iptest_col_speed
             },
@@ -404,6 +410,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
                 Key.MIN, Key.MAX, Key.AVG -> 54
                 Key.EXIT -> 76
                 Key.FASTER -> 70
+                Key.TARGET -> 84
+                Key.TCOLO -> 84
                 Key.TEST -> 52
                 Key.SPEED -> 58
             },
@@ -477,6 +485,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
             Key.AVG -> ms(r.avg)
             Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
             Key.FASTER -> if (r.faster > 0) context.getString(R.string.iptest_faster_cell, r.faster) else "-"
+            Key.TARGET -> targetText(r)
+            Key.TCOLO -> coloLabel(r.targetColo)
             Key.TEST -> ""
             Key.SPEED -> speedText(r)
         }
@@ -486,12 +496,14 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
         return when (k) {
             Key.PORTS -> portsCell(r)
             Key.COLO -> coloCell(r, w)
+            Key.TCOLO -> coloCell(r, w, r.targetColo)
             Key.TEST -> testCell(r)
             else -> {
                 val color = when (k) {
                     Key.LOSS -> lossColor(r.loss)
                     Key.AVG -> if (r.ok) latencyColor(r.avg) else colorMuted
                     Key.FASTER -> if (r.faster > 0) colorGood else colorMuted
+                    Key.TARGET -> targetColor(r)
                     Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted
                     Key.ASN, Key.PORT -> colorText
                     else -> colorText
@@ -504,14 +516,40 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
 
     // the flag, the code and its names on one line when the column is wide enough, else the names under the code
     // (never cut in the middle of the code)
-    private fun coloCell(r: IpTestRow, w: Int): View {
-        val one = coloLabel(r.colo)
+    // CUSTOM.md #66: what the target site answered: "200", "403", "302 → host"; "-" when it gave no answer
+    private fun targetText(r: IpTestRow): String {
+        if (!r.ok || r.targetStatus == 0) return "-"
+
+        val note = if (r.targetNote.isEmpty()) "" else " → " + hostOf(r.targetNote)
+
+        return r.targetStatus.toString() + note
+    }
+
+    private fun hostOf(location: String): String {
+        val host = try {
+            java.net.URI(location).host
+        } catch (_: Exception) {
+            null
+        }
+
+        return host ?: location.take(30)
+    }
+
+    private fun targetColor(r: IpTestRow): Int = when {
+        !r.ok || r.targetStatus == 0 -> colorMuted
+        r.targetStatus in 200..299 -> colorGood
+        r.targetStatus in 300..399 -> colorWarn
+        else -> colorBad
+    }
+
+    private fun coloCell(r: IpTestRow, w: Int, code: String = r.colo): View {
+        val one = coloLabel(code)
         val cell = textCell(one, colorText)
 
-        if (r.colo.isNotEmpty() && cell.paint.measureText(one) > w - dp(8)) {
-            val tail = coloTail(r.colo)
+        if (code.isNotEmpty() && cell.paint.measureText(one) > w - dp(8)) {
+            val tail = coloTail(code)
 
-            if (tail.isNotEmpty()) cell.text = coloHead(r.colo) + "\n" + tail
+            if (tail.isNotEmpty()) cell.text = coloHead(code) + "\n" + tail
         }
 
         return cell

@@ -27,6 +27,10 @@ data class IpTestRow(
     val cf: Boolean = false,
     val colo: String = "",
     val coloErr: String = "", // CUSTOM.md #63: node mode: why the data centre was not read ("nosni" or the failure)
+    // CUSTOM.md #66: node mode with a target address: the site's own answer (status, 0 = none), its redirect, the data centre of its Cf-Ray
+    val targetStatus: Int = 0,
+    val targetNote: String = "",
+    val targetColo: String = "",
     val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found
     // CUSTOM.md #52: ten tries (percent lost; milliseconds of the ones that worked), the ports, the download test
     val sent: Int = 0,

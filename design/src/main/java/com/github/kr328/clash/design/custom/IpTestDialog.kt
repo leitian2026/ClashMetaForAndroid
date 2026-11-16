@@ -25,6 +25,7 @@ data class IpTestChoice(
     val node: String,
     val ports: String = "", // CUSTOM.md #52: the ports to try on an address that works (direct)
     val url: String = "", // CUSTOM.md #52: the address the "测速" of a row downloads
+    val target: String = "", // CUSTOM.md #66: a site the user really uses; through-node tries go to it ("" = the node's test URL)
 )
 
 // CUSTOM (CUSTOM.md #43, not upstream): the dialog of "test other IPs": the addresses to test (what was typed last
@@ -119,6 +120,26 @@ object IpTestDialog {
                     }
                 }
 
+                // CUSTOM.md #66: the target address (node mode only), remembered; empty = off
+                val targetLabel = TextView(context).apply {
+                    setText(R.string.iptest_target_label)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
+                }
+
+                val targetInput = EditText(context).apply {
+                    setHint(R.string.iptest_target_hint)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI or
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+
+                    try {
+                        setText(prefs.getString("ip_target", "") ?: "")
+                    } catch (_: Exception) {
+                    }
+                }
+
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(nodeLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -127,6 +148,8 @@ object IpTestDialog {
                     box.addView(spinner, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
 
+                box.addView(targetLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(targetInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(urlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -142,14 +165,15 @@ object IpTestDialog {
 
                     val ports = portsInput.text.toString().trim().ifEmpty { DEFAULT_PORTS }
                     val url = urlInput.text.toString().trim().ifEmpty { DEFAULT_URL }
+                    val target = targetInput.text.toString().trim()
 
                     try {
                         prefs.edit().putString("ip_text", text).putString("ip_node", node)
-                            .putString("ip_ports", ports).putString("ip_url", url).apply()
+                            .putString("ip_ports", ports).putString("ip_url", url).putString("ip_target", target).apply()
                     } catch (_: Exception) {
                     }
 
-                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url))
+                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target))
                 }
 
                 MaterialAlertDialogBuilder(context)

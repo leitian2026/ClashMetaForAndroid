@@ -650,20 +650,52 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		hosts[ip] = true
 	}
 
-	for _, r := range ipdelay.Get(rep.Node) {
-		if r.Delay > 0 && (rep.Ref == nil || r.Delay < rep.Ref.Ms) {
-			rep.Ref = &IPRef{IP: r.IP, Ms: r.Delay, At: r.At}
+	// CUSTOM.md #66: the reference is measured against the node's own test URL, so it is no comparison for a target address
+	if req.Target == "" {
+		for _, r := range ipdelay.Get(rep.Node) {
+			if r.Delay > 0 && (rep.Ref == nil || r.Delay < rep.Ref.Ms) {
+				rep.Ref = &IPRef{IP: r.IP, Ms: r.Delay, At: r.At}
+			}
 		}
 	}
 
 	var (
-		mu      sync.Mutex
-		okMs    []int
-		country string
-		lastErr string
+		mu       sync.Mutex
+		okMs     []int
+		country  string
+		lastErr  string
+		statuses = map[int]int{} // CUSTOM.md #66: status -> how many tries got it
+		location string
+		ray      string
 	)
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
+		if req.Target != "" { // CUSTOM.md #66: the tries go to the target address; any answer counts as reached
+			res := ipdelay.TryTarget(rep.Node, t.Text, t.IsDomain, req.Target)
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if res.Err != "" {
+				lastErr = res.Err
+
+				return
+			}
+
+			okMs = append(okMs, res.Delay)
+			statuses[res.Status]++
+
+			if location == "" {
+				location = res.Location
+			}
+
+			if ray == "" {
+				ray = res.CfRay
+			}
+
+			return
+		}
+
 		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
 
 		mu.Lock()
@@ -702,6 +734,25 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	if st.OK > 0 {
 		row.OK = true
+
+		if req.Target != "" { // CUSTOM.md #66
+			best := 0
+
+			for code, n := range statuses {
+				if n > statuses[best] || (n == statuses[best] && code < best) {
+					best = code
+				}
+			}
+
+			row.TargetStatus = best
+			row.TargetNote = location
+			row.TargetColo = coloOf(ray)
+
+			// the exit country is asked through the node as before (the target address is not asked for it)
+			if !t.IsDomain {
+				row.Country = ipdelay.ExitCountry(rep.Node, t.Text)
+			}
+		}
 
 		if rep.Ref != nil && st.Avg < rep.Ref.Ms {
 			row.Faster = rep.Ref.Ms - st.Avg
