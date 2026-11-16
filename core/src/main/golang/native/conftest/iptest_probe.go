@@ -585,7 +585,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	if ctx.Err() == nil {
 		if node := nodeOfDomain(rep.Domain); node != "" {
 			rep.LandNode = node
-			row.Country = ipdelay.ExitCountry(node, row.IP)
+			row.Country = ipdelay.ExitCountry(node, row.IP, false)
 		}
 	}
 
@@ -693,7 +693,6 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 	var (
 		mu       sync.Mutex
 		okMs     []int
-		country  string
 		lastErr  string
 		statuses = map[int]int{} // CUSTOM.md #66: status -> how many tries got it
 		location string
@@ -750,13 +749,9 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 		okMs = append(okMs, res.Delay)
 		dials, shakes, firsts = addPhases(dials, shakes, firsts, res.Ph.Dial, res.Ph.Shake, res.Ph.First) // CUSTOM.md #68
-
-		if country == "" {
-			country = res.Country
-		}
 	})
 
-	row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text], Country: country}
+	row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text]}
 
 	if raw := ipdelay.RawProxies()[rep.Node]; raw != nil {
 		if p := raw["port"]; p != nil {
@@ -794,8 +789,11 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 			// the exit country is asked through the node as before (the target address is not asked for it)
 			if !t.IsDomain {
-				row.Country = ipdelay.ExitCountry(rep.Node, t.Text)
+				row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
 			}
+		} else if ctx.Err() == nil {
+			// CUSTOM.md #72: once per address, now (it was asked on every try, and the proxy page's memory was used first)
+			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
 		}
 
 		if rep.Ref != nil && st.Avg < rep.Ref.Ms {

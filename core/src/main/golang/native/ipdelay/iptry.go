@@ -20,9 +20,9 @@ type TryResult struct {
 	Ph      Phases // CUSTOM.md #68: where the delay went (0 = not measured)
 }
 
-// TryIP tests node `name` with its server replaced by `server`: the delay of a request to the node's test URL and,
-// when that works, the exit country (for an address the one already known for this node and address is reused, else
-// asked through the copy). `server` is an IP address, or a domain (isDomain) that the core resolves itself when it
+// TryIP tests node `name` with its server replaced by `server`: the delay of a request to the node's test URL.
+// CUSTOM.md #72: it no longer asks for the exit country (it did, on every try, when the proxy page had none for this
+// address): the caller asks once with ExitCountry. `server` is an IP address, or a domain (isDomain) that the core resolves itself when it
 // dials, `hosts:` included.
 //
 // A domain is tested with a copy that has another name: the core dials a node's preferred address (0003) by the
@@ -75,32 +75,30 @@ func TryIP(name, server string, isDomain bool) TryResult {
 		delay = 1
 	}
 
-	country := ""
-	if !isDomain {
-		country = CountryOf(name, server)
-	}
-
-	if country == "" {
-		country = lookupCountry(px)
-	}
-
-	return TryResult{Delay: delay, Country: country, Ph: ph}
+	return TryResult{Delay: delay, Ph: ph}
 }
 
 // ExitCountry (CUSTOM.md #62) is the country that an outside service sees for traffic of node `name` with its server
-// replaced by the address `server`: the one already known for this node and address when there is one, else asked
-// once through a copy of the node (api.country.is, then ipinfo.io). "" when it cannot be found. Nothing is stored.
-func ExitCountry(name, server string) string {
-	if c := CountryOf(name, server); c != "" {
-		return c
-	}
-
+// replaced by `server` (an address, or a domain when isDomain), asked now through a copy of the node (api.country.is,
+// then ipinfo.io). CUSTOM.md #72: always asked, the one the proxy page knows from an earlier test is not used. A domain
+// is asked with a copy that has another name, like TryIP. "" when it cannot be found. Nothing is stored.
+func ExitCountry(name, server string, isDomain bool) string {
 	lock.RLock()
 	raw := proxies[name]
 	lock.RUnlock()
 
 	if raw == nil {
 		return ""
+	}
+
+	if isDomain {
+		cp := make(map[string]any, len(raw))
+		for k, v := range raw {
+			cp[k] = v
+		}
+
+		cp["name"] = name + " (test)"
+		raw = cp
 	}
 
 	atomic.AddInt32(&selfDialing, 1) // our own sockets are not real traffic

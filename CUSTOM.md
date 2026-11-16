@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r88
+当前版本：2_11_36-r89
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1023,6 +1023,17 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **去掉的东西：** 自己的 hosts 通配键匹配、别名展开、fake-ip 过滤、`askCore` 的 A+AAAA 查询、`ConfigRead.Omitted` / `Family`（字段还在、恒为 0，Kotlin 那边不用改）。因此 #69 里"没对照内核源码"那两点（通配键规则、值可以是名字）不再存在；这个功能现在不依赖内核行为，只调用 `ipdelay` 的两个导出函数。
 - **"填入"改成覆盖（`IpTestDialog.kt`）：** 勾上的地址替换输入框原来的内容（每行一个），不再追加；一个都没勾就点"填入"，输入框保持不变。
 - **历史版本浮窗（`EditorDesign.pickVersion`）：** 点某一行以前只把序号交出去，对话框要等调用方处理，结果浮窗一直留着；现在点行后立刻关闭（序号照常交出去，取消 / 点外面仍然返回 -1）。长按固定 / 取消固定不关。
-- **编辑页右上角三个点：** 原来是文字 "⋮"（小、细）。改成一个实心矢量图标 `ic_editor_more.xml`（三个大圆点，28dp，和撤销 / 重做同一个 `iconAction`，点击区域同它们），描述文字"更多"（`editor_more`）。
+- **编辑页右上角三个点：** 原来是文字 "⋮"（小、细）。改成一个实心矢量图标 `ic_editor_more.xml`（三个大圆点，28dp，和撤销 / 重做同一个 `iconAction`，点击区域同它们），描述文字"更多"（`editor_more`）。（r89：28dp 太大，改成 24dp、圆点半径 2.2，见 #72。）
 - **新增文件：** `design/src/main/res/drawable/ic_editor_more.xml`。**改了的自有文件：** `conftest/iptest_config.go`（重写）、`iptest_config_test.go`（重写，只测合并）、`conftest/iptest.go`（调用不再传 context）、`IpTestReport.kt`（`IpTestConfigIp` 多 `inUse`）、`IpTestDialog.kt`、`EditorDesign.kt`、`strings_iptest.xml`（中英）、`strings_editor.xml`（中英）。没有改上游文件。
 - **验证：** `iptest_config.go` 里和内核无关的合并部分，用一个只有四个函数签名的 `ipdelay` 桩包单独跑过 `go vet` 和 `go test`，通过；整个 Go 包和 Kotlin 没法在这里编译，只能靠 Actions 的 Build Debug。
+
+## 72. 测 IP：落地、归属运营商、归属地全部实时查，不再用任何记忆；三个点缩小（r89）
+只改配置检查页的测 IP（直连测、套入节点测）和编辑页的三个点；代理页的国旗缓存没动。
+- **落地（`ipdelay.ExitCountry`）：** 以前先看代理页以前测出来的国家（`CountryOf`），有就直接用，所以可能是旧的。现在每次都经过节点问 `api.country.is`（不行再 `ipinfo.io`）。签名多一个 `isDomain`（域名行用换了名字的副本，和 `TryIP` 一样）。日志那行末尾写"实时查的"。
+- **每个 IP 只问一次落地：** 以前 `TryIP` 每次成功的测试（每个 IP 10 次，最多 5 个同时）在没有缓存时都问一次落地，等于每个 IP 最多 10 个请求。现在 `TryIP` 不再问落地（`TryResult.Country` 字段留着，恒为空），测完 10 次以后，只要有通的，对这个 IP 问一次（`iptest_probe.go` 的 `nodeone`、`iptest.go` 的旧单次路径）。填了目标网址时仍然是非域名的 IP 问一次，和以前一样。
+- **归属运营商 / 归属地（`lookupOwner`）：** 去掉 `asnCache` / `geoCache`，每次都问 `ipinfo.io`（不全再问 `ipwho.is`）；"直连握手那一行把以前问到的运营商从内存里再显示一遍"这一段也去掉了，所以握手那一刻运营商是空的，要等 `asn` 模式（点一下）或套入节点测、直连测自己的那一次查询回来才有。`lookupOwner` 现在转到变量 `ownerSource`（默认 `askOwner`），只是为了让单元测试不用联网。
+- **没改成实时的（要知道）：** ① "对照 / 比对照快"：来自代理页上一次测速的结果（`ipdelay.Get`），本来就是"上一次"，页面上也写了多久前；要实时就得每次先把 hosts 里的 IP 全测一遍，请求多很多，没做。② ECH 配置的 2 分钟内存（`echFor`）：只是让同一轮里的几个地址不重复向 DoH 要同一份配置；"ECH 测试"自己和直连测一轮开始时都是现取。③ Cloudflare 机房列表（城市、国旗）：参考表，不是每个 IP 的参数。
+- **功耗：** 落地的请求数反而比以前少（每个 IP 一次，以前没缓存时最多十次）；归属运营商每次一次（以前第二次起走内存）。仍然只在点按钮时发生，没有定时器、轮询。
+- **三个点：** `ic_editor_more.xml` 24dp，圆点半径 2.2（r88 是 28dp、2.8，太大；最早的文字 "⋮" 太小）。
+- **改了的文件：** `ipdelay/iptry.go`、`conftest/iptest.go`、`conftest/iptest_probe.go`、`conftest/iptest_probe_test.go`（测试里改用 `ownerSource`）、两份 `strings_iptest.xml`、`ic_editor_more.xml`、`CUSTOM.md`。没有改上游文件。
+- **局限：** 没编译（这里没有 mihomo 源码，Go 包编不了），只做了 `gofmt`；要靠 Actions 的 Build Debug。

@@ -173,8 +173,9 @@ var (
 	ipRunLock   sync.Mutex
 	ipRunCancel context.CancelFunc
 
-	asnCache sync.Map // address -> "AS13335 Cloudflare, Inc." (only what was found)
-	geoCache sync.Map // address -> "US" (CUSTOM.md #62, only what was found)
+	// CUSTOM.md #72: asks who runs an address and where it is registered, every time (no memory of earlier answers);
+	// a variable so that a test can answer without the network
+	ownerSource = askOwner
 )
 
 // CancelIPTest stops the running IP test (the rows done so far are still returned by RunIP).
@@ -360,10 +361,11 @@ func runNode(ctx context.Context, rep *IPReport, list []target) {
 
 		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
 
-		row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text], Ms: res.Delay, Country: res.Country}
+		row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text], Ms: res.Delay}
 
 		if res.Err == "" {
 			row.OK = true
+			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain) // CUSTOM.md #72: asked now, once
 
 			if rep.Ref != nil && res.Delay < rep.Ref.Ms {
 				row.Faster = rep.Ref.Ms - res.Delay
@@ -456,16 +458,8 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 
 	// the answer of the server (is it Cloudflare, and the data centre): not needed for the address to count as
 	// working, so a failure only leaves the fields empty. The operator is not asked here (a tap asks it, mode
-	// "asn"); one that an earlier tap found is shown again, from memory.
+	// "asn"); CUSTOM.md #72: nothing is shown from memory any more, so it stays empty until it is asked.
 	row.Colo, row.CF = fetchEvidence(ctx, conn, domain)
-
-	if v, ok := asnCache.Load(row.IP); ok {
-		row.ASN = v.(string)
-	}
-
-	if v, ok := geoCache.Load(row.IP); ok {
-		row.Geo = v.(string)
-	}
 
 	return row
 }
@@ -634,16 +628,13 @@ func validCC(code string) bool {
 
 // lookupOwner (CUSTOM.md #62) asks a public service who runs the address ("AS13335 Cloudflare, Inc.") and which
 // country it is registered in ("US"). Both come from one answer (ipinfo.io/<ip>/json), the second service is asked
-// only for what the first did not give, so the number of requests is the same as before. An answer that was found
-// before is returned from memory without asking again.
+// only for what the first did not give, so the number of requests is the same as before. CUSTOM.md #72: it asks every
+// time; an answer found before is not kept.
 func lookupOwner(ctx context.Context, ip string) (asn, geo string) {
-	if v, ok := asnCache.Load(ip); ok {
-		g, _ := geoCache.Load(ip)
-		gs, _ := g.(string)
+	return ownerSource(ctx, ip)
+}
 
-		return v.(string), gs
-	}
-
+func askOwner(ctx context.Context, ip string) (asn, geo string) {
 	client := &http.Client{
 		Timeout: asnTimeout,
 		Transport: &http.Transport{
@@ -716,14 +707,6 @@ func lookupOwner(ctx context.Context, ip string) (asn, geo string) {
 				}
 			}
 		}
-	}
-
-	if asn != "" {
-		asnCache.Store(ip, asn)
-	}
-
-	if geo != "" {
-		geoCache.Store(ip, geo)
 	}
 
 	return asn, geo

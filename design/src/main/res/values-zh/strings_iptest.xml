@@ -78,8 +78,8 @@
     <string name="iptest_log_asn_ok">%1$s 归属运营商：%2$s</string>
     <string name="iptest_log_asn_none">%1$s 归属运营商：没查到（可能被限流，不影响结果）</string>
     <string name="iptest_log_geo">%1$s 归属地：%2$s</string>
-    <string name="iptest_log_land_ok">%1$s 落地：%2$s（经节点 %3$s）</string>
-    <string name="iptest_log_land_none">%1$s 落地：没查到（经节点 %2$s）</string>
+    <string name="iptest_log_land_ok">%1$s 落地：%2$s（经节点 %3$s，实时查的）</string>
+    <string name="iptest_log_land_none">%1$s 落地：没查到（经节点 %2$s，实时查的）</string>
     <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，落地不查（落地要经过节点才看得到）</string>
     <string name="iptest_log_cancelled">已取消</string>
     <string name="iptest_log_done">全部完成，共测了 %1$d 个</string>

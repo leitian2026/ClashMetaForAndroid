@@ -74,8 +74,8 @@ func TestParseColoCountries(t *testing.T) {
 func TestProbeDirectLocal(t *testing.T) {
 	ip, port := serveLocalTLS(t, true)
 	ipPort = port
-	asnCache.Store(ip.String(), "AS1 Test")
-	t.Cleanup(func() { ipPort = "443" })
+	ownerSource = func(context.Context, string) (string, string) { return "AS1 Test", "" } // CUSTOM.md #72: no memory, so the answer comes from here
+	t.Cleanup(func() { ipPort = "443"; ownerSource = askOwner })
 
 	rep := RunIP(`{"kind":"ip","mode":"probe","domain":"example.com","ips":"` + ip.String() + `","ports":"` + port + ` 1"}`)
 
