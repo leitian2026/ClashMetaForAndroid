@@ -90,4 +90,12 @@
     <string name="editor_leave_unapplied_saved">There is a saved history version that is not applied: the config in use did not change.</string>
     <!-- CUSTOM.md #58: the note over the text of a history version (the other lines are cmp_* in strings_custom.xml) -->
     <string name="editor_diff_note">The settings and the comments are compared: blank lines are ignored, and every line is shown.</string>
+
+    <!-- CUSTOM.md #70: history list: the opened version, pinning -->
+    <string name="editor_pick_hint">The blue row is the version opened on this page. Long press a version to pin or unpin it: a pinned version (up to %1$d) is never pushed out and goes into the backup.</string>
+    <string name="history_opened"> · opened</string>
+    <string name="history_opened_changed"> · opened (changed since)</string>
+    <string name="editor_pinned">Pinned</string>
+    <string name="editor_unpinned">Unpinned</string>
+    <string name="editor_pin_limit">At most %1$d versions can be pinned; unpin one first</string>
 </resources>

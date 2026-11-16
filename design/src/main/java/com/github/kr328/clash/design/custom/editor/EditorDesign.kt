@@ -14,10 +14,14 @@ import android.text.style.StrikethroughSpan
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ArrayAdapter
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.ListView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.ScrollView
@@ -99,8 +103,9 @@ class EditorDesign(
         text = fileName
     }
 
-    private val undoButton = action("↶", context.getString(R.string.editor_undo)) { editor.undoEdit() }
-    private val redoButton = action("↷", context.getString(R.string.editor_redo)) { editor.redoEdit() }
+    // CUSTOM.md #70: filled arrows in the text colour (the text arrows were thin lines in the pale accent colour)
+    private val undoButton = iconAction(R.drawable.ic_editor_undo, context.getString(R.string.editor_undo)) { editor.undoEdit() }
+    private val redoButton = iconAction(R.drawable.ic_editor_redo, context.getString(R.string.editor_redo)) { editor.redoEdit() }
     private val findButton = action(context.getString(R.string.editor_find), null) { toggleFind() }
     private val checkButton = action(context.getString(R.string.editor_check), null) { requests.trySend(Request.Check) }
     private val saveButton = action(
@@ -113,8 +118,8 @@ class EditorDesign(
     // CUSTOM.md #53: one row at the bottom: where the caret is (and the problem on its line, or which lines of a big
     // text are shown), the problem count, the buttons of a big text's window, the size of the text
     private val statusView = TextView(context).apply {
-        textSize = 12f
-        setTextColor(colorMuted)
+        textSize = 14f // CUSTOM.md #70: was 12, and the muted grey
+        setTextColor(colorText)
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END
         setPadding(dp(12), dp(2), dp(4), dp(2))
@@ -158,8 +163,9 @@ class EditorDesign(
     private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
 
     private val sizeView = TextView(context).apply {
-        textSize = 12f
-        setTextColor(colorMuted)
+        textSize = 14f // CUSTOM.md #70
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(colorText)
         gravity = Gravity.CENTER
         minWidth = dp(28)
     }
@@ -280,7 +286,7 @@ class EditorDesign(
 
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)))
+        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))) // CUSTOM.md #70: was 34
         addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -290,8 +296,11 @@ class EditorDesign(
                 addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
                 for (b in listOf(problemButton, previousWindowButton, nextWindowButton, smallerButton, biggerButton)) {
-                    b.minHeight = dp(32)
-                    b.minWidth = dp(36)
+                    b.minHeight = dp(36) // CUSTOM.md #70: bigger, heavier
+                    b.minWidth = dp(40)
+                    b.textSize = 17f
+                    b.typeface = Typeface.DEFAULT_BOLD
+                    b.paint.isFakeBoldText = true
                 }
 
                 addView(problemButton)
@@ -607,6 +616,73 @@ class EditorDesign(
         }
     }
 
+    /**
+     * CUSTOM.md #70: the list of history versions: [opened] (the index of the version loaded on the page, or -1) is drawn
+     * on a coloured row; a long press on a row calls [onLongPress] with its index, which answers the new text of the
+     * row (pinned or unpinned), or null when nothing changed. Returns the index of the tapped row, or -1 when dismissed.
+     */
+    suspend fun pickVersion(
+        title: CharSequence,
+        hint: CharSequence,
+        items: List<CharSequence>,
+        opened: Int,
+        onLongPress: (Int) -> CharSequence?,
+    ): Int {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine<Int> { c ->
+                val labels = ArrayList(items)
+                val openedBg = if (night) Color.parseColor("#26456E") else Color.parseColor("#D6E4F7")
+
+                val adapter = object : ArrayAdapter<CharSequence>(context, android.R.layout.simple_list_item_1, labels) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val view = super.getView(position, convertView, parent)
+
+                        view.setBackgroundColor(if (position == opened) openedBg else Color.TRANSPARENT)
+
+                        return view
+                    }
+                }
+
+                val list = ListView(context).apply {
+                    this.adapter = adapter
+                    setOnItemClickListener { _, _, which, _ -> if (c.isActive) c.resume(which) }
+                    setOnItemLongClickListener { _, _, which, _ ->
+                        onLongPress(which)?.let {
+                            labels[which] = it
+                            adapter.notifyDataSetChanged()
+                        }
+
+                        true
+                    }
+                }
+
+                val box = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+
+                    addView(
+                        TextView(context).apply {
+                            text = hint
+                            textSize = 13f
+                            alpha = 0.8f
+                            setPadding(dp(24), dp(4), dp(24), dp(8))
+                        },
+                        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT),
+                    )
+                    addView(list, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                }
+
+                val dialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(title)
+                    .setView(box)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener { if (c.isActive) c.resume(-1) }
+                    .show()
+
+                c.invokeOnCancellation { dialog.dismiss() }
+            }
+        }
+    }
+
     /** CUSTOM.md #56: a question with two buttons; true when [positive] was tapped. */
     suspend fun ask(title: CharSequence, text: CharSequence, positive: CharSequence): Boolean {
         return withContext(Dispatchers.Main) {
@@ -691,8 +767,8 @@ class EditorDesign(
         dirty = value
         titleView.text = if (value) "● $fileName" else fileName
 
-        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.35f
-        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.35f
+        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.4f
+        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.4f
     }
 
     private fun refreshStatus() {
@@ -722,11 +798,11 @@ class EditorDesign(
 
         previousWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
         nextWindowButton.visibility = if (editor.isWindowed) View.VISIBLE else View.GONE
-        previousWindowButton.alpha = if (editor.windowFirstLine > 1) 1f else 0.35f
-        nextWindowButton.alpha = if (editor.windowLastLine < editor.logicalLineCount) 1f else 0.35f
+        previousWindowButton.alpha = if (editor.windowFirstLine > 1) 1f else 0.4f
+        nextWindowButton.alpha = if (editor.windowLastLine < editor.logicalLineCount) 1f else 0.4f
 
-        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.35f
-        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.35f
+        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.4f
+        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.4f
     }
 
     // CUSTOM.md #50: the number of problems on the button; the button is only there for YAML files
@@ -805,8 +881,8 @@ class EditorDesign(
 
     private fun refreshSize() {
         sizeView.text = sizeSp.toString()
-        smallerButton.alpha = if (sizeSp > MIN_SIZE) 1f else 0.35f
-        biggerButton.alpha = if (sizeSp < MAX_SIZE) 1f else 0.35f
+        smallerButton.alpha = if (sizeSp > MIN_SIZE) 1f else 0.4f
+        biggerButton.alpha = if (sizeSp < MAX_SIZE) 1f else 0.4f
     }
 
     private fun refreshCase() {
@@ -911,18 +987,34 @@ class EditorDesign(
         }
     }
 
+    // CUSTOM.md #70: a button that is a filled icon, in the text colour; [alpha] is set by the callers as for the text ones
+    private fun iconAction(res: Int, description: String, onClick: (View) -> Unit): ImageView {
+        return ImageView(context).apply {
+            setImageResource(res)
+            setColorFilter(colorText)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            val pad = dp(if (split) 6 else 8)
+            setPadding(pad, pad, pad, pad)
+            isClickable = true
+            contentDescription = description
+            setBackgroundResource(context.resolveThemedResourceId(android.R.attr.selectableItemBackground))
+            setOnClickListener { onClick(it) }
+        }
+    }
+
     // a key of the symbol row: it must not take the focus, or the keyboard would close at every tap
     private fun symbol(label: String, mono: Boolean, onClick: () -> Unit): TextView {
         return TextView(context).apply {
             text = label
-            textSize = 16f
+            textSize = 19f // CUSTOM.md #70: was 16, thin
             setTextColor(colorText)
 
-            if (mono) typeface = Typeface.MONOSPACE
+            typeface = if (mono) Typeface.create(Typeface.MONOSPACE, Typeface.BOLD) else Typeface.DEFAULT_BOLD
+            paint.isFakeBoldText = true
 
             gravity = Gravity.CENTER
-            minWidth = dp(44)
-            minHeight = dp(34)
+            minWidth = dp(46)
+            minHeight = dp(40)
             isClickable = true
             isFocusable = false
             isFocusableInTouchMode = false

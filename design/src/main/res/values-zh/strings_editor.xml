@@ -90,4 +90,12 @@
     <string name="editor_leave_unapplied_saved">历史里有已保存但还没应用的版本，正在用的配置没有变。</string>
     <!-- CUSTOM.md #58 -->
     <string name="editor_diff_note">比较配置内容和注释：空行不算，所有行都显示，不折叠。</string>
+
+    <!-- CUSTOM.md #70: history list: the opened version, pinning -->
+    <string name="editor_pick_hint">蓝底的是这个页面里打开的版本。长按某个版本可以固定或取消固定：固定的版本（最多 %1$d 个）不会被挤掉，会随备份一起上传。</string>
+    <string name="history_opened"> · 当前打开</string>
+    <string name="history_opened_changed"> · 当前打开（之后改过）</string>
+    <string name="editor_pinned">已固定</string>
+    <string name="editor_unpinned">已取消固定</string>
+    <string name="editor_pin_limit">最多固定 %1$d 个，请先取消一个</string>
 </resources>

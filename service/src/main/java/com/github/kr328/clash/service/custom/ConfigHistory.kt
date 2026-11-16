@@ -21,6 +21,7 @@ import java.util.UUID
 // Power: files are written only when the user saves / applies / opens the list, nothing runs in the background.
 object ConfigHistory {
     const val MAX = 10
+    const val MAX_PINNED = 20 // CUSTOM.md #70: pinned versions per profile
     private const val MAX_BYTES = 2L * 1024 * 1024
 
     const val ADDED = 0
@@ -42,6 +43,9 @@ object ConfigHistory {
         /** CUSTOM.md #56: the core refused this version when it was applied. */
         val bad: Boolean get() = marker("bad").exists()
 
+        /** CUSTOM.md #70: pinned by the user: never pushed out by the limit of [MAX], and part of the backup. */
+        val pinned: Boolean get() = marker("pin").exists()
+
         internal fun marker(ext: String): File = file.resolveSibling("$at.$ext")
 
         internal fun remove() {
@@ -49,6 +53,7 @@ object ConfigHistory {
             marker("ok").delete()
             marker("saved").delete()
             marker("bad").delete()
+            marker("pin").delete()
         }
     }
 
@@ -112,6 +117,64 @@ object ConfigHistory {
             if (bytes.isEmpty()) return
 
             find(list(context, uuid), bytes)?.let { v -> if (!v.verified) v.marker("ok").createNewFile() }
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * CUSTOM.md #70: pins or unpins a version. Pinning is refused (false) when [MAX_PINNED] are pinned already or the
+     * marker file cannot be written; unpinning always answers true. Never throws.
+     */
+    fun setPinned(context: Context, uuid: UUID, version: Version, pinned: Boolean): Boolean {
+        return try {
+            if (!pinned) {
+                version.marker("pin").delete() // not pruned now: the row on the screen must keep working; the next save prunes
+
+                true
+            } else if (version.pinned) {
+                true
+            } else if (list(context, uuid).count { it.pinned } >= MAX_PINNED) {
+                false
+            } else {
+                version.marker("pin").createNewFile()
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * CUSTOM.md #70: a restore from a backup: the pinned versions of this profile become exactly [items] (time, content)
+     * - the ones pinned here are unpinned (they are ordinary versions again, and the limit of [MAX] applies to them),
+     * the backup's are written (or, when a kept version has the same content, that one is pinned). Never throws.
+     */
+    fun replacePinned(context: Context, uuid: UUID, items: List<Pair<Long, ByteArray>>) {
+        try {
+            list(context, uuid).forEach { it.marker("pin").delete() }
+
+            val target = dir(context, uuid)
+
+            target.mkdirs()
+
+            for ((at, bytes) in items.sortedBy { it.first }.take(MAX_PINNED)) {
+                if (bytes.isEmpty() || bytes.size > MAX_BYTES) continue
+
+                val version = find(list(context, uuid), bytes) ?: run {
+                    var name = at
+
+                    while (target.resolve("$name.yaml").exists()) name++
+
+                    val file = target.resolve("$name.yaml")
+
+                    file.writeBytes(bytes)
+
+                    Version(file, name)
+                }
+
+                version.marker("pin").createNewFile()
+            }
+
+            prune(context, uuid)
         } catch (_: Exception) {
         }
     }
@@ -241,7 +304,7 @@ object ConfigHistory {
     }
 
     // At most MAX versions are kept, newest first. Not counted and never deleted: the one in use, those that worked
-    // (CUSTOM.md #38) and the newest one that is saved and not applied.
+    // (CUSTOM.md #38), the pinned ones (CUSTOM.md #70) and the newest one that is saved and not applied.
     private fun prune(context: Context, uuid: UUID) {
         val versions = list(context, uuid)
         val bytes = currentBytes(context, uuid)
@@ -249,7 +312,7 @@ object ConfigHistory {
         var count = 0
 
         for (v in versions) {
-            if (v.verified || v == pending || (bytes != null && same(v, bytes))) continue
+            if (v.verified || v.pinned || v == pending || (bytes != null && same(v, bytes))) continue
 
             count++
 

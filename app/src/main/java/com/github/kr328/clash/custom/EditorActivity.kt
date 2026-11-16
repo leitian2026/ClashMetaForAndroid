@@ -467,6 +467,10 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         return true
     }
 
+    // CUSTOM.md #70: the version most recently loaded into the page from the history list (its time), 0 = none; the
+    // list draws that row on a colour
+    private var openedAt = 0L
+
     /** "History versions": the list of the versions of this config; the one picked is loaded into the page, not applied. */
     private suspend fun history(design: EditorDesign) {
         val uuid = profileUuid()
@@ -496,6 +500,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         // one label per version: when it was kept, how long it is, what changed from the next older one, its state
+        val pageText = if (openedAt != 0L) design.currentText() else "" // CUSTOM.md #70: to tell whether the opened version was changed since
+
         val labels = withContext(Dispatchers.IO) {
             val inUse = ConfigHistory.inUse(this@EditorActivity, uuid, versions)
 
@@ -523,11 +529,46 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
                 if (v.verified) label += getString(R.string.history_verified) // CUSTOM.md #38
 
+                // CUSTOM.md #70: the one that was opened (and whether the page differs from it now)
+                if (v.at == openedAt) {
+                    label += getString(if (text == pageText) R.string.history_opened else R.string.history_opened_changed)
+                }
+
                 CheckMark.paint(this@EditorActivity, label) ?: label // CUSTOM.md #57: ✓ green, ✗ red
             }
         }
 
-        val index = design.pick(getString(R.string.history_pick_version, profileTitle), labels)
+        // CUSTOM.md #70: a long press pins / unpins; the row shows a pin in front while it is pinned
+        val base = labels
+        fun shown(i: Int): CharSequence = if (versions[i].pinned) android.text.TextUtils.concat("\uD83D\uDCCC ", base[i]) else base[i]
+
+        val index = design.pickVersion(
+            getString(R.string.history_pick_version, profileTitle),
+            getString(R.string.editor_pick_hint, ConfigHistory.MAX_PINNED),
+            versions.indices.map { shown(it) },
+            versions.indexOfFirst { it.at == openedAt },
+        ) { i ->
+            val v = versions[i]
+            val want = !v.pinned
+
+            if (ConfigHistory.setPinned(this@EditorActivity, uuid, v, want)) {
+                android.widget.Toast.makeText(
+                    this@EditorActivity,
+                    if (want) R.string.editor_pinned else R.string.editor_unpinned,
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+
+                shown(i)
+            } else {
+                android.widget.Toast.makeText(
+                    this@EditorActivity,
+                    getString(R.string.editor_pin_limit, ConfigHistory.MAX_PINNED),
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+
+                null
+            }
+        }
         val version = versions.getOrNull(index) ?: return
 
         if (design.dirty) {
@@ -552,6 +593,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
         val date = format.format(Date(version.at))
         val undoable = design.replaceText(text)
+
+        openedAt = version.at // CUSTOM.md #70
 
         design.markSaved() // it is a version of the history, so there is nothing on the page that is not kept
         design.toast(getString(if (undoable) R.string.editor_history_loaded else R.string.editor_history_loaded_no_undo, date))

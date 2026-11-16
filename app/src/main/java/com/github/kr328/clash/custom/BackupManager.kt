@@ -5,6 +5,7 @@ import android.net.Uri
 import com.github.kr328.clash.design.custom.GeoFile
 import com.github.kr328.clash.design.custom.GeoSiteDownloader
 import com.github.kr328.clash.service.model.AccessControlMode
+import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.importedDir
@@ -30,6 +31,8 @@ import java.util.zip.ZipOutputStream
 //
 //   backup.json                   everything except the profile files (see below)
 //   profiles/<uuid>/<file>        the files of every imported profile (config.yaml, providers, ...)
+//   history/<uuid>/<ms>.yaml      CUSTOM.md #70: the pinned history versions of a File profile (listed in the
+//                                 manifest as "pinned": [ms, ...]; no such key = an older backup)
 //
 // Runs only when the user picks "export" or "import"; nothing in the background.
 //
@@ -93,6 +96,10 @@ object BackupManager {
         val active = withProfile { queryActive() }
 
         return withContext(Dispatchers.IO) {
+            // CUSTOM.md #70: the pinned versions of the profiles the user edits (only File profiles have a history)
+            val pinned = profiles.filter { it.type == Profile.Type.File }
+                .associate { p -> p.uuid.toString() to ConfigHistory.list(context, p.uuid).filter { it.pinned } }
+
             val manifest = JSONObject().apply {
                 put("version", VERSION)
                 put("createdAt", System.currentTimeMillis())
@@ -106,6 +113,7 @@ object BackupManager {
                             put("source", it.source)
                             put("interval", it.interval)
                             put("ageSecretKey", it.ageSecretKey ?: JSONObject.NULL)
+                            pinned[it.uuid.toString()]?.let { list -> put("pinned", JSONArray(list.map { v -> v.at })) } // CUSTOM.md #70
                         })
                     }
                 })
@@ -144,6 +152,15 @@ object BackupManager {
                             file.inputStream().use { it.copyTo(zip) }
                             zip.closeEntry()
                         }
+                    }
+                }
+
+                // CUSTOM.md #70
+                pinned.forEach { (id, list) ->
+                    list.forEach { v ->
+                        zip.putNextEntry(ZipEntry("history/$id/${v.at}.yaml"))
+                        zip.write(v.file.readBytes())
+                        zip.closeEntry()
                     }
                 }
             }
@@ -322,6 +339,27 @@ object BackupManager {
                 throw e
             } catch (e: Exception) {
                 failed.add(name)
+            }
+        }
+
+        // CUSTOM.md #70: the pinned history versions: what the backup has replaces what is pinned on this device (no
+        // merge). A backup without the "pinned" key (made before this existed) leaves the device's pins alone.
+        withContext(Dispatchers.IO) {
+            for (i in 0 until backup.profiles.length()) {
+                val item = backup.profiles.getJSONObject(i)
+                val ids = item.optJSONArray("pinned") ?: continue
+                val uuid = idMap[item.getString("uuid")] ?: continue
+                val oldId = item.getString("uuid")
+                val versions = ArrayList<Pair<Long, ByteArray>>()
+
+                for (k in 0 until ids.length()) {
+                    val at = ids.optLong(k)
+                    val file = File(backup.root, "history/$oldId/$at.yaml")
+
+                    if (at > 0 && file.isFile) versions.add(at to file.readBytes())
+                }
+
+                ConfigHistory.replacePinned(context, uuid, versions)
             }
         }
 
