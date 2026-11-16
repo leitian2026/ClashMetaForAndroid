@@ -16,14 +16,16 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
+import androidx.appcompat.widget.AppCompatEditText
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import android.widget.FrameLayout
 import android.widget.ArrayAdapter
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.ListView
 import android.widget.LinearLayout
-import android.widget.PopupMenu
+import androidx.appcompat.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -35,7 +37,9 @@ import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.custom.ConfigDiff
 import com.github.kr328.clash.design.custom.EffectiveText
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.design.util.resolveThemedColor
 import com.github.kr328.clash.design.util.resolveThemedResourceId
+import com.github.kr328.clash.design.view.ActivityBarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
@@ -68,16 +72,26 @@ class EditorDesign(
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
 
-    private val colorBg = if (night) Color.parseColor("#16191D") else Color.WHITE
-    private val colorBar = if (night) Color.parseColor("#1F2328") else Color.parseColor("#F1F3F4")
-    private val colorText = if (night) Color.parseColor("#E6E6E6") else Color.parseColor("#1F2328")
+    // CUSTOM.md #74: use the app's window and Material surface/text roles; syntax and diagnostic colours stay editor-specific.
+    private val colorBg = context.resolveThemedColor(android.R.attr.windowBackground)
+    private val colorBar = context.resolveThemedColor(com.google.android.material.R.attr.colorSurface)
+    private val colorText = themedColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK)
     // CUSTOM: plain (uncoloured) YAML text, e.g. the rule lines; kept far from the grey of comments
     private val colorPlain = if (night) Color.parseColor("#C3E88D") else Color.parseColor("#2E7D32") // same green as the quoted strings
-    private val colorMuted = if (night) Color.parseColor("#9AA4AE") else Color.parseColor("#6B7480")
+    private val colorMuted = themedColor(android.R.attr.textColorSecondary, if (night) Color.parseColor("#9AA4AE") else Color.parseColor("#6B7480")) // CUSTOM.md #74
     private val colorAccent = if (night) Color.parseColor("#82AAFF") else Color.parseColor("#1565C0")
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
     private val colorNoticeBg = if (night) Color.parseColor("#3E2F00") else Color.parseColor("#FFF4D6")
+
+    private fun themedColor(attr: Int, fallback: Int): Int {
+        val values = context.obtainStyledAttributes(intArrayOf(attr))
+        return try {
+            values.getColorStateList(0)?.defaultColor ?: values.getColor(0, fallback)
+        } finally {
+            values.recycle()
+        }
+    }
 
     private fun dp(value: Int) = (value * density).toInt()
 
@@ -95,9 +109,9 @@ class EditorDesign(
     }
 
     private val titleView = TextView(context).apply {
-        textSize = 16f
+        textSize = 20f // CUSTOM.md #74: match the app's activity-bar title
         setTextColor(colorText)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
         text = fileName
@@ -176,7 +190,7 @@ class EditorDesign(
     // find bar
     private var matchCase = false
 
-    private val findInput = EditText(context).apply {
+    private val findInput = AppCompatEditText(context).apply {
         hint = context.getString(R.string.editor_find)
         setSingleLine()
         textSize = 14f
@@ -186,7 +200,7 @@ class EditorDesign(
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
     }
 
-    private val replaceInput = EditText(context).apply {
+    private val replaceInput = AppCompatEditText(context).apply {
         hint = context.getString(R.string.editor_replace_hint)
         setSingleLine()
         textSize = 14f
@@ -225,26 +239,33 @@ class EditorDesign(
         orientation = LinearLayout.VERTICAL
         setBackgroundColor(colorBg)
 
-        // top bar
+        // CUSTOM.md #74: use the same activity-bar surface and height as the rest of the app.
         addView(
-            LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(colorBar)
-                setPadding(dp(14), 0, dp(4), 0)
+            ActivityBarLayout(context).apply {
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(14), 0, dp(4), 0)
 
-                addView(titleView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                if (!readOnly) addView(undoButton)
-                if (!readOnly) addView(redoButton)
-                addView(findButton)
+                        addView(titleView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                        if (!readOnly) addView(undoButton)
+                        if (!readOnly) addView(redoButton)
+                        addView(findButton)
 
-                if (canCheck) addView(checkButton)
+                        if (canCheck) addView(checkButton)
 
-                if (!readOnly) addView(saveButton)
-                if (split) addView(applyButton)
-                addView(moreButton)
+                        if (!readOnly) addView(saveButton)
+                        if (split) addView(applyButton)
+                        addView(moreButton)
+                    },
+                    FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+                )
             },
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)),
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                context.resources.getDimensionPixelSize(R.dimen.toolbar_height),
+            ),
         )
 
         noticeRow.addView(
@@ -636,8 +657,13 @@ class EditorDesign(
 
                 val adapter = object : ArrayAdapter<CharSequence>(context, android.R.layout.simple_list_item_1, labels) {
                     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                        val view = super.getView(position, convertView, parent)
+                        val view = super.getView(position, convertView, parent) as TextView
 
+                        // CUSTOM.md #74: use the app's primary text colour and standard list-row sizing.
+                        view.setTextColor(themedColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK))
+                        view.textSize = 16f
+                        view.setPadding(dp(16), 0, dp(16), 0)
+                        view.minHeight = dp(48)
                         view.setBackgroundColor(if (position == opened) openedBg else Color.TRANSPARENT)
 
                         return view
@@ -859,14 +885,19 @@ class EditorDesign(
     }
 
     private fun askLine() {
-        val input = EditText(context).apply {
+        val input = TextInputEditText(context).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            hint = context.getString(R.string.editor_goto_hint, editor.logicalLineCount)
             setSingleLine()
         }
+        val inputLayout = TextInputLayout(context).apply {
+            setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE)
+            hint = context.getString(R.string.editor_goto_hint, editor.logicalLineCount)
+            addView(input, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
         val box = FrameLayout(context).apply {
-            setPadding(dp(24), dp(8), dp(24), 0)
-            addView(input)
+            val horizontal = context.resources.getDimensionPixelSize(R.dimen.dialog_padding)
+            setPadding(horizontal, horizontal, horizontal, context.resources.getDimensionPixelSize(R.dimen.dialog_button_margin))
+            addView(inputLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         }
 
         MaterialAlertDialogBuilder(context)

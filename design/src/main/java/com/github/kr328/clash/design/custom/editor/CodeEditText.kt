@@ -36,6 +36,7 @@ import android.widget.TextView
 import androidx.appcompat.widget.AppCompatEditText
 import com.github.kr328.clash.core.model.EffectiveLine
 import com.github.kr328.clash.design.custom.ConfigDiff
+import com.github.kr328.clash.design.util.resolveThemedColor
 
 // CUSTOM (CUSTOM.md #46, not upstream): the text field of the built-in editor. It keeps the normal EditText (keyboard,
 // selection, cursor) and adds: line numbers, YAML colours for the lines on the screen, undo / redo, find and
@@ -60,7 +61,16 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorComment = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#757575")
     private val colorPunct = if (night) Color.parseColor("#89DDFF") else Color.parseColor("#00838F")
     private val colorGutterText = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#9E9E9E")
-    private val colorGutterBg = if (night) Color.parseColor("#1F2328") else Color.parseColor("#F1F3F4")
+    private val colorGutterBg = context.resolveThemedColor(com.google.android.material.R.attr.colorSurface) // CUSTOM.md #74
+
+    private fun themedColor(attr: Int, fallback: Int): Int {
+        val values = context.obtainStyledAttributes(intArrayOf(attr))
+        return try {
+            values.getColorStateList(0)?.defaultColor ?: values.getColor(0, fallback)
+        } finally {
+            values.recycle()
+        }
+    }
     private val colorErrorBand = if (night) Color.parseColor("#55E57373") else Color.parseColor("#33D32F2F")
     private val colorMatch = if (night) Color.parseColor("#88FFB300") else Color.parseColor("#88FFEB3B")
     private val colorGuide = if (night) Color.parseColor("#2EFFFFFF") else Color.parseColor("#26000000")
@@ -1875,7 +1885,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, rowHeight)
                     }
                     val item = getItem(position)
-                    val textColor = if (night) Color.WHITE else Color.BLACK
+                    val textColor = themedColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK) // CUSTOM.md #74
                     val shown = android.text.SpannableStringBuilder(item.label)
 
                     shown.setSpan(ForegroundColorSpan(textColor), 0, shown.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -1903,7 +1913,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             elevation = 8 * density
             setBackgroundDrawable(
                 GradientDrawable().apply {
-                    setColor(if (night) Color.parseColor("#2B2F36") else Color.WHITE)
+                    setColor(context.resolveThemedColor(com.google.android.material.R.attr.colorSurface)) // CUSTOM.md #74
                     setStroke(density.toInt().coerceAtLeast(1), if (night) Color.parseColor("#444B55") else Color.parseColor("#CFD4D9"))
                     cornerRadius = 8 * density
                 },

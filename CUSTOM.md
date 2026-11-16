@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r90
+当前版本：2_11_36-r91
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1046,3 +1046,16 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改了的文件：** 新增 `TargetStatusText.kt`、两份 `strings_iptest_status.xml`；改 `IpTestView.kt`（`targetText` 里加两行）、`ConfigCheckActivity.kt`（日志调用多传一个参数并加 import）、两份 `strings_iptest.xml`（只改 `iptest_log_target` 一行）、`CUSTOM.md`。没有改上游文件，总表不变。
 - **功耗：** 只是显示时查一次固定表，没有请求、定时器、轮询，没有额外内存。
 - **局限：** 没编译（这里没有 Android 编译环境）；说明是按标准 HTTP 含义写的，网站可以乱用状态码（比如谷歌的拦截页返回 429，含义就是"请求太多"，不一定是你的 IP 被判地区）。
+
+
+## 74. 编辑器页面与原版主题控件统一（r91）
+**目标：** 减少内置编辑器与 App 其他页面之间的视觉割裂，只统一通用页面外观，不改变编辑器的功能设计。
+- **页面背景 / 表面：** 编辑器页面背景使用 App 的 `android:windowBackground`；顶栏使用原版 `ActivityBarLayout`；查找栏、符号栏、状态栏及行号槽使用 Material `colorSurface`。浅色 / 深色模式跟随 App 主题。
+- **顶栏：** 高度使用原版 `toolbar_height`（56dp），标题使用原版工具栏标题的 20sp / medium 字重。系统栏内边距仍由原有的 #53 Insets 逻辑负责。撤销 / 重做图标、三个点图标、文字操作按钮的尺寸、触摸区域和行为不改；#70 明确要求保留的顶栏文字按钮样式不改。
+- **文字层级：** 标题、状态文字和普通正文使用 App 的 `textColorPrimary`；辅助文字使用 `textColorSecondary`。YAML 正文、语法高亮、诊断、差异标记等语义色不改。
+- **输入框：** 查找 / 替换框改用与原版搜索页相同的 `AppCompatEditText`；跳转行号弹窗改用原版 `dialog_text_field.xml` 所采用的 Material outlined 输入框样式和对话框内边距。
+- **弹窗 / 菜单：** 对话框继续使用原有 `MaterialAlertDialogBuilder`；历史版本列表行改为 App 正文色、16sp、48dp 最小行高；更多菜单改用 AppCompat `PopupMenu`；补全弹窗背景跟随 Material `colorSurface`，文字跟随 App 正文色。
+- **保留的既有约定：** #46–#73 的编辑器功能、功耗策略、语法高亮 / 问题颜色、差异标记颜色、字号范围、符号栏 19sp / 42dp、状态栏 14sp、底栏按钮 17sp / 36dp、历史版本当前行颜色、三个点 24dp 等均不改变。
+- **功耗：** 只改主题取色和控件外观；没有新增定时器、轮询、网络请求或后台任务。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/editor/CodeEditText.kt`、`CUSTOM.md`。没有修改上游文件，不改上游文件总表。
+- **验证：** 仅完成源码级检查；未运行 Android 编译、未在手机上验证。需由用户手动触发 Build Debug 后确认主题取色、工具栏高度、输入框和弹窗在浅色 / 深色模式下的实际效果。
