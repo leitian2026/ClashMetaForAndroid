@@ -7,14 +7,15 @@ import android.view.Gravity
 import android.graphics.Typeface
 import android.text.InputType
 import android.view.View
-import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.github.kr328.clash.design.Design
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -104,8 +105,7 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
             val pad = (20 * density).toInt()
 
             val inputs = fields.map { field ->
-                EditText(context).apply {
-                    hint = field.hint
+                val input = TextInputEditText(context).apply {
                     setText(field.value)
                     setSingleLine()
                     inputType = if (field.email) {
@@ -114,6 +114,12 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                         InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
                             InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                     }
+                }
+
+                TextInputLayout(context).apply {
+                    hint = field.hint
+                    boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+                    addView(input)
                 }
             }
 
@@ -127,7 +133,14 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                     setPadding(0, 0, 0, (8 * density).toInt())
                 })
 
-                inputs.forEach { addView(it) }
+                inputs.forEachIndexed { index, input ->
+                    addView(input, LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        if (index < inputs.lastIndex) bottomMargin = (8 * density).toInt()
+                    })
+                }
             }
 
             suspendCancellableCoroutine<List<String>?> { ctx ->
@@ -155,7 +168,7 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
             val density = context.resources.displayMetrics.density
             val pad = (20 * density).toInt()
 
-            val box = CheckBox(context).apply { text = option }
+            val box = MaterialCheckBox(context).apply { text = option }
 
             val body = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
