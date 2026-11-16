@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r81
+当前版本：2_11_36-r82
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -942,3 +942,6 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 CheckCustom 报 `LargeActionLabel.kt` 有 `CUSTOM` 标记却不在总表里：这是 r69 误挂在它上面的 `CheckMark.paint` 钩子，r70 改挂到 `LargeActionCard.kt`（#57）后，这个文件当时没有被还原，一直留着。现在把 `subtext` 的 setter 还原成上游的 `binding.subtextView.text = value`，没有 `CUSTOM` 标记了。首页卡片的 ✓ / ✗ 着色由 `LargeActionCard.kt` 上的钩子负责，没变。
 - **改动文件：** 只有 `design/.../view/LargeActionLabel.kt`（还原成上游）。**功耗：** 没有影响。
 - **局限：** 没有 Actions 可跑，只确认了该文件不再含 `CUSTOM` 一词。
+
+## 65. 修 r80 英文文案的撇号（r82）
+r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号（`node's`），Android 资源合并报 `Invalid unicode escape sequence`，构建失败。改成 `node\'s`。只改 `design/src/main/res/values/strings_iptest.xml` 一处；中文那份没有撇号，没动。没有功耗影响。
