@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r80
+当前版本：2_11_36-r81
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -937,3 +937,8 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **改了的自有文件：** `iptest.go`（`IPRow.ColoErr`）、`iptest_probe.go`（`probeNode` 里调用 `nodeOwner`，新增 `nodeSNI`、`nodeOwner`）、`IpTestReport.kt`（`coloErr`）、`IpTestView.kt`（套入节点的列表）、`ConfigCheckActivity.kt`（套入节点时多三行日志；机房列表（英文名、国旗）套入节点测也取一次）、两份 `strings_iptest.xml`（`iptest_log_node_colo_*`）。没有新文件，没有改上游文件。
 - **没动的：** 直连测的逻辑和列；"测速""速度"；端口列显示的仍是节点自己配置的端口。
 - **局限：** 没编译、没在手机上跑过（这里只有 `gofmt`，没有 Android / mihomo 编译环境），要靠 Actions 构建验证。没有为 `nodeSNI` / `nodeOwner` 写单测：它们依赖真实的 `ipdelay` 包（`RawProxies`）。机房的准确度取决于"额外直连"和节点实际路径是否落在同一个机房。
+
+## 64. 还原 `LargeActionLabel.kt`，让 CheckCustom 通过（r81）
+CheckCustom 报 `LargeActionLabel.kt` 有 `CUSTOM` 标记却不在总表里：这是 r69 误挂在它上面的 `CheckMark.paint` 钩子，r70 改挂到 `LargeActionCard.kt`（#57）后，这个文件当时没有被还原，一直留着。现在把 `subtext` 的 setter 还原成上游的 `binding.subtextView.text = value`，没有 `CUSTOM` 标记了。首页卡片的 ✓ / ✗ 着色由 `LargeActionCard.kt` 上的钩子负责，没变。
+- **改动文件：** 只有 `design/.../view/LargeActionLabel.kt`（还原成上游）。**功耗：** 没有影响。
+- **局限：** 没有 Actions 可跑，只确认了该文件不再含 `CUSTOM` 一词。
