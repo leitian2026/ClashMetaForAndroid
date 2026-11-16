@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #73): the words after an HTTP status code of the target site -->
+<resources>
+    <string name="iptest_http_200">OK</string>
+    <string name="iptest_http_204">No content</string>
+    <string name="iptest_http_301">Moved for good</string>
+    <string name="iptest_http_302">Moved for now</string>
+    <string name="iptest_http_303">See other</string>
+    <string name="iptest_http_304">Not modified</string>
+    <string name="iptest_http_307">Moved for now</string>
+    <string name="iptest_http_308">Moved for good</string>
+    <string name="iptest_http_400">Bad request</string>
+    <string name="iptest_http_401">Login needed</string>
+    <string name="iptest_http_403">Refused</string>
+    <string name="iptest_http_404">Not found</string>
+    <string name="iptest_http_405">Method not allowed</string>
+    <string name="iptest_http_407">Proxy login needed</string>
+    <string name="iptest_http_429">Too many requests</string>
+    <string name="iptest_http_451">Blocked by law</string>
+    <string name="iptest_http_500">Server error</string>
+    <string name="iptest_http_502">Bad gateway</string>
+    <string name="iptest_http_503">Unavailable</string>
+    <string name="iptest_http_504">Gateway timeout</string>
+    <string name="iptest_http_520">CF unknown error</string>
+    <string name="iptest_http_521">CF origin down</string>
+    <string name="iptest_http_522">CF origin timed out</string>
+    <string name="iptest_http_523">CF origin unreachable</string>
+    <string name="iptest_http_524">CF origin too slow</string>
+    <string name="iptest_http_525">CF origin TLS failed</string>
+    <string name="iptest_http_526">CF origin cert invalid</string>
+    <string name="iptest_http_2xx">Success</string>
+    <string name="iptest_http_3xx">Redirect</string>
+    <string name="iptest_http_4xx">Refused or bad request</string>
+    <string name="iptest_http_5xx">Server error</string>
+</resources>

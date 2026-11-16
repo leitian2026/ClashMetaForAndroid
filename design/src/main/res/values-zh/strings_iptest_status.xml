@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #73): the words after an HTTP status code of the target site -->
+<resources>
+    <string name="iptest_http_200">正常</string>
+    <string name="iptest_http_204">无内容</string>
+    <string name="iptest_http_301">永久跳转</string>
+    <string name="iptest_http_302">临时跳转</string>
+    <string name="iptest_http_303">跳转</string>
+    <string name="iptest_http_304">未修改</string>
+    <string name="iptest_http_307">临时跳转</string>
+    <string name="iptest_http_308">永久跳转</string>
+    <string name="iptest_http_400">请求有误</string>
+    <string name="iptest_http_401">要登录</string>
+    <string name="iptest_http_403">被拒绝</string>
+    <string name="iptest_http_404">找不到</string>
+    <string name="iptest_http_405">方法不允许</string>
+    <string name="iptest_http_407">要代理认证</string>
+    <string name="iptest_http_429">请求太多</string>
+    <string name="iptest_http_451">法律原因不可看</string>
+    <string name="iptest_http_500">服务器出错</string>
+    <string name="iptest_http_502">网关错误</string>
+    <string name="iptest_http_503">暂不可用</string>
+    <string name="iptest_http_504">网关超时</string>
+    <string name="iptest_http_520">CF 未知错误</string>
+    <string name="iptest_http_521">CF 源站已关</string>
+    <string name="iptest_http_522">CF 连源站超时</string>
+    <string name="iptest_http_523">CF 连不到源站</string>
+    <string name="iptest_http_524">CF 源站响应超时</string>
+    <string name="iptest_http_525">CF 源站握手失败</string>
+    <string name="iptest_http_526">CF 源站证书无效</string>
+    <string name="iptest_http_2xx">成功</string>
+    <string name="iptest_http_3xx">跳转</string>
+    <string name="iptest_http_4xx">请求被拒或有误</string>
+    <string name="iptest_http_5xx">服务器出错</string>
+</resources>

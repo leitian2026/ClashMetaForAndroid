@@ -555,7 +555,10 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         val note = if (r.targetNote.isEmpty()) "" else " → " + hostOf(r.targetNote)
 
-        return r.targetStatus.toString() + note + softLine(r)
+        // CUSTOM.md #73: a few words after the code say what it means
+        val word = TargetStatusText.of(context, r.targetStatus).let { if (it.isEmpty()) "" else " " + it }
+
+        return r.targetStatus.toString() + word + note + softLine(r)
     }
 
     // CUSTOM.md #67: the second line: what the page itself says (moved by the page, or says the region is refused)

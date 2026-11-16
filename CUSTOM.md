@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r89
+当前版本：2_11_36-r90
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1037,3 +1037,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **三个点：** `ic_editor_more.xml` 24dp，圆点半径 2.2（r88 是 28dp、2.8，太大；最早的文字 "⋮" 太小）。
 - **改了的文件：** `ipdelay/iptry.go`、`conftest/iptest.go`、`conftest/iptest_probe.go`、`conftest/iptest_probe_test.go`（测试里改用 `ownerSource`）、两份 `strings_iptest.xml`、`ic_editor_more.xml`、`CUSTOM.md`。没有改上游文件。
 - **局限：** 没编译（这里没有 mihomo 源码，Go 包编不了），只做了 `gofmt`；要靠 Actions 的 Build Debug。
+
+## 73. 目标站反应的状态码后面加几个字的说明（r90）
+只加显示用的文字，不改任何测试、判断、颜色逻辑。
+- **做法：** 新文件 `design/.../custom/TargetStatusText.kt`（`TargetStatusText.of(context, code)`，纯查表）：常见状态码（200 204 301 302 303 304 307 308 400 401 403 404 405 407 429 451 500 502 503 504，以及 Cloudflare 的 520–526）各有一句短话，其他码按类别给（2xx 成功、3xx 跳转、4xx 请求被拒或有误、5xx 服务器出错）；不是 HTTP 状态码（0，没有回应）返回空。
+- **显示：** "目标站反应"那一格在状态码后面接上说明，如 `403 被拒绝`、`302 临时跳转 → www.google.com`；颜色、第二行（页面自己跳转 / 疑似地区不可用）都没动。复制表格时这一格也带说明。日志那行改成 `HTTP 403（被拒绝）`。
+- **字符串：** 新文件 `values/strings_iptest_status.xml`（英文）和 `values-zh/strings_iptest_status.xml`（中文）；其他语言和 #43 起的其他字符串一样回落到英文。`iptest_log_target` 两份多了第 5 个参数 `%5$s`。
+- **改了的文件：** 新增 `TargetStatusText.kt`、两份 `strings_iptest_status.xml`；改 `IpTestView.kt`（`targetText` 里加两行）、`ConfigCheckActivity.kt`（日志调用多传一个参数并加 import）、两份 `strings_iptest.xml`（只改 `iptest_log_target` 一行）、`CUSTOM.md`。没有改上游文件，总表不变。
+- **功耗：** 只是显示时查一次固定表，没有请求、定时器、轮询，没有额外内存。
+- **局限：** 没编译（这里没有 Android 编译环境）；说明是按标准 HTTP 含义写的，网站可以乱用状态码（比如谷歌的拦截页返回 429，含义就是"请求太多"，不一定是你的 IP 被判地区）。

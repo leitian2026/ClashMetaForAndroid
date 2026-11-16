@@ -97,7 +97,7 @@
     <string name="iptest_target_sub">Target address: %1$s (the tries go to it through the node; Site reaction is what it answered, Exit data centre is read from the Cf-Ray of its answer, empty when the site is not behind Cloudflare)</string>
     <string name="iptest_col_target">Site reaction</string>
     <string name="iptest_col_tcolo">Exit data centre</string>
-    <string name="iptest_log_target">%1$s target site: HTTP %2$d, redirect %3$s, exit data centre %4$s</string>
+    <string name="iptest_log_target">%1$s target site: HTTP %2$d (%5$s), redirect %3$s, exit data centre %4$s</string>
     <string name="iptest_log_target_none">%1$s target site: no answer</string>
     <string name="iptest_soft_redirect">The page moves to %1$s</string>
     <string name="iptest_soft_region">Page says region not available (guess)</string>
