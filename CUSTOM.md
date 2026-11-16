@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r99
+当前版本：2_11_36-r100
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1138,3 +1138,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **修复：** 改为合法的三参数构造函数 `TextInputLayout(context, null, com.google.android.material.R.attr.textInputStyle)`，并保留 `setBoxBackgroundMode(BOX_BACKGROUND_OUTLINE)`，确保使用主题输入框样式且保持 outlined 外观。未改变提示、数字输入、对话框布局和确认 / 取消行为。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt`、`CUSTOM.md`。没有修改上游文件。
 - **验证：** 对照 #102 编译日志确认根因并检查构造函数签名；本次仅做源码检查，尚未重新编译或真机验证。需用户手动触发 Build Debug；不会自动触发构建。
+
+
+## 83. 测 IP“读取配置的 IP”按钮统一为 Material 主题样式（r100）
+- **原因：** 对照 #75 / #80 检查时发现，“测速 / 取消”行内按钮已使用 Material outlined 样式并跟随主题，但“读取配置的 IP”仍直接创建 android.widget.Button，没有明确使用 Material Components 按钮样式。
+- **修复：** 将该按钮改为 MaterialButton(context)，由 App 当前 Material 主题提供按钮主色、文字对比色和形状；保留原有文案、全宽布局、启用 / 禁用状态、读取中提示、点击回调和读取逻辑。不额外硬编码浅色 / 深色颜色值。
+- **保留：** 只改按钮控件类型，不改变配置 IP 的读取范围、解析、勾选、填入、网络请求或对话框其他控件。
+- **功耗 / 网络：** 纯 UI 控件替换，没有新增请求、定时器、轮询、监听或后台任务。
+- **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt 和本登记文件；没有修改上游文件，上游文件总表不变。
+- **验证：** 完成源码差异检查；未运行 Android 编译、未做真机浅色 / 深色验证。需用户手动触发 Build Debug；不会自动触发构建。

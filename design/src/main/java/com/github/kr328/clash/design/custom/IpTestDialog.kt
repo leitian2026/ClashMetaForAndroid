@@ -6,7 +6,6 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -16,6 +15,7 @@ import android.widget.TextView
 import com.github.kr328.clash.core.model.IpTestConfigIp
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.R
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -158,7 +158,7 @@ object IpTestDialog {
                 // cancelled when the dialog goes away, so a late answer does not open a second dialog
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-                val readButton = Button(context).apply {
+                val readButton = MaterialButton(context).apply {
                     setText(R.string.iptest_cfg_button)
                     isAllCaps = false
 
