@@ -26,6 +26,7 @@ data class IpTestRow(
     val asn: String = "",
     val cf: Boolean = false,
     val colo: String = "",
+    val coloErr: String = "", // CUSTOM.md #63: node mode: why the data centre was not read ("nosni" or the failure)
     val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found
     // CUSTOM.md #52: ten tries (percent lost; milliseconds of the ones that worked), the ports, the download test
     val sent: Int = 0,

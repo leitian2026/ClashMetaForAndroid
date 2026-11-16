@@ -81,4 +81,7 @@
     <string name="iptest_log_speed_fail">%1$s 测速失败：%2$s</string>
     <string name="iptest_log_speed_cancelled">%1$s 测速已取消</string>
     <string name="iptest_log_error">出错：%1$s</string>
+    <string name="iptest_log_node_colo_ok">%1$s 机房：%2$s（对这个 IP 额外直连一次，用节点自己的域名当 SNI 读到的；通常和节点走的一致，不保证每次相同）</string>
+    <string name="iptest_log_node_colo_nosni">%1$s 机房：没读，这个节点没有域名可当 SNI</string>
+    <string name="iptest_log_node_colo_fail">%1$s 机房：没读到（额外直连一次失败：%2$s）</string>
 </resources>

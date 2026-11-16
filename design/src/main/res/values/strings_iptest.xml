@@ -81,4 +81,7 @@
     <string name="iptest_log_land_ok">%1$s exit: %2$s (through node %3$s)</string>
     <string name="iptest_log_land_none">%1$s exit: not found (through node %2$s)</string>
     <string name="iptest_log_land_no_node">No node of the config has %1$s as its server, so the exit is not asked (it can only be seen through a node)</string>
+    <string name="iptest_log_node_colo_ok">%1$s data centre: %2$s (one extra direct connection to this IP with the node's own domain as SNI; usually the same as the node's, not guaranteed)</string>
+    <string name="iptest_log_node_colo_nosni">%1$s data centre: not read, the node has no domain to use as SNI</string>
+    <string name="iptest_log_node_colo_fail">%1$s data centre: not read (the extra direct connection failed: %2$s)</string>
 </resources>

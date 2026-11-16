@@ -706,12 +706,81 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		if rep.Ref != nil && st.Avg < rep.Ref.Ms {
 			row.Faster = rep.Ref.Ms - st.Avg
 		}
+
+		// CUSTOM.md #63: the data centre, the operator and the registered country of an address that works
+		if !t.IsDomain {
+			nodeOwner(ctx, &row, rep.Node)
+		}
 	} else {
 		row.Reason = lastErr
 		row.Code = errlog.Classify(lastErr)
 	}
 
 	rep.Rows = []IPRow{row}
+}
+
+// nodeSNI (CUSTOM.md #63) is the node's own domain: its `servername`, else `sni`, else `server`, the first of them that is
+// a name and not an address; "" when it has none.
+func nodeSNI(node string) string {
+	raw := ipdelay.RawProxies()[node]
+
+	for _, key := range []string{"servername", "sni", "server"} {
+		v, _ := raw[key].(string)
+		v = strings.TrimSpace(v)
+
+		if v == "" {
+			continue
+		}
+
+		if _, err := netip.ParseAddr(strings.Trim(v, "[]")); err == nil {
+			continue
+		}
+
+		return v
+	}
+
+	return ""
+}
+
+// nodeOwner (CUSTOM.md #63) fills the data centre, the operator and the registered country of an address tested through
+// a node. The data centre cannot be seen through the node (the last hop is the Worker going out to the target), so the
+// address is connected once more directly, with the node's own domain as SNI, and its `Cf-Ray` is read: the same
+// address and the same network as the node uses, but not guaranteed to land on the same data centre every time. The
+// port is the node's own when it has one. The operator and the country come from the same public service as in direct
+// mode (from memory when asked before). A failure only leaves the cell empty (ColoErr tells why).
+func nodeOwner(ctx context.Context, row *IPRow, node string) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	if sni := nodeSNI(node); sni == "" {
+		row.ColoErr = "nosni"
+	} else {
+		port := ipPort
+
+		if n, err := strconv.Atoi(row.Port); err == nil && n > 0 && n < 65536 {
+			port = row.Port
+		}
+
+		conn, _, _, err := handshakeECH(ctx, net.JoinHostPort(row.IP, port), sni, nil, probeTimeout)
+		if err != nil {
+			row.ColoErr = err.Error()
+		} else {
+			row.Colo, row.CF = fetchEvidence(ctx, conn, sni) // closes the connection
+
+			if row.Colo == "" {
+				row.ColoErr = "no Cf-Ray"
+			}
+		}
+	}
+
+	if ctx.Err() != nil {
+		return
+	}
+
+	actx, cancel := context.WithTimeout(ctx, 2*asnTimeout+time.Second)
+	row.ASN, row.Geo = lookupOwner(actx, row.IP)
+	cancel()
 }
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {

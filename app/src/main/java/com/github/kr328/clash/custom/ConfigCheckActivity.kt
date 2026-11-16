@@ -231,7 +231,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
             var landNoNodeSaid = false
 
-            if (direct) fetchColos(design)
+            fetchColos(design) // CUSTOM.md #63: the through-node table has the data centre column too
 
             for ((i, t) in targets.withIndex()) {
                 if (i > 0) delay(Random.nextLong(1000, 3001)) // the random gap between two addresses
@@ -314,6 +314,30 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                             design.ipLog(getString(R.string.iptest_log_land_ok, row.ip, CountryName.label(row.country), report.landNode))
                         } else {
                             design.ipLog(getString(R.string.iptest_log_land_none, row.ip, report.landNode))
+                        }
+                    }
+
+                    // CUSTOM.md #63: through a node: the data centre comes from one extra direct connection (SNI = the node's
+                    // own domain), the operator and the registered country from the public service
+                    if (!direct && !row.isDomain) {
+                        design.ipLog(
+                            when {
+                                row.colo.isNotEmpty() -> getString(R.string.iptest_log_node_colo_ok, row.ip, row.colo)
+                                row.coloErr == "nosni" -> getString(R.string.iptest_log_node_colo_nosni, row.ip)
+                                else -> getString(R.string.iptest_log_node_colo_fail, row.ip, row.coloErr.ifEmpty { "-" })
+                            },
+                        )
+
+                        design.ipLog(
+                            if (row.asn.isNotEmpty()) {
+                                getString(R.string.iptest_log_asn_ok, row.ip, row.asn)
+                            } else {
+                                getString(R.string.iptest_log_asn_none, row.ip)
+                            },
+                        )
+
+                        if (row.geo.isNotEmpty()) {
+                            design.ipLog(getString(R.string.iptest_log_geo, row.ip, CountryName.label(row.geo)))
                         }
                     }
                 } else {

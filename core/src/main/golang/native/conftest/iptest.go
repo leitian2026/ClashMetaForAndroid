@@ -89,6 +89,9 @@ type IPRow struct {
 	Geo  string `json:"geo"`  // CUSTOM.md #62: the country the address is registered in (归属地), "US"; from the same answer as ASN
 	CF   bool   `json:"cf"`   // the answer of the server shows Cloudflare (a positive sign only)
 	Colo string `json:"colo"` // Cloudflare data centre
+	// CUSTOM.md #63: node mode: why the data centre was not read ("nosni" = the node has no domain to use as SNI, else the
+	// failure of the extra direct connection), "" when it was read or not asked
+	ColoErr string `json:"coloErr"`
 
 	// CUSTOM.md #52: ten tries, the ports and the download test (iptest_probe.go)
 	Sent  int       `json:"sent"`  // tries made

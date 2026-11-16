@@ -48,7 +48,8 @@ class IpTestView(private val context: Context, private val direct: Boolean) {
     private val keys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
     } else {
-        listOf(Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.FASTER, Key.TEST, Key.SPEED)
+        // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.FASTER, Key.TEST, Key.SPEED)
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
