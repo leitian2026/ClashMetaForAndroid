@@ -893,8 +893,7 @@ class EditorDesign(
         val inputLayout = TextInputLayout(
             context,
             null,
-            0,
-            com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox,
+            com.google.android.material.R.attr.textInputStyle,
         ).apply {
             setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE)
             hint = context.getString(R.string.editor_goto_hint, editor.logicalLineCount)

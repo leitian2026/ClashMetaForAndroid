@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r98
+当前版本：2_11_36-r99
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1127,9 +1127,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ## 81. 补齐编辑页主题控件适配（r98）
 **依据：** 按 #74 的编辑器视觉统一约定复核实际代码。页面背景、顶栏、文字层级、查找 / 替换输入框、历史版本行、更多菜单和补全弹窗表面已按 #74 处理；仍有两处没有完整跟随原版主题。
-- **跳转行号输入框：** `EditorDesign.askLine()` 的 `TextInputLayout` 显式采用 `Widget.MaterialComponents.TextInputLayout.OutlinedBox` 样式，与原版 `dialog_text_field.xml` 一致；保留原有对话框边距、数字输入、提示、确认和取消行为。
+- **跳转行号输入框：** `EditorDesign.askLine()` 的 `TextInputLayout` 使用 Material `textInputStyle` 主题属性，并显式设置 `BOX_BACKGROUND_OUTLINE`，与原版 `dialog_text_field.xml` 的 outlined 外观保持一致；保留原有对话框边距、数字输入、提示、确认和取消行为。
 - **补全弹窗边框：** `CodeEditText` 的补全 `PopupWindow` 边框不再使用固定浅 / 深灰色，改为 App `textColorSecondary` 的低透明度颜色；背景仍为 Material `colorSurface`，圆角、阴影、尺寸、候选文字、选择行为和弹出位置不变。
 - **保留：** #46–#74 的编辑功能、语法高亮、诊断 / 差异语义色、字号范围、工具栏与底栏尺寸、符号栏、状态栏、历史版本和补全逻辑均不改。
 - **功耗 / 网络：** 仅调整输入框样式与边框取色，没有新增定时器、轮询、网络请求、监听或后台任务。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/editor/CodeEditText.kt`、`CUSTOM.md`。没有修改上游文件，上游文件总表不变。
 - **验证：** 完成源码差异检查；未运行 Android 编译、未做真机浅色 / 深色验证。按仓库约定由用户手动触发 Build Debug；不会自动触发构建。
+## 82. 修复编辑页跳转行号输入框的 Kotlin 构造参数错误（r99）
+- **原因：** Build Debug #102 在 `EditorDesign.kt:893` 报 `TextInputLayout` 构造函数无匹配重载。上次误将 XML 样式资源作为第四个构造参数传入；该组件在当前 Material 依赖中仅提供最多三个参数的构造函数，后续 `apply` 接收者错误是连带报错。
+- **修复：** 改为合法的三参数构造函数 `TextInputLayout(context, null, com.google.android.material.R.attr.textInputStyle)`，并保留 `setBoxBackgroundMode(BOX_BACKGROUND_OUTLINE)`，确保使用主题输入框样式且保持 outlined 外观。未改变提示、数字输入、对话框布局和确认 / 取消行为。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt`、`CUSTOM.md`。没有修改上游文件。
+- **验证：** 对照 #102 编译日志确认根因并检查构造函数签名；本次仅做源码检查，尚未重新编译或真机验证。需用户手动触发 Build Debug；不会自动触发构建。
