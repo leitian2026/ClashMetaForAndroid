@@ -148,7 +148,7 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
                     .setTitle(title)
                     .setView(ScrollView(context).apply { addView(body) })
                     .setPositiveButton(android.R.string.ok) { _, _ ->
-                        ctx.resume(inputs.map { it.text.toString() })
+                        ctx.resume(inputs.map { it.editText?.text?.toString().orEmpty() })
                     }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
