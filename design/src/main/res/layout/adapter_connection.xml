@@ -8,7 +8,8 @@
     android:focusable="true"
     android:orientation="vertical"
     android:paddingHorizontal="@dimen/item_tailing_margin"
-    android:paddingVertical="@dimen/item_padding_vertical">
+    android:paddingTop="@dimen/item_padding_vertical"
+    android:paddingBottom="4dp">
 
     <TextView
         android:id="@+id/connection_title"
@@ -16,7 +17,8 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+        android:textColor="?android:attr/textColorPrimary" />
 
     <TextView
         android:id="@+id/connection_node"
@@ -25,12 +27,20 @@
         android:layout_marginTop="@dimen/item_text_margin"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+        android:textColor="?android:attr/textColorSecondary" />
 
     <TextView
         android:id="@+id/connection_info"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/item_text_margin"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+        android:textColor="?android:attr/textColorSecondary" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="@dimen/item_padding_vertical"
+        android:background="?attr/colorControlHighlight" />
 </LinearLayout>
