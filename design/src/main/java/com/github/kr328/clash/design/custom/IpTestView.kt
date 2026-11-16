@@ -522,7 +522,14 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         val note = if (r.targetNote.isEmpty()) "" else " → " + hostOf(r.targetNote)
 
-        return r.targetStatus.toString() + note
+        return r.targetStatus.toString() + note + softLine(r)
+    }
+
+    // CUSTOM.md #67: the second line: what the page itself says (moved by the page, or says the region is refused)
+    private fun softLine(r: IpTestRow): String = when (r.targetSoft) {
+        "refresh", "script" -> "\n" + context.getString(R.string.iptest_soft_redirect, hostOf(r.targetSoftNote))
+        "region" -> "\n" + context.getString(R.string.iptest_soft_region)
+        else -> ""
     }
 
     private fun hostOf(location: String): String {
@@ -537,6 +544,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private fun targetColor(r: IpTestRow): Int = when {
         !r.ok || r.targetStatus == 0 -> colorMuted
+        r.targetSoft == "region" -> colorBad
+        r.targetSoft == "refresh" || r.targetSoft == "script" -> colorWarn
         r.targetStatus in 200..299 -> colorGood
         r.targetStatus in 300..399 -> colorWarn
         else -> colorBad

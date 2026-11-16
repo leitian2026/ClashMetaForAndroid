@@ -31,6 +31,8 @@ data class IpTestRow(
     val targetStatus: Int = 0,
     val targetNote: String = "",
     val targetColo: String = "",
+    val targetSoft: String = "", // CUSTOM.md #67: "refresh" / "script" / "region" / "" (a guess from the page's first 64 KB)
+    val targetSoftNote: String = "",
     val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found
     // CUSTOM.md #52: ten tries (percent lost; milliseconds of the ones that worked), the ports, the download test
     val sent: Int = 0,

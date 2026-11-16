@@ -100,6 +100,10 @@ type IPRow struct {
 	TargetStatus int    `json:"targetStatus"`
 	TargetNote   string `json:"targetNote"`
 	TargetColo   string `json:"targetColo"`
+	// CUSTOM.md #67: what the page says about being moved or refused ("refresh", "script", "region", "" when nothing) and
+	// the address or the words that gave it away; a guess from the first 64 KB of the page
+	TargetSoft     string `json:"targetSoft"`
+	TargetSoftNote string `json:"targetSoftNote"`
 
 	// CUSTOM.md #52: ten tries, the ports and the download test (iptest_probe.go)
 	Sent  int       `json:"sent"`  // tries made

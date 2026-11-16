@@ -8,6 +8,7 @@ package ipdelay
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,6 +27,9 @@ type TargetResult struct {
 	Location string // the `Location` header of a redirect, "" otherwise
 	CfRay    string // `Cf-Ray` of the answer, "" when it has none (the site is not behind Cloudflare)
 	Server   string // `Server` of the answer
+	// CUSTOM.md #67: what the first part of the page says (SniffPage): SniffRefresh / SniffScript / SniffRegion, "" when nothing
+	Soft     string
+	SoftNote string // the address, or the words that gave it away
 	Err      string // the failure in the core's own words
 }
 
@@ -122,11 +126,18 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		delay = 1
 	}
 
-	return TargetResult{
+	res := TargetResult{
 		Delay:    delay,
 		Status:   resp.StatusCode,
 		Location: strings.TrimSpace(resp.Header.Get("Location")),
 		CfRay:    strings.TrimSpace(resp.Header.Get("Cf-Ray")),
 		Server:   strings.TrimSpace(resp.Header.Get("Server")),
 	}
+
+	// CUSTOM.md #67: the first part of the page (a failed or cut read just means less text; the delay above is already taken)
+	if body, _ := io.ReadAll(io.LimitReader(resp.Body, sniffMax)); len(body) > 0 {
+		res.Soft, res.SoftNote = SniffPage(body)
+	}
+
+	return res
 }

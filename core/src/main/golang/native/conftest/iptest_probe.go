@@ -667,6 +667,8 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		statuses = map[int]int{} // CUSTOM.md #66: status -> how many tries got it
 		location string
 		ray      string
+		soft     string // CUSTOM.md #67
+		softNote string
 	)
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
@@ -691,6 +693,10 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 			if ray == "" {
 				ray = res.CfRay
+			}
+
+			if soft == "" {
+				soft, softNote = res.Soft, res.SoftNote
 			}
 
 			return
@@ -747,6 +753,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			row.TargetStatus = best
 			row.TargetNote = location
 			row.TargetColo = coloOf(ray)
+			row.TargetSoft, row.TargetSoftNote = soft, softNote
 
 			// the exit country is asked through the node as before (the target address is not asked for it)
 			if !t.IsDomain {

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r83
+当前版本：2_11_36-r84
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -957,3 +957,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗：** 没有定时器、没有轮询；只在点"套入节点测"时发请求，每个 IP 的请求数不变（还是 10 次，只是对象换成目标网址），落地多的查询和 r80 一样。
 - **新增文件：** `core/src/main/golang/native/ipdelay/iptry_target.go`。**改了的自有文件：** `iptest.go`（`IPRequest.Target`、`IPRow.TargetStatus` / `TargetNote` / `TargetColo`）、`iptest_probe.go`（`probeNode`）、`IpTestReport.kt`、`IpTestDialog.kt`（`IpTestChoice.target`、输入框）、`ConfigCheckDesign.kt`（`ipBegin` 多一个参数）、`IpTestView.kt`（两列）、`ConfigCheckActivity.kt`（校验、请求、说明、日志）、两份 `strings_iptest.xml`。没有改上游文件。
 - **局限：** 没编译、没在手机上跑过（这里没有 Android / mihomo 编译环境，`go vet` 也因没有网络拉不到依赖，只做了 `gofmt`）。拿不到目标站对"国家"的判断，只能看到它的状态码和跳转；有的站对非浏览器请求会返回 403，那一格红并不一定代表浏览器里也被拦（请求的 User-Agent 是 `curl/8.5.0`，没有带浏览器的头和 Cookie）。
+
+## 67. 目标站反应：读页面内容，认出页面自己的跳转和疑似地区限制（r84）
+只改套入节点测填了"目标网址"时的"目标站反应"，其余没动。r83 只看状态码和响应头，网站用 200 加一页"本地区不可用"、或用 `<meta refresh>` / 一行脚本把你转走，都只会显示绿色的 `200`。
+- **做法：** `ipdelay.TryTarget` 在拿到响应头、算完延迟之后，再读页面最多 64 KB（`sniffMax`，读失败或被截断只是少一点文字，延迟不受影响），交给新文件 `ipdelay/pagesniff.go` 的 `SniffPage`（纯函数，不依赖别的包，有单测 `pagesniff_test.go`）。它按顺序找第一个：① `<meta http-equiv="refresh" content="…url=…">`（`refresh`，记下地址）；② **页面不超过 4096 字节**时的 `location = "…"` / `location.replace("…")` / `location.assign("…")`（`script`，记下地址；大页面不判，因为大页面的正常代码里到处是这种写法）；③ 一份短的短语表（`region`，记下匹配到的那句），如 "not available in your country"、"unsupported_country_region_territory"、"您所在的国家/地区不可用" 等，都是整句，普通文字不会碰巧匹配。10 次里取第一个有结果的。
+- **显示：** "目标站反应"那一格在状态码下面多一行：`页面自己跳转 域名`（橙）或 `页面疑似写了地区不可用`（红）；状态码那行的颜色也跟着变（有页面判断时不再显示绿色）。日志多一行写明地址或匹配到的那句话。
+- **局限（必须知道）：** 这是从文字猜的。① **用脚本在页面加载后才画出内容的网站（大多数单页应用）读不到**，Gemini、ChatGPT 这类很可能就是，页面里看不到提示，这里就什么都不显示，这种情况**不代表没被限制**；② 短语表不可能包含每个网站的写法，没匹配到不代表没写；③ 脚本跳转只在小页面上判；④ 只读了页面前 64 KB，也没有执行脚本。所以：显示了"疑似"可以当有力的提示，什么都没显示不能当"没问题"。
+- **功耗：** 没有定时器、没有轮询。每次请求多读最多 64 KB 页面，只在点"套入节点测"时发生。
+- **新增文件：** `core/src/main/golang/native/ipdelay/pagesniff.go`、`pagesniff_test.go`。**改了的自有文件：** `iptry_target.go`（`TargetResult.Soft` / `SoftNote`，读页面）、`iptest.go`（`IPRow.TargetSoft` / `TargetSoftNote`）、`iptest_probe.go`（`probeNode`）、`IpTestReport.kt`、`IpTestView.kt`（`softLine`、颜色）、`ConfigCheckActivity.kt`（日志）、两份 `strings_iptest.xml`（`iptest_soft_*`、`iptest_log_soft_*`）。没有改上游文件。
+- **验证：** `SniffPage` 单独放进一个临时模块跑了单测（meta 跳转、属性顺序、没有地址、脚本跳转、大页面不判、地区短语英文和中文、普通中文不误判），通过；`gofmt` 通过。`TryTarget` 的改动和 Kotlin 部分没有编译（没有 Android / mihomo 编译环境，也拉不到 Go 依赖）。

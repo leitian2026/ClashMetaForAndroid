@@ -92,4 +92,8 @@
     <string name="iptest_col_tcolo">Exit data centre</string>
     <string name="iptest_log_target">%1$s target site: HTTP %2$d, redirect %3$s, exit data centre %4$s</string>
     <string name="iptest_log_target_none">%1$s target site: no answer</string>
+    <string name="iptest_soft_redirect">The page moves to %1$s</string>
+    <string name="iptest_soft_region">Page says region not available (guess)</string>
+    <string name="iptest_log_soft_redirect">%1$s target page moves the browser on by itself (meta refresh or script) to: %2$s</string>
+    <string name="iptest_log_soft_region">%1$s target page seems to refuse this region (found the words: %2$s); a guess from the first 64 KB of the page</string>
 </resources>

@@ -338,6 +338,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                                 getString(R.string.iptest_log_target, row.ip, row.targetStatus, row.targetNote.ifEmpty { "-" }, row.targetColo.ifEmpty { "-" })
                             },
                         )
+
+                        // CUSTOM.md #67: what the page itself says
+                        when (row.targetSoft) {
+                            "refresh", "script" -> design.ipLog(getString(R.string.iptest_log_soft_redirect, row.ip, row.targetSoftNote))
+                            "region" -> design.ipLog(getString(R.string.iptest_log_soft_region, row.ip, row.targetSoftNote))
+                        }
                     }
 
                     if (!direct && !row.isDomain) {
