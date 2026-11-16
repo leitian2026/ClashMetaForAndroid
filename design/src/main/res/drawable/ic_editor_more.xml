@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM.md #71: the editor's "more" button, three big filled dots (the text "⋮" was small and thin) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.2,4.5a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0zM9.2,12a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0zM9.2,19.5a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0z" />
+</vector>

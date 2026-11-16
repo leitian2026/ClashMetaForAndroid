@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r87
+当前版本：2_11_36-r88
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -984,6 +984,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 
 ## 69. 测其他 IP 的对话框加"读取配置的 IP"（r86）
+> **r88 起，"读什么"和"填入"两处已被 #71 取代**：读的是代理页那一套（不再读 IPv6、不再跟 hosts 别名、不再自己问解析器），"填入"是覆盖不是追加。下面写的是 r86 当时的做法，留作记录；别名 / 通配键 / 没对照源码那几条因此不再有效。
 只在点按钮时读一次，读出来让你勾选，勾上的填进地址输入框，之后的测试（直连测、套入节点测）照旧，没有新的测试逻辑。
 - **入口：** "测其他 IP"对话框里输入框下面多一个按钮"读取配置的 IP"。点了以后内核读一遍当前配置，弹出一个勾选列表（默认全勾），每个地址下面写"节点：哪几个节点用它 · 来源"，来源是 `server 直接写的这个 IP` / `hosts：键` / `hosts 别名：键` / `由 域名 解析得到`。点"填入"把勾上的追加到输入框（已在输入框里的不重复加）。超过 20 个时，开始测试时仍按原来的上限截断，并显示"超过 20 个的上限，还有 N 个没测"。
 - **读什么：** `proxies:` 里每个有 `server` 的节点：
@@ -1014,3 +1015,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 **功耗：** 全靠点击：长按一次只建 / 删一个空文件；备份多读写几个固定版本（每个 ≤ 2 MB，最多 20 个）；没有定时器、没有轮询。
 **新增文件：** `design/src/main/res/drawable/ic_editor_undo.xml`、`ic_editor_redo.xml`。**改了的自有文件：** `ConfigHistory.kt`（`pinned`、`setPinned`、`replacePinned`、`MAX_PINNED`、`prune`）、`BackupManager.kt`（`write`、`restore`）、`EditorDesign.kt`（`pickVersion`、`iconAction`、底栏尺寸）、`EditorActivity.kt`（`history()`、`openedAt`）、两份 `strings_editor.xml`（`editor_pick_hint`、`history_opened`、`history_opened_changed`、`editor_pinned`、`editor_unpinned`、`editor_pin_limit`）。没有改上游文件，上游文件总表不变。
 **局限：** 这次什么都没编译、没跑：环境里没有 Android 构建环境，Kotlin 只靠人工对照检查，请以 Actions 的构建为准。蓝底、图标大小、字号和按钮高度只是按数值选的，实际好不好看要装上看，不合适告诉我具体哪个再调。列表是系统 `ListView`，行文字颜色沿用系统的，夜间蓝底上能不能看清要看实际。从云端恢复时固定版本的时间沿用备份里的时间（不同手机的时钟不影响排序以外的东西）。
+
+## 71. 读取配置的 IP 改用代理页的逻辑、"填入"覆盖输入框、历史版本点选后关闭、编辑页三个点放大（r88）
+四处都是你点按钮才发生，没有新增定时器 / 轮询 / 监听。
+- **读取配置的 IP = 代理页卡片上那份 IP（`conftest/iptest_config.go` 重写）：** 先 `ipdelay.PrepareDisplay(节点名们)`（和打开代理页时调的是同一个函数：没有 `hosts:` 条目的域名解析一次，结果缓存在内存，同一次加载配置内不再问，最多等 3 秒），再对每个节点调 `ipdelay.GetForDisplay(节点名)`。所以：只列 IPv4；每个节点最多 8 个，在用的排最前；server 是 IP 就是这一个；server 是域名且 `hosts:` 里有（**只认精确键**，和代理页一样）就是 hosts 里的 IPv4，按你写的顺序；否则是解析一次的结果。`ip-version: ipv6` 的节点、server 是 IPv6 地址的节点、provider 里的节点不列（代理页也不显示）。测过速的节点按代理页的规则显示测过的那些地址。弹窗里的地址和代理页一致。
+- **合并：** 同一个地址被几个节点用，合成一行，列出所有节点；在用的地址排最前，并在那一行写"在用"（`ConfigIP.InUse`、`IpTestConfigIp.inUse`、`iptest_cfg_in_use`）；只有用它的节点全有 `dialer-proxy` 才标"链式"。来源只有三种：`server` / `hosts` / `dns`（不再有 `alias`）。一个域名没得到 IPv4（解析失败，或 hosts 里没有 IPv4）列在"没读到"里，原因写"解析失败"，hosts 的情况带说明"hosts 里没有 IPv4"。
+- **去掉的东西：** 自己的 hosts 通配键匹配、别名展开、fake-ip 过滤、`askCore` 的 A+AAAA 查询、`ConfigRead.Omitted` / `Family`（字段还在、恒为 0，Kotlin 那边不用改）。因此 #69 里"没对照内核源码"那两点（通配键规则、值可以是名字）不再存在；这个功能现在不依赖内核行为，只调用 `ipdelay` 的两个导出函数。
+- **"填入"改成覆盖（`IpTestDialog.kt`）：** 勾上的地址替换输入框原来的内容（每行一个），不再追加；一个都没勾就点"填入"，输入框保持不变。
+- **历史版本浮窗（`EditorDesign.pickVersion`）：** 点某一行以前只把序号交出去，对话框要等调用方处理，结果浮窗一直留着；现在点行后立刻关闭（序号照常交出去，取消 / 点外面仍然返回 -1）。长按固定 / 取消固定不关。
+- **编辑页右上角三个点：** 原来是文字 "⋮"（小、细）。改成一个实心矢量图标 `ic_editor_more.xml`（三个大圆点，28dp，和撤销 / 重做同一个 `iconAction`，点击区域同它们），描述文字"更多"（`editor_more`）。
+- **新增文件：** `design/src/main/res/drawable/ic_editor_more.xml`。**改了的自有文件：** `conftest/iptest_config.go`（重写）、`iptest_config_test.go`（重写，只测合并）、`conftest/iptest.go`（调用不再传 context）、`IpTestReport.kt`（`IpTestConfigIp` 多 `inUse`）、`IpTestDialog.kt`、`EditorDesign.kt`、`strings_iptest.xml`（中英）、`strings_editor.xml`（中英）。没有改上游文件。
+- **验证：** `iptest_config.go` 里和内核无关的合并部分，用一个只有四个函数签名的 `ipdelay` 桩包单独跑过 `go vet` 和 `go test`，通过；整个 Go 包和 Kotlin 没法在这里编译，只能靠 Actions 的 Build Debug。

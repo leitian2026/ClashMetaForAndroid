@@ -113,7 +113,8 @@ class EditorDesign(
         context.getString(if (split) R.string.editor_save_history else R.string.editor_save),
     ) { requests.trySend(Request.Save) }
     private val applyButton = action(context.getString(R.string.editor_apply), null) { requests.trySend(Request.Apply) }
-    private val moreButton = action("⋮", null) { showMore(it) }
+    // CUSTOM.md #71: three big filled dots (the text "⋮" was small and thin); iconAction gives it a 44dp touch area
+    private val moreButton = iconAction(R.drawable.ic_editor_more, context.getString(R.string.editor_more)) { showMore(it) }
 
     // CUSTOM.md #53: one row at the bottom: where the caret is (and the problem on its line, or which lines of a big
     // text are shown), the problem count, the buttons of a big text's window, the size of the text
@@ -643,9 +644,17 @@ class EditorDesign(
                     }
                 }
 
+                val dialogRef = arrayOfNulls<androidx.appcompat.app.AlertDialog>(1)
+
                 val list = ListView(context).apply {
                     this.adapter = adapter
-                    setOnItemClickListener { _, _, which, _ -> if (c.isActive) c.resume(which) }
+                    // CUSTOM.md #71: a tap on a row also closes the list (it stayed open over the page); the dismiss listener
+                    // answers -1 only while nobody has answered yet, so the picked index wins
+                    setOnItemClickListener { _, _, which, _ ->
+                        if (c.isActive) c.resume(which)
+
+                        dialogRef[0]?.dismiss()
+                    }
                     setOnItemLongClickListener { _, _, which, _ ->
                         onLongPress(which)?.let {
                             labels[which] = it
@@ -677,6 +686,8 @@ class EditorDesign(
                     .setNegativeButton(android.R.string.cancel, null)
                     .setOnDismissListener { if (c.isActive) c.resume(-1) }
                     .show()
+
+                dialogRef[0] = dialog
 
                 c.invokeOnCancellation { dialog.dismiss() }
             }

@@ -184,14 +184,10 @@ object IpTestDialog {
                                 android.widget.Toast.makeText(context, R.string.iptest_cfg_error, android.widget.Toast.LENGTH_LONG).show()
                             } else {
                                 pickConfig(context, report) { text ->
-                                    val have = input.text.toString()
-                                    val words = have.split(Regex("[\\s,;，；、]+")).filter { it.isNotEmpty() }.toSet()
-                                    val add = text.filter { it !in words }
-
-                                    if (add.isNotEmpty()) {
-                                        val head = if (have.isBlank()) "" else have.trimEnd() + "\n"
-
-                                        input.setText(head + add.joinToString("\n"))
+                                    // CUSTOM.md #71: the ticked addresses replace what the box held (they were added after it);
+                                    // nothing ticked leaves the box as it was
+                                    if (text.isNotEmpty()) {
+                                        input.setText(text.joinToString("\n"))
                                         input.setSelection(input.text.length)
                                     }
                                 }
@@ -309,7 +305,8 @@ object IpTestDialog {
                 else -> context.getString(R.string.iptest_cfg_via_server)
             }
 
-            val chain = if (c.chain) " · " + context.getString(R.string.iptest_cfg_chain) else ""
+            val chain = (if (c.chain) " · " + context.getString(R.string.iptest_cfg_chain) else "") +
+                (if (c.inUse) " · " + context.getString(R.string.iptest_cfg_in_use) else "") // CUSTOM.md #71
 
             val box1 = CheckBox(context).apply {
                 text = c.ip + "\n" + context.getString(R.string.iptest_cfg_item, c.from.joinToString("、"), via) + chain

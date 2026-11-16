@@ -3,6 +3,7 @@
 <resources>
     <string name="editor_title">Editor</string>
     <string name="editor_undo">Undo</string>
+    <string name="editor_more">More</string>
     <string name="editor_redo">Redo</string>
     <string name="editor_find">Find</string>
     <string name="editor_check">Check</string>

@@ -116,6 +116,7 @@
     <string name="iptest_cfg_via_hosts">hosts: %1$s</string>
     <string name="iptest_cfg_via_alias">hosts alias: %1$s</string>
     <string name="iptest_cfg_via_dns">resolved from %1$s</string>
+    <string name="iptest_cfg_in_use">In use</string>
     <string name="iptest_cfg_chain">chained (dialer-proxy), a direct test may not connect</string>
     <string name="iptest_cfg_fail">%1$s (node: %2$s): %3$s</string>
     <string name="iptest_cfg_fail_failed">could not be resolved</string>

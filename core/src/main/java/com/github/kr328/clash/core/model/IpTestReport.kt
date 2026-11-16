@@ -84,6 +84,7 @@ data class IpTestConfigIp(
     val via: String = "",
     val name: String = "",
     val chain: Boolean = false,
+    val inUse: Boolean = false, // CUSTOM.md #71: requests went through it lately
 )
 
 /** CUSTOM.md #69: a server that gave no address. [reason]: failed, empty, fake, loop, timeout, zone. */

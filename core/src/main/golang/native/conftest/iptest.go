@@ -212,7 +212,7 @@ func RunIP(filter string) IPReport {
 	}
 
 	if req.Mode == "config" { // CUSTOM.md #69: read the addresses of the profile (iptest_config.go)
-		read := readConfigIPs(context.Background())
+		read := readConfigIPs()
 
 		rep.Config = read.IPs
 		rep.ConfigFail = read.Fails

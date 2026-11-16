@@ -116,6 +116,7 @@
     <string name="iptest_cfg_via_hosts">hosts：%1$s</string>
     <string name="iptest_cfg_via_alias">hosts 别名：%1$s</string>
     <string name="iptest_cfg_via_dns">由 %1$s 解析得到</string>
+    <string name="iptest_cfg_in_use">在用</string>
     <string name="iptest_cfg_chain">链式节点（dialer-proxy），直连测可能连不上</string>
     <string name="iptest_cfg_fail">%1$s（节点：%2$s）：%3$s</string>
     <string name="iptest_cfg_fail_failed">解析失败</string>
