@@ -889,7 +889,13 @@ class EditorDesign(
             inputType = InputType.TYPE_CLASS_NUMBER
             setSingleLine()
         }
-        val inputLayout = TextInputLayout(context).apply {
+        // CUSTOM.md #81: match the app's shared outlined dialog input style.
+        val inputLayout = TextInputLayout(
+            context,
+            null,
+            0,
+            com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox,
+        ).apply {
             setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE)
             hint = context.getString(R.string.editor_goto_hint, editor.logicalLineCount)
             addView(input, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))

@@ -62,6 +62,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorPunct = if (night) Color.parseColor("#89DDFF") else Color.parseColor("#00838F")
     private val colorGutterText = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#9E9E9E")
     private val colorGutterBg = context.resolveThemedColor(com.google.android.material.R.attr.colorSurface) // CUSTOM.md #74
+    private val colorPopupOutline = context.resolveThemedColor(android.R.attr.textColorSecondary).let {
+        Color.argb(0x66, Color.red(it), Color.green(it), Color.blue(it))
+    } // CUSTOM.md #81: a subdued outline that follows the app theme
 
     private fun themedColor(attr: Int, fallback: Int): Int {
         val values = context.obtainStyledAttributes(intArrayOf(attr))
@@ -1914,7 +1917,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             setBackgroundDrawable(
                 GradientDrawable().apply {
                     setColor(context.resolveThemedColor(com.google.android.material.R.attr.colorSurface)) // CUSTOM.md #74
-                    setStroke(density.toInt().coerceAtLeast(1), if (night) Color.parseColor("#444B55") else Color.parseColor("#CFD4D9"))
+                    setStroke(density.toInt().coerceAtLeast(1), colorPopupOutline) // CUSTOM.md #81
                     cornerRadius = 8 * density
                 },
             )
