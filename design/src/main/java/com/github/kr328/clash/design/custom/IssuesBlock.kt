@@ -20,6 +20,18 @@ class IssuesBlock(private val context: Context, private val onIgnore: (String, B
     private val night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
         android.content.res.Configuration.UI_MODE_NIGHT_YES
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
+    private val colorPrimary = themeColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK)
+    private val colorSecondary = themeColor(android.R.attr.textColorSecondary, if (night) Color.LTGRAY else Color.DKGRAY)
+    private val colorDivider = themeColor(android.R.attr.colorControlHighlight, if (night) 0x33FFFFFF else 0x22000000)
+
+    private fun themeColor(attr: Int, fallback: Int): Int {
+        val values = context.obtainStyledAttributes(intArrayOf(attr))
+        return try {
+            values.getColor(0, fallback)
+        } finally {
+            values.recycle()
+        }
+    }
 
     private fun dp(v: Int) = (v * context.resources.displayMetrics.density).toInt()
 
@@ -54,12 +66,23 @@ class IssuesBlock(private val context: Context, private val onIgnore: (String, B
             TextView(context).apply {
                 text = context.getString(title, items.size)
                 textSize = 12f
+                setTypeface(typeface, Typeface.BOLD)
                 setTextColor(colorWarn)
-                setPadding(dp(16), dp(14), dp(16), dp(4))
+                setPadding(dp(16), dp(14), dp(16), dp(6))
             },
         )
 
-        for (it in items) list.addView(row(it, ignoredList))
+        items.forEachIndexed { index, item ->
+            list.addView(row(item, ignoredList))
+            if (index < items.lastIndex) {
+                list.addView(View(context).apply {
+                    setBackgroundColor(colorDivider)
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                    marginStart = dp(16)
+                    marginEnd = dp(16)
+                })
+            }
+        }
     }
 
     private fun row(item: IssueItem, ignoredList: Boolean): View {
@@ -76,13 +99,14 @@ class IssuesBlock(private val context: Context, private val onIgnore: (String, B
                 text = title(item)
                 textSize = 14f
                 setTypeface(null, Typeface.BOLD)
+                setTextColor(colorPrimary)
             },
         )
         col.addView(
             TextView(context).apply {
                 text = detail(item)
                 textSize = 12f
-                alpha = 0.75f
+                setTextColor(colorSecondary)
             },
         )
 
