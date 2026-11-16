@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r95
+当前版本：2_11_36-r96
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1106,3 +1106,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗：** 仅替换输入控件、调整布局与取色；不增加监听、定时器、轮询、网络请求或后台任务。
 - **改动文件：** 只有 `design/src/main/res/layout/design_connections.xml`、`design/src/main/res/layout/adapter_connection.xml` 和本登记文件；没有修改上游文件，上游文件总表不变。
 - **验证：** 源码级检查；未运行 Android 编译或真机验证。需手动触发 Build Debug 后检查浅色 / 深色主题、窄屏搜索框与按钮排列、危险操作文字颜色和连接行分隔线。
+
+
+## 79. 修复备份确认复选框的 Kotlin 编译错误（r96）
+- **原因：** Build Debug 在 `BackupDesign.kt:151` 报 `Unresolved reference 'text'`；`MaterialCheckBox` 的该属性赋值未被 Kotlin 正确解析。
+- **修复：** 将 `MaterialCheckBox(context).apply { text = option }` 改为显式调用 `setText(option)`。只修正文本设置方式，不改变复选框文案、默认未勾选状态、确认返回值或恢复逻辑。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/BackupDesign.kt`、`CUSTOM.md`。没有修改上游文件，上游文件总表不变。
+- **功耗 / 网络：** 无新增请求、定时器、轮询、监听或后台任务。
+- **验证：** 根据 Build Debug #98 的编译错误定位并修正；尚未重新运行 Android 构建，需手动触发 Build Debug 验证。

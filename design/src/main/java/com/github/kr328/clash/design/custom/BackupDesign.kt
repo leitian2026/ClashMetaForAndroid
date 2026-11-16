@@ -168,7 +168,7 @@ class BackupDesign(context: Context) : Design<Unit>(context) {
             val density = context.resources.displayMetrics.density
             val pad = (20 * density).toInt()
 
-            val box = MaterialCheckBox(context).apply { text = option }
+            val box = MaterialCheckBox(context).apply { setText(option) }
 
             val body = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
