@@ -66,7 +66,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private val colorBad = if (night) Color.parseColor("#EF9A9A") else Color.parseColor("#C62828")
     private val colorWarn = if (night) Color.parseColor("#FFB74D") else Color.parseColor("#E65100")
     private val colorGood = if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")
-    private val colorLink = if (night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
+    private val colorLink = themeColor(com.google.android.material.R.attr.colorPrimary, if (night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0"))
     // App theme colours: keep semantic result colours below, but use the same text and surface roles as native pages.
     private val colorMuted = themeColor(android.R.attr.textColorSecondary, if (night) Color.parseColor("#BDBDBD") else Color.parseColor("#616161"))
     private val colorText = themeColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK)

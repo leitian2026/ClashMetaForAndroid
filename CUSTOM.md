@@ -1114,3 +1114,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/BackupDesign.kt`、`CUSTOM.md`。没有修改上游文件，上游文件总表不变。
 - **功耗 / 网络：** 无新增请求、定时器、轮询、监听或后台任务。
 - **验证：** 根据 Build Debug #98 的编译错误定位并修正；尚未重新运行 Android 构建，需手动触发 Build Debug 验证。
+
+## 80. 测 IP 行内按钮强调色跟随 App 主题（r97）
+**原因：** #75 已将 IP 测速页的正文 / 辅助文字层级、表面颜色、交替行底色和 Material outlined 按钮统一到 App 主题，但行内“测速 / 取消”按钮的文字与描边仍使用固定的浅蓝色（浅色 `#1565C0`、深色 `#90CAF9`），没有跟随 App 的主题主色。
+**修复：** `IpTestView.kt` 的 `colorLink` 改为读取 Material `colorPrimary`，仅在主题属性不可用时保留原来的浅 / 深色后备值。按钮仍使用原来的 Material outlined 样式、尺寸、文案、启用状态和点击回调。
+**按 #75 复核并保留：** 普通文字 / IP / 日志 / 页面说明已使用 `textColorPrimary`，辅助说明 / 表头已使用 `textColorSecondary`；表头和日志已使用 `colorSurface`，交替行已使用低透明度 `colorControlHighlight`。这些部分无需重复改动。各类字号和单元格尺寸继续遵守 #54、#55、#62、#68 的表格布局约定，不为了套用通用文字样式而改变列宽、换行或行高。
+**保留：** #52–#73 的表格列、数据、排序、复制、端口详情、测速与取消逻辑、网络请求、日志、布局算法及语义颜色均不变。
+**功耗 / 网络：** 只增加一次主题属性取色，没有新增定时器、轮询、网络请求、监听或后台任务。
+**改动文件：** 只有 `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件；没有修改上游文件，上游文件总表不变。
+**验证：** 完成源码差异检查；未运行 Android 编译、未做真机浅色 / 深色截图。按仓库约定由用户手动触发 Build Debug 验证；不会自动触发构建。
