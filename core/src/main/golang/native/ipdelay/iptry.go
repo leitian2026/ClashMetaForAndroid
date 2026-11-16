@@ -17,6 +17,7 @@ type TryResult struct {
 	Delay   int    // milliseconds
 	Country string // exit country, "" if unknown
 	Err     string // the failure in the core's own words (the caller classifies it)
+	Ph      Phases // CUSTOM.md #68: where the delay went (0 = not measured)
 }
 
 // TryIP tests node `name` with its server replaced by `server`: the delay of a request to the node's test URL and,
@@ -59,7 +60,8 @@ func TryIP(name, server string, isDomain bool) TryResult {
 	}
 	defer closeProxy(px)
 
-	status, _, elapsed, err := requestVia(px, testURL, testTimeout, false)
+	// CUSTOM.md #68: same request as requestVia, with the three parts read from it
+	status, elapsed, ph, err := requestPhased(px, testURL, testTimeout)
 	if err != nil {
 		return TryResult{Err: err.Error()}
 	}
@@ -82,7 +84,7 @@ func TryIP(name, server string, isDomain bool) TryResult {
 		country = lookupCountry(px)
 	}
 
-	return TryResult{Delay: delay, Country: country}
+	return TryResult{Delay: delay, Country: country, Ph: ph}
 }
 
 // ExitCountry (CUSTOM.md #62) is the country that an outside service sees for traffic of node `name` with its server

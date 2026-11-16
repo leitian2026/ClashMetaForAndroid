@@ -226,3 +226,38 @@ func TestParseList(t *testing.T) {
 		t.Errorf("%+v", rep)
 	}
 }
+
+// CUSTOM.md #68: jitter is the average distance from the average, rounded; one try or none is 0.
+func TestSummarizeJitter(t *testing.T) {
+	if st := summarize([]int{100, 200, 300}, 3); st.Avg != 200 || st.Jitter != 67 { // (100+0+100)/3 = 66.7
+		t.Fatalf("spread tries: %+v", st)
+	}
+
+	if st := summarize([]int{450, 450, 450, 450}, 4); st.Jitter != 0 {
+		t.Fatalf("equal tries: %+v", st)
+	}
+
+	if st := summarize([]int{300}, 10); st.Jitter != 0 {
+		t.Fatalf("one try: %+v", st)
+	}
+
+	if st := summarize(nil, 10); st.Jitter != 0 {
+		t.Fatalf("no try: %+v", st)
+	}
+}
+
+// CUSTOM.md #68: a part that was not measured (0) is left out of the average of the tries that did.
+func TestPhaseHelpers(t *testing.T) {
+	if meanOf(nil) != 0 || meanOf([]int{10, 11}) != 11 { // 10.5 rounds up
+		t.Fatal("meanOf")
+	}
+
+	var d, s, f []int
+
+	d, s, f = addPhases(d, s, f, 5, 300, 80)
+	d, s, f = addPhases(d, s, f, 7, 0, 100) // no handshake part in this try (plain http)
+
+	if meanOf(d) != 6 || meanOf(s) != 300 || meanOf(f) != 90 {
+		t.Fatalf("dial %v shake %v first %v", d, s, f)
+	}
+}

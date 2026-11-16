@@ -37,23 +37,25 @@ import java.util.Locale
 // 测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
+// r85 (CUSTOM.md #68): 抖动 and 分段耗时 (three lines: TCP / TLS / 首字节 in direct mode, 拨号 / 握手 / 首字节 through a node) follow 平均延迟.
 class IpTestView(private val context: Context, private val direct: Boolean, private val target: Boolean = false) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
+    // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
 
     private val keys = if (direct) {
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
         // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
         // 比对照快 is dropped (the reference was measured against another address)
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.TARGET, Key.TCOLO, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.TARGET, Key.TCOLO, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else {
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.FASTER, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -197,7 +199,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         for (r in rows) {
             sb.append(r.ip)
 
-            for (k in keys) sb.append('\t').append(plainOf(k, r))
+            // CUSTOM.md #68: the three lines of the time split go on one line, so a row stays one line of the copied table
+            for (k in keys) sb.append('\t').append(plainOf(k, r).let { if (k == Key.PHASE) it.replace('\n', ' ') else it })
 
             sb.append('\n')
         }
@@ -389,6 +392,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.MIN -> R.string.iptest_col_min
                 Key.MAX -> R.string.iptest_col_max
                 Key.AVG -> R.string.iptest_col_avg
+                Key.JITTER -> R.string.iptest_col_jitter
+                Key.PHASE -> R.string.iptest_col_phase
                 Key.FASTER -> R.string.iptest_col_faster
                 Key.TARGET -> R.string.iptest_col_target
                 Key.TCOLO -> R.string.iptest_col_tcolo
@@ -408,6 +413,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.PORT -> 56
                 Key.LOSS -> 52
                 Key.MIN, Key.MAX, Key.AVG -> 54
+                Key.JITTER -> 54
+                Key.PHASE -> 84
                 Key.EXIT -> 76
                 Key.FASTER -> 70
                 Key.TARGET -> 84
@@ -423,6 +430,29 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         ms < 150 -> colorGood
         ms < 300 -> colorWarn
         else -> colorBad
+    }
+
+    // CUSTOM.md #68: the colour of the jitter: under 30 ms green, under 100 orange, else red (a guess at what is steady
+    // enough; the number itself is what to compare between addresses)
+    private fun jitterColor(ms: Int): Int = when {
+        ms < 30 -> colorGood
+        ms < 100 -> colorWarn
+        else -> colorBad
+    }
+
+    // CUSTOM.md #68: three lines, one per part; "-" for a part that was not measured (a plain http address has no
+    // handshake part), all "-" for an address that failed
+    private fun phaseText(r: IpTestRow): String {
+        if (!r.ok) return "-"
+
+        val v = { n: Int -> if (n > 0) context.getString(R.string.iptest_ms_short, n) else "-" }
+
+        return context.getString(
+            if (direct) R.string.iptest_phase_cell_direct else R.string.iptest_phase_cell_node,
+            v(r.dial),
+            v(r.shake),
+            v(r.first),
+        )
     }
 
     private fun lossColor(loss: Int): Int = when {
@@ -483,6 +513,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             Key.MIN -> ms(r.min)
             Key.MAX -> ms(r.max)
             Key.AVG -> ms(r.avg)
+            Key.JITTER -> if (tested) context.getString(R.string.iptest_ms_short, r.jitter) else "-"
+            Key.PHASE -> phaseText(r)
             Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
             Key.FASTER -> if (r.faster > 0) context.getString(R.string.iptest_faster_cell, r.faster) else "-"
             Key.TARGET -> targetText(r)
@@ -502,6 +534,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 val color = when (k) {
                     Key.LOSS -> lossColor(r.loss)
                     Key.AVG -> if (r.ok) latencyColor(r.avg) else colorMuted
+                    Key.JITTER -> if (r.ok) jitterColor(r.jitter) else colorMuted
                     Key.FASTER -> if (r.faster > 0) colorGood else colorMuted
                     Key.TARGET -> targetColor(r)
                     Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted

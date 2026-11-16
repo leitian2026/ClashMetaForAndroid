@@ -69,7 +69,8 @@ type PortRes struct {
 }
 
 // stats of the tries that worked (ms) out of `sent`.
-type tryStats struct{ Sent, OK, Loss, Min, Max, Avg int }
+// CUSTOM.md #68: Jitter is the average distance of the tries that worked from Avg.
+type tryStats struct{ Sent, OK, Loss, Min, Max, Avg, Jitter int }
 
 func summarize(ms []int, sent int) tryStats {
 	st := tryStats{Sent: sent, OK: len(ms)}
@@ -98,6 +99,20 @@ func summarize(ms []int, sent int) tryStats {
 	}
 
 	st.Avg = (sum + len(ms)/2) / len(ms)
+
+	// CUSTOM.md #68: how far the tries are from the average, on average (one slow try among fast ones shows, but does
+	// not dominate the way it does in Max)
+	dev := 0
+
+	for _, v := range ms {
+		if v >= st.Avg {
+			dev += v - st.Avg
+		} else {
+			dev += st.Avg - v
+		}
+	}
+
+	st.Jitter = (dev + len(ms)/2) / len(ms)
 
 	return st
 }
@@ -401,9 +416,17 @@ func echFor(ctx context.Context, domain string) ([]byte, string) {
 // handshakeECH is one handshake to addr within `limit`; with an ECH config the first try offers ECH and, when the
 // server refuses it, a plain one follows. `ech` is the state like IPRow.ECH ("" when it failed for another reason).
 func handshakeECH(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, string, error) {
+	conn, ms, _, ech, err := handshakeECHSplit(ctx, addr, domain, echList, limit)
+
+	return conn, ms, ech, err
+}
+
+// handshakeECHSplit (CUSTOM.md #68) is handshakeECH that also gives the milliseconds of the TCP connect inside `ms`
+// (of the handshake that counted: the plain one after a rejection).
+func handshakeECHSplit(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, int, string, error) {
 	ech := "none"
 
-	conn, ms, err := handshakeWithin(ctx, addr, domain, echList, limit)
+	conn, ms, tcp, err := handshakeSplit(ctx, addr, domain, echList, limit)
 
 	if len(echList) > 0 {
 		var rej *tls.ECHRejectionError
@@ -416,13 +439,13 @@ func handshakeECH(ctx context.Context, addr, domain string, echList []byte, limi
 		case errors.As(err, &rej):
 			ech = "rejected"
 
-			conn, ms, err = handshakeWithin(ctx, addr, domain, nil, limit)
+			conn, ms, tcp, err = handshakeSplit(ctx, addr, domain, nil, limit)
 		default:
 			ech = ""
 		}
 	}
 
-	return conn, ms, ech, err
+	return conn, ms, tcp, ech, err
 }
 
 // forEachTry runs `n` calls of fn, up to `workers` at a time.
@@ -456,6 +479,7 @@ func forEachTry(ctx context.Context, n, workers int, fn func(i int)) {
 func setStats(row *IPRow, st tryStats) {
 	row.Sent, row.Loss, row.Min, row.Max, row.Avg = st.Sent, st.Loss, st.Min, st.Max, st.Avg
 	row.Ms = st.Avg
+	row.Jitter = st.Jitter // CUSTOM.md #68
 }
 
 func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
@@ -484,11 +508,13 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		keep    *tls.Conn
 		keepECH string
 		okMs    []int
+		tcpMs   []int // CUSTOM.md #68: of the tries that worked, the TCP connect and the TLS handshake (the rest of ms)
+		tlsMs   []int
 		lastErr error
 	)
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
-		conn, ms, ech, err := handshakeECH(ctx, addr, rep.Domain, echList, probeTimeout)
+		conn, ms, tcp, ech, err := handshakeECHSplit(ctx, addr, rep.Domain, echList, probeTimeout)
 
 		mu.Lock()
 		defer mu.Unlock()
@@ -500,6 +526,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 
 		okMs = append(okMs, ms)
+
+		if ms >= tcp { // CUSTOM.md #68
+			tcpMs, tlsMs = append(tcpMs, tcp), append(tlsMs, ms-tcp)
+		}
 
 		if keep == nil {
 			keep, keepECH = conn, ech
@@ -538,7 +568,8 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	state := keep.ConnectionState()
 	row.TLS = tlsVersion(state.Version)
 	row.ALPN = state.NegotiatedProtocol
-	row.Colo, row.CF = fetchEvidence(ctx, keep, rep.Domain) // closes the connection
+	row.Colo, row.CF, row.First = fetchEvidenceTimed(ctx, keep, rep.Domain) // closes the connection; CUSTOM.md #68: one HEAD, one sample
+	row.Dial, row.Shake = meanOf(tcpMs), meanOf(tlsMs)
 	row.InHosts = configHosts()[row.IP]
 
 	row.Ports = probePorts(ctx, row.IP, rep.Domain, parsePorts(req.Ports), row)
@@ -669,6 +700,9 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		ray      string
 		soft     string // CUSTOM.md #67
 		softNote string
+		dials    []int // CUSTOM.md #68: the parts of the tries that worked (the ones that did not measure a part are left out of it)
+		shakes   []int
+		firsts   []int
 	)
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
@@ -685,6 +719,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			}
 
 			okMs = append(okMs, res.Delay)
+			dials, shakes, firsts = addPhases(dials, shakes, firsts, res.Ph.Dial, res.Ph.Shake, res.Ph.First)
 			statuses[res.Status]++
 
 			if location == "" {
@@ -714,6 +749,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 
 		okMs = append(okMs, res.Delay)
+		dials, shakes, firsts = addPhases(dials, shakes, firsts, res.Ph.Dial, res.Ph.Shake, res.Ph.First) // CUSTOM.md #68
 
 		if country == "" {
 			country = res.Country
@@ -740,6 +776,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	if st.OK > 0 {
 		row.OK = true
+		row.Dial, row.Shake, row.First = meanOf(dials), meanOf(shakes), meanOf(firsts) // CUSTOM.md #68
 
 		if req.Target != "" { // CUSTOM.md #66
 			best := 0

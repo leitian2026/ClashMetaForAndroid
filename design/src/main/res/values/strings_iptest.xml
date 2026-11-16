@@ -43,6 +43,11 @@
     <string name="iptest_col_min">Min</string>
     <string name="iptest_col_max">Max</string>
     <string name="iptest_col_avg">Average</string>
+    <!-- CUSTOM.md #68 -->
+    <string name="iptest_col_jitter">Jitter</string>
+    <string name="iptest_col_phase">Time split</string>
+    <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\nFirst byte %3$s</string>
+    <string name="iptest_phase_cell_node">Dial %1$s\nHandshake %2$s\nFirst byte %3$s</string>
     <string name="iptest_col_exit">Exit</string>
     <string name="iptest_col_faster">vs reference</string>
     <string name="iptest_col_test">Speed test</string>
@@ -68,6 +73,8 @@
     <string name="iptest_log_ip_ok">%1$s done: average %2$d ms, loss %3$d%%, ports open: %4$s</string>
     <string name="iptest_log_ip_ok_noports">%1$s done: average %2$d ms, loss %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s failed: %2$s (loss %3$d%%)</string>
+    <string name="iptest_log_split_direct">%1$s jitter %2$d ms; split: TCP %3$d / TLS %4$d / first byte %5$d (ms; 0 = not measured; TCP and TLS are averages of the tries that worked, the first byte is one HEAD)</string>
+    <string name="iptest_log_split_node">%1$s jitter %2$d ms; split: dial %3$d / handshake %4$d / first byte %5$d (ms; 0 = not measured; averages of the tries that worked)</string>
     <string name="iptest_log_asn_ok">%1$s operator: %2$s</string>
     <string name="iptest_log_asn_none">%1$s operator: not found (maybe rate limited; the result is not affected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>

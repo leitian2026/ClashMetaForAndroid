@@ -43,6 +43,11 @@
     <string name="iptest_col_min">最小延迟</string>
     <string name="iptest_col_max">最大延迟</string>
     <string name="iptest_col_avg">平均延迟</string>
+    <!-- CUSTOM.md #68 -->
+    <string name="iptest_col_jitter">抖动</string>
+    <string name="iptest_col_phase">分段耗时</string>
+    <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\n首字节 %3$s</string>
+    <string name="iptest_phase_cell_node">拨号 %1$s\n握手 %2$s\n首字节 %3$s</string>
     <string name="iptest_col_exit">落地</string>
     <string name="iptest_col_faster">比对照快</string>
     <string name="iptest_col_test">测速</string>
@@ -68,6 +73,8 @@
     <string name="iptest_log_ip_ok">%1$s 完成：平均 %2$d 毫秒，丢包 %3$d%%，端口通：%4$s</string>
     <string name="iptest_log_ip_ok_noports">%1$s 完成：平均 %2$d 毫秒，丢包 %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s 失败：%2$s（丢包 %3$d%%）</string>
+    <string name="iptest_log_split_direct">%1$s 抖动 %2$d 毫秒；分段：TCP %3$d / TLS %4$d / 首字节 %5$d（毫秒；0 = 没测到；TCP 和 TLS 是 10 次里成功的平均，首字节只有一次 HEAD）</string>
+    <string name="iptest_log_split_node">%1$s 抖动 %2$d 毫秒；分段：拨号 %3$d / 握手 %4$d / 首字节 %5$d（毫秒；0 = 没测到；是成功的几次的平均）</string>
     <string name="iptest_log_asn_ok">%1$s 归属运营商：%2$s</string>
     <string name="iptest_log_asn_none">%1$s 归属运营商：没查到（可能被限流，不影响结果）</string>
     <string name="iptest_log_geo">%1$s 归属地：%2$s</string>

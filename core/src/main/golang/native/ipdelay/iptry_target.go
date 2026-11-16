@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ type TargetResult struct {
 	Soft     string
 	SoftNote string // the address, or the words that gave it away
 	Err      string // the failure in the core's own words
+	Ph       Phases // CUSTOM.md #68: where the delay went (0 = not measured)
 }
 
 // TryTarget does `GET rawURL` through node `name` with its server replaced by `server` (an address, or a domain when
@@ -94,6 +96,8 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 	defer conn.Close()
 
+	dialed := time.Since(start) // CUSTOM.md #68
+
 	tr := &http.Transport{
 		DialContext: func(context.Context, string, string) (net.Conn, error) {
 			return conn, nil
@@ -113,6 +117,9 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		return TargetResult{Err: err.Error()}
 	}
 
+	var clock phaseClock // CUSTOM.md #68
+
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), clock.trace()))
 	req.Header.Set("User-Agent", "curl/8.5.0")
 
 	resp, err := client.Do(req)
@@ -132,6 +139,7 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		Location: strings.TrimSpace(resp.Header.Get("Location")),
 		CfRay:    strings.TrimSpace(resp.Header.Get("Cf-Ray")),
 		Server:   strings.TrimSpace(resp.Header.Get("Server")),
+		Ph:       clock.phases(dialed),
 	}
 
 	// CUSTOM.md #67: the first part of the page (a failed or cut read just means less text; the delay above is already taken)

@@ -301,6 +301,18 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         },
                     )
 
+                    // CUSTOM.md #68: the jitter and where the time went (0 = not measured)
+                    design.ipLog(
+                        getString(
+                            if (direct) R.string.iptest_log_split_direct else R.string.iptest_log_split_node,
+                            row.ip,
+                            row.jitter,
+                            row.dial,
+                            row.shake,
+                            row.first,
+                        ),
+                    )
+
                     if (direct) {
                         design.ipLog(
                             if (row.asn.isNotEmpty()) {

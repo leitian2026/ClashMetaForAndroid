@@ -40,6 +40,12 @@ data class IpTestRow(
     val min: Int = 0,
     val max: Int = 0,
     val avg: Int = 0,
+    // CUSTOM.md #68: how far the tries are from [avg] on average, and where the time goes (0 = not measured): direct mode
+    // TCP connect / TLS handshake / first byte of one HEAD; node mode dial / handshake inside the tunnel / first byte
+    val jitter: Int = 0,
+    val dial: Int = 0,
+    val shake: Int = 0,
+    val first: Int = 0,
     val ports: List<IpPortResult> = emptyList(),
     val port: String = "", // node mode: the node's own port (not tested)
     val speed: Double = 0.0, // megabytes per second, 0 when not tested or failed

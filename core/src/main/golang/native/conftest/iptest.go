@@ -118,6 +118,15 @@ type IPRow struct {
 	SpeedBytes int64   `json:"speedBytes"` // bytes read
 	SpeedMs    int     `json:"speedMs"`    // time of the download
 	SpeedErr   string  `json:"speedErr"`   // why the download failed ("" when it worked)
+
+	// CUSTOM.md #68: how much the tries that worked differ from each other (average distance from Avg, milliseconds), and
+	// where the time goes: direct mode TCP connect / TLS handshake (averages of the tries that worked) and the first
+	// byte of one HEAD over the kept connection; node mode dial / handshake inside the tunnel / first byte (averages of the
+	// tries that measured them). 0 = not measured.
+	Jitter int `json:"jitter"`
+	Dial   int `json:"dial"`
+	Shake  int `json:"shake"`
+	First  int `json:"first"`
 }
 
 // IPRef is the quickest address of the node's `hosts:` entry in its last speed test.
@@ -466,6 +475,14 @@ func handshakeTo(ctx context.Context, addr, domain string, echList []byte) (*tls
 
 // handshakeWithin is handshakeTo with its own time limit (CUSTOM.md #52: the ten tries and the ports take 3 seconds each).
 func handshakeWithin(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, error) {
+	c, ms, _, err := handshakeSplit(ctx, addr, domain, echList, limit)
+
+	return c, ms, err
+}
+
+// handshakeSplit (CUSTOM.md #68) is handshakeWithin that also says how many of the milliseconds were the TCP connect
+// (0 when it did not get that far); the rest of the total is the TLS handshake.
+func handshakeSplit(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
@@ -473,8 +490,10 @@ func handshakeWithin(ctx context.Context, addr, domain string, echList []byte, l
 
 	raw, err := dialer.DialContext(ctx, "tcp", addr) // the socket does not go through the VPN
 	if err != nil {
-		return nil, int(time.Since(start).Milliseconds()), err
+		return nil, int(time.Since(start).Milliseconds()), 0, err
 	}
+
+	tcpMs := int(time.Since(start).Milliseconds())
 
 	cfg := &tls.Config{
 		ServerName:         domain,
@@ -493,16 +512,24 @@ func handshakeWithin(ctx context.Context, addr, domain string, echList []byte, l
 	if err := c.HandshakeContext(ctx); err != nil {
 		_ = raw.Close()
 
-		return nil, int(time.Since(start).Milliseconds()), err
+		return nil, int(time.Since(start).Milliseconds()), tcpMs, err
 	}
 
-	return c, int(time.Since(start).Milliseconds()), nil
+	return c, int(time.Since(start).Milliseconds()), tcpMs, nil
 }
 
 // fetchEvidence sends HEAD / over the connection that was just made and reads from the answer whether it shows
 // Cloudflare (`Cf-Ray` header or `Server: cloudflare`) and the data centre from `Cf-Ray`. It closes the connection.
 // ("", false) when the server does not answer or shows neither.
 func fetchEvidence(ctx context.Context, conn *tls.Conn, domain string) (string, bool) {
+	colo, cf, _ := fetchEvidenceTimed(ctx, conn, domain)
+
+	return colo, cf
+}
+
+// fetchEvidenceTimed (CUSTOM.md #68) is fetchEvidence that also says how long the answer's headers took after the
+// request was sent on the (already open) connection, in milliseconds, at least 1; 0 when there was no answer.
+func fetchEvidenceTimed(ctx context.Context, conn *tls.Conn, domain string) (string, bool, int) {
 	defer conn.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
@@ -527,12 +554,19 @@ func fetchEvidence(ctx context.Context, conn *tls.Conn, domain string) (string, 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, "https://"+domain+"/", nil)
 	if err != nil {
-		return "", false
+		return "", false, 0
 	}
+
+	sent := time.Now()
 
 	resp, err := tr.RoundTrip(req)
 	if err != nil {
-		return "", false
+		return "", false, 0
+	}
+
+	first := int(time.Since(sent).Milliseconds())
+	if first < 1 {
+		first = 1
 	}
 
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
@@ -540,7 +574,7 @@ func fetchEvidence(ctx context.Context, conn *tls.Conn, domain string) (string, 
 
 	ray := resp.Header.Get("Cf-Ray")
 
-	return coloOf(ray), isCloudflare(ray, resp.Header.Get("Server"))
+	return coloOf(ray), isCloudflare(ray, resp.Header.Get("Server")), first
 }
 
 // lookupOwners (mode "asn") asks who runs the address typed in `text` (one address; a domain or a second word is
