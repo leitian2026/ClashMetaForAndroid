@@ -525,7 +525,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         } catch (_: Exception) {
         }
 
-        val versions = withContext(Dispatchers.IO) { ConfigHistory.list(this@EditorActivity, uuid) }
+        val versions = withContext(Dispatchers.IO) { ConfigHistory.list(this@EditorActivity, uuid).toMutableList() }
 
         if (versions.isEmpty()) {
             design.message(profileTitle, getString(R.string.history_none))
