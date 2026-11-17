@@ -1507,3 +1507,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **英文图例：** 将 compare 删除图例的 “in use” 改为 “applied”。
 - **改动文件：** TextSearch.kt、EditorActivity.kt、strings_custom.xml 和本登记文件。
 - **验证：** 静态检查 Matcher 推进、线程边界及文案；未运行 JVM 测试或 Android 编译。
+
+
+## 127. 已应用版本分支直接更新 split 按钮状态（r145）
+- **比较次数：** apply() 已确认页面内容就是当前已应用版本时，直接调用 setApplied(true)，不再重复执行第二次文件比较。
+- **保留：** 仍显示原有“已经是已应用版本”提示；其他载入、应用成功、历史载入和导入时机不变。
+- **改动文件：** EditorActivity.kt 和本登记文件。
+- **验证：** 静态检查已相同分支只执行一次内容比较；未运行 Android 编译或真机验证。

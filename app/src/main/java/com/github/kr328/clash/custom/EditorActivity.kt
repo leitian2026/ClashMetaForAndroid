@@ -453,7 +453,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
             withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
             design.markSaved()
-            refreshApplyState(design)
+            design.setApplied(true)
             showAppliedResult(design, historyKept = true)
 
             return true
