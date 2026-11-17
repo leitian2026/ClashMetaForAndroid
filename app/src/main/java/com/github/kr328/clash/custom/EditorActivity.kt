@@ -563,8 +563,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 val stat = ConfigHistory.readStat(v, olderAt) ?: run {
                     val text = v.text()
                     val diff = if (older == null) null else LineDiff.diff(older.text().lines(), text.lines())
-                    ConfigHistory.VersionStat(text.lines().size, diff?.added ?: 0, diff?.removed ?: 0, olderAt).also {
-                        ConfigHistory.writeStat(v, it)
+                    ConfigHistory.Stat(text.lines().size, diff?.added ?: 0, diff?.removed ?: 0).also {
+                        ConfigHistory.writeStat(v, olderAt, it)
                     }
                 }
                 val date = format.format(Date(v.at))

@@ -31,7 +31,7 @@ object ConfigHistory {
     const val EMPTY = 2
     const val TOO_BIG = 3
 
-    data class VersionStat(val lines: Int, val added: Int, val removed: Int, val olderAt: Long)
+    data class Stat(val lines: Int, val added: Int, val removed: Int)
 
     class Version(val file: File, val at: Long) {
         internal fun statFile(): File = file.resolveSibling("$at.stat")
@@ -80,53 +80,69 @@ object ConfigHistory {
     }
 
     /** CUSTOM.md #111: a cached row is valid only for the exact older neighbour it was compared with. */
-    fun readStat(version: Version, olderAt: Long): VersionStat? {
+    fun readStat(version: Version, olderAt: Long): Stat? {
         return try {
-            val parts = version.statFile().readText(Charsets.UTF_8).trim().split(',')
-            if (parts.size != 4) return null
-            val stat = VersionStat(parts[0].toInt(), parts[1].toInt(), parts[2].toInt(), parts[3].toLong())
-            stat.takeIf { it.olderAt == olderAt }
+            val parts = version.statFile().readText(Charsets.UTF_8).trim().split(Regex("\\s+"))
+            if (parts.size != 4 || parts[0].toLong() != olderAt) return null
+            Stat(parts[1].toInt(), parts[2].toInt(), parts[3].toInt())
         } catch (_: Exception) {
             null
         }
     }
 
-    fun writeStat(version: Version, stat: VersionStat) {
+    fun writeStat(version: Version, olderAt: Long, stat: Stat) {
         try {
-            version.statFile().writeText("${stat.lines},${stat.added},${stat.removed},${stat.olderAt}", Charsets.UTF_8)
+            version.statFile().writeText("$olderAt ${stat.lines} ${stat.added} ${stat.removed}", Charsets.UTF_8)
         } catch (_: Exception) {
         }
     }
+
     /** The committed config.yaml of the profile (what is in use), or null. */
     fun current(context: Context, uuid: UUID): File? {
         return context.importedDir.resolve("$uuid/config.yaml").takeIf { it.isFile }
     }
 
-    // CUSTOM.md #110: bounded LRU cache keyed by file path, length and modification time.
-    private data class FileHashKey(val path: String, val length: Long, val modified: Long)
-    private val fileHashes = object : LinkedHashMap<FileHashKey, String>(128, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<FileHashKey, String>?): Boolean = size > 256
-    }
+    // CUSTOM.md #110: at most 64 file digests, keyed by absolute path and validated by size / mtime.
+    private data class CacheEntry(val length: Long, val modified: Long, val digest: String)
+    private val fileHashes = HashMap<String, CacheEntry>()
 
-    private fun hash(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+    private fun hash(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
-    private fun hash(file: File): String? {
-        val key = FileHashKey(file.absolutePath, file.length(), file.lastModified())
-        synchronized(fileHashes) { fileHashes[key] }?.let { return it }
-        val value = try { hash(file.readBytes()) } catch (_: Exception) { return null }
+    private fun digestOf(file: File): String? {
+        val path = file.absolutePath
+        val length = file.length()
+        val modified = file.lastModified()
         synchronized(fileHashes) {
-            fileHashes.entries.removeAll { it.key.path == key.path }
-            fileHashes[key] = value
+            fileHashes[path]?.takeIf { it.length == length && it.modified == modified }?.let { return it.digest }
         }
-        return value
+        val digest = try {
+            val md = MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(8 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    md.update(buffer, 0, count)
+                }
+            }
+            md.digest().joinToString("") { "%02x".format(it) }
+        } catch (_: Exception) {
+            return null
+        }
+        synchronized(fileHashes) {
+            if (!fileHashes.containsKey(path) && fileHashes.size >= 64) fileHashes.clear()
+            fileHashes[path] = CacheEntry(length, modified, digest)
+        }
+        return digest
     }
 
     private fun same(version: Version, bytes: ByteArray, bytesHash: String = hash(bytes)): Boolean =
-        version.size == bytes.size.toLong() && hash(version.file) == bytesHash
+        version.size == bytes.size.toLong() && digestOf(version.file) == bytesHash
 
     private fun find(versions: List<Version>, bytes: ByteArray): Version? {
         val bytesHash = hash(bytes)
-        return versions.firstOrNull { it.size == bytes.size.toLong() && hash(it.file) == bytesHash }
+        return versions.firstOrNull { it.size == bytes.size.toLong() && digestOf(it.file) == bytesHash }
     }
 
     private fun currentBytes(context: Context, uuid: UUID): ByteArray? {
@@ -147,7 +163,7 @@ object ConfigHistory {
         val file = current(context, uuid) ?: return false
         val bytes = text.toByteArray(Charsets.UTF_8)
 
-        return file.length() == bytes.size.toLong() && hash(file) == hash(bytes)
+        return file.length() == bytes.size.toLong() && digestOf(file) == hash(bytes)
     }
 
     /**
@@ -227,8 +243,7 @@ object ConfigHistory {
     /** CUSTOM.md #109: remove one version and all of its state markers; the applied version is never deletable. */
     fun delete(context: Context, uuid: UUID, version: Version): Boolean {
         return try {
-            val current = currentBytes(context, uuid)
-            if (current != null && same(version, current)) return false
+            if (inUse(context, uuid)?.at == version.at) return false
             version.remove()
             !version.file.exists()
         } catch (_: Exception) {
@@ -262,7 +277,7 @@ object ConfigHistory {
         }
 
         return versions.firstOrNull { v ->
-            v.saved && !v.bad && (bytes == null || (v.size == bytes.size.toLong() && hash(v.file) != bytesHash)) &&
+            v.saved && !v.bad && (bytes == null || (v.size == bytes.size.toLong() && digestOf(v.file) != bytesHash)) &&
                 (!newerThanInUse || used == null || v.at > used.at)
         }
     }
