@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r131
+当前版本：2_11_36-r132
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1413,3 +1413,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **源码依据：** mihomo config/config.go 的 Parse / ParseRawConfig / parseProxies / parseRuleProviders；adapter/provider/parser.go 的 ParseProxyProvider；rules/provider/parse.go 的 ParseRuleProvider；adapter/provider/provider.go 的 ProxySetProvider.Initial；rules/provider/provider.go 的 RuleSetProvider.Initial；component/resource/fetcher.go 的 Fetcher.Initial；本仓库 core/src/main/golang/native/config/custom_validate.go、config/load.go、config/provider.go 和 EditorActivity.kt 的 check。
 - **改动文件：** 仅 CUSTOM.md；没有新增临时目录链接或修改代码。
 - **验证：** 对照用户指定的固定 mihomo commit 和本仓库实际 Validate 调用链；未运行 Android 编译或真机验证。
+
+
+## 115. 补齐历史版本哈希与 .stat 缓存实现（r132）
+- **修正：** 将 #110、#111 的实现完整落入 ConfigHistory.kt：SHA-256 文件哈希 LRU 缓存（路径 / 长度 / 修改时间键）、文本哈希单次计算，以及 VersionStat / readStat / writeStat。
+- **清理：** Version.remove() 同时删除 .stat，覆盖手动删除和 prune 清理。
+- **验证：** 对照 EditorActivity 对 VersionStat/readStat/writeStat 的调用，并核对删除清理；未运行 Android 编译或真机验证。

@@ -5,6 +5,8 @@ import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.processingDir
 import java.io.File
 import java.util.UUID
+import java.security.MessageDigest
+import java.util.LinkedHashMap
 
 // CUSTOM (CUSTOM.md #28 #56, not upstream): the versions of each self-edited profile's config.yaml, kept apart from
 // the copy that is in use. A version gets in by three ways:
@@ -29,7 +31,10 @@ object ConfigHistory {
     const val EMPTY = 2
     const val TOO_BIG = 3
 
+    data class VersionStat(val lines: Int, val added: Int, val removed: Int, val olderAt: Long)
+
     class Version(val file: File, val at: Long) {
+        internal fun statFile(): File = file.resolveSibling("$at.stat")
         val size: Long get() = file.length()
 
         fun text(): String = file.readText(Charsets.UTF_8)
@@ -54,6 +59,7 @@ object ConfigHistory {
             marker("saved").delete()
             marker("bad").delete()
             marker("pin").delete()
+            statFile().delete()
         }
     }
 
@@ -73,16 +79,55 @@ object ConfigHistory {
             .sortedByDescending { it.at }
     }
 
+    /** CUSTOM.md #111: a cached row is valid only for the exact older neighbour it was compared with. */
+    fun readStat(version: Version, olderAt: Long): VersionStat? {
+        return try {
+            val parts = version.statFile().readText(Charsets.UTF_8).trim().split(',')
+            if (parts.size != 4) return null
+            val stat = VersionStat(parts[0].toInt(), parts[1].toInt(), parts[2].toInt(), parts[3].toLong())
+            stat.takeIf { it.olderAt == olderAt }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun writeStat(version: Version, stat: VersionStat) {
+        try {
+            version.statFile().writeText("${stat.lines},${stat.added},${stat.removed},${stat.olderAt}", Charsets.UTF_8)
+        } catch (_: Exception) {
+        }
+    }
     /** The committed config.yaml of the profile (what is in use), or null. */
     fun current(context: Context, uuid: UUID): File? {
         return context.importedDir.resolve("$uuid/config.yaml").takeIf { it.isFile }
     }
 
-    private fun same(version: Version, bytes: ByteArray): Boolean {
-        return version.size == bytes.size.toLong() && version.file.readBytes().contentEquals(bytes)
+    // CUSTOM.md #110: bounded LRU cache keyed by file path, length and modification time.
+    private data class FileHashKey(val path: String, val length: Long, val modified: Long)
+    private val fileHashes = object : LinkedHashMap<FileHashKey, String>(128, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<FileHashKey, String>?): Boolean = size > 256
     }
 
-    private fun find(versions: List<Version>, bytes: ByteArray): Version? = versions.firstOrNull { same(it, bytes) }
+    private fun hash(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    private fun hash(file: File): String? {
+        val key = FileHashKey(file.absolutePath, file.length(), file.lastModified())
+        synchronized(fileHashes) { fileHashes[key] }?.let { return it }
+        val value = try { hash(file.readBytes()) } catch (_: Exception) { return null }
+        synchronized(fileHashes) {
+            fileHashes.entries.removeAll { it.key.path == key.path }
+            fileHashes[key] = value
+        }
+        return value
+    }
+
+    private fun same(version: Version, bytes: ByteArray, bytesHash: String = hash(bytes)): Boolean =
+        version.size == bytes.size.toLong() && hash(version.file) == bytesHash
+
+    private fun find(versions: List<Version>, bytes: ByteArray): Version? {
+        val bytesHash = hash(bytes)
+        return versions.firstOrNull { it.size == bytes.size.toLong() && hash(it.file) == bytesHash }
+    }
 
     private fun currentBytes(context: Context, uuid: UUID): ByteArray? {
         val file = current(context, uuid) ?: return null
@@ -102,7 +147,7 @@ object ConfigHistory {
         val file = current(context, uuid) ?: return false
         val bytes = text.toByteArray(Charsets.UTF_8)
 
-        return file.length() == bytes.size.toLong() && file.readBytes().contentEquals(bytes)
+        return file.length() == bytes.size.toLong() && hash(file) == hash(bytes)
     }
 
     /**
@@ -212,7 +257,9 @@ object ConfigHistory {
     ): Version? {
         val bytes = currentBytes(context, uuid)
         val bytesHash = bytes?.let(::hash)
-        val used = if (bytes == null) null else find(versions, bytes)
+        val used = if (bytes == null) null else versions.firstOrNull {
+            it.size == bytes.size.toLong() && hash(it.file) == bytesHash
+        }
 
         return versions.firstOrNull { v ->
             v.saved && !v.bad && (bytes == null || (v.size == bytes.size.toLong() && hash(v.file) != bytesHash)) &&
