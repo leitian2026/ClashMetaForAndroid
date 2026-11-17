@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r108
+当前版本：2_11_36-r109
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1226,3 +1226,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保留：** 说明按钮的 Material TextButton 样式、字符串、点击对话框和关闭行为不变；域名输入框、历史下拉、所有其他按钮、回调、IP 测试结果恢复、ECH / DNS / IP 测试逻辑均不改。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改 Kotlin 逻辑、字符串资源或上游文件总表。
 - **验证：** 已检查标题栏相对定位关系、说明按钮位于复制图标左侧、标题指向说明按钮、原独立按钮行已删除，复制图标属性未改。未运行 Android 编译或真机验证；需手动触发 Build Debug 检查窄屏标题空间、按钮点击区域及实际垂直居中效果。
+
+
+## 93. 修复配置检查页域名输入框缺少 Material AutoCompleteTextView 默认尺寸（r109）
+- **原因：** 真机截图估算输入框高度约 22–23dp，明显低于标准 OutlinedBox 约 56dp。源码检查确认控件类型正确，确实是 `MaterialAutoCompleteTextView`；没有自定义 padding、minHeight、固定 height、textSize 或 background，Kotlin 也没有运行时修改这些属性；App 主题继承 Material Components 主题，Material 依赖为 1.6.1。问题在于外层 `Widget.MaterialComponents.TextInputLayout.OutlinedBox` 的主题覆盖针对 `TextInputEditText`，不会自动给当前 `MaterialAutoCompleteTextView` 应用 AutoCompleteTextView 的 OutlinedBox 样式，导致控件未获得 Material 默认的上下内边距。
+- **修复：** 仅给 `check_domain_view` 增加 `style="@style/Widget.MaterialComponents.AutoCompleteTextView.OutlinedBox"`，使用 Material 1.6.1 自带样式。该样式提供左右 16dp、上下 17dp 的默认内边距；按 16sp 文字行高约 22dp 计算，整体目标约 56dp。没有直接设置任何 padding / minHeight / height / textSize / background / lineSpacing。
+- **保留：** 控件仍为 `MaterialAutoCompleteTextView`；外层仍为 `TextInputLayout` OutlinedBox，`app:hintEnabled="false"` 不变，提示仍由控件自身 `android:hint` 显示。输入 ID、`textUri`、单行、补全阈值、历史下拉、prefs 读写及页面其他功能均不改。
+- **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改 Kotlin、主题、依赖、上游文件总表或构建工作流。
+- **验证：** 已核对 Material Components 1.6.1 的资源定义，确认该样式存在且提供上下各 17dp 默认内边距；完成 XML 变更范围检查。未运行 Android 编译，未进行真机测量；约 56dp 是按 Material 样式计算的目标值，不是实测值。需手动触发 Build Debug 后在真机确认方框高度、文字上下留白及浅色 / 深色显示。
