@@ -21,9 +21,9 @@
     <string name="geosite_download_reload_sent">已请求重载。服务未运行时，下次启动会使用新文件。</string>
     <string name="connections">连接</string>
     <string name="connections_refresh">刷新</string>
-    <string name="connections_history">IP 切换历史</string>
+    <string name="connections_history">节点 IP 使用记录</string>
     <string name="connections_summary">%1$d 个连接 · ↑ %2$s · ↓ %3$s</string>
-    <string name="connections_summary_more">%1$d 个连接（仅显示最新 %2$d 个）· ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_more">%1$d 个连接（仅显示最新 %2$d 个）· 显示的这 %2$d 个共 ↑ %3$s · ↓ %4$s</string>
     <string name="connections_not_running">代理未运行</string>
     <string name="connections_empty">当前没有连接</string>
     <string name="connection_close">关闭连接</string>
@@ -34,25 +34,25 @@
     <string name="connection_label_source">来源</string>
     <string name="connection_label_network">网络</string>
     <string name="connection_label_chain">链路</string>
-    <string name="connection_label_node_ip">节点 IP</string>
+    <string name="connection_label_node_ip">节点最近使用的 IP</string>
     <string name="connection_label_rule">规则</string>
     <string name="connection_label_app">应用</string>
     <string name="connection_label_start">开始</string>
     <string name="connection_label_traffic">流量</string>
-    <string name="ip_history_title">IP 切换历史</string>
-    <string name="ip_history_empty">还没有切换记录</string>
+    <string name="ip_history_title">节点 IP 使用记录</string>
+    <string name="ip_history_empty">还没有记录。一个 IP 第一次出现，或节点换了 IP，会记一条。</string>
 
     <!-- CUSTOM #15: connections search / sort / close all -->
-    <string name="connections_search_hint">搜索域名、应用、节点、规则</string>
-    <string name="connections_sort_time">按时间</string>
-    <string name="connections_sort_traffic">按流量</string>
+    <string name="connections_search_hint">搜索域名、IP、端口、应用、规则、链路</string>
+    <string name="connections_sort_time">排序：按时间</string>
+    <string name="connections_sort_traffic">排序：按流量</string>
     <string name="connections_close_all">全部关闭</string>
     <string name="connections_close_all_message">关闭当前所有连接？应用会自动重连，此后的新连接会走最新的节点。</string>
     <string name="connections_all_closed">已关闭所有连接</string>
     <string name="connections_nothing_to_close">当前没有连接</string>
     <string name="connections_no_match">没有匹配的连接</string>
-    <string name="connections_summary_more_traffic">%1$d 个连接（仅显示流量最大的 %2$d 个）· ↑ %3$s · ↓ %4$s</string>
-    <string name="connections_summary_filtered">匹配 %1$d / 共 %2$d 个连接 · ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_more_traffic">%1$d 个连接（仅显示流量最大的 %2$d 个）· 显示的这 %2$d 个共 ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_filtered">匹配 %1$d / 共 %2$d 个连接 · 匹配的共 ↑ %3$s · ↓ %4$s</string>
 
     <!-- CUSTOM #16: geo file downloads (GeoSite / GeoIP / ASN) -->
     <string name="geofile_download_title">%1$s 下载地址</string>
@@ -385,4 +385,8 @@
     <string name="cloud_cmp_same">本机已有（保留本机的）：%1$s</string>
     <string name="cloud_cmp_replaced">文件类订阅，用备份里的内容替换：%1$s</string>
     <string name="cloud_names_more"> …共 %1$d 个</string>
+    <string name="connections_summary_filtered_more">匹配 %1$d / 共 %2$d 个连接（仅显示 %3$d 个）· 显示的这 %3$d 个共 ↑ %4$s · ↓ %5$s</string>
+    <string name="connection_node_ip_note">这是节点级 IP，不一定是这条连接实际使用的 IP；grpc、h2、smux 等复用连接的传输只能显示最近一次拨号的 IP。国旗表示经这个 IP 出去的出口国家，不是 IP 的所在地。</string>
+    <string name="ip_history_note">一个 IP 第一次出现，或节点换了 IP，会记一条。</string>
+    <string name="connections_close_failed">关闭失败：%1$s</string>
 </resources>

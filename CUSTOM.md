@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r156
+当前版本：2_11_36-r157
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -198,13 +198,14 @@
 
 **依赖的上游接口：** `statistic.DefaultManager.Range` + `Tracker.Chains()`；`dialer.DefaultSocketHook`（在 `delegate.Init` 里被上游赋值，这里在它之后包一层，所以必须在赋值之后调用）；`bridge.h` 里的 `fetch_report` / `release_object`、`main.c` 里 `JNI_OnLoad` 已注册的 `FetchCallback.report`；`Bridge` 的 `System.loadLibrary("bridge")` 库名；`DynamicNotificationModule` 的 `receiveBroadcast` / `select` 循环；`Clash.queryTunnelState()`；`libclash.h` 由 cgo 根据 `//export` 自动生成（新增导出函数会自动出现，不用改头文件）。
 
-## 8. 连接列表页（首页"连接"）
+## 8. 连接列表页（首页"连接"；r157 补充名称、说明与时间显示）
 **效果：** 首页"日志"上方多一个"连接"入口，打开后列出内核当前的连接（最新的在最上面，最多 300 条，超出时顶部写明）。
 - 每行三行字：目标 `域名:端口`；实际承载连接的节点（`国旗 节点名 · 节点 IP`，IP / 国旗只有内核已经知道时才有，不触发探测）；`TCP · 规则 · ↑上传 ↓下载 · 应用包名 · 开始时间`。
 - 点一行弹出详情（目标、来源、网络和入站类型、从策略组到节点的完整链路、节点 IP、规则、应用、开始时间、流量），可"关闭连接"。弹窗打开期间列表不刷新。
 - 顶部栏右侧两个图标：刷新（手动）和 IP 切换历史（见 #10）。
 - **刷新时机：** 进入页面 / 回到页面、手动点刷新、Clash 启动停止、**节点 IP 变化广播**（和首页同一个事件，见 #7）、以及页面在前台且代理在运行时**每 2 秒**一次。2 秒这个定时只在页面 started 且代理运行时才参与 `select`；页面进入后台 / 息屏后不再有任何唤醒（和首页本来就有的 1 秒流量 ticker 同一类，且更严）。代理没运行时不查询，显示"代理未运行"。
 - r12 起（#15）：顶部有搜索框、按时间 / 按流量排序、"全部关闭"。查询带两个参数（排序、搜索词），见 #15。
+- **显示文案与含义（r157）：** 顶部合计明确说明流量只统计当前显示的最多 300 条；搜索时明确说明流量只统计当前显示的匹配项，匹配项超过 300 条时提示截断。详情标签改为“节点最近使用的 IP”，并说明它是节点级最近拨号 IP，复用传输不一定对应当前连接；国旗表示经该 IP 出口的国家，不是 IP 注册地。连接行开始时间跨天时显示日期。历史入口和弹窗改称“节点 IP 使用记录”，说明首次出现或节点更换 IP 时记一条；搜索提示和排序按钮文案同步更新；新增关闭操作异常提示文案，供第二组接入。
 - 数据来源：内核 `statistic.DefaultManager.Range`，每个连接取 `Info()` 的 JSON（即 REST API `/connections` 的稳定格式）再取字段，不依赖内核内部结构体的字段名。内核只在被问到时才处理，没有后台任务。
 
 **新增文件**
@@ -216,6 +217,7 @@
 - `design/.../custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`（含 `ConnectionText`）、`res/layout/design_connections.xml`、`res/layout/adapter_connection.xml`；文案 `connection*`。
 - `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`。
 
+**r157 改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 **本次补充修订改动文件：** `core/src/main/golang/native/connlist/mux.go`、`core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`、`app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`、`MuxText.kt`、`design/src/main/res/layout/design_mux.xml`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 **改了上游文件：** 见总表（`IClashManager.kt`、`ClashManager.kt`、`AndroidManifest.xml`、`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`）。app 进程通过 IClashManager 的两个新方法取 JSON（返回 `String`，Go 侧限制 300 条，远低于 binder 1 MB 上限）。
 

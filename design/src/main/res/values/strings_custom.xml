@@ -21,9 +21,9 @@
     <string name="geosite_download_reload_sent">Reload requested. If the service is not running, the new file is used at the next start.</string>
     <string name="connections">Connections</string>
     <string name="connections_refresh">Refresh</string>
-    <string name="connections_history">IP switch history</string>
+    <string name="connections_history">Node IP usage</string>
     <string name="connections_summary">%1$d connections · ↑ %2$s · ↓ %3$s</string>
-    <string name="connections_summary_more">%1$d connections (newest %2$d shown) · ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_more">%1$d connections (only newest %2$d shown) · shown %2$d total ↑ %3$s · ↓ %4$s</string>
     <string name="connections_not_running">Proxy is not running</string>
     <string name="connections_empty">No connections</string>
     <string name="connection_close">Close connection</string>
@@ -34,25 +34,25 @@
     <string name="connection_label_source">Source</string>
     <string name="connection_label_network">Network</string>
     <string name="connection_label_chain">Route</string>
-    <string name="connection_label_node_ip">Node IP</string>
+    <string name="connection_label_node_ip">Most recently used node IP</string>
     <string name="connection_label_rule">Rule</string>
     <string name="connection_label_app">App</string>
     <string name="connection_label_start">Started</string>
     <string name="connection_label_traffic">Traffic</string>
-    <string name="ip_history_title">IP switch history</string>
-    <string name="ip_history_empty">No switches recorded yet</string>
+    <string name="ip_history_title">Node IP usage</string>
+    <string name="ip_history_empty">No records yet. An entry is added when an IP appears for the first time or a node changes IP.</string>
 
     <!-- CUSTOM #15: connections search / sort / close all -->
-    <string name="connections_search_hint">Search host, app, node, rule</string>
-    <string name="connections_sort_time">By time</string>
-    <string name="connections_sort_traffic">By traffic</string>
+    <string name="connections_search_hint">Search host, IP, port, app, rule, route</string>
+    <string name="connections_sort_time">Sort: by time</string>
+    <string name="connections_sort_traffic">Sort: by traffic</string>
     <string name="connections_close_all">Close all</string>
     <string name="connections_close_all_message">Close all current connections? Apps reconnect on their own, and new connections will use the latest node.</string>
     <string name="connections_all_closed">All connections closed</string>
     <string name="connections_nothing_to_close">No connections</string>
     <string name="connections_no_match">No matching connections</string>
-    <string name="connections_summary_more_traffic">%1$d connections (top %2$d by traffic shown) · ↑ %3$s · ↓ %4$s</string>
-    <string name="connections_summary_filtered">%1$d of %2$d connections match · ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_more_traffic">%1$d connections (only top %2$d by traffic shown) · shown %2$d total ↑ %3$s · ↓ %4$s</string>
+    <string name="connections_summary_filtered">%1$d of %2$d connections match · matched total ↑ %3$s · ↓ %4$s</string>
 
     <!-- CUSTOM #16: geo file downloads (GeoSite / GeoIP / ASN) -->
     <string name="geofile_download_title">%1$s download URL</string>
@@ -385,4 +385,8 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_cmp_same">Already on this device (this device\'s stays): %1$s</string>
     <string name="cloud_cmp_replaced">File subscriptions replaced by the backup\'s content: %1$s</string>
     <string name="cloud_names_more"> … %1$d in all</string>
+    <string name="connections_summary_filtered_more">%1$d of %2$d connections match (only %3$d shown) · shown %3$d total ↑ %4$s · ↓ %5$s</string>
+    <string name="connection_node_ip_note">This is a node-level IP and may not be the IP used by this connection. Reused transports such as grpc, h2 and smux can show only the most recently dialed IP. The flag indicates the exit country reached through this IP, not the IP's registered location.</string>
+    <string name="ip_history_note">An entry is added when an IP appears for the first time or a node changes IP.</string>
+    <string name="connections_close_failed">Close failed: %1$s</string>
 </resources>
