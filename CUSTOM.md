@@ -216,6 +216,7 @@
 - `design/.../custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`（含 `ConnectionText`）、`res/layout/design_connections.xml`、`res/layout/adapter_connection.xml`；文案 `connection*`。
 - `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`。
 
+**本次补充修订改动文件：** `core/src/main/golang/native/connlist/mux.go`、`core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`、`app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`、`MuxText.kt`、`design/src/main/res/layout/design_mux.xml`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 **改了上游文件：** 见总表（`IClashManager.kt`、`ClashManager.kt`、`AndroidManifest.xml`、`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`）。app 进程通过 IClashManager 的两个新方法取 JSON（返回 `String`，Go 侧限制 300 条，远低于 binder 1 MB 上限）。
 
 **依赖的 mihomo API：** `statistic.DefaultManager.Range`、`Tracker.ID()` / `Info()` / `Chains()` / `Close()`，以及 `Info()` 能被 `json.Marshal`（REST API 同款）。
@@ -329,15 +330,16 @@
     🇺🇸 162.159.153.2 · 3 条 · 自 13:42:07
     104.18.2.5 · 2 条 · 自 13:51:30
 节点 B · 底层 1 条 / 上层连接 12 个 · UDP 2 个
-    UDP 8.8.8.8 · 1 个 · 13:40:03
-    UDP 地址未知（没指定对端） · 1 个 · 13:40:03
+    UDP 8.8.8.8 · 1 个 · 自 13:40:03
+    UDP 地址未知（没指定对端） · 1 个 · 自 13:40:03
 ```
-- 页面顶部只保留两句简短提示：底层 = 内核真正为该节点开着的 TCP socket 数；上层连接 = 经该节点的连接数，开了多路复用时底层应远少于上层连接。旁边有“说明”按钮，弹窗展示链式节点、QUIC、空闲连接、socket 计数范围、垃圾回收、smux statistic 和国旗显示规则；右上角刷新按钮。代理没运行时显示“代理未运行”，没有连接时显示“当前没有连接”；查询或解析失败时显示“读取失败：原因”，下一次现有刷新成功后恢复正常。
+- 页面顶部只保留两句简短提示：底层 = 内核真正为该节点开着的 TCP socket 数。上层连接 = 经该节点的连接数；开了多路复用时，底层应远少于上层连接。旁边有“说明”按钮，弹窗展示链式节点、QUIC、空闲连接、socket 计数范围、垃圾回收、smux statistic 和国旗显示规则；右上角刷新按钮。代理没运行时显示“代理未运行”，没有连接时显示“当前没有连接”；查询或解析失败时显示“读取失败：原因”，下一次现有刷新成功后恢复正常。
 - **刷新时机：** 打开 / 回到页面、点刷新、Clash 启动停止、以及页面在前台且代理在运行时每 2 秒一次（和连接页同一套：页面进入后台后定时分支不再参与 `select`，没有任何后台唤醒）。答案和上次一样就不解析、不重画。
 - **底层 N 条**：内核真正为这个节点开着的 TCP socket 数（和终端里 `ss` 看到的出站连接一致）；开了多路复用（smux 等）或 gRPC / h2 时，N 远小于上层连接数。**上层连接 M 个**：内核连接列表里由这个节点承载的连接数（连接的路径里第一个名字就是承载它的节点）。
 - 每个 IP 一行：该节点现在有几条连到这个 IP；国旗只有已经知道（测速或 #7 探测过）时才显示，不额外查询。没有连接的 IP 不列。
-- **每个 IP 的开始时间（r27）**：每个 IP 行（TCP 和 UDP 都有）末尾加该节点"开始连这个 IP"的时刻。含义：这个 IP 的底层连接数从 0 变成 1 的那一刻；之后只要还有连接活着就不变（其中一条断了、另一条还在，时间不变）；全部断开后再连上，算新的一次，时间重新记。显示成绝对时间 `13:42:07`，不是今天的写成 `11-10 23:08`；不写"几分钟前"，因为那要定时刷新才会准。时间在内核补丁里记（socket 登记表里每个"节点+网络+IP"除了计数多存一个毫秒时间，登记时顺带取一次 `time.Now()`，没有任何额外定时器或后台工作），随原来的查询一起带到界面，页面只在原来的刷新点（打开、点刷新、前台每 2 秒那一套）重画。退出 App / 内核重启后清空。开始时间是 socket 的创建时间，不是"上层连接"的开始时间（后者是内核连接列表里的 `start`，那一页用不上）。
-- **底层统计范围**：除了承载上层连接的 socket，还包括节点健康检查、延迟测试、经节点进行的 DNS 查询，以及本 App 测试其他 IP 时临时建立的连接；这些不在内核连接列表里，不算作上层连接，因此空闲时可能出现“底层 3 条 / 上层连接 0 个”。未正常关闭而被丢弃的 socket，要等 Go 垃圾回收触发 finalizer 后才会从计数中减掉，数字可能暂时偏高。\n- **UDP（r24 起列地址）**：节点行末尾写 `UDP u 个`（该节点开着的 UDP socket 数，包括 QUIC 类节点），节点下面再按对端地址各列一行 `UDP 地址 · n 个`（和 TCP 的地址行同样的国旗规则，排序和 12 条上限也一样）。内核记录的就是 socket 创建时的对端地址；用 `ListenPacket` 创建、当时没指定对端的 socket 没有地址，显示"地址未知（没指定对端）"。数据本来就在 `dialer.ConnCounts` 里（补丁没改），只是以前没有显示。QUIC 类节点（hysteria、tuic）整个会话在一个 UDP socket 上，底层数本来就是 1 左右，不能用来判断复用。
+- **每个 IP 的开始时间（r27）**：每个 IP 行（TCP 和 UDP 都有）末尾加该节点"开始连这个 IP"的时刻。含义：这个 IP 的底层连接数从 0 变成 1 的那一刻；之后只要还有连接活着就不变（其中一条断了、另一条还在，时间不变）；全部断开后再连上，算新的一次，时间重新记。显示成绝对时间 `自 13:42:07`，不是今天的写成 `自 11-10 23:08`；前面加“自”表示该 IP 的底层连接数从 0 变成 1 的时刻；不写"几分钟前"，因为那要定时刷新才会准。时间在内核补丁里记（socket 登记表里每个"节点+网络+IP"除了计数多存一个毫秒时间，登记时顺带取一次 `time.Now()`，没有任何额外定时器或后台工作），随原来的查询一起带到界面，页面只在原来的刷新点（打开、点刷新、前台每 2 秒那一套）重画。退出 App / 内核重启后清空。开始时间是 socket 的创建时间，不是"上层连接"的开始时间（后者是内核连接列表里的 `start`，那一页用不上）。
+- **底层统计范围**：除了承载上层连接的 socket，还包括节点健康检查、延迟测试、经节点进行的 DNS 查询，以及本 App 测试其他 IP 时临时建立的连接；这些不在内核连接列表里，不算作上层连接，因此空闲时可能出现“底层 3 条 / 上层连接 0 个”。未正常关闭而被丢弃的 socket，要等 Go 垃圾回收触发 finalizer 后才会从计数中减掉，数字可能暂时偏高。
+- **UDP（r24 起列地址）**：节点行末尾写 `UDP u 个`（该节点开着的 UDP socket 数，包括 QUIC 类节点），节点下面再按对端地址各列一行 `UDP 地址 · n 个`（和 TCP 的地址行同样的国旗规则，排序和 12 条上限也一样）。内核记录的就是 socket 创建时的对端地址；用 `ListenPacket` 创建、当时没指定对端的 socket 没有地址，显示"地址未知（没指定对端）"。数据本来就在 `dialer.ConnCounts` 里（补丁没改），只是以前没有显示。QUIC 类节点（hysteria、tuic）整个会话在一个 UDP socket 上，底层数本来就是 1 左右，不能用来判断复用。
 - 没有归属节点的 socket（DNS 等）归到"其他（不属于任何节点）"。链式代理（`dialer-proxy`）只算真正的物理 socket，算在第一跳节点上，里层节点会显示 `底层 0 条 / 上层连接 M 个`。
 - 节点按底层数从多到少排，最多 30 个节点；每个节点的 TCP IP 和 UDP IP 分别最多列 12 个。超出的节点在列表末尾显示“另有 N 个节点没列出”；节点下方分别提示未列出的 TCP / UDP 地址数。节点行的底层和上层连接合计数不受截断影响。
 - 打开了 smux 的 `statistic: true` 时，承载连接本身也会登记成内核连接，并算进"上层连接"数（也会让首页的流量统计翻倍，那个选项本来是调试用）。

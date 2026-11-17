@@ -34,21 +34,21 @@ type MuxIP struct {
 // how many upper connections are carried by the node. With multiplexing working, Tcp stays far
 // below Connections. Node "" holds the sockets that belong to no node (DNS and the like).
 type MuxNode struct {
-	Node     string  `json:"node"`
-	Tcp      int     `json:"tcp"`
-	Udp      int     `json:"udp"`
-	Connections int     `json:"connections"`
-	IPs      []MuxIP `json:"ips,omitempty"`
-	UdpIPs   []MuxIP `json:"udpIps,omitempty"` // the addresses of the UDP sockets; IP "" when the socket was made without a peer
-	IPsOmitted int `json:"ipsOmitted,omitempty"`
-	UdpIPsOmitted int `json:"udpIpsOmitted,omitempty"`
+	Node          string  `json:"node"`
+	Tcp           int     `json:"tcp"`
+	Udp           int     `json:"udp"`
+	Connections   int     `json:"connections"`
+	IPs           []MuxIP `json:"ips,omitempty"`
+	UdpIPs        []MuxIP `json:"udpIps,omitempty"` // the addresses of the UDP sockets; IP "" when the socket was made without a peer
+	IPsOmitted    int     `json:"ipsOmitted,omitempty"`
+	UdpIPsOmitted int     `json:"udpIpsOmitted,omitempty"`
 }
 
 // MuxSnapshot is the answer of QueryMux. Total counts every connection of the core.
 type MuxSnapshot struct {
-    Total        int       `json:"total"`
-    Mux          []MuxNode `json:"mux"`
-    NodesOmitted int       `json:"nodesOmitted,omitempty"`
+	Total        int       `json:"total"`
+	Mux          []MuxNode `json:"mux"`
+	NodesOmitted int       `json:"nodesOmitted,omitempty"`
 }
 
 // QueryMux joins the socket counts of the core (dialer.ConnCounts) with the number of connections
