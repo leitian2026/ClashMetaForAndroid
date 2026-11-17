@@ -62,8 +62,8 @@
     <string name="editor_apply_failed_title">没能应用</string>
     <string name="editor_apply_failed">内核没有接受这份配置，已应用的版本没有变。这份已存进历史版本，标着“未通过检查”，改好后再点“应用”。\n\n%1$s</string>
     <!-- CUSTOM (CUSTOM.md #56): 历史版本、应用、对比 -->
-    <string name="editor_save_history">历史版本</string>
-    <string name="editor_save_history_short">历史版本</string>
+    <string name="editor_save_history">保存为历史</string>
+    <string name="editor_save_history_short">保存为历史</string>
     <string name="editor_apply">应用</string>
     <string name="editor_history_menu">历史版本…</string>
     <string name="editor_compare_menu">和已应用的版本对比…</string>
