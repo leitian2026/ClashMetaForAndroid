@@ -806,8 +806,8 @@ class EditorDesign(
         dirty = value
         titleView.text = if (value) "● $displayTitle" else displayTitle
 
-        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.4f
-        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.4f
+        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.38f
+        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.38f
     }
 
     private fun refreshStatus() {
@@ -1040,9 +1040,9 @@ class EditorDesign(
     private fun iconAction(res: Int, description: String, onClick: (View) -> Unit): ImageView {
         return ImageView(context).apply {
             setImageResource(res)
-            setColorFilter(colorText)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-            val pad = dp(if (split) 6 else 8)
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+            val pad = dp(12)
             setPadding(pad, pad, pad, pad)
             isClickable = true
             contentDescription = description
