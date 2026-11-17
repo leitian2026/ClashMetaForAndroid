@@ -250,7 +250,7 @@
     <string name="history_pick_version">%1$s 的历史版本</string>
     <string name="history_version_first">%1$s · %2$d 行 · 最早的记录</string>
     <string name="history_version_line">%1$s · %2$d 行 · 比前一版 +%3$d −%4$d</string>
-    <string name="history_in_use"> · 正在使用</string>
+    <string name="history_in_use"> · 已应用版本</string>
     <string name="diag_entry_title">导出诊断包</string>
     <string name="diag_entry_summary">一个 zip：配置（已隐藏密钥）、最近的错误、节点连接、崩溃记录和一次 DNS 检查</string>
     <string name="diag_confirm_title">导出诊断包</string>
@@ -283,10 +283,10 @@
     <string name="eff_tail_show">▸ 内核补充的默认块（%1$d 个），点开查看</string>
     <string name="eff_tail_hide">▾ 内核补充的默认块（%1$d 个），点这里收起</string>
     <string name="eff_tail_empty">其中没有被后面步骤改动的项。要看全部默认值，点最上面那一行“显示”。</string>
-    <!-- CUSTOM (CUSTOM.md #56): 一份文本相对正在用的配置，样式同推算最终配置 -->
-    <string name="cmp_summary">改写 %1$d 行 · 删除 %2$d 行 · 新增 %3$d 行（相对正在用的配置）</string>
+    <!-- CUSTOM (CUSTOM.md #56): 一份文本相对已应用的版本，样式同推算最终配置 -->
+    <string name="cmp_summary">改写 %1$d 行 · 删除 %2$d 行 · 新增 %3$d 行（相对已应用的版本）</string>
     <string name="cmp_legend_changed">改写（旧值划线）</string>
-    <string name="cmp_legend_removed">删除（正在用的有，这份没有）</string>
+    <string name="cmp_legend_removed">删除（已应用版本里有，这份没有）</string>
     <string name="cmp_legend_added">新增</string>
     <string name="cmp_no_diff">和正在用的配置没有差别。</string>
     <string name="cmp_note">比较配置内容和注释：空行不算，所有行都显示，不折叠。只在打开这一页时算一次，改了编辑框以后点“重新对比”。</string>

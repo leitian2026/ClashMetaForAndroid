@@ -283,12 +283,12 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="eff_tail_show">▸ Blocks the core added by itself (%1$d), tap to open</string>
     <string name="eff_tail_hide">▾ Blocks the core added by itself (%1$d), tap to close</string>
     <string name="eff_tail_empty">None of them was changed by a later step. To see all the defaults, tap the line at the top.</string>
-    <!-- CUSTOM (CUSTOM.md #56): a text against the config in use, drawn like the effective config -->
-    <string name="cmp_summary">%1$d rewritten · %2$d removed · %3$d added (against the config in use)</string>
+    <!-- CUSTOM (CUSTOM.md #56): a text against the applied version, drawn like the effective config -->
+    <string name="cmp_summary">%1$d rewritten · %2$d removed · %3$d added (against the applied version)</string>
     <string name="cmp_legend_changed">rewritten (old value struck through)</string>
     <string name="cmp_legend_removed">removed (in use, not in this text)</string>
     <string name="cmp_legend_added">added</string>
-    <string name="cmp_no_diff">No difference from the config in use.</string>
+    <string name="cmp_no_diff">No difference from the applied version.</string>
     <string name="cmp_note">The settings and the comments are compared: blank lines are ignored, and every line is shown. Computed once when this page opens; use “Compare again” after you edit.</string>
     <!-- CUSTOM (CUSTOM.md #31): the log level on the logs page -->
     <string name="log_level_live">Log level is now “%1$s”, in effect at once</string>

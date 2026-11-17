@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r121
+当前版本：2_11_36-r122
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1333,3 +1333,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **字符串：** 新增 `editor_save_apply` 中英文资源。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt`、`design/src/main/res/values/strings_editor.xml`、`design/src/main/res/values-zh/strings_editor.xml` 和本登记文件；没有修改上游文件总表。
 - **验证：** 完成按钮文案条件与资源引用检查；未运行 Android 编译或真机验证。
+
+
+## 106. 将“正在用的配置”统一称为“已应用的版本”（r122）
+- **文案：** 编辑器中 `editor_compare_*`、`cmp_*`、`history_in_use`、对比菜单项和 `editor_leave_*` 等涉及当前已提交配置的中英文文案统一改称“已应用的版本 / applied version”；保留原有对比页和菜单项，只调整文案。
+- **应用结果：** 应用成功及“已经是已应用版本”两条路径均通过现有 `queryActive()` profile 查询接口判断该 profile 是否为当前选中项。当前选中时提示“已应用并生效”；未选中时明确提示“已应用（这个配置当前没有被选中，所以没有加载）”。大文件无法保存历史时也保留相同的选中状态区分。
+- **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt`、中英文 `strings_editor.xml`、中英文 `strings_custom.xml` 和本登记文件；没有删除或改动对比页及其菜单功能。
+- **验证：** 核对 `ProfileManager.queryActive()` 的现有查询实现并检查所有新资源引用；未运行 Android 编译或真机验证。

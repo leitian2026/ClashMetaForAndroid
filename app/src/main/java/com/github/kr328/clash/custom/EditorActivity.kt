@@ -394,6 +394,25 @@ class EditorActivity : BaseActivity<EditorDesign>() {
      * anything is replaced: when it refuses, the config in use is not changed, the version in the history is marked
      * as refused, the pending copy that this made is dropped and the line the core names is shown.
      */
+    /** The profile query API is authoritative: committing a non-selected profile does not load it. */
+    private suspend fun showAppliedResult(design: EditorDesign, historyKept: Boolean) {
+        val selected = try {
+            withProfile { queryActive()?.uuid == profileUuid() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+
+        val message = when {
+            selected && historyKept -> R.string.editor_applied
+            selected -> R.string.editor_applied_no_history
+            historyKept -> R.string.editor_applied_not_selected
+            else -> R.string.editor_applied_not_selected_no_history
+        }
+        design.toast(getString(message))
+    }
+
     private suspend fun apply(design: EditorDesign, uri: Uri): Boolean {
         val uuid = profileUuid()
         val text = design.currentText()
@@ -401,7 +420,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
             withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
             design.markSaved()
-            design.toast(getString(R.string.editor_apply_same))
+            showAppliedResult(design, historyKept = true)
 
             return true
         }
@@ -463,7 +482,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         design.markSaved()
-        design.toast(getString(if (kept) R.string.editor_applied else R.string.editor_applied_no_history))
+        showAppliedResult(design, historyKept = kept)
 
         return true
     }
