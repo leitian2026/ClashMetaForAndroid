@@ -2,12 +2,15 @@ package issues
 
 import (
 	"testing"
+	"time"
 )
 
 func reset() {
 	mu.Lock()
 	items, ignored, loaded, dir = map[string]*Issue{}, map[string]bool{}, false, ""
+	nodeFailures = map[string][]time.Time{}
 	mu.Unlock()
+	OnNetworkOffline = nil
 }
 
 func TestFromLog(t *testing.T) {
@@ -128,5 +131,64 @@ func TestDialLines(t *testing.T) {
 	// the same sentence on its own is an issue and also asks
 	if !FromLog("[DNS] all DNS requests failed, first error: x") || asked != 2 {
 		t.Fatalf("standalone: asked %d", asked)
+	}
+}
+
+
+func TestDialIssueNeedsTwoFailures(t *testing.T) {
+	reset()
+	OnNetworkOffline = func() bool { return false }
+	line := "[TCP] dial node-a (match Match/) 127.0.0.1:1 --> example.com:443 error: dial tcp 1.2.3.4:8443: i/o timeout"
+
+	FromLog(line)
+	if s := Query(); s.Active != 0 {
+		t.Fatalf("one failure created an issue: %+v", s.Items)
+	}
+
+	FromLog(line)
+	if s := Query(); s.Active != 1 || s.Items[0].Subject != "1.2.3.4:8443" {
+		t.Fatalf("two failures did not create issue: %+v", s.Items)
+	}
+}
+
+func TestDialIssueSkippedWhenNetworkOffline(t *testing.T) {
+	reset()
+	calls := 0
+	OnNetworkOffline = func() bool {
+		calls++
+		return true
+	}
+	line := "[TCP] dial node-a (match Match/) 127.0.0.1:1 --> example.com:443 error: dial tcp 1.2.3.4:8443: i/o timeout"
+
+	FromLog(line)
+	FromLog(line)
+	if s := Query(); s.Active != 0 {
+		t.Fatalf("created issue while offline: %+v", s.Items)
+	}
+	if calls != 1 {
+		t.Fatalf("offline check called %d times, want 1", calls)
+	}
+
+	FromLog(line)
+	if s := Query(); s.Active != 0 {
+		t.Fatalf("one post-offline failure created an issue: %+v", s.Items)
+	}
+	FromLog(line)
+	if s := Query(); s.Active != 0 {
+		t.Fatalf("offline issue unexpectedly created: %+v", s.Items)
+	}
+	if calls != 3 {
+		t.Fatalf("offline check called %d times, want 3", calls)
+	}
+}
+
+func TestExistingDialIssueStillAccumulates(t *testing.T) {
+	reset()
+	OnNetworkOffline = func() bool { return true }
+	Report(KindIP, "1.2.3.4:8443", "timeout", "first", "node-a")
+	line := "[TCP] dial node-a (match Match/) 127.0.0.1:1 --> example.com:443 error: dial tcp 1.2.3.4:8443: i/o timeout"
+	FromLog(line)
+	if s := Query(); s.Active != 1 || s.Items[0].Count != 2 {
+		t.Fatalf("existing issue did not accumulate: %+v", s.Items)
 	}
 }

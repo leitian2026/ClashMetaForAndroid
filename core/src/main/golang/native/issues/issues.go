@@ -41,6 +41,10 @@ const (
 	maxItems = 100
 	maxText  = 300
 	delay    = 1500 * time.Millisecond
+
+	nodeFailureWindow    = 10 * time.Minute
+	nodeFailureThreshold = 2
+	maxNodeFailureAddrs  = 100
 )
 
 // Issue is one problem. ID is Kind + "|" + Subject, so a problem found again is the same entry.
@@ -69,9 +73,10 @@ var (
 	items   = map[string]*Issue{}
 	ignored = map[string]bool{}
 	dir     string
-	loaded  bool
-	onChg   func()
-	timer   *time.Timer
+	loaded       bool
+	onChg        func()
+	timer        *time.Timer
+	nodeFailures = map[string][]time.Time{}
 )
 
 // SetDir tells where the ignore list is kept (a file in the core's home dir). Called once, before the first use.
@@ -332,6 +337,70 @@ func Command(cmd string) Snapshot {
 // to issuecheck.DNSFailed, which asks each server once.
 var OnDNSFailed func()
 
+// OnNetworkOffline is set by the main package to issuecheck.Offline. It is called only before a new node-address
+// issue would be created, never for every ordinary dial failure.
+var OnNetworkOffline func() bool
+
+// allowNewDialIssue applies the per-address failure threshold and checks the device network only for a new issue.
+func allowNewDialIssue(addr string) bool {
+	now := time.Now()
+
+	mu.Lock()
+	if items[ID(KindIP, addr)] != nil {
+		delete(nodeFailures, addr)
+		mu.Unlock()
+		return true // an existing issue keeps accumulating as before
+	}
+
+	for key, times := range nodeFailures {
+		kept := times[:0]
+		for _, at := range times {
+			if now.Sub(at) <= nodeFailureWindow {
+				kept = append(kept, at)
+			}
+		}
+		if len(kept) == 0 {
+			delete(nodeFailures, key)
+		} else {
+			nodeFailures[key] = kept
+		}
+	}
+
+	if _, exists := nodeFailures[addr]; !exists && len(nodeFailures) >= maxNodeFailureAddrs {
+		oldestKey := ""
+		var oldest time.Time
+		for key, times := range nodeFailures {
+			if len(times) > 0 && (oldestKey == "" || times[0].Before(oldest)) {
+				oldestKey, oldest = key, times[0]
+			}
+		}
+		delete(nodeFailures, oldestKey)
+	}
+
+	times := append(nodeFailures[addr], now)
+	nodeFailures[addr] = times
+	if len(times) < nodeFailureThreshold {
+		mu.Unlock()
+		return false
+	}
+	checkOffline := OnNetworkOffline
+	mu.Unlock()
+
+	if checkOffline != nil && checkOffline() {
+		mu.Lock()
+		if recent := nodeFailures[addr]; len(recent) > 1 {
+			nodeFailures[addr] = recent[len(recent)-1:]
+		}
+		mu.Unlock()
+		return false
+	}
+
+	mu.Lock()
+	delete(nodeFailures, addr)
+	mu.Unlock()
+	return true
+}
+
 var (
 	// "[TCP] dial <node> [(match <rule>)] <src> --> <dst> error: <reason>", the reason may have several lines
 	reDialLine = regexp.MustCompile(`(?s)^\[(?:TCP|UDP)\] dial (.+?) (?:\(match .*?\) )?\S+ --> (\S+) error: (.*)$`)
@@ -395,8 +464,8 @@ func dnsFailed() {
 }
 
 // fromDial looks at the reason of a failed connection: when no DNS server answered, the servers are asked once
-// (OnDNSFailed); when the address of a node could not be reached, that address is a problem. Nothing is judged for
-// DIRECT / REJECT, for connections that were cancelled or closed, and for "network is unreachable" (no IPv6 / no network).
+// (OnDNSFailed); when the address of a node could not be reached, that address is a problem after repeated failures.
+// Nothing is judged for DIRECT / REJECT, cancelled or closed connections, and "network is unreachable".
 func fromDial(node, dest, reason string) {
 	low := strings.ToLower(reason)
 
@@ -418,6 +487,10 @@ func fromDial(node, dest, reason string) {
 	for _, m := range reNodeAddr.FindAllStringSubmatch(reason, -1) {
 		addr := m[1] + ":" + m[2]
 		if addr == dest { // the destination itself, not a node
+			continue
+		}
+
+		if !allowNewDialIssue(addr) {
 			continue
 		}
 

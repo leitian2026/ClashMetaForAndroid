@@ -97,3 +97,7 @@ func round() {
 func offline() bool {
 	return dialProbe("1.1.1.1:443") != nil && dialProbe("223.5.5.5:443") != nil
 }
+
+
+// Offline reports whether the device itself has no working network route, using the same two TCP checks as round().
+func Offline() bool { return offline() }

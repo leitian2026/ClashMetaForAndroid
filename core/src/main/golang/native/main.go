@@ -13,6 +13,8 @@ import (
 
 	"cfa/native/config"
 	"cfa/native/delegate"
+	"cfa/native/issuecheck"
+	"cfa/native/issues"
 	"cfa/native/tunnel"
 
 	"github.com/metacubex/mihomo/log"
@@ -20,6 +22,10 @@ import (
 
 func main() {
 	panic("Stub!")
+}
+
+func init() {
+	issues.OnNetworkOffline = issuecheck.Offline
 }
 
 //export coreInit
