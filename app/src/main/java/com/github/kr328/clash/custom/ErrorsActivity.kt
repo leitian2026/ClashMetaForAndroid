@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     // The nodes whose timeout is on screen now: what "clear" hides.
     private var shownTimeouts: List<String> = emptyList()
+    private var shownTestedAt: Long = 0
 
     private val prefs by lazy { getSharedPreferences("custom_errors", MODE_PRIVATE) }
 
@@ -146,7 +147,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                     timingOut = timingOut.filter { it !in v6 }
                 }
 
-                timeouts = filterDismissed(timingOut)
+                timeouts = filterDismissed(timingOut, info?.testedAt ?: 0)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -159,6 +160,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         }
 
         shownTimeouts = timeouts.orEmpty()
+        shownTestedAt = info?.testedAt ?: 0
 
         patch(
             ErrorsReport(
@@ -171,28 +173,54 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         )
     }
 
-    // A node's timeout is its latest speed-test result, not a log line, so "clear" cannot delete it. It
-    // hides the ones shown now instead: a node stays hidden until it tests fine once (then it drops out of
-    // the saved names, so a later timeout shows again). Read and written only when the page refreshes or
-    // "clear" is tapped.
+    // NodeInfo.testedAt is one timestamp for the latest completed batch, not a per-node timestamp. Store it
+    // with each cleared node: a later batch makes a still-timing-out node visible again. Read / write only
+    // when the page refreshes or "clear" is tapped.
     private fun dismissTimeouts() {
         if (shownTimeouts.isEmpty()) return
 
         val saved = HashSet(prefs.getStringSet(KEY_DISMISSED, emptySet()).orEmpty())
 
-        if (saved.addAll(shownTimeouts)) prefs.edit().putStringSet(KEY_DISMISSED, saved).apply()
+        for (name in shownTimeouts) {
+            saved.removeAll { dismissedNodeName(it) == name }
+            saved += "$name|$shownTestedAt"
+        }
+
+        prefs.edit().putStringSet(KEY_DISMISSED, saved).apply()
     }
 
-    private fun filterDismissed(timingOut: List<String>): List<String> {
+    private fun filterDismissed(timingOut: List<String>, testedAt: Long): List<String> {
         val saved = prefs.getStringSet(KEY_DISMISSED, emptySet()).orEmpty()
 
         if (saved.isEmpty()) return timingOut
 
-        val still = saved.filterTo(HashSet()) { it in timingOut }
+        val still = HashSet<String>()
+        val hidden = HashSet<String>()
 
-        if (still.size != saved.size) prefs.edit().putStringSet(KEY_DISMISSED, still).apply()
+        for (entry in saved) {
+            val separator = entry.lastIndexOf('|')
+            val parsedAt = if (separator > 0) entry.substring(separator + 1).toLongOrNull() else null
+            val name = if (parsedAt == null) entry else entry.substring(0, separator)
+            val clearedAt = parsedAt ?: testedAt
 
-        return timingOut.filter { it !in still }
+            if (name !in timingOut) continue
+
+            if (testedAt <= clearedAt) {
+                hidden += name
+                // Keep legacy node-only entries until a real testedAt is available; then migrate once.
+                still += if (parsedAt == null && testedAt == 0L) entry else "$name|$clearedAt"
+            }
+        }
+
+        if (still != saved) prefs.edit().putStringSet(KEY_DISMISSED, still).apply()
+
+        return timingOut.filter { it !in hidden }
+    }
+
+    private fun dismissedNodeName(value: String): String {
+        val separator = value.lastIndexOf('|')
+        if (separator <= 0 || value.substring(separator + 1).toLongOrNull() == null) return value
+        return value.substring(0, separator)
     }
 
     private companion object {
