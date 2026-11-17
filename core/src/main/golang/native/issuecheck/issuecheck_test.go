@@ -19,6 +19,7 @@ func reset() {
 	stateMu.Unlock()
 
 	atomic.StoreInt32(&running, 0)
+	atomic.StoreInt32(&screenInteractive, 1)
 	now = time.Now
 	dnsProbe = func() []conftest.DNSServer { return nil }
 	dialProbe = func(string) error { return nil }
@@ -180,5 +181,55 @@ func waitForIdle(t *testing.T) {
 	}
 	if atomic.LoadInt32(&running) != 0 {
 		t.Fatal("round did not finish")
+	}
+}
+
+func TestScreenOffSkipsWithoutChangingCooldownOrQueuing(t *testing.T) {
+	reset()
+
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	stateMu.Lock()
+	lastRoundStart = start
+	cooldownStep = 3
+	previousFailed = []string{"https://a/dns"}
+	hasPrevious = true
+	stateMu.Unlock()
+
+	var nowCalls int32
+	now = func() time.Time {
+		atomic.AddInt32(&nowCalls, 1)
+		return start.Add(time.Hour)
+	}
+
+	var probes int32
+	dnsProbe = func() []conftest.DNSServer {
+		atomic.AddInt32(&probes, 1)
+		return nil
+	}
+
+	SetScreenInteractive(false)
+	DNSFailed()
+
+	stateMu.Lock()
+	if !lastRoundStart.Equal(start) || cooldownStep != 3 || !sameServers(previousFailed, []string{"https://a/dns"}) {
+		stateMu.Unlock()
+		t.Fatalf("screen-off call changed state: start=%v step=%d previous=%v", lastRoundStart, cooldownStep, previousFailed)
+	}
+	stateMu.Unlock()
+
+	if atomic.LoadInt32(&nowCalls) != 0 || atomic.LoadInt32(&probes) != 0 {
+		t.Fatalf("screen-off call did work: now=%d probes=%d", nowCalls, probes)
+	}
+
+	SetScreenInteractive(true)
+	time.Sleep(20 * time.Millisecond)
+	if atomic.LoadInt32(&probes) != 0 {
+		t.Fatal("screen-on transition queued a probe")
+	}
+
+	DNSFailed()
+	waitForIdle(t)
+	if atomic.LoadInt32(&probes) != 1 {
+		t.Fatalf("next real DNS failure should probe once, got %d", probes)
 	}
 }

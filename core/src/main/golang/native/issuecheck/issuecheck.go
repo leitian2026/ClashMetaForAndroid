@@ -30,6 +30,7 @@ const (
 
 var (
 	running int32
+	screenInteractive int32 = 1 // default to screen on until the service reports otherwise
 
 	stateMu        sync.Mutex
 	lastRoundStart time.Time
@@ -69,6 +70,10 @@ type roundResult struct {
 // DNSFailed is told that a connection failed because no DNS server answered. It starts one round (in the background)
 // unless one runs or the current result-aware cooldown has not elapsed.
 func DNSFailed() {
+	if atomic.LoadInt32(&screenInteractive) == 0 {
+		return
+	}
+
 	start := now()
 
 	stateMu.Lock()
@@ -98,6 +103,14 @@ func DNSFailed() {
 		result := round()
 		finishRound(result)
 	}()
+}
+
+func SetScreenInteractive(interactive bool) {
+	if interactive {
+		atomic.StoreInt32(&screenInteractive, 1)
+	} else {
+		atomic.StoreInt32(&screenInteractive, 0)
+	}
 }
 
 func round() roundResult {

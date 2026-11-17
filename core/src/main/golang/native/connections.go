@@ -12,6 +12,7 @@ import (
 	"cfa/native/errlog"
 	"cfa/native/ipdelay"
 	"cfa/native/issues"
+	"cfa/native/issuecheck"
 )
 
 // CUSTOM (CUSTOM.md #8): active connections for the app's connections page.
@@ -43,7 +44,16 @@ func queryCustomConnections(sortMode C.int, filter C.c_string) *C.char {
 	}
 
 	if int(sortMode) == issues.SortIssues { // CUSTOM.md #53: problems of the running config (the filter is a command)
-		return marshalJson(issues.Command(C.GoString(filter)))
+		command := C.GoString(filter)
+		switch command {
+		case "screen|1":
+			issuecheck.SetScreenInteractive(true)
+			return marshalJson(issues.Query())
+		case "screen|0":
+			issuecheck.SetScreenInteractive(false)
+			return marshalJson(issues.Query())
+		}
+		return marshalJson(issues.Command(command))
 	}
 
 	if int(sortMode) == ipdelay.SortNodeInfo { // CUSTOM.md #23 #24: IPv6-only nodes, last test time, last network change

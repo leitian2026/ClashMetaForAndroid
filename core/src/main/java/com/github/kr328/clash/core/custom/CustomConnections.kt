@@ -20,7 +20,7 @@ object CustomConnections {
 
     const val SORT_LOG_LEVEL = 9 // CUSTOM #31: not a list; the filter is a log level ("debug" ...), the core takes it at once
 
-    const val SORT_ISSUES = 10 // CUSTOM #53: not a list; the problems of the running config (see IssuesSnapshot); the filter is "" or a command ("sub|name|reason", "subok|name")
+    const val SORT_ISSUES = 10 // CUSTOM #53: not a list; the problems of the running config (see IssuesSnapshot); the filter is "" or a command ("sub|name|reason", "subok|name", "screen|1", "screen|0")
 
     // ids that close() takes for the problems list (CUSTOM #53)
     const val ISSUE_IGNORE = "!issue-ignore:" // + id
