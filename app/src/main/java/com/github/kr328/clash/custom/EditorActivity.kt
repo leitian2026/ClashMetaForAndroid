@@ -539,17 +539,21 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val inUse = withContext(Dispatchers.IO) { ConfigHistory.inUse(this@EditorActivity, uuid, versions) }
         val labels = withContext(Dispatchers.IO) {
             versions.mapIndexed { i, v ->
-                val text = v.text()
-                val lines = text.lines().size
                 val older = versions.getOrNull(i + 1)
+                val olderAt = older?.at ?: 0L
+                val stat = ConfigHistory.readStat(v, olderAt) ?: run {
+                    val text = v.text()
+                    val diff = if (older == null) null else LineDiff.diff(older.text().lines(), text.lines())
+                    ConfigHistory.VersionStat(text.lines().size, diff?.added ?: 0, diff?.removed ?: 0, olderAt).also {
+                        ConfigHistory.writeStat(v, it)
+                    }
+                }
                 val date = format.format(Date(v.at))
 
                 var label = if (older == null) {
-                    getString(R.string.history_version_first, date, lines)
+                    getString(R.string.history_version_first, date, stat.lines)
                 } else {
-                    val d = LineDiff.diff(older.text().lines(), text.lines())
-
-                    getString(R.string.history_version_line, date, lines, d.added, d.removed)
+                    getString(R.string.history_version_line, date, stat.lines, stat.added, stat.removed)
                 }
 
                 if (v == inUse) label += getString(R.string.history_in_use)
