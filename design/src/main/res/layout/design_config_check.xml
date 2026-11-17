@@ -120,6 +120,12 @@
                     android:onClick="@{() -> self.request(Request.Flush)}"
                     android:text="@string/check_flush_start"
                     android:textColor="?attr/colorError" />
+
+                <!-- CUSTOM (CUSTOM.md #94): an empty third column, so these two sit in the same columns as the three tests below -->
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
             </LinearLayout>
 
             <!-- CUSTOM (CUSTOM.md #89): the three tests, equal widths, right above the table -->

@@ -95,7 +95,8 @@
     <string name="iptest_target_label">Target address (through-node test only; optional: a site you really use, the tries go to it through the node)</string>
     <string name="iptest_target_hint">https://example.com/</string>
     <string name="iptest_target_bad">The target address must start with http:// or https://</string>
-    <string name="iptest_target_sub">Target address: %1$s (the tries go to it through the node; Site reaction is what it answered, Exit data centre is read from the Cf-Ray of its answer, empty when the site is not behind Cloudflare)</string>
+    <string name="iptest_target_sub">Target address: %1$s</string>
+    <string name="iptest_target_note">The tries go to the target address through the node; Site reaction is what it answered, Exit data centre is read from the Cf-Ray of its answer, empty when the site is not behind Cloudflare.</string>
     <string name="iptest_col_target">Site reaction</string>
     <string name="iptest_col_tcolo">Exit data centre</string>
     <string name="iptest_log_target">%1$s target site: HTTP %2$d (%5$s), redirect %3$s, exit data centre %4$s</string>

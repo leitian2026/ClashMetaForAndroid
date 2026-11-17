@@ -336,6 +336,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         keys.forEachIndexed { i, k -> min[i + 1] = width(k) }
 
+        // CUSTOM.md #94: the time split is as wide as its longest line, so "首字节 447 ms" does not wrap
+        val phaseAt = keys.indexOf(Key.PHASE) + 1
+
+        if (phaseAt > 0) min[phaseAt] = maxOf(min[phaseAt], phaseNeed())
+
         val avail = tableBox.width
         val sum = min.sum()
         val speedAt = keys.indexOf(Key.SPEED) + 1 // 0 when there is no such column
@@ -398,6 +403,15 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         }
 
         return min
+    }
+
+    // CUSTOM.md #94: the longest line of the three-line time split in the 14 sp of the cell plus its padding. When it
+    // wrapped ("447" and "ms" on two lines) the row became two or three lines taller than anything else in it.
+    private fun phaseNeed(): Int {
+        val paint = TextView(context).apply { textSize = 14f }.paint
+        val longest = rows.maxOfOrNull { r -> phaseText(r).split('\n').maxOf { paint.measureText(it) } } ?: 0f
+
+        return (longest.toInt() + dp(10)).coerceAtMost(dp(120))
     }
 
     // the longest IP in the 15 sp bold of the cell, so it is never cut

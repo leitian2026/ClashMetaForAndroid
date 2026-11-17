@@ -231,8 +231,13 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
+    // CUSTOM (CUSTOM.md #94): true while the table on the page is the through-node test with a target address
+    private var ipTarget = false
+
     private fun createIpView(direct: Boolean, target: Boolean, head: String, sub: String, warnings: List<String>) {
         val view = IpTestView(context, direct, target)
+
+        ipTarget = target
 
         view.onCopy = { text ->
             context.getSystemService<ClipboardManager>()
@@ -335,6 +340,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // back to the plain text view (any page but the IP test)
     private fun textMode() {
         ipView = null
+        ipTarget = false
         binding.checkIpContainer.visibility = View.GONE
         binding.checkIpContainer.removeAllViews()
         binding.checkTextView.visibility = View.VISIBLE
@@ -415,8 +421,16 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         // CUSTOM (CUSTOM.md #91): show the complete explanation without changing page state.
         binding.checkHintButton.setOnClickListener {
+            // CUSTOM (CUSTOM.md #94): while the table shows the through-node test, the explanation that used to sit
+            // under "目标网址" is the second paragraph here
+            val message = if (ipTarget) {
+                context.getString(R.string.check_hint) + "\n\n" + context.getString(R.string.iptest_target_note)
+            } else {
+                context.getString(R.string.check_hint)
+            }
+
             MaterialAlertDialogBuilder(context)
-                .setMessage(R.string.check_hint)
+                .setMessage(message)
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
         }

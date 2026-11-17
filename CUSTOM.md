@@ -1,7 +1,8 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r109
+当前版本：2_11_36-r110
+已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1186,15 +1187,6 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 完成源码结构与调用路径检查；未运行 Android 编译或真机验证。需用户手动触发 Build Debug 检查退出 / 重进页面、进程重启、行内下载测速和新一轮覆盖；不会自动触发构建。
 
 
-## 88. 配置检查页操作按钮分组
-- **布局：** 域名输入框与“ECH检查”保持原位；下一行并排放置“检查 DNS”和“测试其他 IP”，归为网络测试；再下一行并排放置“查看有效配置”和“清理缓存”，归为辅助操作。
-- **视觉：** 四个按钮继续使用原有 `Widget.MaterialComponents.Button.TextButton`，沿用 App 主题、默认尺寸和点击反馈；不增加自定义背景、颜色、圆角、图标或新控件样式。仅调整按钮分组和顺序。
-- **保留：** 所有按钮 ID、点击回调、请求参数、检查逻辑和结果显示不变；域名输入、开始检查、顶部复制按钮及下方结果区域不变。
-- **功耗 / 网络：** 仅调整静态 XML 排列，不增加监听、定时器、轮询、网络请求或后台任务。
-- **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
-- **验证：** 完成 XML 结构与按钮 ID / 回调源码检查；未运行 Android 编译或真机验证。按仓库约定由用户手动触发 Build Debug；不会自动触发构建。
-
-
 ## 89. 配置检查页按钮重排（r105）
 - **布局：** 域名输入框单独一行；下一行并排等宽放“查看有效配置”和“清理缓存”；再下一行并排等宽放“ECH检查”、“检查 DNS”、“测试其他 IP”，紧贴下方结果表格。取代 #88 的分组。
 - **视觉：** 仍全部使用 `Widget.MaterialComponents.Button.TextButton`；只有“清理缓存”文字用 `?attr/colorError`，与连接页的危险操作一致。不增加背景、描边、图标或新控件样式。按钮等宽（`layout_weight`），“ECH检查”等按钮点击后变成“取消”时文字宽度变化不会挤动其他按钮。
@@ -1202,14 +1194,6 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗 / 网络：** 仅调整静态 XML 排列，不增加监听、定时器、轮询、网络请求或后台任务。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
 - **验证：** 完成 XML 结构与按钮 ID / 回调源码检查；未运行 Android 编译或真机验证。需用户手动触发 Build Debug 检查。
-
-## 90. 配置检查页说明文字折叠与域名输入框方框化（r106）
-- **说明文字：** 顶部 `check_hint` 默认只显示一行并以省略号收尾；点击后展开全文，再点收起。使用可点击背景提供涟漪反馈。展开状态只保存在当前页面实例内，退出页面后不保存；原文字和字符串资源不变。
-- **域名输入框：** 原有 `check_domain_view` 改为 `TextInputLayout` + `MaterialAutoCompleteTextView`，采用 `Widget.MaterialComponents.TextInputLayout.OutlinedBox`。原 `check_domain_hint` 从输入控件移到外层 `TextInputLayout` 的 `hint`，字符串本身不改。保留输入框 ID、`textUri`、单行、自动补全阈值、历史下拉和偏好读写；外层行原有水平 padding 不变，不额外增加上下 / 左右间距。
-- **严格保留：** 所有按钮的位置、尺寸和点击回调；域名当前值及历史记录在 `prefs` 中的读写；#87 最近一轮 IP 测试结果保存与恢复；ECH、DNS、IP 测试逻辑和结果显示；其他布局及文字内容。没有增加定时器、轮询、额外监听或后台工作。
-- **改动文件：** `design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件。两个代码文件均为自定义功能文件，没有修改上游文件总表中的挂钩；上游文件总表不变。
-- **验证：** 完成源码级检查：说明文字点击切换逻辑、Material 控件层级、原输入框 ID / `textUri` / 历史适配器与 prefs 调用均保留。未运行 Android 编译或真机验证，因此 ViewBinding 生成类型及 Kotlin 编译、历史下拉实际弹出、软键盘布局、浅色 / 深色主题边框与提示色均**未实测**；需手动触发 Build Debug，并按上述项目在真机检查。
-
 
 ## 91. 配置检查页说明按钮与域名输入框提示修正（r107）
 - **说明入口：** 移除上一版说明文字的单行折叠、点击展开 / 收起及相关状态代码；顶部改为 `Widget.MaterialComponents.Button.TextButton` 样式的“说明”按钮。点击后使用现有 `MaterialAlertDialogBuilder` 显示完整 `check_hint`，仅提供关闭按钮；不保存状态、不增加动画。原 `check_hint` 文案不变。
@@ -1234,3 +1218,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保留：** 控件仍为 `MaterialAutoCompleteTextView`；外层仍为 `TextInputLayout` OutlinedBox，`app:hintEnabled="false"` 不变，提示仍由控件自身 `android:hint` 显示。输入 ID、`textUri`、单行、补全阈值、历史下拉、prefs 读写及页面其他功能均不改。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改 Kotlin、主题、依赖、上游文件总表或构建工作流。
 - **验证：** 已核对 Material Components 1.6.1 的资源定义，确认该样式存在且提供上下各 17dp 默认内边距；完成 XML 变更范围检查。未运行 Android 编译，未进行真机测量；约 56dp 是按 Material 样式计算的目标值，不是实测值。需手动触发 Build Debug 后在真机确认方框高度、文字上下留白及浅色 / 深色显示。
+
+
+## 94. 配置检查页：表格行高、目标网址说明进弹窗、按钮列对齐（r110）
+- **表格行高：** 一行的高度取这一行里最高的那个格子（`IpTestView.redraw`）。成功的行下半截大片空白，原因是“分段耗时”列固定 84dp，窄于“首字节 447 ms”，每一行文字在 “ms” 前折行，三行变成五六行，把整行撑高。现在这一列的最小宽度取三行里最长一行的实际宽度（14sp，加格子内边距，最多 120dp），其余列宽、最小行高 `rowH`、固定 IP 列与横向滑动部分同高的规则都不变。表格比页面宽时的“其他列最多让 15%”那一步仍会按比例缩窄这一列，窄到装不下时 “ms” 还是会折行，这种情况没有特别处理。
+- **目标网址说明：** `iptest_target_sub` 只留 “目标网址：%1$s”；原来括号里的解释拆成新字符串 `iptest_target_note`（中英文两份），在“说明”弹窗里作为 `check_hint` 之后的第二段，只在表格是套入节点测（有目标网址）时显示。弹窗显示与否由 `ConfigCheckDesign` 的 `ipTarget` 决定，进入文字页时清掉。已保存的上一轮结果（#87）里存的是旧的长 `sub`，恢复时仍显示旧文字，下一次测试起才是新的。
+- **按钮列对齐：** “最终生效配置”“清缓存”所在行加一个空的第三格（`Space`，权重 1），这两个按钮和下面三个测试按钮的列对齐。按钮样式、ID、回调不变。
+- **归档：** #88、#90 的内容已被后面的条目取代，移到 `CUSTOM_ARCHIVE.md`，主文件头部留一行说明。上游文件总表、`当前版本：` 那一行的格式和位置不变。其余条目里“部分被取代”的（#45 #50 #51 #69 等）没有动，因为要逐条判断哪些句子还有效。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`ConfigCheckDesign.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`、新增 `CUSTOM_ARCHIVE.md`；没有修改上游文件总表中的挂钩。
+- **功耗 / 网络：** 只在表格重画时多量一次文字宽度，弹窗只在点击时拼字符串；没有新增监听、定时器、轮询、网络请求或后台任务。
+- **验证：** 完成源码级检查。未运行 Android 编译、未做真机验证：行高实际降到多少、弹窗里第二段是否只在套入节点测时出现、新旧恢复结果的显示，都需要手动触发 Build Debug 后在真机确认。
+
