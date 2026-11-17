@@ -158,11 +158,13 @@ class TextSearch(
         return try {
             val m = matcher(text)
             var exact = false
-            while (m.find(range.first)) {
+            var found = m.find(range.first)
+            while (found) {
                 if (m.end() > m.start()) {
                     exact = m.start() == range.first && m.end() == range.last + 1
                     break
                 }
+                found = m.find()
             }
             if (!exact) return null
             val result = StringBuffer()

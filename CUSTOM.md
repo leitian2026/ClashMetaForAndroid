@@ -1499,3 +1499,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **源码范围：** 用户指定的 mihomo commit 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8，以及本仓库 core 的 Validate / patchProviders 调用链。
 - **改动文件：** 仅 CUSTOM.md；没有改动代码、创建 symlink 或复制文件。
 - **验证：** 仅做源码调用链核对；未运行 Android 编译或真机验证。
+
+
+## 126. 修正正则替换零宽推进与 UI 文本读取线程（r144）
+- **正则替换：** 修正替换单项时跳过零宽匹配的 Matcher 推进方式，避免重复从相同起点查找造成死循环。
+- **应用状态比较：** 在 UI 线程先取得编辑器全文，再将文件比较放到 IO 线程，避免后台线程直接读取编辑器控件。
+- **英文图例：** 将 compare 删除图例的 “in use” 改为 “applied”。
+- **改动文件：** TextSearch.kt、EditorActivity.kt、strings_custom.xml 和本登记文件。
+- **验证：** 静态检查 Matcher 推进、线程边界及文案；未运行 JVM 测试或 Android 编译。

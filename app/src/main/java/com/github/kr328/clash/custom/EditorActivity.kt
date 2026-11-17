@@ -373,8 +373,10 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
     /** Compare once at the specified lifecycle points, off the UI thread. */
     private suspend fun refreshApplyState(design: EditorDesign) {
+        val text = design.currentText()
+        val uuid = profileUuid()
         val matches = withContext(Dispatchers.IO) {
-            ConfigHistory.isInUse(this@EditorActivity, profileUuid(), design.currentText())
+            ConfigHistory.isInUse(this@EditorActivity, uuid, text)
         }
         design.setApplied(matches)
     }
