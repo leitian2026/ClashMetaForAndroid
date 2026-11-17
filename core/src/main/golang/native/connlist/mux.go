@@ -32,7 +32,7 @@ type MuxIP struct {
 
 // MuxNode tells, for one node, how many sockets the core really has open to it (Tcp, and Udp) and
 // how many upper connections are carried by the node. With multiplexing working, Tcp stays far
-// below Connections. Node "" holds the sockets that belong to no node (DNS and the like).
+// below the upper-connection count. Node "" holds the sockets that belong to no node (DNS and the like).
 type MuxNode struct {
 	Node          string  `json:"node"`
 	Tcp           int     `json:"tcp"`
