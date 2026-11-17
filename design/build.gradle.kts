@@ -19,5 +19,5 @@ dependencies {
     implementation(libs.androidx.viewpager)
     implementation(libs.google.material)
     implementation(libs.zxing.core)
-    implementation(libs.kotlin.serialization.json)
+    implementation(libs.kotlin.serialization.json) // CUSTOM (CUSTOM.md #87): JSON persistence for the latest IP test report
 }
