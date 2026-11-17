@@ -167,11 +167,21 @@ object ConnectionText {
 
     // the core lists the node that really carries the connection first
     private fun leafKind(item: ConnectionItem): LeafKind {
+        if (item.leafKind.isNotEmpty()) {
+            return when (item.leafKind.lowercase(Locale.ROOT)) {
+                "direct" -> LeafKind.Direct
+                "reject" -> LeafKind.Reject
+                else -> LeafKind.Other
+            }
+        }
+
+        // Legacy JSON has no leafKind; only exact built-in names are accepted as fallback.
         val leaf = item.chains.firstOrNull() ?: return LeafKind.Other
 
         return when {
             leaf.equals("DIRECT", ignoreCase = true) -> LeafKind.Direct
-            leaf.startsWith("REJECT", ignoreCase = true) -> LeafKind.Reject
+            leaf.equals("REJECT", ignoreCase = true) ||
+                leaf.equals("REJECT-DROP", ignoreCase = true) -> LeafKind.Reject
             else -> LeafKind.Other
         }
     }

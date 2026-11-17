@@ -16,7 +16,9 @@ import (
 
 	"cfa/native/ipdelay"
 
+	"github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
+	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
 
@@ -62,6 +64,7 @@ type Item struct {
 	Start       int64    `json:"start"` // unix milliseconds, 0 if unknown
 	NodeIP      string   `json:"nodeIp,omitempty"`
 	NodeCountry string   `json:"nodeCountry,omitempty"`
+	LeafKind    string   `json:"leafKind,omitempty"` // actual type of the carrying proxy: direct or reject
 }
 
 // Snapshot is the answer of Query. Total counts every connection, Matched those that pass the filter
@@ -169,10 +172,11 @@ func Query(sortMode int, filter string) (result Snapshot) {
 		}
 	}
 
-	// the address and exit country the core last used for a node, when they are known
-	type nodeInfo struct{ ip, country string }
+	// the address, exit country and actual proxy type for each carrying node
+	type nodeInfo struct{ ip, country, leafKind string }
 
 	known := map[string]nodeInfo{}
+	proxies := tunnel.Proxies()
 
 	for i := range items {
 		if len(items[i].Chains) == 0 {
@@ -184,10 +188,18 @@ func Query(sortMode int, filter string) (result Snapshot) {
 		info, ok := known[node]
 		if !ok {
 			info.ip, info.country = ipdelay.Lookup(node)
+			if proxy, exists := proxies[node]; exists {
+				switch proxy.Type() {
+				case constant.Direct:
+					info.leafKind = "direct"
+				case constant.Reject, constant.RejectDrop:
+					info.leafKind = "reject"
+				}
+			}
 			known[node] = info
 		}
 
-		items[i].NodeIP, items[i].NodeCountry = info.ip, info.country
+		items[i].NodeIP, items[i].NodeCountry, items[i].LeafKind = info.ip, info.country, info.leafKind
 	}
 
 	result.Items = items

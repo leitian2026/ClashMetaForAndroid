@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r158
+当前版本：2_11_36-r159
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -163,7 +163,7 @@
   - **通知栏**用同一份文本：`🇺🇸 IP · 🇺🇸 IP · 节点名`（TunnelState.ipsText）。
   - **更新时机：** 只有"这一批 IP（排序后的集合）"和上次不同才排一个 0.8 秒的一次性通知（和原来合并拨号用的是同一个 `scheduleNotify`），两个 IP 轮流做"最近一个"不算变化；国家探测完成时照旧通知。没有新增定时器 / 后台任务；钩子在请求本来就要做的 `GotConn` 里被调用，没人监听时只是一次原子读取，有人监听时一次带锁的小 map 更新。我们自己的测速 / 国家探测（`selfDialing`）不计入。
   - **非 xhttp 的节点（r33）：** ws、普通 tcp 这类"一个请求一条自己的连接"的传输，补丁 0002 在 `component/dialer/conncount.go` 的 `DialContext`（0001 加的拨号包装）里，拨号成功后把**赢家连接**（`tcp-concurrent` 竞速赢的那个）的对端 IP 也报给同一个钩子（`opt.owner` 非空才报，`dialer-proxy` 之类不是本进程 socket 的不报）。这样 ws 节点显示的是真正连上的 IP，不再是竞速输掉的那几个（socket 钩子 `record` 会把每个并发 socket 都记下，那是 r32 之前 ws 显示不准的原因）。xhttp 新建连接时这里也会报一次，和 `GotConn` 报的重复，集合去重所以没有影响。没有任何请求记录时仍退回"最近拨的 IP"。
-  - **IP 切换历史（#10）**：一个 IP 第一次进入这一批、或节点换了，才记一条；两个 IP 轮流做最近一个不会每次都记。
+  - **节点 IP 使用记录（#10）**：一个 IP 第一次进入这一批、或节点换了，才记一条；两个 IP 轮流做最近一个不会每次都记。
   - **连接页每条连接的"节点 IP"（#8）**（`ipdelay.Lookup`）也优先取"请求最近走过的 IP"，没有记录才退回拨号记录。注意：它仍然是节点级的一个 IP，不是每条连接各自的（内核没有给连接记下它走的哪条底层连接）。
   - **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。`transport/xhttp/reuse.go`（`ReuseManager.GetTransport` 给每个新请求挑一个已有的传输或新建；这里每个传输是一条 h2 连接）、`transport/xhttp/client.go`（`DialStreamOne` / `DialStreamUp` / `DialPacketUp` 里已有的 `httptrace.ClientTrace.GotConn`，`httputils.NewAddrContext` 也是靠它记 `conn.NetAddr`，所以复用的连接上 `GotConn` 也会触发）、`adapter/outbound/vless.go`（`xhttp.NewClient` 之后设 `OnRemote`）。补丁只加一个字段 `Client.OnRemote`、三处调用、一处赋值和新文件 `component/dialer/usehook.go`。内核升级后这几处要重新对照。
   - **局限：** ⓪ 会复用连接的其他传输（grpc、h2、smux 多路复用）没有挂钩：新请求放在已开的连接上，不会拨号，只能显示最近一次拨号的 IP；① 这里没有 Go / Kotlin 编译环境，补丁用 `patch --dry-run` 在内核源码上按顺序（0001、0002）试打通过，Go / Kotlin 部分没有编译过，要靠 Actions 构建验证；② `stream-up` / `packet-up` 模式里单独的下载请求（GET）没有挂钩，只有主请求；你用的 `stream-one` 不受影响；③ `GotConn` 可能对一个请求回调多次，集合去重所以没有影响；④ 1.5 秒是按"一次访问"估的，间隔取小了一个网站的请求会被拆成几批，取大了连着打开两个网站会并成一批，要调改 `useWindow`。
@@ -202,11 +202,12 @@
 **效果：** 首页"日志"上方多一个"连接"入口，打开后列出内核当前的连接（最新的在最上面，最多 300 条，超出时顶部写明）。
 - 每行三行字：目标 `域名:端口`；实际承载连接的节点（`国旗 节点名 · 节点 IP`，IP / 国旗只有内核已经知道时才有，不触发探测）；`TCP · 规则 · ↑上传 ↓下载 · 应用包名 · 开始时间`。
 - 点一行弹出详情（目标、来源、网络和入站类型、从策略组到节点的完整链路、节点 IP、规则、应用、开始时间、流量），可"关闭连接"。弹窗打开期间列表不刷新。
-- 顶部栏右侧两个图标：刷新（手动）和 IP 切换历史（见 #10）。
+- 顶部栏右侧两个图标：刷新（手动）和节点 IP 使用记录（见 #10）。
 - **刷新时机：** 进入页面 / 回到页面、手动点刷新、Clash 启动停止、**节点 IP 变化广播**（和首页同一个事件，见 #7）、以及页面在前台且代理在运行时**每 2 秒**一次。2 秒这个定时只在页面 started 且代理运行时才参与 `select`；页面进入后台 / 息屏后不再有任何唤醒（和首页本来就有的 1 秒流量 ticker 同一类，且更严）。代理没运行时不查询，显示"代理未运行"。
 - r12 起（#15）：顶部有搜索框、按时间 / 按流量排序、"全部关闭"。查询带两个参数（排序、搜索词），见 #15。
-- **显示文案与含义（r157）：** 顶部合计明确说明流量只统计当前显示的最多 300 条；搜索时明确说明流量只统计当前显示的匹配项，匹配项超过 300 条时提示截断。详情标签改为“节点最近使用的 IP”，并说明它是节点级最近拨号 IP，复用传输不一定对应当前连接；国旗表示经该 IP 出口的国家，不是 IP 注册地。连接行开始时间跨天时显示日期。历史入口和弹窗改称“节点 IP 使用记录”，说明首次出现或节点更换 IP 时记一条；搜索提示和排序按钮文案同步更新；新增关闭操作异常提示文案，供第二组接入。
+- **显示文案与含义（r157）：** 顶部合计明确说明流量只统计当前显示的最多 300 条；搜索时明确说明流量只统计当前显示的匹配项，匹配项超过 300 条时提示截断。详情标签改为“节点最近使用的 IP”，并说明它是节点级最近拨号 IP，复用传输不一定对应当前连接；国旗表示经该 IP 出口的国家，不是 IP 注册地。连接行开始时间跨天时显示日期。历史入口和弹窗改称“节点 IP 使用记录”，说明首次出现或节点更换 IP 时记一条；搜索提示和排序按钮文案同步更新；关闭操作异常提示文案由 r158 接入。
 - **错误状态（r158）：** 查询异常、JSON 解析异常明确显示“读取失败：原因”，与“代理未运行”“当前没有连接”区分；单条和全部关闭操作中，返回 `false` 保持原提示，抛异常时显示“关闭失败：原因”。节点 IP 使用记录文件不存在时显示空记录提示；文件读取异常或 JSON 内容损坏时显示读取失败。`IpHistory.parse` 不再吞掉解析异常，所有实际解析调用由弹窗处理；诊断包仍只读取原始文件内容，不调用解析函数。
+- **直连 / 拒绝类型判断（r159）：** Go 查询按 `chains[0]` 的节点名从 `tunnel.Proxies()` 取实际代理对象，读取 `ProxyAdapter.Type()`；`constant.Direct` 写入 `leafKind=direct`，`constant.Reject` / `constant.RejectDrop` 写入 `leafKind=reject`，每次 Query 对同一节点只查一次，其他类型留空。Kotlin 优先读取该字段；字段缺失或为空的旧 JSON 才按节点名完全匹配 `DIRECT`、`REJECT`、`REJECT-DROP`（忽略大小写），不再使用前缀匹配。
 - 数据来源：内核 `statistic.DefaultManager.Range`，每个连接取 `Info()` 的 JSON（即 REST API `/connections` 的稳定格式）再取字段，不依赖内核内部结构体的字段名。内核只在被问到时才处理，没有后台任务。
 
 **新增文件**
@@ -218,6 +219,7 @@
 - `design/.../custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`（含 `ConnectionText`）、`res/layout/design_connections.xml`、`res/layout/adapter_connection.xml`；文案 `connection*`。
 - `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`。
 
+**r159 改动文件：** `core/src/main/golang/native/connlist/connlist.go`、`core/src/main/java/com/github/kr328/clash/core/model/ConnectionSnapshot.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConnectionAdapter.kt` 和本登记文件。类型判断依据为指定 mihomo commit `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的 `constant/adapters.go`（`ProxyAdapter.Type()` 与 `Direct` / `Reject` / `RejectDrop` 常量）、`adapter/outbound/direct.go`、`adapter/outbound/reject.go` 及 `tunnel/tunnel.go`（`Proxies()`）。
 **r158 改动文件：** `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConnectionsDesign.kt`、`core/src/main/java/com/github/kr328/clash/core/custom/IpHistory.kt`、两套 `strings_custom.xml` 和本登记文件。
 **r157 改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 **本次补充修订改动文件：** `core/src/main/golang/native/connlist/mux.go`、`core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`、`app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`、`MuxText.kt`、`design/src/main/res/layout/design_mux.xml`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
@@ -230,7 +232,7 @@
 - 已还原的上游文件挂钩：`design_main.xml`（变量 `customProfile`、配置卡片 `subtext`）、`MainDesign.kt`（`setCustomProfile`）、`MainActivity.kt`（`setCustomProfile` 调用、`ProfileUpdateCompleted` 事件），并删除 `ProfileUsage.kt` 和 `main_profile_*` 文案。
 - 编号 9 不再使用，别的条目的编号不变。
 
-## 10. IP 切换历史
+## 10. 节点 IP 使用记录
 - 内核在"节点 / IP / 国家"变化并通知应用时（#7 的同一时机），把这次切换记到 `<filesDir>/custom/ip_history.json`，最多 50 条；同一节点 IP 连续出现不重复记，只是国家后来才查到时补全最后一条。
 - 只在发生切换时写文件（先写临时文件再改名），没有定时写入。服务重启后历史仍在（文件）。
 - 查看：连接页右上角的历史图标，弹出列表（新的在上）。app 进程直接读这个文件，不走 IPC。
@@ -512,7 +514,7 @@
 - `config.yaml`：当前启用配置的 `config.yaml`，**密钥已隐藏**（见下）；`override.json`：覆盖设置，同样隐藏；
 - `dns-check.txt`：对"配置检查"页上最后填的域名做一次 DNS 检查（#25 #26，只在内核运行、填过域名时有）；
 - `errors.json`：错误与诊断页（#21）的原始数据；`mux.json`：底层连接（#20）的原始数据；（这两样只在内核运行时有）
-- `ip_history.json`：节点 IP 切换历史（#10）；`crash/*.txt`：崩溃记录（#21）。
+- `ip_history.json`：节点 IP 使用记录（#10）；`crash/*.txt`：崩溃记录（#21）。
 某一项读不出来就跳过，其余照常写。
 - **隐藏的规则（`ConfigMask`）：** 下面这些键的值换成 `***`：`password`、`passwd`、`uuid`、`psk`、`private-key`、`pre-shared-key`、`public-key`、`auth-str`、`auth`、`obfs-password`、`token`、`secret`、`short-id`、`username`；`url:` 的值只留协议和域名（后面写 `/***`）。块写法和一行 `{...}` 写法都处理。**尽力而为**：节点服务器地址不隐藏，不在上面名单里的键下面的秘密也不会被隐藏，`errors.json` 里有最近连接失败的域名，所以确认框和 `summary.txt` 都提醒发给别人之前自己看一遍。
 **功耗：** 点导出才读，没有后台。
@@ -600,7 +602,7 @@
 **依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
 
 ## 33. 首页"网络状况"卡（r39，**r42 取消**）
-r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和首页代理卡片 / 通知重复，第二行（最近切换）是连接页 IP 切换历史（#10）的摘要，只有"节点延迟"是新的，而延迟在代理页测速里本来就有。**现在的状态：** 首页没有这张卡；`MainDesign.setCustomCards(running, state)` 和 `refreshCustom(running)` 回到两个参数；`design_main.xml` 没有 `customNet` 和那张卡；`custom_net_*` 文案删掉。`MainCustomNet.kt`、`MainCustomNetLoader.kt` 两个文件已没有人用，r42 包里把它们换成了只有一行 `package` 的空文件，**可以直接删除**（不删也不影响构建）。
+r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和首页代理卡片 / 通知重复，第二行（最近切换）是连接页的节点 IP 使用记录（#10）的摘要，只有"节点延迟"是新的，而延迟在代理页测速里本来就有。**现在的状态：** 首页没有这张卡；`MainDesign.setCustomCards(running, state)` 和 `refreshCustom(running)` 回到两个参数；`design_main.xml` 没有 `customNet` 和那张卡；`custom_net_*` 文案删掉。`MainCustomNet.kt`、`MainCustomNetLoader.kt` 两个文件已没有人用，r42 包里把它们换成了只有一行 `package` 的空文件，**可以直接删除**（不删也不影响构建）。
 
 ## 34. 推送 custom 分支时的快速检查（r39）
 **效果：** `.github/workflows/check-custom.yaml`（新文件）：往 `custom` 分支推送（rebase 到上游 main 之后、或任何改动）时自动跑，也可以手动启动；**不做 Gradle 构建**，大约一分钟，构建仍然只能手动（#2）。检查两件事：① `bash scripts/check-custom.sh`（#19，有 `origin/main` 时用 `UPSTREAM_REF=origin/main`，没有就用宽松检查）：挂钩丢了、新挂钩没登记会失败；② 只检出内核子模块（`--depth 1`，带重试），按顺序对 `patches/mihomo/*.patch` 先 `--dry-run` 再真打：内核升级后补丁对不上会失败，不用等到构建失败才发现。
@@ -623,7 +625,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **效果：** 首页"代理"卡片的副标题在 IP 后面多一段：`✓ 86 ms`（节点在用且能通）或 `✗ 不通`；还没测过时什么都不写。用来一眼分清"代理坏了"还是"浏览器自己的缓存坏了"（关了代理再打开打不开外网时，先看这里）。
 - **测什么：** 经**正在用的节点**（`CurrentSet` 的那个节点）请求一次测速地址（和测速页同一个 `defaultTestURL`、同样 5 秒超时），不走代理组、不测别的节点。没有任何请求走过节点（还不知道在用哪个）时不测，也就不显示。
 - **什么时候测（没有定时器）：** 有人问隧道状态（打开首页、换 IP 事件、通知文字重建）时，如果上一次的结果是"通"且超过 3 分钟（`reachFresh`），或上一次是"不通"且超过 20 秒（`reachRetry`），或还没测过，就在后台发一次；另外**网络切换稳定之后**（#24 的 `MarkNetworkChanged`）对刚才那个节点再测一次。同一时间只发一个。载入新配置时（`CaptureConfig`）清空。
-- **怎么告诉首页：** 只有"从没结果变成有结果"或"通 ↔ 不通"切换时，才用 #7 的同一个事件通知（`notifyNow`，不记 IP 切换历史），首页和通知栏各读一次；延迟毫秒数的小变化不通知，下次打开首页才刷新。
+- **怎么告诉首页：** 只有"从没结果变成有结果"或"通 ↔ 不通"切换时，才用 #7 的同一个事件通知（`notifyNow`，不记节点 IP 使用记录），首页和通知栏各读一次；延迟毫秒数的小变化不通知，下次打开首页才刷新。
 - **功耗：** 最多每 3 分钟一个请求，且只在首页或通知本来就要读状态时；息屏时没有人问，就不测。没有轮询。
 - **新增文件：** `core/src/main/golang/native/ipdelay/reach.go`；文案 `custom_reach_ok` / `custom_reach_fail`。
 - **改了上游文件：** `tunnel.go`（`queryTunnelState` 多一个 `reach` 字段）、`TunnelState.kt`（`reach`），见总表；自家文件 `ipdelay.go`（`CaptureConfig` 末尾一行 `resetReach()`）、`nodeinfo.go`（`MarkNetworkChanged` 末尾一行 `refreshReach()`）、`MainCustomCards.kt`（拼接 reach 文字）。

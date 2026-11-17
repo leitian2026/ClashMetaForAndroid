@@ -25,6 +25,7 @@ data class ConnectionItem(
     val start: Long = 0, // unix milliseconds, 0 if unknown
     val nodeIp: String = "", // address the core last used for the node, "" if unknown
     val nodeCountry: String = "",
+    val leafKind: String = "", // actual type of the carrying proxy; empty for other or legacy data
 )
 
 /**
