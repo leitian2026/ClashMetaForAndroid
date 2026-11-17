@@ -453,22 +453,6 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
     }
 
-    // CUSTOM.md #96: classify the error for the table; live logs stay on one line.
-    private fun speedErrorText(error: String): String {
-        val raw = error.ifBlank { "-" }
-        val lower = raw.lowercase()
-        return when {
-            Regex("^HTTP\\s+403\\b", RegexOption.IGNORE_CASE).containsMatchIn(raw) -> getString(R.string.iptest_http_403_note)
-            "timeout" in lower || "deadline exceeded" in lower -> ErrorsText.explain(this, "timeout")
-            "connection refused" in lower -> ErrorsText.explain(this, "refused")
-            "connection reset" in lower || "reset by peer" in lower -> ErrorsText.explain(this, "reset")
-            "unexpected eof" in lower || "unexpected end of file" in lower -> ErrorsText.explain(this, "eof")
-            "network is unreachable" in lower || "no route to host" in lower -> ErrorsText.explain(this, "network")
-            "tls" in lower || "certificate" in lower -> ErrorsText.explain(this, "tls")
-            else -> ErrorsText.explain(this, "other")
-        }
-    }
-
     // CUSTOM.md #96: write failures back to the matching IP row, even when the core returns no result row.
     private suspend fun setSpeedError(design: ConfigCheckDesign, ip: String, error: String) {
         val raw = error.ifBlank { "-" }
