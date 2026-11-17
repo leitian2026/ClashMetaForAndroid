@@ -1184,3 +1184,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/build.gradle.kts` 和本登记文件；上游文件总表新增 `design/build.gradle.kts`（#87），其他上游挂钩不变。
 - **功耗 / 网络：** 仅在用户启动测试或测试结果更新时写入本地偏好设置；恢复时只读取本地数据，不增加网络请求、定时器、轮询或后台任务。
 - **验证：** 完成源码结构与调用路径检查；未运行 Android 编译或真机验证。需用户手动触发 Build Debug 检查退出 / 重进页面、进程重启、行内下载测速和新一轮覆盖；不会自动触发构建。
+
+
+## 88. 配置检查页操作按钮分组
+- **布局：** 域名输入框与“开始检查”保持原位；下一行并排放置“检查 DNS”和“测试其他 IP”，归为网络测试；再下一行并排放置“查看有效配置”和“清理缓存”，归为辅助操作。
+- **视觉：** 四个按钮继续使用原有 `Widget.MaterialComponents.Button.TextButton`，沿用 App 主题、默认尺寸和点击反馈；不增加自定义背景、颜色、圆角、图标或新控件样式。仅调整按钮分组和顺序。
+- **保留：** 所有按钮 ID、点击回调、请求参数、检查逻辑和结果显示不变；域名输入、开始检查、顶部复制按钮及下方结果区域不变。
+- **功耗 / 网络：** 仅调整静态 XML 排列，不增加监听、定时器、轮询、网络请求或后台任务。
+- **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
+- **验证：** 完成 XML 结构与按钮 ID / 回调源码检查；未运行 Android 编译或真机验证。按仓库约定由用户手动触发 Build Debug；不会自动触发构建。
