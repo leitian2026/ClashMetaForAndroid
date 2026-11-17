@@ -1488,3 +1488,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **对比图例：** 中文删除图例明确为“已应用的有，这份没有”，不再使用“正在用的配置”旧称。
 - **改动文件：** 中英文 strings_editor.xml、strings_custom.xml 和本登记文件。
 - **验证：** 检查中英文资源键及占位符；未运行 Android 资源编译。
+
+
+## 125. 确认 split 检查临时目录与实际应用的 Provider 路径行为一致（r143）
+- **结论：** split 模式“检查”把页面文字写入缓存目录的临时文件夹；此检查结果不会因为 provider 本地文件未复制或未链接而与实际应用不同，不需要把原配置目录的其他文件 symlink 进临时目录。
+- **依据：**
+  1. 指定 mihomo 源码版本的 config.Parse（包括 parseProxies / parseRuleProviders）只解析并创建 provider 对象；provider 的 Initial() 在后续加载阶段调用，才会读取本地文件。
+  2. App 的 patchProviders（core/src/main/golang/native/config/process.go）只改写 provider 路径字符串，不读取路径指向的文件。
+  3. core/build.gradle.kts 使用 cmfa 构建标签；该标签下 C.Path.IsSafePath 恒为 true，临时文件夹不会因“不在允许目录”触发路径安全错误。
+- **源码范围：** 用户指定的 mihomo commit 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8，以及本仓库 core 的 Validate / patchProviders 调用链。
+- **改动文件：** 仅 CUSTOM.md；没有改动代码、创建 symlink 或复制文件。
+- **验证：** 仅做源码调用链核对；未运行 Android 编译或真机验证。
