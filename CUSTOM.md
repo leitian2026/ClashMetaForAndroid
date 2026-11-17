@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r151
+当前版本：2_11_36-r152
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1561,3 +1561,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **修正：** 改为调用已有的 `digestOf(file)`，复用文件 SHA-256 缓存，并保持先比较长度、再比较摘要的逻辑。
 - **改动文件：** ConfigHistory.kt 和本登记文件。
 - **验证：** 已根据 GitHub Actions 编译日志定位并修正；尚未对新提交重新运行 Android Debug 构建。
+
+## 134. 修复跳到定义和历史列表的两处 Kotlin 编译错误（r152）
+- **构建错误：** Build Debug 在 `:app:compileAlphaReleaseKotlin` 失败，两处都在 `EditorActivity.kt`：① “跳到定义”分支里对另一个模块的公开属性 `resolution.link`、`resolution.definitionLine` 做智能转型（Kotlin 不允许）；② 历史列表标签里用到了 `text`，但 #12 的缓存改动后它只存在于缓存没命中的代码块里。
+- **修正：** ① 先把这两个属性取到局部变量再判断和使用；`YamlLint.Resolution` 没动。② 只有 `v.at == openedAt` 的那一行才读 `v.text()` 和页面文字比较，其他行不读全文，缓存效果不变。
+- **改动文件：** `app/.../custom/EditorActivity.kt` 和本登记文件。没有改上游文件。
+- **功耗：** 没有影响；多读的只有“当前打开的那一个版本”的文件，且只在打开历史列表时读一次。
+- **验证：** 按 GitHub Actions 日志里的行号和报错对照修正；没有本地编译，尚未重新运行 Android 构建。

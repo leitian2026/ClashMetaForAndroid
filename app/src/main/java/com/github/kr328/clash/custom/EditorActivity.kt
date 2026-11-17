@@ -110,11 +110,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                     val resolution = withContext(Dispatchers.Default) {
                         YamlLint.resolve(YamlLint.links(text), text, offset)
                     }
+                    // CUSTOM.md #134: public properties of another module cannot be smart cast, so take them into locals
+                    val link = resolution.link
+                    val definitionLine = resolution.definitionLine
                     when {
-                        resolution.link == null -> design.toast(getString(R.string.editor_goto_none))
-                        resolution.builtIn -> design.toast(getString(R.string.editor_goto_builtin, resolution.link.name))
-                        resolution.definitionLine == null -> design.toast(getString(R.string.editor_goto_missing, resolution.link.name))
-                        else -> design.goToLine(resolution.definitionLine + 1, false)
+                        link == null -> design.toast(getString(R.string.editor_goto_none))
+                        resolution.builtIn -> design.toast(getString(R.string.editor_goto_builtin, link.name))
+                        definitionLine == null -> design.toast(getString(R.string.editor_goto_missing, link.name))
+                        else -> design.goToLine(definitionLine + 1, false)
                     }
                 }
                 EditorDesign.Request.Check -> check(design, uri, profile)
@@ -588,7 +591,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
                 // CUSTOM.md #70: the one that was opened (and whether the page differs from it now)
                 if (v.at == openedAt) {
-                    label += getString(if (text == pageText) R.string.history_opened else R.string.history_opened_changed)
+                    // CUSTOM.md #134: the text is only read here (at most one version), not for every row
+                    label += getString(if (v.text() == pageText) R.string.history_opened else R.string.history_opened_changed)
                 }
 
                 CheckMark.paint(this@EditorActivity, label) ?: label // CUSTOM.md #57: ✓ green, ✗ red
