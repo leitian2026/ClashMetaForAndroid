@@ -1,11 +1,10 @@
 package ipdelay
 
 // CUSTOM (CUSTOM.md #52, not part of upstream): the download test of "test other IPs". One call is one download, made
-// only when the user taps "测速" on a row; nothing here runs on its own.
+// only when the user taps "下载测速" on a row; nothing here runs on its own.
 //
-// MeasureDownload reads a URL over a connection that is already made (the caller decides where it goes: straight to
-// the tested address, or through a node), stops at maxBytes or maxDur, whichever comes first, and leaves out the first
-// `skip` (TCP / TLS set-up and slow start) when it works out the speed.
+// The first byte has its own 10-second context timeout. Once a body byte arrives, maxDur and skip start from that
+// instant; the download then stops at maxBytes or maxDur, whichever comes first.
 
 import (
 	"context"
@@ -21,11 +20,13 @@ import (
 	C "github.com/metacubex/mihomo/constant"
 )
 
+const firstByteTimeout = 10 * time.Second
+
 // DownloadResult is the outcome of a download test. Err is "" when some bytes came.
 type DownloadResult struct {
 	Bytes int64
-	Ms    int     // from the start of the request to the end
-	MBps  float64 // megabytes (10^6 bytes) per second after the first `skip`
+	Ms    int     // from the first body byte to the end (or request start when no body byte came)
+	MBps  float64 // megabytes (10^6 bytes) per second after the first skip
 	Err   string
 }
 
@@ -43,8 +44,18 @@ func speedOf(total, atSkip int64, elapsed, tSkip time.Duration, skipped bool) fl
 	return float64(total) / elapsed.Seconds() / 1e6
 }
 
-// MeasureDownload does `GET rawURL` over conn (closed here). HTTP/1.1, one connection.
+// MeasureDownload does GET rawURL over conn (closed here). HTTP/1.1, one connection.
+// The caller has already made the connection; the first-byte wait begins here.
 func MeasureDownload(ctx context.Context, conn net.Conn, rawURL string, maxBytes int64, maxDur, skip time.Duration) DownloadResult {
+	firstByteCtx, cancelFirstByte := context.WithTimeout(ctx, firstByteTimeout)
+	defer cancelFirstByte()
+
+	return measureDownload(ctx, firstByteCtx, cancelFirstByte, conn, rawURL, maxBytes, maxDur, skip)
+}
+
+// measureDownload shares the first-byte deadline with DownloadVia when that caller must establish the node connection
+// first. After the first body byte, it switches to a fresh maxDur context using context timeouts only.
+func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.CancelFunc, conn net.Conn, rawURL string, maxBytes int64, maxDur, skip time.Duration) DownloadResult {
 	defer conn.Close()
 
 	u, err := url.Parse(rawURL)
@@ -52,8 +63,21 @@ func MeasureDownload(ctx context.Context, conn net.Conn, rawURL string, maxBytes
 		return DownloadResult{Err: "bad url"}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, maxDur)
-	defer cancel()
+	requestCtx, cancelRequest := context.WithCancel(ctx)
+	defer cancelRequest()
+
+	firstByteReceived := make(chan struct{})
+	go func() {
+		select {
+		case <-firstByteCtx.Done():
+			select {
+			case <-firstByteReceived:
+			default:
+				cancelRequest()
+			}
+		case <-requestCtx.Done():
+		}
+	}()
 
 	tr := &http.Transport{
 		DialContext: func(context.Context, string, string) (net.Conn, error) {
@@ -68,53 +92,79 @@ func MeasureDownload(ctx context.Context, conn net.Conn, rawURL string, maxBytes
 
 	client := &http.Client{Transport: tr, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return DownloadResult{Err: err.Error()}
 	}
 
 	req.Header.Set("User-Agent", "curl/8.5.0")
 
-	start := time.Now()
+	requestStart := time.Now()
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return DownloadResult{Err: err.Error(), Ms: int(time.Since(start).Milliseconds())}
+		if firstByteCtx.Err() != nil && ctx.Err() == nil {
+			return DownloadResult{Err: "timeout", Ms: int(time.Since(requestStart).Milliseconds())}
+		}
+		return DownloadResult{Err: err.Error(), Ms: int(time.Since(requestStart).Milliseconds())}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return DownloadResult{Err: fmt.Sprintf("HTTP %d", resp.StatusCode), Ms: int(time.Since(start).Milliseconds())}
+		return DownloadResult{Err: fmt.Sprintf("HTTP %d", resp.StatusCode), Ms: int(time.Since(requestStart).Milliseconds())}
 	}
 
 	var (
 		total, atSkip int64
 		tSkip         time.Duration
 		skipped       bool
+		firstByteAt   time.Time
+		cancelDownload context.CancelFunc
 	)
 
 	buf := make([]byte, 32*1024)
 
 	for total < maxBytes {
 		n, err := resp.Body.Read(buf)
+		if n > 0 && firstByteAt.IsZero() {
+			firstByteAt = time.Now()
+			close(firstByteReceived)
+			cancelFirstByte()
+
+			downloadCtx, stopDownload := context.WithTimeout(ctx, maxDur)
+			cancelDownload = stopDownload
+			go func() {
+				select {
+				case <-downloadCtx.Done():
+					cancelRequest()
+				case <-requestCtx.Done():
+				}
+			}()
+		}
 		total += int64(n)
 
-		if !skipped && time.Since(start) >= skip {
-			skipped, atSkip, tSkip = true, total, time.Since(start)
+		if !firstByteAt.IsZero() && !skipped && time.Since(firstByteAt) >= skip {
+			skipped, atSkip, tSkip = true, total, time.Since(firstByteAt)
 		}
 
 		if err != nil {
-			break // the end, the time limit or a cut connection: what came is what counts
+			break // the end, the download timeout or a cut connection: what came is what counts
 		}
 	}
 
-	elapsed := time.Since(start)
+	if cancelDownload != nil {
+		cancelDownload()
+	}
+
+	elapsed := time.Since(requestStart)
+	if !firstByteAt.IsZero() {
+		elapsed = time.Since(firstByteAt)
+	}
 
 	if total == 0 {
-		if ctx.Err() != nil {
+		if firstByteCtx.Err() != nil && ctx.Err() == nil {
 			return DownloadResult{Err: "timeout", Ms: int(elapsed.Milliseconds())}
 		}
-
 		return DownloadResult{Err: "no data", Ms: int(elapsed.Milliseconds())}
 	}
 
@@ -170,13 +220,16 @@ func DownloadVia(ctx context.Context, name, server string, isDomain bool, rawURL
 	}
 	defer closeProxy(px)
 
-	dctx, cancel := context.WithTimeout(ctx, maxDur)
-	defer cancel()
+	firstByteCtx, cancelFirstByte := context.WithTimeout(ctx, firstByteTimeout)
+	defer cancelFirstByte()
 
-	conn, err := px.DialContext(dctx, &C.Metadata{Host: u.Hostname(), DstPort: uint16(portNum)})
+	conn, err := px.DialContext(firstByteCtx, &C.Metadata{Host: u.Hostname(), DstPort: uint16(portNum)})
 	if err != nil {
+		if firstByteCtx.Err() != nil && ctx.Err() == nil {
+			return DownloadResult{Err: "timeout"}
+		}
 		return DownloadResult{Err: err.Error()}
 	}
 
-	return MeasureDownload(ctx, conn, rawURL, maxBytes, maxDur, skip)
+	return measureDownload(ctx, firstByteCtx, cancelFirstByte, conn, rawURL, maxBytes, maxDur, skip)
 }

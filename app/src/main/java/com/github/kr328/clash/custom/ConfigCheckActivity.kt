@@ -56,7 +56,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             ipRows = ArrayList(saved.report.rows)
         }
 
-        // CUSTOM.md #52: a tap on "测速" / "取消" of a row of the IP test
+        // CUSTOM.md #52: a tap on "下载测速" / "取消" of a row of the IP test
         design.onSpeedTest = { ip ->
             if (job?.isActive != true && speedJob?.isActive != true) {
                 speedJob = launch { runSpeed(design, ip) }
@@ -298,14 +298,15 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
                 ipRows.add(row)
 
-                val sub = if (direct) {
+                // Reference comparison is intentionally limited to node mode with no custom target.
+                val contextSub = if (direct) {
                     if (report.echSource.isNotEmpty()) {
                         getString(R.string.iptest_ech_source, report.echSource)
                     } else {
                         getString(R.string.iptest_ech_none)
                     }
                 } else if (target.isNotEmpty()) {
-                    getString(R.string.iptest_target_sub, target) // CUSTOM.md #66: no reference, the tries went to the target
+                    getString(R.string.iptest_target_sub, target)
                 } else {
                     val ref = report.ref
 
@@ -315,6 +316,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         getString(R.string.iptest_ref_none)
                     }
                 }
+                val measureNote = getString(if (direct) R.string.iptest_measure_direct_note else R.string.iptest_measure_node_note)
+                val sub = listOf(contextSub, measureNote).filter { it.isNotEmpty() }.joinToString("\n")
 
                 design.ipInfo(head, sub, warnings)
                 design.ipRows(ipRows)
@@ -462,7 +465,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         design.ipRows(ipRows)
     }
 
-    // CUSTOM (CUSTOM.md #52): the download test of one row, only when its "测速" is tapped. Directly to the address,
+    // CUSTOM (CUSTOM.md #52): the download test of one row, only when its "下载测速" is tapped. Directly to the address,
     // or through the node in node mode. At most 10 MB or 5 seconds (the core stops it); "取消" stops it sooner.
     private suspend fun runSpeed(design: ConfigCheckDesign, ip: String) {
         val run = lastRun ?: return
@@ -492,7 +495,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             when {
                 report.cancelled -> design.ipLog(getString(R.string.iptest_log_speed_cancelled, ip))
                 report.error.isNotEmpty() || row == null -> {
-                    val error = report.error.ifEmpty { "测速没有返回结果" }
+                    val error = report.error.ifEmpty { "下载测速没有返回结果" }
                     setSpeedError(design, ip, error)
                     design.ipLog(getString(R.string.iptest_log_speed_fail, ip, error))
                 }

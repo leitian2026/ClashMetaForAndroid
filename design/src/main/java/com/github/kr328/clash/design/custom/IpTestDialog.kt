@@ -33,7 +33,7 @@ data class IpTestChoice(
     val ips: String,
     val node: String,
     val ports: String = "", // CUSTOM.md #52: the ports to try on an address that works (direct)
-    val url: String = "", // CUSTOM.md #52: the address the "测速" of a row downloads
+    val url: String = "", // CUSTOM.md #52: the address the "下载测速" of a row downloads
     val target: String = "", // CUSTOM.md #66: a site the user really uses; through-node tries go to it ("" = the node's test URL)
 )
 

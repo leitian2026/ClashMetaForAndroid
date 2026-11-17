@@ -35,14 +35,14 @@ import java.util.Locale
 // r62 (CUSTOM.md #54): text is 2 sp bigger than before; the columns share the whole width of the page when it is wide
 // enough (a tablet), so nothing hides off screen, and long text wraps (the rows are as high as their tallest cell);
 // only when even the narrowest columns do not fit (a phone) the table scrolls sideways with the IP column fixed.
-// r79 (CUSTOM.md #62): direct mode has the columns IP | 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | 最小 / 最大 / 平均延迟 |
-// 测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
+// r79 (CUSTOM.md #62): direct mode has the columns IP | 入口机房 | 归属运营商 | 归属地 | 出口国家 | 端口 | 失败率 | 最小 / 最大 / 平均延迟 |
+// 下载测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
 // r85 (CUSTOM.md #68): 抖动 and 分段耗时 (three lines: TCP / TLS / 首字节 in direct mode, 拨号 / 握手 / 首字节 through a node) follow 平均延迟.
 class IpTestView(private val context: Context, private val direct: Boolean, private val target: Boolean = false) {
     var onCopy: (String) -> Unit = {}
-    var onSpeed: (String) -> Unit = {} // a tap on "测速" of a row
+    var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
@@ -429,7 +429,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private fun title(k: Key): String {
         return context.getString(
             when (k) {
-                Key.COLO -> R.string.iptest_col_colo
+                Key.COLO -> if (direct) R.string.iptest_col_colo else R.string.iptest_col_colo_node
                 Key.ASN -> R.string.iptest_col_asn
                 Key.GEO -> R.string.iptest_col_geo
                 Key.LAND, Key.EXIT -> R.string.iptest_col_exit
@@ -529,7 +529,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         return coloHead(code) + coloTail(code)
     }
 
-    // CUSTOM.md #97: keep the table compact; show only an HTTP status code under the failure label.
+    // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     private fun speedText(r: IpTestRow): String {
         return when {
             speedIp == r.ip -> "…"
@@ -537,8 +537,14 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             r.speedErr.isNotEmpty() -> {
                 val status = Regex("\\bHTTP(?:/\\d(?:\\.\\d)?)?\\s+(\\d{3})\\b", RegexOption.IGNORE_CASE)
                     .find(r.speedErr)?.groupValues?.get(1)
-                context.getString(R.string.iptest_speed_failed) +
-                    if (status != null) "\nHTTP $status" else ""
+                val lower = r.speedErr.lowercase(Locale.US)
+                val reason = when {
+                    status != null -> "HTTP $status"
+                    lower.contains("timeout") || lower.contains("deadline exceeded") -> context.getString(R.string.iptest_speed_timeout)
+                    lower.contains("no data") -> context.getString(R.string.iptest_speed_no_data)
+                    else -> r.speedErr.trim().take(20)
+                }
+                context.getString(R.string.iptest_speed_failed) + "\n" + reason
             }
             else -> "-"
         }
@@ -560,7 +566,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
             Key.LAND -> if (tested) CountryName.label(r.country) else "-"
             Key.PORTS -> portsPlain(r)
-            Key.PORT -> r.port.ifEmpty { "-" }
+            Key.PORT -> "-"
             Key.LOSS -> "${r.loss}%"
             Key.MIN -> ms(r.min)
             Key.MAX -> ms(r.max)
@@ -727,7 +733,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         return sb.toString()
     }
 
-    // "测速" of a row that works; "取消" on the row that is downloading; the others are grey while one is
+    // "下载测速" of a row that works; "取消" on the row that is downloading; the others are grey while one is
     private fun testCell(r: IpTestRow): View {
         val box = LinearLayout(context).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL // CUSTOM.md #55 (r67)
