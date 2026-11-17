@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r106
+当前版本：2_11_36-r107
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1209,3 +1209,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **严格保留：** 所有按钮的位置、尺寸和点击回调；域名当前值及历史记录在 `prefs` 中的读写；#87 最近一轮 IP 测试结果保存与恢复；ECH、DNS、IP 测试逻辑和结果显示；其他布局及文字内容。没有增加定时器、轮询、额外监听或后台工作。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件。两个代码文件均为自定义功能文件，没有修改上游文件总表中的挂钩；上游文件总表不变。
 - **验证：** 完成源码级检查：说明文字点击切换逻辑、Material 控件层级、原输入框 ID / `textUri` / 历史适配器与 prefs 调用均保留。未运行 Android 编译或真机验证，因此 ViewBinding 生成类型及 Kotlin 编译、历史下拉实际弹出、软键盘布局、浅色 / 深色主题边框与提示色均**未实测**；需手动触发 Build Debug，并按上述项目在真机检查。
+
+
+## 91. 配置检查页说明按钮与域名输入框提示修正（r107）
+- **说明入口：** 移除上一版说明文字的单行折叠、点击展开 / 收起及相关状态代码；顶部改为 `Widget.MaterialComponents.Button.TextButton` 样式的“说明”按钮。点击后使用现有 `MaterialAlertDialogBuilder` 显示完整 `check_hint`，仅提供关闭按钮；不保存状态、不增加动画。原 `check_hint` 文案不变。
+- **域名输入框：** 保留 `TextInputLayout` 的 OutlinedBox 和 `MaterialAutoCompleteTextView`。外层关闭 hint（`app:hintEnabled="false"`），`check_domain_hint` 改由输入控件自身的 `android:hint` 显示；不为输入控件添加自定义 padding、minHeight、textSize、background 或 lineSpacing，边框颜色继续跟随主题。
+- **保留：** 输入控件 ID、`textUri`、单行、补全阈值、历史下拉适配器、点击展开历史及 prefs 读写；所有其他按钮、回调、IP 测试结果恢复、ECH / DNS / IP 测试逻辑和结果显示均不改。没有新增监听、定时器、轮询、网络请求或后台任务。
+- **字符串：** 仅新增 `check_hint_button`，英文资源为 “Info”，中文资源为“说明”；`check_hint` 和 `check_domain_hint` 原文不改。
+- **改动文件：** `design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
+- **验证：** 已完成源码级检查：折叠相关代码 / 属性已移除；说明按钮绑定对话框；输入提示位于输入控件自身，外层禁用 hint；输入控件未添加自定义尺寸 / 内边距 / 背景属性；历史适配器及 prefs 调用保持不变。未运行 Android 编译或真机验证，因此按钮实际弹窗、输入框约 56dp 的最终测量高度、输入过滤下拉、软键盘布局及浅色 / 深色主题显示均**未实测**；需手动触发 Build Debug 并按上述项目真机检查。

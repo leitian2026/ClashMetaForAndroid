@@ -124,6 +124,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_code_other">Other error</string>
     <string name="errors_code_echrejected">The server refused this ECH config; it may be out of date or not match the server</string>
     <string name="check_title">Config check</string>
+    <string name="check_hint_button">Info</string>
     <string name="check_hint">Tap ECH test to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through. “Check DNS” asks every DNS server of the profile about the same domain (only dns: and hosts: are read).</string>
     <string name="check_domain_hint">Blocked domain, e.g. xxx.workers.dev</string>
     <string name="check_start">ECH test</string>

@@ -124,6 +124,7 @@
     <string name="errors_code_other">其他错误</string>
     <string name="errors_code_echrejected">服务器拒绝了这份 ECH 配置，配置可能已过期或与服务器不匹配</string>
     <string name="check_title">配置检查</string>
+    <string name="check_hint_button">说明</string>
     <string name="check_hint">点“ECH测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。“检查 DNS”会用同一个域名，逐个查配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
     <string name="check_domain_hint">被封域名，例如 xxx.workers.dev</string>
     <string name="check_start">ECH检查</string>
