@@ -10,6 +10,10 @@ class UndoStack(private val limit: Int = 400) {
 
     // set after an undo, a redo or a jump: the next edit starts a step of its own
     private var sealed = true
+    // null means the save point was lost (for example, a windowed edit cleared the history).
+    private var savedPosition: Int? = null
+
+    val isAtSavePoint: Boolean get() = savedPosition != null && undo.size == savedPosition
 
     val canUndo: Boolean get() = undo.isNotEmpty()
     val canRedo: Boolean get() = redo.isNotEmpty()
@@ -17,6 +21,13 @@ class UndoStack(private val limit: Int = 400) {
     fun clear() {
         undo.clear()
         redo.clear()
+        savedPosition = null
+        sealed = true
+    }
+
+    /** Records the current undo position as the clean state. */
+    fun markSaved() {
+        savedPosition = undo.size
         sealed = true
     }
 
@@ -27,6 +38,9 @@ class UndoStack(private val limit: Int = 400) {
     /** [forceMerge]: an edit made by the editor itself right after the user's (the indent after a typed new line). */
     fun record(edit: Edit, forceMerge: Boolean = false) {
         redo.clear()
+
+        // Editing after undo makes a later save point unreachable.
+        if (savedPosition != null && undo.size < savedPosition!!) savedPosition = null
 
         val last = undo.lastOrNull()
 
@@ -43,7 +57,10 @@ class UndoStack(private val limit: Int = 400) {
         undo.add(edit)
         sealed = false
 
-        if (undo.size > limit) undo.removeAt(0)
+        if (undo.size > limit) {
+            undo.removeAt(0)
+            savedPosition = savedPosition?.let { if (it == 0) null else it - 1 }
+        }
     }
 
     fun popUndo(): Edit? {

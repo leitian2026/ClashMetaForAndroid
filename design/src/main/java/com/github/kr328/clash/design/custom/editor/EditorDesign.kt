@@ -439,7 +439,7 @@ class EditorDesign(
         }
 
         editor.onEdited = {
-            setDirty(true)
+            setDirty(!editor.undo.isAtSavePoint)
             refreshStatus()
         }
         editor.onCaretChanged = { refreshStatus() }
@@ -468,6 +468,7 @@ class EditorDesign(
 
     fun load(text: String) {
         editor.load(text)
+        editor.undo.markSaved()
         setDirty(false)
         refreshProblems()
         refreshStatus()
@@ -561,7 +562,7 @@ class EditorDesign(
     fun markSaved() {
         setDirty(false)
         editor.clearErrorMark()
-        editor.undo.seal()
+        editor.undo.markSaved()
     }
 
     fun goToLine(line: Int, mark: Boolean) {

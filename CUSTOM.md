@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r117
+当前版本：2_11_36-r118
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1300,3 +1300,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **推算配置命名：** 按钮改为“推算最终配置”，结果页标题为“按已保存配置推算的最终配置”；说明明确读取已保存配置，不一定等于内核当前运行配置。无差异文案不再声称“内核跑的就是你写的”。已核对当前自定义实现 `config.Effective` 只读取活动 profile 目录的 `config.yaml` 并重新执行加载步骤；当前实现没有读取并比较内核运行时完整配置的路径，因此不标注两份一致性。
 - **改动文件：** `core/src/main/golang/native/conftest/conftest.go`、`core/src/main/golang/native/conftest/dnscheck.go`、`core/src/main/golang/native/connections.go`、`core/src/main/java/com/github/kr328/clash/core/custom/CustomConnections.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/EffectiveText.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 - **保留 / 验证：** 不改清缓存和推算配置的核心业务逻辑，不改上游 mihomo 子模块；不新增网络请求、定时器或轮询。完成源码级变更和引用检查；未运行 Go 测试、Android 编译或真机验证，需后续构建验证 Go / Kotlin / 资源编译及取消时网络连接是否及时关闭。
+
+
+## 102. 撤销 / 重做回到保存点时清除未保存状态（r118）
+- **保存点：** `UndoStack` 增加 `markSaved()` 和当前位置状态。保存时记录撤销栈位置；撤销或重做回到该位置时，编辑页的 dirty 自动变为 false，离开该位置则为 true。
+- **分支编辑：** 在保存点之后继续编辑仍可撤销回保存点；从保存点之前的撤销位置开始新编辑会使原保存点失效，因为原来的重做路径已被丢弃。
+- **大文件：** 撤销栈清空时同时使保存点失效；此后任意编辑均视为未保存，直到下一次 `markSaved()`。
+- **合并边界：** `markSaved()` 继续调用 `seal()`，保存点前后的输入不会合并成同一步。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/editor/UndoStack.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt` 和本登记文件；没有修改上游文件总表。
+- **验证：** 完成保存点、撤销、重做、分支编辑、栈清空和容量裁剪路径的源码检查；未运行 Android 编译或真机验证。
