@@ -87,6 +87,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
         try {
             design.load(withContext(Dispatchers.IO) { read(uri) })
+            if (split) refreshApplyState(design)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -103,6 +104,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Apply -> if (split) apply(design, uri)
                 EditorDesign.Request.History -> if (split) history(design)
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
+                EditorDesign.Request.RefreshApplyState -> if (split) refreshApplyState(design)
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)
                 EditorDesign.Request.SaveAs -> saveAs(design, suggestName(name, title))
@@ -192,6 +194,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         val undoable = design.replaceText(text)
+
+        if (split) refreshApplyState(design)
 
         design.toast(
             getString(
@@ -344,6 +348,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
     // ---- CUSTOM.md #56: history versions, apply, compare ----------------------------------------------
 
+    /** Compare once at the specified lifecycle points, off the UI thread. */
+    private suspend fun refreshApplyState(design: EditorDesign) {
+        val matches = withContext(Dispatchers.IO) {
+            ConfigHistory.isInUse(this@EditorActivity, profileUuid(), design.currentText())
+        }
+        design.setApplyMatchesApplied(matches)
+    }
+
     private fun profileUuid(): UUID = UUID.fromString(profileId)
 
     /** "Save as history version": only written to the history, the profile's pending copy and the config in use are not touched. */
@@ -420,6 +432,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
             withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
             design.markSaved()
+            refreshApplyState(design)
             showAppliedResult(design, historyKept = true)
 
             return true
@@ -482,6 +495,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         design.markSaved()
+        refreshApplyState(design)
         showAppliedResult(design, historyKept = kept)
 
         return true
@@ -617,6 +631,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         openedAt = version.at // CUSTOM.md #70
 
         design.markSaved() // it is a version of the history, so there is nothing on the page that is not kept
+        refreshApplyState(design)
         design.toast(getString(if (undoable) R.string.editor_history_loaded else R.string.editor_history_loaded_no_undo, date))
 
         // CUSTOM.md #58: no page, no dialog: what this version changes against the config in use is marked on the editor

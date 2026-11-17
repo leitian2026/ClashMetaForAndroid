@@ -67,7 +67,7 @@ class EditorDesign(
     private val displayTitle: String = fileName,
 ) : Design<EditorDesign.Request>(context) {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
-    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare }
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, RefreshApplyState }
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -441,6 +441,7 @@ class EditorDesign(
 
         editor.onEdited = {
             setDirty(!editor.undo.isAtSavePoint)
+            applyButton.alpha = 1f
             refreshStatus()
         }
         editor.onCaretChanged = { refreshStatus() }
@@ -479,6 +480,11 @@ class EditorDesign(
 
     // the whole text, also the part of a big text that is not in the text box
     fun currentText(): String = editor.fullText()
+
+    /** CUSTOM.md #108: the page matches its committed applied version; alpha is visual only, never disables taps. */
+    fun setApplyMatchesApplied(matches: Boolean) {
+        applyButton.alpha = if (matches) 0.38f else 1f
+    }
 
     /** CUSTOM.md #47: puts text picked from elsewhere in place of the text (one undo step, the page becomes unsaved). */
     fun replaceText(text: String): Boolean {
@@ -840,8 +846,8 @@ class EditorDesign(
         previousWindowButton.alpha = if (editor.windowFirstLine > 1) 1f else 0.4f
         nextWindowButton.alpha = if (editor.windowLastLine < editor.logicalLineCount) 1f else 0.4f
 
-        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.4f
-        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.4f
+        undoButton.alpha = if (editor.undo.canUndo) 1f else 0.38f
+        redoButton.alpha = if (editor.undo.canRedo) 1f else 0.38f
     }
 
     // CUSTOM.md #50: the number of problems on the button; the button is only there for YAML files
@@ -976,6 +982,7 @@ class EditorDesign(
         val query = findInput.text?.toString() ?: ""
         val count = editor.replaceAll(query, replaceInput.text?.toString() ?: "", matchCase)
 
+        requests.trySend(Request.RefreshApplyState)
         countView.text = "0/0"
 
         launch { toast(context.getString(R.string.editor_replaced, count)) }
