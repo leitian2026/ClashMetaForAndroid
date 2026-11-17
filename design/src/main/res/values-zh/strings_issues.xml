@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- CUSTOM.md #53 -->
-    <string name="issues_title">配置问题</string>
+    <string name="issues_title">运行中的问题</string>
     <string name="issues_section_active">问题（%1$d）</string>
     <string name="issues_section_ignored">已忽略（%1$d）</string>
     <string name="issues_section_resolved">已恢复（%1$d）</string>
     <string name="issues_ignore">忽略</string>
     <string name="issues_unignore">取消忽略</string>
-    <string name="issues_count">连续 %1$d 次</string>
+    <string name="issues_count">共 %1$d 次</string>
     <string name="issue_doh">DNS 服务器不通：%1$s</string>
     <string name="issue_ip">节点地址不通：%1$s</string>
     <string name="issue_sub">订阅更新失败：%1$s</string>
     <string name="issue_ech">ECH 问题：%1$s</string>
     <string name="issue_dns">DNS 问题：%1$s</string>
     <string name="issue_geo">地理数据文件问题：%1$s</string>
-    <string name="issue_provider">订阅源更新失败：%1$s</string>
+    <string name="issue_provider">外部资源更新失败：%1$s</string>
     <string name="issue_other">问题：%1$s</string>
     <string name="main_issues_card_more">点此查看全部</string>
-    <string name="issues_card_title">%1$d 个配置问题</string>
+    <string name="issues_card_title">%1$d 个运行中的问题</string>
 </resources>

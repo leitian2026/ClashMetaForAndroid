@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- CUSTOM.md #53 -->
-    <string name="custom_issue_channel">Config problems</string>
-    <string name="custom_issue_title">%d config problem(s)</string>
+    <string name="custom_issue_channel">Problems while running</string>
+    <string name="custom_issue_title">%d runtime problem(s)</string>
     <string name="custom_issue_more">+%d more</string>
     <string name="custom_issue_doh">DNS server not working: %s</string>
     <string name="custom_issue_ip">Node address not reachable: %s</string>
@@ -10,6 +10,6 @@
     <string name="custom_issue_ech">ECH problem: %s</string>
     <string name="custom_issue_dns">DNS problem: %s</string>
     <string name="custom_issue_geo">Geo file problem: %s</string>
-    <string name="custom_issue_provider">Provider update failed: %s</string>
+    <string name="custom_issue_provider">External resource update failed: %s</string>
     <string name="custom_issue_other">Problem: %s</string>
 </resources>

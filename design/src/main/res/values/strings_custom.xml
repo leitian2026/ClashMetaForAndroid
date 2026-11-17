@@ -96,12 +96,12 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="connections_mux_since">since %1$s</string>
     <string name="mux_hint">Underlying = TCP sockets the core actually keeps open to the node. Upper connections = connections carried by the node; with multiplexing, underlying should be far fewer.</string>
     <string name="errors_title">Errors &amp; diagnostics</string>
-    <string name="errors_hint">All of this data already exists: failures from the core log, node speed-test results and the app\'s crash records. Connection failures start counting again when the core restarts.</string>
+    <string name="errors_hint">Data comes from: failures in the core log, node speed-test results, app crash records and problems while running. DNS server failures are checked once only when connections fail because all DNS servers fail. Connection-failure counts reset when the core restarts.</string>
     <string name="errors_clear">Clear records</string>
     <string name="errors_copy">Copy all</string>
     <string name="errors_empty">No errors recorded</string>
-    <string name="errors_empty_not_running">No app crashes recorded. The proxy is not running, so connection failures and node timeouts cannot be shown.</string>
-    <string name="errors_not_running_note">Proxy is not running: connection failures and node timeouts are only available while it runs.</string>
+    <string name="errors_empty_not_running">No app crashes recorded. The proxy is not running, so connection failures, node timeouts and problems while running cannot be shown.</string>
+    <string name="errors_not_running_note">Proxy is not running: connection failures, node timeouts and problems while running are only available while it runs.</string>
     <string name="errors_section_crash">App crashes / abnormal exits (%1$d)</string>
     <string name="errors_section_timeout">Nodes whose speed test timed out (%1$d)</string>
     <string name="errors_section_connect">Failed connections (%1$d)</string>
@@ -120,7 +120,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_reason_raw">Reason: %1$s (core said: %2$s)</string>
     <string name="errors_level_warn">Warning</string>
     <string name="errors_level_error">Error</string>
-    <string name="errors_code_timeout">Timed out: the node did not answer in time; it may be dead, blocked, or the network is down</string>
+    <string name="errors_code_timeout">Connection timed out: the remote side did not respond in time. The node may be down or blocked; for DIRECT connections, the destination website or current network may be unavailable.</string>
     <string name="errors_code_refused">Connection refused: the port is closed or a firewall refused it</string>
     <string name="errors_code_reset">Connection reset: cut off by the peer or the network in between</string>
     <string name="errors_code_eof">The peer closed the connection early</string>
