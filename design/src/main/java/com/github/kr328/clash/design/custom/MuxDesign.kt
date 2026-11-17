@@ -2,10 +2,10 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.view.View
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.github.kr328.clash.core.model.MuxSnapshot
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.github.kr328.clash.design.databinding.DesignMuxBinding
 import com.github.kr328.clash.design.util.applyFrom
 import com.github.kr328.clash.design.util.layoutInflater

@@ -93,7 +93,7 @@
     <string name="mux_udp_ips_omitted">另有 %1$d 个 UDP 地址没列出</string>
     <string name="mux_error">读取失败：%1$s</string>
     <string name="connections_mux_since">自 %1$s</string>
-    <string name="mux_hint">底层 = 内核真正为该节点开着的 TCP socket 数；上层连接 = 经该节点的连接数，开了多路复用时底层应远少于上层连接。</string>
+    <string name="mux_hint">底层 = 内核真正为该节点开着的 TCP socket 数。上层连接 = 经该节点的连接数；开了多路复用时，底层应远少于上层连接。</string>
     <string name="errors_title">错误与诊断</string>
     <string name="errors_hint">数据都是已有的：内核日志里的失败记录、节点测速结果、软件崩溃记录。内核重启后连接失败记录会重新计数。</string>
     <string name="errors_clear">清除记录</string>

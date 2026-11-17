@@ -65,7 +65,7 @@ class MuxActivity : BaseActivity<MuxDesign>() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                error = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 null
             }
         } else {
@@ -76,7 +76,7 @@ class MuxActivity : BaseActivity<MuxDesign>() {
             try {
                 MuxSnapshot.parse(it)
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                error = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 null
             }
         }
