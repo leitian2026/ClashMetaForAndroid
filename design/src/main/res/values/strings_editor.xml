@@ -96,10 +96,16 @@
     <string name="editor_diff_note">The settings and the comments are compared: blank lines are ignored, and every line is shown.</string>
 
     <!-- CUSTOM.md #70: history list: the opened version, pinning -->
-    <string name="editor_pick_hint">The blue row is the version opened on this page. Long press a version to pin or unpin it: a pinned version (up to %1$d) is never pushed out and goes into the backup.</string>
+    <string name="editor_pick_hint">The blue row is the version opened on this page. Long press a version for pin / unpin / delete actions. Pinned versions (up to %1$d) are never pushed out and go into the backup.</string>
     <string name="history_opened"> · opened</string>
     <string name="history_opened_changed"> · opened (changed since)</string>
     <string name="editor_pinned">Pinned</string>
     <string name="editor_unpinned">Unpinned</string>
+    <string name="editor_history_pin">Pin</string>
+    <string name="editor_history_unpin">Unpin</string>
+    <string name="editor_history_delete">Delete</string>
+    <string name="editor_history_delete_title">Delete this history version?</string>
+    <string name="editor_history_delete_confirm">This version and its status markers will be deleted. The applied version cannot be deleted.</string>
+    <string name="editor_history_delete_failed">Could not delete this version.</string>
     <string name="editor_pin_limit">At most %1$d versions can be pinned; unpin one first</string>
 </resources>

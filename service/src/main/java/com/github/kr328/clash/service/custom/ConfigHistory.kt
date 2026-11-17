@@ -179,6 +179,18 @@ object ConfigHistory {
         }
     }
 
+    /** CUSTOM.md #109: remove one version and all of its state markers; the applied version is never deletable. */
+    fun delete(context: Context, uuid: UUID, version: Version): Boolean {
+        return try {
+            val current = currentBytes(context, uuid)
+            if (current != null && same(version, current)) return false
+            version.remove()
+            !version.file.exists()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /** CUSTOM.md #56: marks a version the core refused. Never throws. */
     fun markBad(version: Version) {
         try {

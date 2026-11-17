@@ -536,9 +536,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         // one label per version: when it was kept, how long it is, what changed from the next older one, its state
         val pageText = if (openedAt != 0L) design.currentText() else "" // CUSTOM.md #70: to tell whether the opened version was changed since
 
+        val inUse = withContext(Dispatchers.IO) { ConfigHistory.inUse(this@EditorActivity, uuid, versions) }
         val labels = withContext(Dispatchers.IO) {
-            val inUse = ConfigHistory.inUse(this@EditorActivity, uuid, versions)
-
             versions.mapIndexed { i, v ->
                 val text = v.text()
                 val lines = text.lines().size
@@ -581,7 +580,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             getString(R.string.editor_pick_hint, ConfigHistory.MAX_PINNED),
             versions.indices.map { shown(it) },
             versions.indexOfFirst { it.at == openedAt },
-        ) { i ->
+            canDelete = { i -> versions[i] != inUse },
+            onPin = { i ->
             val v = versions[i]
             val want = !v.pinned
 
@@ -602,7 +602,29 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
                 null
             }
-        }
+            },
+            onDelete = { i ->
+                val v = versions[i]
+                val confirmed = design.ask(
+                    getString(R.string.editor_history_delete_title),
+                    getString(R.string.editor_history_delete_confirm),
+                    getString(R.string.editor_history_delete),
+                )
+                if (!confirmed) {
+                    false
+                } else {
+                    val deleted = withContext(Dispatchers.IO) { ConfigHistory.delete(this@EditorActivity, uuid, v) }
+                    if (deleted) {
+                        if (openedAt == v.at) openedAt = 0L
+                        versions.removeAt(i)
+                        true
+                    } else {
+                        design.toast(getString(R.string.editor_history_delete_failed))
+                        false
+                    }
+                }
+            },
+        )
         val version = versions.getOrNull(index) ?: return
 
         if (design.dirty) {

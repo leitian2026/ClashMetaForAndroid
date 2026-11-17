@@ -647,16 +647,17 @@ class EditorDesign(
     }
 
     /**
-     * CUSTOM.md #70: the list of history versions: [opened] (the index of the version loaded on the page, or -1) is drawn
-     * on a coloured row; a long press on a row calls [onLongPress] with its index, which answers the new text of the
-     * row (pinned or unpinned), or null when nothing changed. Returns the index of the tapped row, or -1 when dismissed.
+     * CUSTOM.md #109: long press opens an action menu. Pinning refreshes the row; deleting removes it in place.
+     * Returns the index tapped, or -1 when dismissed.
      */
     suspend fun pickVersion(
         title: CharSequence,
         hint: CharSequence,
         items: List<CharSequence>,
         opened: Int,
-        onLongPress: (Int) -> CharSequence?,
+        canDelete: (Int) -> Boolean,
+        onPin: suspend (Int) -> CharSequence?,
+        onDelete: suspend (Int) -> Boolean,
     ): Int {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<Int> { c ->
@@ -689,12 +690,25 @@ class EditorDesign(
 
                         dialogRef[0]?.dismiss()
                     }
-                    setOnItemLongClickListener { _, _, which, _ ->
-                        onLongPress(which)?.let {
-                            labels[which] = it
-                            adapter.notifyDataSetChanged()
-                        }
-
+                    setOnItemLongClickListener { _, row, which, _ ->
+                        PopupMenu(context, row).apply {
+                            menu.add(0, 1, 0, context.getString(if (labels[which].startsWith("📌")) R.string.editor_history_unpin else R.string.editor_history_pin))
+                            if (canDelete(which)) menu.add(0, 2, 1, context.getString(R.string.editor_history_delete))
+                            setOnMenuItemClickListener { item ->
+                                launch {
+                                    if (item.itemId == 1) {
+                                        onPin(which)?.let {
+                                            labels[which] = it
+                                            adapter.notifyDataSetChanged()
+                                        }
+                                    } else if (item.itemId == 2 && onDelete(which)) {
+                                        labels.removeAt(which)
+                                        adapter.notifyDataSetChanged()
+                                    }
+                                }
+                                true
+                            }
+                        }.show()
                         true
                     }
                 }
