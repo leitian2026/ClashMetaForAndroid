@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r130
+当前版本：2_11_36-r131
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1404,3 +1404,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 通过完整文本和全局光标偏移工作，大文件窗口外的引用也可定位；找不到时显示提示。
 - 改动文件：YamlLint.kt、CodeEditText.kt、EditorDesign.kt、EditorActivity.kt、中英文 strings_editor.xml 和本登记文件。
 - 验证：静态检查四类引用到定义映射、菜单仅 config.yaml 显示、跳转行号转换为 1-based；未运行 Android 编译或真机验证。
+
+
+## 114. 核对编辑器临时配置检查是否读取配置目录文件（r131）
+- **内核版本：** MetaCubeX/mihomo commit 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8（用户提供的源码归档地址）。
+- **结论：** mihomo 的 config.Parse / config.ParseRawConfig 负责解析并创建 Provider；ParseProxyProvider / ParseRuleProvider 对 type: file 只解析相对路径并创建 FileVehicle / Fetcher，不在构造时读取文件。实际读取发生在 Provider.Initial -> Fetcher.Initial，其中会对 Vehicle.Path 执行 os.Stat，并在文件存在时 os.ReadFile。
+- **与本 App 验证流程的关系：** 当前 EditorActivity.check 调用 queryCustomConnections(SORT_VALIDATE)；native config.Validate 执行 UnmarshalAndPatch(profileDir) -> Parse(rawCfg) -> destroyProviders(cfg)。它没有调用 hub.ApplyConfig，也没有调用 provider.Initial。destroyProviders 仅关闭 Provider。因此临时 editor_check 目录无需把原配置目录其他文件 symlink 进来；不需要复制大文件，也不改验证代码。
+- **源码依据：** mihomo config/config.go 的 Parse / ParseRawConfig / parseProxies / parseRuleProviders；adapter/provider/parser.go 的 ParseProxyProvider；rules/provider/parse.go 的 ParseRuleProvider；adapter/provider/provider.go 的 ProxySetProvider.Initial；rules/provider/provider.go 的 RuleSetProvider.Initial；component/resource/fetcher.go 的 Fetcher.Initial；本仓库 core/src/main/golang/native/config/custom_validate.go、config/load.go、config/provider.go 和 EditorActivity.kt 的 check。
+- **改动文件：** 仅 CUSTOM.md；没有新增临时目录链接或修改代码。
+- **验证：** 对照用户指定的固定 mihomo commit 和本仓库实际 Validate 调用链；未运行 Android 编译或真机验证。
