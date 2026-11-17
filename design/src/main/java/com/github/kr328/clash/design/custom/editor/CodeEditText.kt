@@ -1619,10 +1619,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         val search = TextSearch(query, matchCase, regex)
         if (!search.valid) { regexError = true; clearMatch(); return false }
         val from = (before.length + if (forward) selectionEnd else selectionStart).coerceIn(0, s.length)
-        val range = if (forward) {
-            search.next(s, from) ?: search.next(s, 0)
-        } else {
-            search.prev(s, from) ?: search.prev(s, s.length + 1)
+        var range = if (forward) search.next(s, from) else search.prev(s, from)
+        if (range == null && !search.timedOut) {
+            range = if (forward) search.next(s, 0) else search.prev(s, s.length + 1)
         }
         regexTimedOut = search.timedOut
         if (range == null) {
@@ -1676,17 +1675,29 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 val absolute = before.length + a
                 val search = TextSearch(query, matchCase, regex)
                 if (!search.valid) { regexError = true; return false }
-                val replacement = search.replacement(full, absolute until (before.length + b), with)
-                regexTimedOut = search.timedOut
-                if (replacement == null && regex) {
+                val selectedRange = absolute until (before.length + b)
+                val match = search.next(full, absolute)
+                if (match == selectedRange) {
+                    val replacement = search.replacement(full, selectedRange, with)
+                    regexTimedOut = search.timedOut
+                    if (replacement == null && regex) {
+                        regexError = true
+                        return false
+                    }
+                    if (replacement != null) {
+                        quiet = true
+                        t.replace(a, b, replacement)
+                        quiet = false
+                        setSelection(a + replacement.length)
+                    }
+                }
+                if (search.timedOut) {
+                    regexTimedOut = true
                     regexError = true
                     return false
                 }
-                if (replacement != null) {
-                    quiet = true
-                    t.replace(a, b, replacement)
-                    quiet = false
-                    setSelection(a + replacement.length)
+                /* replaced above */
+                if (false) {
                 }
             }
         }

@@ -595,7 +595,7 @@ object YamlLint {
             if (f.kind.isNotEmpty() && f.top == '[' && item.isNotEmpty()) {
                 val nm = unquote(item)
 
-                if (nm.isNotEmpty()) refs.add(Ref(line, nm, f.kind))
+                if (nm.isNotEmpty()) refs.add(Link(line, nm, f.kind))
             }
         }
 
@@ -616,7 +616,7 @@ object YamlLint {
                     for (item in splitItems(p.groupValues[1])) {
                         val nm = unquote(item)
 
-                        if (nm.isNotEmpty()) refs.add(Ref(line, nm, "proxy"))
+                        if (nm.isNotEmpty()) refs.add(Link(line, nm, "proxy"))
                     }
                 }
 
@@ -626,7 +626,7 @@ object YamlLint {
                     for (item in splitItems(u.groupValues[1])) {
                         val nm = unquote(item)
 
-                        if (nm.isNotEmpty()) refs.add(Ref(line, nm, "use"))
+                        if (nm.isNotEmpty()) refs.add(Link(line, nm, "use"))
                     }
                 }
             }
@@ -647,7 +647,7 @@ object YamlLint {
 
             if (type == "SUB-RULE") return
 
-            if (type == "RULE-SET") refs.add(Ref(line, fields[1], "ruleset"))
+            if (type == "RULE-SET") refs.add(Link(line, fields[1], "ruleset"))
 
             while (fields.size > 2 && (fields[fields.size - 1].lowercase() == "no-resolve" || fields[fields.size - 1].lowercase() == "src")) {
                 fields.removeAt(fields.size - 1)
@@ -657,7 +657,7 @@ object YamlLint {
 
             if (policy.isEmpty() || policy.contains('(') || policy.contains(')')) return
 
-            refs.add(Ref(line, policy, "policy"))
+            refs.add(Link(line, policy, "policy"))
         }
 
         fun snapshot(): Links = Links(refs.toList(), names.toMap(), providers.toMap(), ruleProviders.toMap())

@@ -157,7 +157,14 @@ class TextSearch(
         }
         return try {
             val m = matcher(text)
-            if (!m.find(range.first) || m.start() != range.first || m.end() != range.last + 1) return null
+            var exact = false
+            while (m.find(range.first)) {
+                if (m.end() > m.start()) {
+                    exact = m.start() == range.first && m.end() == range.last + 1
+                    break
+                }
+            }
+            if (!exact) return null
             val result = StringBuffer()
             m.appendReplacement(result, with)
             val replacementEnd = result.length
