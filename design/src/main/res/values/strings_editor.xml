@@ -108,4 +108,6 @@
     <string name="editor_history_delete_confirm">This version and its status markers will be deleted. The applied version cannot be deleted.</string>
     <string name="editor_history_delete_failed">Could not delete this version.</string>
     <string name="editor_pin_limit">At most %1$d versions can be pinned; unpin one first</string>
+    <string name="editor_regex">Regular expression</string>
+    <string name="editor_regex_error">Invalid expression</string>
 </resources>

@@ -108,4 +108,6 @@
     <string name="editor_history_delete_confirm">将删除这个版本及其状态标记。已应用的版本不能删除。</string>
     <string name="editor_history_delete_failed">删除这个版本失败。</string>
     <string name="editor_pin_limit">最多固定 %1$d 个，请先取消一个</string>
+    <string name="editor_regex">正则</string>
+    <string name="editor_regex_error">表达式有误</string>
 </resources>
