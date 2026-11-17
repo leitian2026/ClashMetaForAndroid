@@ -64,6 +64,7 @@ class EditorDesign(
     // CUSTOM.md #56: the config.yaml of a profile the user edits: "save" only keeps a history version, "apply" puts
     // it in use, and the history and the compare against the config in use are in the menu
     private val split: Boolean = false,
+    private val displayTitle: String = fileName,
 ) : Design<EditorDesign.Request>(context) {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
     enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare }
@@ -114,7 +115,7 @@ class EditorDesign(
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
-        text = fileName
+        text = displayTitle
     }
 
     // CUSTOM.md #70: filled arrows in the text colour (the text arrows were thin lines in the pale accent colour)
@@ -803,7 +804,7 @@ class EditorDesign(
 
     private fun setDirty(value: Boolean) {
         dirty = value
-        titleView.text = if (value) "● $fileName" else fileName
+        titleView.text = if (value) "● $displayTitle" else displayTitle
 
         undoButton.alpha = if (editor.undo.canUndo) 1f else 0.4f
         redoButton.alpha = if (editor.undo.canRedo) 1f else 0.4f

@@ -80,7 +80,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         split = canCheck && !readOnly
         profileTitle = title.ifBlank { name }
 
-        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, readOnly, split)
+        val design = EditorDesign(this, name, canCheck, name == "config.yaml", lint, readOnly, split,
+            displayTitle = if (name == "config.yaml") title.ifBlank { name } else name)
 
         setContentDesign(design)
 
