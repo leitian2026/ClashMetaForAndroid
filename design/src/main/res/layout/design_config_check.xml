@@ -64,6 +64,7 @@
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
                 android:textColor="?android:attr/textColorSecondary" />
 
+            <!-- CUSTOM (CUSTOM.md #89): the domain field has its own row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -82,47 +83,12 @@
                     android:importantForAutofill="no"
                     android:inputType="textUri"
                     android:singleLine="true" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/check_toggle_view"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:onClick="@{() -> self.request(Request.Toggle)}"
-                    android:text="@string/check_start" />
             </LinearLayout>
 
-            <!-- CUSTOM (CUSTOM.md #88): group network tests together and keep utility actions on a separate row -->
+            <!-- CUSTOM (CUSTOM.md #89): utility actions row, equal widths -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="end"
-                android:orientation="horizontal"
-                android:paddingHorizontal="@dimen/item_tailing_margin">
-
-                <!-- CUSTOM (CUSTOM.md #25 #26): DNS check uses the same domain field -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/check_dns_view"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:onClick="@{() -> self.request(Request.Dns)}"
-                    android:text="@string/check_dns_start" />
-
-                <!-- CUSTOM (CUSTOM.md #43): test other IPs (not the ones in the config) -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/check_ip_view"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:onClick="@{() -> self.request(Request.IpTest)}"
-                    android:text="@string/iptest_button" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="end"
                 android:orientation="horizontal"
                 android:paddingHorizontal="@dimen/item_tailing_margin">
 
@@ -130,19 +96,59 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/check_effective_view"
                     style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:onClick="@{() -> self.request(Request.Effective)}"
                     android:text="@string/eff_start" />
 
-                <!-- CUSTOM (CUSTOM.md #26): clear DNS or fake-IP cache -->
+                <!-- CUSTOM (CUSTOM.md #26 #89): clear DNS or fake-IP cache, error color like the connections page -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/check_flush_view"
                     style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:onClick="@{() -> self.request(Request.Flush)}"
-                    android:text="@string/check_flush_start" />
+                    android:text="@string/check_flush_start"
+                    android:textColor="?attr/colorError" />
+            </LinearLayout>
+
+            <!-- CUSTOM (CUSTOM.md #89): the three tests, equal widths, right above the table -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/item_tailing_margin">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_toggle_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="@{() -> self.request(Request.Toggle)}"
+                    android:text="@string/check_start" />
+
+                <!-- CUSTOM (CUSTOM.md #25 #26): DNS check uses the same domain field -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_dns_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="@{() -> self.request(Request.Dns)}"
+                    android:text="@string/check_dns_start" />
+
+                <!-- CUSTOM (CUSTOM.md #43): test other IPs (not the ones in the config) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_ip_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="@{() -> self.request(Request.IpTest)}"
+                    android:text="@string/iptest_button" />
             </LinearLayout>
 
             <View
