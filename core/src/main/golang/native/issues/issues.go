@@ -45,6 +45,7 @@ const (
 	nodeFailureWindow    = 10 * time.Minute
 	nodeFailureThreshold = 2
 	maxNodeFailureAddrs  = 100
+	autoResolveAfter     = 24 * time.Hour
 )
 
 // Issue is one problem. ID is Kind + "|" + Subject, so a problem found again is the same entry.
@@ -290,6 +291,15 @@ func Query() Snapshot {
 	defer mu.Unlock()
 
 	loadLocked()
+
+	// CUSTOM: lazily resolve stale active issues when the list is read; no timer or background work.
+	cutoff := time.Now().Add(-autoResolveAfter).UnixMilli()
+	for _, it := range items {
+		if !it.Ignored && !it.Resolved && it.Time < cutoff {
+			it.Resolved = true
+			changedLocked()
+		}
+	}
 
 	snap := Snapshot{Items: make([]Issue, 0, len(items))}
 

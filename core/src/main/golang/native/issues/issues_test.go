@@ -216,3 +216,33 @@ func TestResolveByExtra(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %+v", s)
 	}
 }
+
+
+func TestQueryAutoResolvesOldIssues(t *testing.T) {
+	reset()
+	Report(KindIP, "1.2.3.4:443", "timeout", "old active", "node-a")
+	Report(KindIP, "2.3.4.5:443", "timeout", "old ignored", "node-b")
+	SetIgnored(ID(KindIP, "2.3.4.5:443"), true)
+
+	mu.Lock()
+	old := time.Now().Add(-25 * time.Hour).UnixMilli()
+	items[ID(KindIP, "1.2.3.4:443")].Time = old
+	items[ID(KindIP, "2.3.4.5:443")].Time = old
+	mu.Unlock()
+
+	s := Query()
+	if s.Active != 0 {
+		t.Fatalf("stale issue remained active: %+v", s.Items)
+	}
+
+	states := map[string]Issue{}
+	for _, it := range s.Items {
+		states[it.Subject] = it
+	}
+	if !states["1.2.3.4:443"].Resolved {
+		t.Fatalf("old active issue was not resolved: %+v", states["1.2.3.4:443"])
+	}
+	if states["2.3.4.5:443"].Resolved || !states["2.3.4.5:443"].Ignored {
+		t.Fatalf("ignored issue was changed: %+v", states["2.3.4.5:443"])
+	}
+}
