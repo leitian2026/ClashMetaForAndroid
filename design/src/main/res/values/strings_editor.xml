@@ -61,8 +61,8 @@
     <string name="editor_apply_failed_title">Not applied</string>
     <string name="editor_apply_failed">The core did not accept this config, the config in use did not change. It is kept in the history marked “failed the check”; fix it and tap Apply again.\n\n%1$s</string>
     <!-- CUSTOM (CUSTOM.md #56): history versions, apply, compare -->
-    <string name="editor_save_history">Save as history version</string>
-    <string name="editor_save_history_short">Keep</string>
+    <string name="editor_save_history">History version</string>
+    <string name="editor_save_history_short">History version</string>
     <string name="editor_apply">Apply</string>
     <string name="editor_history_menu">History versions…</string>
     <string name="editor_compare_menu">Compare with the config in use…</string>

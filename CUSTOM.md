@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r119
+当前版本：2_11_36-r120
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1317,3 +1317,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **实现：** 由 `EditorActivity` 将已有的 profile 标题传给 `EditorDesign`；不额外读取配置文件，也不解析 YAML。
 - **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt` 和本登记文件；没有修改上游文件总表或字符串资源。
 - **验证：** 完成构造参数、初始标题和 dirty 标题路径的源码检查；未运行 Android 编译或真机验证。
+
+
+## 104. 历史版本入口统一使用同一名称（r120）
+- **中文：** 顶栏短按钮、保存历史版本的对话框标题和菜单入口统一显示“历史版本”。
+- **英文：** 对应位置统一使用“History version”，不再使用含义不一致的 “Keep”。
+- **保留：** 不改变保存历史版本的行为、菜单结构或历史列表标题。
+- **改动文件：** `design/src/main/res/values/strings_editor.xml`、`design/src/main/res/values-zh/strings_editor.xml` 和本登记文件；没有修改 Kotlin 或上游文件总表。
+- **验证：** 完成资源键与中英文对应项检查；未运行 Android 编译或真机验证。
