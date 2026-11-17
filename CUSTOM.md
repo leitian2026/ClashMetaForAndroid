@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r113
+当前版本：2_11_36-r114
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1256,3 +1256,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保留：** 不改变测速地址、节点替换 / 直连方式、下载量上限、时间上限、跳过的首秒、测速计算、错误回写和取消逻辑；没有新增网络请求、定时器、轮询或后台任务。
 - **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt 和本登记文件；没有修改上游文件总表。
 - **验证：** 完成源码级检查；未运行 Android 编译或真机验证。需手动触发 Build Debug 检查 HTTP 状态码提取、无状态码时的单行显示、表格列宽及深浅主题颜色；不会自动触发构建。
+
+
+## 98. 直连与套入节点测速使用独立下载地址（r114）
+- **输入框：** “测试其他 IP”弹窗把原来的单个下载测速地址拆成两个独立输入框，分别标注直连和套入节点的地址要求。直连地址必须在 Cloudflare 上；套入节点地址必须不在 Cloudflare 上。
+- **默认值：** 直连为 `https://speed.cloudflare.com/__down?bytes=10485760`；套入节点为 `https://proof.ovh.net/files/100Mb.dat`。
+- **记忆：** 分别使用 SharedPreferences 键 `ip_url_direct` 和 `ip_url_node`。点击对应模式按钮时，将该模式的地址放进原有 `IpTestChoice.url`；两个输入框的值都会保存，留空分别回退各自默认值。旧键 `ip_url` 不迁移、不再读取或写入，因为无法判断旧值属于哪种模式。
+- **保留：** `IpTestChoice.url` 字段及 `ConfigCheckActivity` 的保存 / 行内测速调用不变；不改测速请求、测速算法、Go 核心、其他弹窗控件或配置 IP 读取逻辑。
+- **功耗 / 网络：** 仅在打开弹窗时读取偏好设置、点击直连 / 套入节点按钮时写入；不新增定时器、轮询、监听、网络请求或后台任务。
+- **字符串：** 在 `strings_iptest.xml` 中新增中英文两组模式标签，删除不再使用的 `iptest_url_label`。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml` 和本登记文件；没有修改上游文件总表。
+- **验证：** 已完成源码级差异与引用检查；未运行 Android 编译或真机验证。需手动触发 Build Debug，并分别检查两个默认地址、独立记忆、空值回退及两种模式传入的 URL；不会自动触发构建。
