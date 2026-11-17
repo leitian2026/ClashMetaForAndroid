@@ -260,9 +260,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="history_version_line">%1$s · %2$d lines · +%3$d −%4$d vs the one before</string>
     <string name="history_in_use"> · applied</string>
     <string name="diag_entry_title">Export diagnostic bundle</string>
-    <string name="diag_entry_summary">One zip with the config (secrets masked), recent errors, node connections, crash records and a DNS check</string>
+    <string name="diag_entry_summary">One zip with the config (secrets masked), recent errors, problems while running, node connections, crash records and a DNS check</string>
     <string name="diag_confirm_title">Export diagnostic bundle</string>
-    <string name="diag_confirm">The zip holds the active config (passwords, ids and keys replaced by ***), recent errors and connection failures, the node connection summary, crash records and a DNS check of the domain last typed on the config check page. It still contains node server addresses and the domains of recent failed connections: look through it before you send it to anyone.</string>
+    <string name="diag_confirm">The zip holds the active config (passwords, ids and keys replaced by ***), recent errors and connection failures, problems while running (including ignored and resolved ones), the node connection summary, crash records and a DNS check of the domain last typed on the config check page. It still contains node server addresses and the domains of recent failed connections: look through it before you send it to anyone.</string>
     <string name="diag_working">Collecting…</string>
     <string name="diag_done_title">Diagnostic bundle saved</string>
     <string name="diag_done">%1$d files were written. Look through it before you send it to anyone.</string>

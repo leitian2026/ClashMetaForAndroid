@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import com.github.kr328.clash.core.bridge.Bridge
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.design.custom.DnsCheckText
 import com.github.kr328.clash.service.util.importedDir
@@ -30,6 +31,7 @@ import java.util.zip.ZipOutputStream
 //   override.json      the override settings, secrets masked
 //   dns-check.txt      the DNS check (CUSTOM.md #25 #26) for the domain last typed on the config check page
 //   errors.json        the core's recent warnings / errors and connection failures (errors page, CUSTOM.md #21)
+//   issues.json        the problems of the running config, including ignored and resolved ones (CUSTOM.md #53)
 //   mux.json           the per-node socket summary (CUSTOM.md #20)
 //   ip_history.json    the node IP switch history (CUSTOM.md #10)
 //   crash/*.txt        the crash records of this app (CUSTOM.md #21)
@@ -52,7 +54,7 @@ object DiagnosticBundle {
             null
         }
 
-        put("summary.txt", summary(context, running, active?.name, active?.type?.name))
+        var issueCounts: Triple<Int, Int, Int>? = null
 
         withContext(Dispatchers.IO) {
             try {
@@ -78,6 +80,20 @@ object DiagnosticBundle {
         }
 
         if (running) {
+            try {
+                val raw = withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") }
+                put("issues.json", raw)
+                val snapshot = IssuesSnapshot.parse(raw)
+                issueCounts = Triple(
+                    snapshot.items.count { !it.ignored && !it.resolved },
+                    snapshot.items.count { it.ignored },
+                    snapshot.items.count { it.resolved },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+
             try {
                 put("errors.json", withClash { queryCustomConnections(CustomConnections.SORT_ERRORS, "") })
             } catch (e: CancellationException) {
@@ -109,6 +125,8 @@ object DiagnosticBundle {
             }
         }
 
+        put("summary.txt", summary(context, running, active?.name, active?.type?.name, issueCounts))
+
         return withContext(Dispatchers.IO) {
             val output = context.contentResolver.openOutputStream(uri, "w")
                 ?: throw IllegalStateException("cannot open $uri")
@@ -125,7 +143,7 @@ object DiagnosticBundle {
         }
     }
 
-    private fun summary(context: Context, running: Boolean, profile: String?, type: String?): String {
+    private fun summary(context: Context, running: Boolean, profile: String?, type: String?, issueCounts: Triple<Int, Int, Int>?): String {
         val version = try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         } catch (_: Exception) {
@@ -148,6 +166,9 @@ object DiagnosticBundle {
             append("device: ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n')
             append("core running: ").append(running).append('\n')
             append("active profile: ").append(profile ?: "-").append(" (").append(type ?: "-").append(")\n")
+            issueCounts?.let { (active, ignored, resolved) ->
+                append("running problems: ").append(active).append(" active, ").append(ignored).append(" ignored, ").append(resolved).append(" resolved\n")
+            }
             append('\n')
             append("Passwords, uuids and keys in config.yaml / override.json are replaced by ***, links keep only their host.\n")
             append("Still inside: node server addresses, and the domains of recent failed connections (errors.json).\n")

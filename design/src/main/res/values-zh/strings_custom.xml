@@ -260,9 +260,9 @@
     <string name="history_version_line">%1$s · %2$d 行 · 比前一版 +%3$d −%4$d</string>
     <string name="history_in_use"> · 已应用</string>
     <string name="diag_entry_title">导出诊断包</string>
-    <string name="diag_entry_summary">一个 zip：配置（已隐藏密钥）、最近的错误、节点连接、崩溃记录和一次 DNS 检查</string>
+    <string name="diag_entry_summary">一个 zip：配置（已隐藏密钥）、最近的错误、运行中的问题、节点连接、崩溃记录和一次 DNS 检查</string>
     <string name="diag_confirm_title">导出诊断包</string>
-    <string name="diag_confirm">压缩包里有：当前配置（密码、id、密钥已替换为 ***）、最近的错误和连接失败、节点连接概况、崩溃记录，以及对“配置检查”页上最后填的域名做的一次 DNS 检查。里面仍然有节点服务器地址和最近连接失败的域名，发给别人之前请自己看一遍。</string>
+    <string name="diag_confirm">压缩包里有：当前配置（密码、id、密钥已替换为 ***）、最近的错误和连接失败、运行中的问题（包括已忽略和已恢复的）、节点连接概况、崩溃记录，以及对“配置检查”页上最后填的域名做的一次 DNS 检查。里面仍然有节点服务器地址和最近连接失败的域名，发给别人之前请自己看一遍。</string>
     <string name="diag_working">正在收集……</string>
     <string name="diag_done_title">诊断包已保存</string>
     <string name="diag_done">写入了 %1$d 个文件。发给别人之前请自己看一遍。</string>
