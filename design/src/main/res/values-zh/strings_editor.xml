@@ -110,4 +110,6 @@
     <string name="editor_pin_limit">最多固定 %1$d 个，请先取消一个</string>
     <string name="editor_regex">正则</string>
     <string name="editor_regex_error">表达式有误</string>
+    <string name="editor_jump_definition">跳到定义</string>
+    <string name="editor_definition_not_found">找不到这个名称的定义。</string>
 </resources>

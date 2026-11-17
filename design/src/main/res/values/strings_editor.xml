@@ -110,4 +110,6 @@
     <string name="editor_pin_limit">At most %1$d versions can be pinned; unpin one first</string>
     <string name="editor_regex">Regular expression</string>
     <string name="editor_regex_error">Invalid expression</string>
+    <string name="editor_jump_definition">Jump to definition</string>
+    <string name="editor_definition_not_found">No definition found for this name.</string>
 </resources>

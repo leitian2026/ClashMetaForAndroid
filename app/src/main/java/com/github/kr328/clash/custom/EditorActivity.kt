@@ -105,6 +105,11 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.History -> if (split) history(design)
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
                 EditorDesign.Request.RefreshApplyState -> if (split) refreshApplyState(design)
+                EditorDesign.Request.JumpDefinition -> {
+                    val line = design.definitionLineAtCaret()
+                    if (line == null) design.toast(getString(R.string.editor_definition_not_found))
+                    else design.goToLine(line + 1, false)
+                }
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)
                 EditorDesign.Request.SaveAs -> saveAs(design, suggestName(name, title))

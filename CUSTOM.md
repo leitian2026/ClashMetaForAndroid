@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r129
+当前版本：2_11_36-r130
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1396,3 +1396,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 零长度匹配依赖 Matcher.find() 的标准推进规则，避免循环卡死；大文件使用 fullText() 全文匹配，替换后按原有 windowed 路径重新载入。
 - 改动文件：CodeEditText.kt、EditorDesign.kt、中英文 strings_editor.xml 和本登记文件。
 - 验证：静态检查普通文本查找分支保持原逻辑、正则替换捕获组与超时捕获路径；未运行 Android 编译或真机验证。
+
+
+## 113. 编辑器跳到定义（r130）
+- 仅文件名为 config.yaml 时，在 ⋮ 菜单显示“跳到定义”。用户点击时才解析一次全文，打字过程中不运行。
+- 复用 YamlLint 的名称 / 引用解析结果：proxy-groups 的 proxies 与 rules 策略名定位到 proxies / proxy-groups；use 名定位到 proxy-providers；RULE-SET 名定位到 rule-providers。重复定义按首次出现定位。
+- 通过完整文本和全局光标偏移工作，大文件窗口外的引用也可定位；找不到时显示提示。
+- 改动文件：YamlLint.kt、CodeEditText.kt、EditorDesign.kt、EditorActivity.kt、中英文 strings_editor.xml 和本登记文件。
+- 验证：静态检查四类引用到定义映射、菜单仅 config.yaml 显示、跳转行号转换为 1-based；未运行 Android 编译或真机验证。
