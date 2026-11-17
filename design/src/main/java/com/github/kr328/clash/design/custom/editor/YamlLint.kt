@@ -61,8 +61,13 @@ object YamlLint {
         val candidates = links.refs.filter { it.line == lineNumber }
         if (candidates.isEmpty()) return Resolution(null, null, false)
         val link = candidates.firstOrNull { ref ->
-            val at = lineText.indexOf(ref.name)
-            at >= 0 && column >= at && column < at + ref.name.length
+            var at = lineText.indexOf(ref.name)
+            var covers = false
+            while (at >= 0) {
+                if (column >= at && column < at + ref.name.length) { covers = true; break }
+                at = lineText.indexOf(ref.name, at + 1)
+            }
+            covers
         } ?: candidates.first()
         val builtin = link.name in builtin
         if (builtin) return Resolution(link, null, true)

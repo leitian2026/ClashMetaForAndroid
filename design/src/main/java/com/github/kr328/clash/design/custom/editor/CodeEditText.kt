@@ -25,8 +25,6 @@ import android.view.ScaleGestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import java.util.regex.Pattern
-import java.util.regex.PatternSyntaxException
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.BaseAdapter
@@ -1696,9 +1694,6 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                     regexError = true
                     return false
                 }
-                /* replaced above */
-                if (false) {
-                }
             }
         }
         return find(query, true, matchCase, regex)
@@ -1710,6 +1705,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         regexError = false
         regexTimedOut = false
         if (query.isEmpty()) return 0
+        if (isWindowed) return replaceAllWindowed(query, with, matchCase, regex)
         val old = fullText()
         val search = TextSearch(query, matchCase, regex)
         if (!search.valid) { regexError = true; return 0 }
@@ -1739,6 +1735,27 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             quiet = false
             setSelection(head)
         }
+        return count
+    }
+
+    private fun replaceAllWindowed(query: String, with: String, matchCase: Boolean, regex: Boolean): Int {
+        val old = fullText()
+        val search = TextSearch(query, matchCase, regex)
+        if (!search.valid) { regexError = true; return 0 }
+        val replaced = search.replaceAllText(old, with) ?: run {
+            regexTimedOut = search.timedOut
+            regexError = regex || search.timedOut
+            return 0
+        }
+        regexTimedOut = search.timedOut
+        val (newText, count, firstAt) = replaced
+        if (count == 0) return 0
+        var line = 0
+        for (i in 0 until firstAt) if (old[i] == '\n') line++
+        clearMatch()
+        loadFull(newText, line)
+        scheduleLint(100)
+        onEdited?.invoke()
         return count
     }
 

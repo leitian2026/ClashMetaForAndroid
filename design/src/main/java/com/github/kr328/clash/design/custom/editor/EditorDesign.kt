@@ -58,7 +58,7 @@ class EditorDesign(
     context: Context,
     private val fileName: String,
     canCheck: Boolean,
-    useSchema: Boolean,
+    private val useSchema: Boolean,
     private val lint: Boolean = false, // CUSTOM.md #50: look for mistakes in the text (YAML files)
     private val readOnly: Boolean = false, // CUSTOM.md #51: a profile that is not a local file cannot be written (the service refuses)
     // CUSTOM.md #56: the config.yaml of a profile the user edits: "save" only keeps a history version, "apply" puts
@@ -1042,7 +1042,7 @@ class EditorDesign(
                 menu.add(0, 5, 0, context.getString(R.string.editor_history_menu))
                 menu.add(0, 6, 0, context.getString(R.string.editor_compare_menu))
             }
-            if (fileName == "config.yaml") menu.add(0, 7, 0, context.getString(R.string.editor_jump_definition))
+            if (useSchema) menu.add(0, 7, 0, context.getString(R.string.editor_jump_definition))
             menu.add(0, 3, 1, context.getString(R.string.editor_goto_line))
             menu.add(0, 4, 1, context.getString(R.string.editor_show_whitespace)).apply {
                 isCheckable = true

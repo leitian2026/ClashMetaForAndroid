@@ -15,7 +15,7 @@ class TextSearch(
     private val pattern: Pattern? = if (!regex || query.isEmpty()) null else try {
         Pattern.compile(
             query,
-            Pattern.MULTILINE or if (matchCase) 0 else Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE,
+            Pattern.MULTILINE or (if (matchCase) 0 else Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE),
         )
     } catch (_: PatternSyntaxException) {
         null
