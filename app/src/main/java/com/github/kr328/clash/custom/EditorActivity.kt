@@ -105,7 +105,6 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Apply -> if (split) apply(design, uri)
                 EditorDesign.Request.History -> if (split) history(design)
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
-                EditorDesign.Request.RefreshApplyState -> if (split) refreshApplyState(design)
                 EditorDesign.Request.JumpDefinition -> {
                     val (text, offset) = design.definitionContext()
                     val resolution = withContext(Dispatchers.Default) {

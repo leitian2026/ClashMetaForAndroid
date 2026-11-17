@@ -67,7 +67,7 @@ class EditorDesign(
     private val displayTitle: String = fileName,
 ) : Design<EditorDesign.Request>(context) {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
-    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, RefreshApplyState, JumpDefinition }
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, JumpDefinition }
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
