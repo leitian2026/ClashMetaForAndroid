@@ -208,6 +208,14 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
     }
 
+    fun savedLogs(): List<String> = logLines.toList()
+
+    fun setLogs(lines: List<String>) {
+        logLines.clear()
+        logLines.addAll(lines.takeLast(MAX_LOG))
+        logView.text = logLines.joinToString("\n")
+    }
+
     /** The table and the log as text (what the copy button at the top of the page gets). */
     fun plain(): String {
         val sb = StringBuilder()

@@ -50,6 +50,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         setContentDesign(design)
 
+        // CUSTOM.md #87: restore only the latest IP test round; a new round replaces this saved state.
+        design.restoreIpTest()?.let { saved ->
+            lastRun = IpRun(saved.direct, saved.domain, saved.node, saved.ports, saved.url)
+            ipRows = ArrayList(saved.report.rows)
+        }
+
         // CUSTOM.md #52: a tap on "测速" / "取消" of a row of the IP test
         design.onSpeedTest = { ip ->
             if (job?.isActive != true && speedJob?.isActive != true) {
@@ -238,6 +244,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             ipRows = ArrayList()
 
             design.ipBegin(direct, head, "", warnings, target.isNotEmpty())
+            design.ipSaveContext(domain, choice.node, choice.ports, choice.url)
             begun = true
             design.setIpRunning(true)
             ipTesting = true

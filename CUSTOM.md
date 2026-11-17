@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r103
+当前版本：2_11_36-r104
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -41,8 +41,9 @@
 | `design/src/main/res/layout/design_about.xml` | #44 | 低 | 内层竖向 `LinearLayout`（App 名字和版本号那一层）的 `layout_width` 由 `match_parent` 改成 `0dp`，加 `layout_weight=1`，版本号太长时才会换行 |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileWorker.kt` | #53 | 低 | `completed()` 和 `failed()` 末尾各加一行 `IssueNotifier.subscription(this, name, null / reason)` |
 | `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt` | #57 | 低 | `subtext` 的 setter 里，`binding.subtextView.text = value` 改成 `binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)`（首页代理卡片的 ✓ 绿 / ✗ 红） |
+| `design/build.gradle.kts` | #87 | 低 | 增加 `libs.kotlin.serialization.json` 依赖，供配置检查页将最近一轮 `IpTestReport` 编码 / 解码为本地 JSON；不改插件、构建任务或其他依赖 |
 
-共 33 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 34 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -1172,3 +1173,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保留：** 只调整标题与计数的组合及布局；总数来源、已测递增时机、取消计数规则、复制文本内容和测试逻辑均保持 #85 不变。
 - **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt 和本登记文件；没有修改上游文件。
 - **验证：** 完成源码差异检查；未运行 Android 编译、未做真机 UI 验证。需用户手动触发 Build Debug 检查标题紧邻显示及窄屏换行；不会自动触发构建。
+
+
+## 87. 保留最近一轮 IP 测试结果（r104）
+- **目标：** 离开“配置检查”页面后再次进入，仍显示最近一轮 IP 测试结果；App 进程重启后也可恢复。只保留最近一轮，不累积历史。
+- **保存：** 使用配置检查页现有的 SharedPreferences 固定键 `ip_test_last`，以单份 JSON 覆盖保存测试模式、目标站模式、域名 / 节点 / 端口 / 下载地址、完整 IP 行数据、机房名称及国家映射、进度和最多 200 行实时日志。每次结果、进度或日志变化时更新同一键。
+- **替换：** 新一轮 IP 测试开始时立即用空结果覆盖上一轮；不创建按轮次命名的文件，不追加历史。存储大小只取决于最近一轮结果。
+- **恢复：** 重新进入页面时重建原表格、排序、机房显示、进度和日志；恢复行内下载测速所需的测试参数。恢复后不把测试状态或下载状态标记为运行中。
+- **保留：** 不改变 IP 测试算法、探测 / 下载请求、测试顺序、表格列和排序、复制、行内测速及取消行为；其他配置检查页面行为不变。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/build.gradle.kts` 和本登记文件；上游文件总表新增 `design/build.gradle.kts`（#87），其他上游挂钩不变。
+- **功耗 / 网络：** 仅在用户启动测试或测试结果更新时写入本地偏好设置；恢复时只读取本地数据，不增加网络请求、定时器、轮询或后台任务。
+- **验证：** 完成源码结构与调用路径检查；未运行 Android 编译或真机验证。需用户手动触发 Build Debug 检查退出 / 重进页面、进程重启、行内下载测速和新一轮覆盖；不会自动触发构建。

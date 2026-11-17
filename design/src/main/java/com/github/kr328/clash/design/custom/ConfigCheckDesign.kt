@@ -10,6 +10,11 @@ import android.widget.ArrayAdapter
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.core.model.DnsCheckReport
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import org.json.JSONArray
+import org.json.JSONObject
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
@@ -26,6 +31,22 @@ import kotlin.coroutines.resume
 
 // CUSTOM (CUSTOM.md #22): the "config check" page. Really connects once per tap, to see whether the fields
 // written in the config work. The last domain typed is remembered in this page's own preferences.
+data class IpTestRestore(
+    val direct: Boolean,
+    val head: String,
+    val sub: String,
+    val warnings: List<String>,
+    val target: Boolean,
+    val domain: String,
+    val node: String,
+    val ports: String,
+    val url: String,
+    val report: IpTestReport,
+    val total: Int,
+    val tested: Int,
+    val logs: List<String>,
+)
+
 class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(context) {
     enum class Request {
         Toggle, Dns, Copy, Flush, Effective, IpTest,
@@ -138,40 +159,118 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     var onSpeedCancel: (() -> Unit)? = null
 
     private var ipView: IpTestView? = null
+    private var ipSaved: IpTestRestore? = readIpTest()
+
+    private fun readIpTest(): IpTestRestore? {
+        return try {
+            val value = prefs.getString("ip_test_last", null) ?: return null
+            val json = JSONObject(value)
+            IpTestRestore(
+                direct = json.getBoolean("direct"),
+                head = json.getString("head"),
+                sub = json.optString("sub"),
+                warnings = json.getJSONArray("warnings").toStringList(),
+                target = json.getBoolean("target"),
+                domain = json.optString("domain"),
+                node = json.optString("node"),
+                ports = json.optString("ports"),
+                url = json.optString("url"),
+                report = Json.decodeFromString(IpTestReport.serializer(), json.getString("report")),
+                total = json.optInt("total"),
+                tested = json.optInt("tested"),
+                logs = json.getJSONArray("logs").toStringList(),
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun persistIpTest() {
+        val saved = ipSaved ?: return
+        try {
+            val json = JSONObject()
+                .put("direct", saved.direct)
+                .put("head", saved.head)
+                .put("sub", saved.sub)
+                .put("warnings", JSONArray(saved.warnings))
+                .put("target", saved.target)
+                .put("domain", saved.domain)
+                .put("node", saved.node)
+                .put("ports", saved.ports)
+                .put("url", saved.url)
+                .put("report", Json.encodeToString(IpTestReport.serializer(), saved.report))
+                .put("total", saved.total)
+                .put("tested", saved.tested)
+                .put("logs", JSONArray(saved.logs))
+            prefs.edit().putString("ip_test_last", json.toString()).apply()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun JSONArray.toStringList(): List<String> = List(length()) { optString(it) }
+
+    suspend fun restoreIpTest(): IpTestRestore? {
+        return withContext(Dispatchers.Main) {
+            val saved = ipSaved ?: return@withContext null
+            createIpView(saved.direct, saved.target, saved.head, saved.sub, saved.warnings)
+            ipView?.let { view ->
+                view.setColos(saved.report.colos, saved.report.coloCountries)
+                view.setRows(saved.report.rows)
+                view.setProgress(saved.total, saved.tested)
+                view.setLogs(saved.logs)
+                shown = view.plain()
+            }
+            saved
+        }
+    }
+
+    suspend fun ipSaveContext(domain: String, node: String, ports: String, url: String) {
+        withContext(Dispatchers.Main) {
+            ipSaved = ipSaved?.copy(domain = domain, node = node, ports = ports, url = url)
+            persistIpTest()
+        }
+    }
+
+    private fun createIpView(direct: Boolean, target: Boolean, head: String, sub: String, warnings: List<String>) {
+        val view = IpTestView(context, direct, target)
+
+        view.onCopy = { text ->
+            context.getSystemService<ClipboardManager>()
+                ?.setPrimaryClip(ClipData.newPlainText("ip_test", text))
+
+            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+        }
+
+        view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
+        view.onSpeedCancel = { onSpeedCancel?.invoke() }
+
+        view.onDetail = { title, text ->
+            MaterialAlertDialogBuilder(context)
+                .setTitle(title)
+                .setMessage(text)
+                .setPositiveButton(R.string.close, null)
+                .show()
+        }
+
+        view.setInfo(head, sub, warnings)
+        ipView = view
+
+        binding.checkIpContainer.removeAllViews()
+        binding.checkIpContainer.addView(view.root)
+        binding.checkIpContainer.visibility = View.VISIBLE
+        binding.checkTextView.visibility = View.GONE
+        linksOn = false
+    }
 
     suspend fun ipBegin(direct: Boolean, head: String, sub: String, warnings: List<String>, target: Boolean = false) {
         withContext(Dispatchers.Main) {
-            val view = IpTestView(context, direct, target) // CUSTOM.md #66: target = the through-node table has the target address columns
-
-            view.onCopy = { text ->
-                context.getSystemService<ClipboardManager>()
-                    ?.setPrimaryClip(ClipData.newPlainText("ip_test", text))
-
-                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-            }
-
-            view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
-            view.onSpeedCancel = { onSpeedCancel?.invoke() }
-
-            view.onDetail = { title, text ->
-                MaterialAlertDialogBuilder(context)
-                    .setTitle(title)
-                    .setMessage(text)
-                    .setPositiveButton(R.string.close, null)
-                    .show()
-            }
-
-            view.setInfo(head, sub, warnings)
-
-            ipView = view
-
-            binding.checkIpContainer.removeAllViews()
-            binding.checkIpContainer.addView(view.root)
-            binding.checkIpContainer.visibility = View.VISIBLE
-            binding.checkTextView.visibility = View.GONE
-            linksOn = false
-
-            shown = view.plain()
+            createIpView(direct, target, head, sub, warnings)
+            ipSaved = IpTestRestore(
+                direct, head, sub, warnings, target, "", "", "", "",
+                IpTestReport(), 0, 0, emptyList(),
+            )
+            persistIpTest()
+            shown = ipView?.plain().orEmpty()
         }
     }
 
@@ -179,6 +278,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.setInfo(head, sub, warnings)
+                ipSaved = ipSaved?.copy(head = head, sub = sub, warnings = warnings)
+                persistIpTest()
                 shown = it.plain()
             }
         }
@@ -188,13 +289,19 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.setRows(rows)
+                ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(rows = rows))
+                persistIpTest()
                 shown = it.plain()
             }
         }
     }
 
     suspend fun ipColos(colos: Map<String, String>, countries: Map<String, String>) {
-        withContext(Dispatchers.Main) { ipView?.setColos(colos, countries) }
+        withContext(Dispatchers.Main) {
+            ipView?.setColos(colos, countries)
+            ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(colos = colos, coloCountries = countries))
+            persistIpTest()
+        }
     }
 
     /** [total] is the number of IPs in this round; [tested] counts completed probes. */
@@ -202,6 +309,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.setProgress(total, tested)
+                ipSaved = ipSaved?.copy(total = total, tested = tested)
+                persistIpTest()
                 shown = it.plain()
             }
         }
@@ -216,6 +325,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.log(text)
+                ipSaved = ipSaved?.copy(logs = it.savedLogs())
+                persistIpTest()
                 shown = it.plain()
             }
         }
