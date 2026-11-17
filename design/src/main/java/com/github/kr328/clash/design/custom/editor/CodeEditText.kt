@@ -25,6 +25,8 @@ import android.view.ScaleGestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import java.util.regex.Pattern
+import java.util.regex.PatternSyntaxException
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.BaseAdapter
@@ -349,6 +351,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         return full
     }
+
+    /** Absolute caret offset in the complete text, including text outside the visible window. */
+    fun fullCaretOffset(): Int = before.length + selectionStart.coerceAtLeast(0)
 
     /** True while only a part of the text is in the text box. */
     val isWindowed: Boolean get() = before.isNotEmpty() || after.isNotEmpty()
@@ -1599,43 +1604,76 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     // ---- find and replace ---------------------------------------------------------------------------
 
-    /**
-     * Finds the next (or previous) place of [query] from the caret, wrapping round; marks it. False when there is none.
-     * CUSTOM.md #50: it looks in the whole text, and the window moves to the place when it is not in it.
-     */
-    fun find(query: String, forward: Boolean, matchCase: Boolean): Boolean {
-        val t = text ?: return false
+    private class RegexDeadlineExceeded : RuntimeException()
 
-        if (query.isEmpty()) {
-            clearMatch()
-
-            return false
+    private class DeadlineText(private val source: CharSequence, private val deadline: Long) : CharSequence {
+        override val length: Int get() = source.length
+        override fun get(index: Int): Char {
+            if (System.nanoTime() > deadline) throw RegexDeadlineExceeded()
+            return source[index]
         }
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
+            DeadlineText(source.subSequence(startIndex, endIndex), deadline)
+        override fun toString(): String = source.toString()
+    }
 
+    var regexError: Boolean = false
+        private set
+
+    private fun regexMatcher(source: String, query: String, matchCase: Boolean): java.util.regex.Matcher {
+        val flags = if (matchCase) 0 else Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
+        val pattern = Pattern.compile(query, flags)
+        return pattern.matcher(DeadlineText(source, System.nanoTime() + 2_000_000_000L))
+    }
+
+    /** Searches the complete text, including portions outside the visible window. */
+    fun find(query: String, forward: Boolean, matchCase: Boolean, regex: Boolean = false): Boolean {
+        val t = text ?: return false
+        regexError = false
+        if (query.isEmpty()) { clearMatch(); return false }
         val s = fullText()
         val base = before.length
+        if (regex) {
+            try {
+                val matcher = regexMatcher(s, query, matchCase)
+                var foundAt = -1
+                var foundEnd = -1
+                if (forward) {
+                    val from = (base + selectionEnd.coerceIn(0, t.length)).coerceIn(0, s.length)
+                    if (matcher.find(from)) { foundAt = matcher.start(); foundEnd = matcher.end() }
+                    else if (matcher.find(0)) { foundAt = matcher.start(); foundEnd = matcher.end() }
+                } else {
+                    val from = base + selectionStart.coerceAtLeast(0)
+                    var lastAt = -1
+                    var lastEnd = -1
+                    while (matcher.find()) {
+                        if (matcher.start() < from) { foundAt = matcher.start(); foundEnd = matcher.end() }
+                        lastAt = matcher.start(); lastEnd = matcher.end()
+                    }
+                    if (foundAt < 0) { foundAt = lastAt; foundEnd = lastEnd }
+                }
+                if (foundAt < 0) { clearMatch(); return false }
+                showMatch(s, foundAt, foundEnd - foundAt)
+                return true
+            } catch (_: PatternSyntaxException) {
+                regexError = true
+            } catch (_: RegexDeadlineExceeded) {
+                regexError = true
+            }
+            clearMatch()
+            return false
+        }
         var at: Int
-
         if (forward) {
             at = s.indexOf(query, base + selectionEnd.coerceIn(0, t.length), !matchCase)
-
             if (at < 0) at = s.indexOf(query, 0, !matchCase)
         } else {
             val from = base + selectionStart.coerceAtLeast(0)
-
             at = if (from <= 0) -1 else s.lastIndexOf(query, from - 1, !matchCase)
-
             if (at < 0) at = s.lastIndexOf(query, s.length, !matchCase)
         }
-
-        if (at < 0) {
-            clearMatch()
-
-            return false
-        }
-
+        if (at < 0) { clearMatch(); return false }
         showMatch(s, at, query.length)
-
         return true
     }
 
@@ -1643,113 +1681,154 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private fun showMatch(full: String, at: Int, length: Int) {
         if (at < before.length || at + length > before.length + (text?.length ?: 0)) {
             var line = 0
-
             for (i in 0 until at) if (full[i] == '\n') line++
-
             val s = slice(full, line - 300, line)
-
             installWindow(s.before, s.window, s.after, s.start)
         }
-
         val t = text ?: return
         val from = (at - before.length).coerceIn(0, t.length)
         val to = (from + length).coerceAtMost(t.length)
-
         markMatch(from, to)
         setSelection(from, to)
         scrollToOffset(from)
     }
 
     /** "n of m" for the match at the caret: (index, total), index 0 when the caret is not on one. */
-    fun matchPosition(query: String, matchCase: Boolean): Pair<Int, Int> {
-        if (text == null) return Pair(0, 0)
-
-        if (query.isEmpty()) return Pair(0, 0)
-
+    fun matchPosition(query: String, matchCase: Boolean, regex: Boolean = false): Pair<Int, Int> {
+        regexError = false
+        if (text == null || query.isEmpty()) return Pair(0, 0)
         val s = fullText()
         val from = before.length + selectionStart
         val to = before.length + selectionEnd
         var count = 0
         var index = 0
+        if (regex) {
+            try {
+                val matcher = regexMatcher(s, query, matchCase)
+                while (matcher.find() && count < 99999) {
+                    count++
+                    if (matcher.start() == from && matcher.end() == to) index = count
+                }
+            } catch (_: PatternSyntaxException) { regexError = true }
+            catch (_: RegexDeadlineExceeded) { regexError = true }
+            return Pair(if (regexError) 0 else index, if (regexError) 0 else count)
+        }
         var at = s.indexOf(query, 0, !matchCase)
-
         while (at >= 0 && count < 99999) {
             count++
-
             if (at == from && at + query.length == to) index = count
-
             at = s.indexOf(query, at + query.length, !matchCase)
         }
-
         return Pair(index, count)
     }
 
-    fun replaceCurrent(query: String, with: String, matchCase: Boolean): Boolean {
+    fun replaceCurrent(query: String, with: String, matchCase: Boolean, regex: Boolean = false): Boolean {
         val t = text ?: return false
-
+        regexError = false
+        if (regex && query.isNotEmpty()) {
+            try {
+                val full = fullText()
+                val a = selectionStart
+                val b = selectionEnd
+                val absolute = before.length + a
+                val matcher = regexMatcher(full, query, matchCase)
+                matcher.region(absolute, before.length + b)
+                if (matcher.find() && matcher.start() == absolute && matcher.end() == before.length + b) {
+                    val result = StringBuffer()
+                    matcher.appendReplacement(result, with)
+                    val replacement = result.substring(absolute)
+                    quiet = true
+                    t.replace(a, b, replacement)
+                    quiet = false
+                    setSelection(a + replacement.length)
+                }
+            } catch (_: PatternSyntaxException) { regexError = true }
+            catch (_: RegexDeadlineExceeded) { regexError = true }
+            catch (_: IllegalArgumentException) { regexError = true }
+            if (regexError) return false
+            return find(query, true, matchCase, true)
+        }
         if (query.isNotEmpty()) {
             val a = selectionStart
             val b = selectionEnd
-
             if (a >= 0 && b - a == query.length && t.substring(a, b).equals(query, ignoreCase = !matchCase)) {
                 quiet = true
                 t.replace(a, b, with)
                 quiet = false
-
                 setSelection(a + with.length)
             }
         }
-
         return find(query, true, matchCase)
     }
 
-    /** Replaces every place of [query]; returns how many. One undo step: only the part of the text that changes is replaced. */
-    fun replaceAll(query: String, with: String, matchCase: Boolean): Int {
+    /** Replaces every match across the full text. Java replacement syntax supports $1 capture groups. */
+    fun replaceAll(query: String, with: String, matchCase: Boolean, regex: Boolean = false): Int {
         val t = text ?: return 0
-
+        regexError = false
         if (query.isEmpty()) return 0
-
-        // CUSTOM.md #50: the text is not all in the text box: replace in the whole text, the history of undo is gone
+        if (regex) {
+            val old = fullText()
+            try {
+                val matcher = regexMatcher(old, query, matchCase)
+                val result = StringBuffer(old.length)
+                var count = 0
+                var firstAt = -1
+                while (matcher.find()) {
+                    if (firstAt < 0) firstAt = matcher.start()
+                    matcher.appendReplacement(result, with)
+                    count++
+                }
+                if (count == 0) return 0
+                matcher.appendTail(result)
+                val newText = result.toString()
+                if (isWindowed) {
+                    var line = 0
+                    for (i in 0 until firstAt) if (old[i] == '\n') line++
+                    clearMatch()
+                    loadFull(newText, line)
+                    scheduleLint(100)
+                    onEdited?.invoke()
+                } else {
+                    var head = 0
+                    while (head < old.length && head < newText.length && old[head] == newText[head]) head++
+                    var tail = 0
+                    while (tail < old.length - head && tail < newText.length - head && old[old.length - 1 - tail] == newText[newText.length - 1 - tail]) tail++
+                    clearMatch()
+                    quiet = true
+                    t.replace(head, old.length - tail, newText.substring(head, newText.length - tail))
+                    quiet = false
+                    setSelection(head)
+                }
+                return count
+            } catch (_: PatternSyntaxException) { regexError = true }
+            catch (_: RegexDeadlineExceeded) { regexError = true }
+            catch (_: IllegalArgumentException) { regexError = true }
+            return 0
+        }
         if (isWindowed) return replaceAllWindowed(query, with, matchCase)
-
         val old = t.toString()
         val result = StringBuilder(old.length)
         var count = 0
         var from = 0
         var at = old.indexOf(query, 0, !matchCase)
-
         while (at >= 0) {
             result.append(old, from, at).append(with)
             count++
             from = at + query.length
             at = old.indexOf(query, from, !matchCase)
         }
-
         if (count == 0) return 0
-
         result.append(old, from, old.length)
-
-        val new = result.toString()
+        val newText = result.toString()
         var head = 0
-
-        while (head < old.length && head < new.length && old[head] == new[head]) head++
-
+        while (head < old.length && head < newText.length && old[head] == newText[head]) head++
         var tail = 0
-
-        while (tail < old.length - head && tail < new.length - head &&
-            old[old.length - 1 - tail] == new[new.length - 1 - tail]
-        ) {
-            tail++
-        }
-
+        while (tail < old.length - head && tail < newText.length - head && old[old.length - 1 - tail] == newText[newText.length - 1 - tail]) tail++
         clearMatch()
-
         quiet = true
-        t.replace(head, old.length - tail, new.substring(head, new.length - tail))
+        t.replace(head, old.length - tail, newText.substring(head, newText.length - tail))
         quiet = false
-
         setSelection(head)
-
         return count
     }
 
@@ -1760,30 +1839,22 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         var from = 0
         var at = old.indexOf(query, 0, !matchCase)
         val firstAt = at
-
         while (at >= 0) {
             result.append(old, from, at).append(with)
             count++
             from = at + query.length
             at = old.indexOf(query, from, !matchCase)
         }
-
         if (count == 0) return 0
-
         result.append(old, from, old.length)
-
         var line = 0
-
         for (i in 0 until firstAt) if (old[i] == '\n') line++
-
         clearMatch()
         loadFull(result.toString(), line)
         scheduleLint(100)
         onEdited?.invoke()
-
         return count
     }
-
     private fun markMatch(from: Int, to: Int) {
         val t = text ?: return
 

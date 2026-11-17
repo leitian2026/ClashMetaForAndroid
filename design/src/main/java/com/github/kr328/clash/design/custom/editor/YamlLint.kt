@@ -34,6 +34,14 @@ object YamlLint {
         return Walker(lines).walk()
     }
 
+    /** CUSTOM.md #113: parse once on demand and resolve the reference under the caret to its first definition. */
+    fun definitionLine(text: String, caretOffset: Int): Int? {
+        val lines = text.split('\n').map { if (it.endsWith("\r")) it.substring(0, it.length - 1) else it }
+        val walker = Walker(lines)
+        walker.walk()
+        return walker.definitionLineAt(caretOffset)
+    }
+
     private val builtin = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL")
     private const val MAX_LINE = 4000 // a longer line is not read
     private const val MAX_DIAG = 2000
@@ -213,9 +221,9 @@ object YamlLint {
         private val diags = ArrayList<Diagnostic>()
         private val stack = ArrayList<Level>()
         private val refs = ArrayList<Ref>()
-        private val names = HashMap<String, Int>() // proxies and groups share their names
-        private val providers = HashSet<String>()
-        private val ruleProviders = HashSet<String>()
+        private val names = LinkedHashMap<String, Int>() // proxies and groups share their names; first definition wins
+        private val providers = LinkedHashMap<String, Int>()
+        private val ruleProviders = LinkedHashMap<String, Int>()
 
         // the list of a group that is being read ("proxies:" or "use:" with the items on the next lines)
         private var listKind = ""
@@ -400,7 +408,11 @@ object YamlLint {
                         if (sectionChild == -1 && indent > 0) sectionChild = indent
 
                         if (indent == sectionChild) {
-                            if (section == "proxy-providers") providers.add(key) else ruleProviders.add(key)
+                            if (section == "proxy-providers") {
+                                if (!providers.containsKey(key)) providers[key] = i
+                            } else if (!ruleProviders.containsKey(key)) {
+                                ruleProviders[key] = i
+                            }
                         }
                     }
                 }
@@ -617,6 +629,34 @@ object YamlLint {
             refs.add(Ref(line, policy, "policy"))
         }
 
+        fun definitionLineAt(caretOffset: Int): Int? {
+            val full = lines.joinToString("\n")
+            val offset = caretOffset.coerceIn(0, full.length)
+            val lineStart = if (offset == 0) 0 else full.lastIndexOf('\n', offset - 1) + 1
+            val lineEnd = full.indexOf('\n', offset).let { if (it < 0) full.length else it }
+            val line = full.substring(lineStart, lineEnd)
+            var col = (offset - lineStart).coerceIn(0, line.length)
+            fun wordChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_' || c == '-' || c == '.'
+            if (col == line.length || (col < line.length && !wordChar(line[col]))) {
+                if (col > 0 && wordChar(line[col - 1])) col--
+            }
+            if (col >= line.length || !wordChar(line[col])) return null
+            var start = col
+            var end = col + 1
+            while (start > 0 && wordChar(line[start - 1])) start--
+            while (end < line.length && wordChar(line[end])) end++
+            val word = line.substring(start, end)
+            val currentLine = full.substring(0, lineStart).count { it == '\n' }
+            val ref = refs.firstOrNull { it.name == word && it.line == currentLine }
+                ?: refs.firstOrNull { it.name == word }
+                ?: return null
+            return when (ref.kind) {
+                "use" -> providers[word]
+                "ruleset" -> ruleProviders[word]
+                "proxy", "policy" -> names[word]
+                else -> null
+            }
+        }
         private fun finish() {
             for (r in refs) {
                 when (r.kind) {

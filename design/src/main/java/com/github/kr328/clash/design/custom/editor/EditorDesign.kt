@@ -67,7 +67,7 @@ class EditorDesign(
     private val displayTitle: String = fileName,
 ) : Design<EditorDesign.Request>(context) {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
-    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, RefreshApplyState }
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, RefreshApplyState, JumpDefinition }
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -480,6 +480,9 @@ class EditorDesign(
 
     // the whole text, also the part of a big text that is not in the text box
     fun currentText(): String = editor.fullText()
+
+    /** CUSTOM.md #113: resolve the name under the caret when the user asks, never while typing. */
+    fun definitionLineAtCaret(): Int? = YamlLint.definitionLine(editor.fullText(), editor.fullCaretOffset())
 
     /** CUSTOM.md #108: the page matches its committed applied version; alpha is visual only, never disables taps. */
     fun setApplyMatchesApplied(matches: Boolean) {
@@ -958,6 +961,15 @@ class EditorDesign(
         caseButton.setTextColor(if (matchCase) colorAccent else colorMuted)
     }
 
+    private fun refreshRegex() {
+        regexButton.setTextColor(if (regexMode) colorAccent else colorMuted)
+    }
+
+    private fun showRegexError() {
+        countView.text = context.getString(R.string.editor_regex_error)
+        countView.setTextColor(colorBad)
+    }
+
     private fun toggleFind() {
         if (findBar.visibility == View.VISIBLE) {
             findBar.visibility = View.GONE
@@ -975,8 +987,10 @@ class EditorDesign(
 
         if (keepPlace) editor.setSelection(editor.selectionStart.coerceAtLeast(0))
 
-        val found = editor.find(query, forward, matchCase)
-        val (index, total) = editor.matchPosition(query, matchCase)
+        val found = editor.find(query, forward, matchCase, regexMode)
+        if (editor.regexError) { showRegexError(); return }
+        val (index, total) = editor.matchPosition(query, matchCase, regexMode)
+        if (editor.regexError) { showRegexError(); return }
 
         countView.text = "$index/$total"
         countView.setTextColor(if (query.isNotEmpty() && !found) colorBad else colorMuted)
@@ -985,16 +999,19 @@ class EditorDesign(
     private fun replaceOne() {
         val query = findInput.text?.toString() ?: ""
 
-        editor.replaceCurrent(query, replaceInput.text?.toString() ?: "", matchCase)
+        editor.replaceCurrent(query, replaceInput.text?.toString() ?: "", matchCase, regexMode)
+        if (editor.regexError) { showRegexError(); return }
 
-        val (index, total) = editor.matchPosition(query, matchCase)
+        val (index, total) = editor.matchPosition(query, matchCase, regexMode)
+        if (editor.regexError) { showRegexError(); return }
 
         countView.text = "$index/$total"
     }
 
     private fun replaceEvery() {
         val query = findInput.text?.toString() ?: ""
-        val count = editor.replaceAll(query, replaceInput.text?.toString() ?: "", matchCase)
+        val count = editor.replaceAll(query, replaceInput.text?.toString() ?: "", matchCase, regexMode)
+        if (editor.regexError) { showRegexError(); return }
 
         requests.trySend(Request.RefreshApplyState)
         countView.text = "0/0"
@@ -1011,7 +1028,8 @@ class EditorDesign(
                 menu.add(0, 5, 0, context.getString(R.string.editor_history_menu))
                 menu.add(0, 6, 0, context.getString(R.string.editor_compare_menu))
             }
-            menu.add(0, 3, 0, context.getString(R.string.editor_goto_line))
+            if (fileName == "config.yaml") menu.add(0, 7, 0, context.getString(R.string.editor_jump_definition))
+            menu.add(0, 3, 1, context.getString(R.string.editor_goto_line))
             menu.add(0, 4, 1, context.getString(R.string.editor_show_whitespace)).apply {
                 isCheckable = true
                 isChecked = editor.showWhitespace
@@ -1022,6 +1040,7 @@ class EditorDesign(
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     3 -> askLine()
+                    7 -> requests.trySend(Request.JumpDefinition)
                     5 -> requests.trySend(Request.History)
                     6 -> requests.trySend(Request.Compare)
                     4 -> {
