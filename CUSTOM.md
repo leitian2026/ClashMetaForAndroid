@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r150
+当前版本：2_11_36-r151
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1554,3 +1554,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **split 应用按钮：** 明确记录全部替换、撤销回到已应用内容时不重新比较；编辑回调只恢复正常透明度，属于按要求接受的局限。
 - **改动文件：** 仅 CUSTOM.md；没有改动代码。
 - **验证：** 对照当前 ConfigHistory 与 EditorDesign / EditorActivity 调用路径补充说明。
+
+
+## 133. 修复历史版本比较的哈希参数类型错误（r151）
+- **构建错误：** Build Debug #122 在 `ConfigHistory.kt` 的 `unapplied()` 编译失败：将 `File` 传给只接受 `ByteArray` 的 `hash()`。
+- **修正：** 改为调用已有的 `digestOf(file)`，复用文件 SHA-256 缓存，并保持先比较长度、再比较摘要的逻辑。
+- **改动文件：** ConfigHistory.kt 和本登记文件。
+- **验证：** 已根据 GitHub Actions 编译日志定位并修正；尚未对新提交重新运行 Android Debug 构建。
