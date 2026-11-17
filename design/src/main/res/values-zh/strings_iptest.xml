@@ -33,7 +33,8 @@
     <string name="iptest_running">测试中……每个 IP 之间随机隔 1 到 3 秒，再点一次按钮可以取消</string>
     <string name="iptest_dialog_hint">填不在配置里的 IP 或域名，每行一个，也可以用逗号、空格分隔，最多 20 个。直连测 IP 只测 IP 地址，用上面输入框里的域名当 SNI 和 Host；套入节点测把所选节点的 server 换成这个 IP 或域名（域名由内核自己解析）。每个 IP 测 10 次（最多 5 个同时，每次最多 3 秒）。</string>
     <string name="iptest_ports_label">端口（直连测时，通了的 IP 逐个握手试这些端口，用空格或逗号分隔）</string>
-    <string name="iptest_url_label">下载测速地址（点某一行的"测速"时才下载，直连 IP，SNI 和 Host 用地址里的域名）</string>
+    <string name="iptest_url_direct_label">直连测速地址（必须使用 Cloudflare 上的地址）</string>
+    <string name="iptest_url_node_label">套入节点测速地址（必须使用不在 Cloudflare 上的地址）</string>
     <string name="iptest_col_ip">IP地址</string>
     <string name="iptest_col_colo">机房（城市）</string>
     <string name="iptest_col_asn">归属运营商</string>
