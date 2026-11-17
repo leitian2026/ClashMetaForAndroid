@@ -190,6 +190,7 @@ class EditorDesign(
 
     // find bar
     private var matchCase = false
+    private var regexMode = prefs.getBoolean("regex_search", false)
 
     private val findInput = AppCompatEditText(context).apply {
         hint = context.getString(R.string.editor_find)
@@ -221,6 +222,12 @@ class EditorDesign(
     private val caseButton = action("Aa", context.getString(R.string.editor_match_case)) {
         matchCase = !matchCase
         refreshCase()
+        findFrom(true, keepPlace = true)
+    }
+    private val regexButton = action(".*", context.getString(R.string.editor_regex)) {
+        regexMode = !regexMode
+        prefs.edit().putBoolean("regex_search", regexMode).apply()
+        refreshRegex()
         findFrom(true, keepPlace = true)
     }
 
@@ -293,6 +300,7 @@ class EditorDesign(
                 addView(action("↑", context.getString(R.string.editor_previous)) { findFrom(false) })
                 addView(action("↓", context.getString(R.string.editor_next)) { findFrom(true) })
                 addView(caseButton)
+                addView(regexButton)
                 addView(action("✕", null) { toggleFind() })
             },
         )
@@ -462,6 +470,7 @@ class EditorDesign(
         }
 
         refreshCase()
+        refreshRegex()
         refreshProblems()
         refreshStatus()
     }

@@ -581,7 +581,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         }
 
         // CUSTOM.md #70: a long press pins / unpins; the row shows a pin in front while it is pinned
-        val base = labels
+        val base = labels.toMutableList()
         fun shown(i: Int): CharSequence = if (versions[i].pinned) android.text.TextUtils.concat("\uD83D\uDCCC ", base[i]) else base[i]
 
         val index = design.pickVersion(
@@ -626,6 +626,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                     if (deleted) {
                         if (openedAt == v.at) openedAt = 0L
                         versions.removeAt(i)
+                        base.removeAt(i)
                         true
                     } else {
                         design.toast(getString(R.string.editor_history_delete_failed))
