@@ -273,7 +273,7 @@ object ConfigHistory {
         val bytes = currentBytes(context, uuid)
         val bytesHash = bytes?.let(::hash)
         val used = if (bytes == null) null else versions.firstOrNull {
-            it.size == bytes.size.toLong() && hash(it.file) == bytesHash
+            it.size == bytes.size.toLong() && digestOf(it.file) == bytesHash
         }
 
         return versions.firstOrNull { v ->
