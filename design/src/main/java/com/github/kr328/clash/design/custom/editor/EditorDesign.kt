@@ -190,7 +190,7 @@ class EditorDesign(
 
     // find bar
     private var matchCase = false
-    private var regexMode = prefs.getBoolean("regex_search", false)
+    private var regexMode = prefs.getBoolean("regex", false)
 
     private val findInput = AppCompatEditText(context).apply {
         hint = context.getString(R.string.editor_find)
@@ -226,7 +226,7 @@ class EditorDesign(
     }
     private val regexButton = action(".*", context.getString(R.string.editor_regex)) {
         regexMode = !regexMode
-        prefs.edit().putBoolean("regex_search", regexMode).apply()
+        prefs.edit().putBoolean("regex", regexMode).apply()
         refreshRegex()
         findFrom(true, keepPlace = true)
     }
@@ -981,7 +981,7 @@ class EditorDesign(
     }
 
     private fun showRegexError() {
-        countView.text = context.getString(R.string.editor_regex_error)
+        countView.text = context.getString(if (editor.regexTimedOut) R.string.editor_regex_slow else R.string.editor_regex_invalid)
         countView.setTextColor(colorBad)
     }
 
@@ -1028,7 +1028,6 @@ class EditorDesign(
         val count = editor.replaceAll(query, replaceInput.text?.toString() ?: "", matchCase, regexMode)
         if (editor.regexError) { showRegexError(); return }
 
-        requests.trySend(Request.RefreshApplyState)
         countView.text = "0/0"
 
         launch { toast(context.getString(R.string.editor_replaced, count)) }
