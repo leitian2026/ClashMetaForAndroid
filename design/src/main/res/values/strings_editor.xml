@@ -8,6 +8,7 @@
     <string name="editor_find">Find</string>
     <string name="editor_check">Check</string>
     <string name="editor_save">Save</string>
+    <string name="editor_save_apply">Save &amp; apply</string>
     <string name="editor_replace_hint">Replace with</string>
     <string name="editor_replace">Replace</string>
     <string name="editor_replace_all">All</string>

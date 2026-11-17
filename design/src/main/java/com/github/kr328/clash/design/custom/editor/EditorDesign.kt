@@ -124,8 +124,8 @@ class EditorDesign(
     private val findButton = action(context.getString(R.string.editor_find), null) { toggleFind() }
     private val checkButton = action(context.getString(R.string.editor_check), null) { requests.trySend(Request.Check) }
     private val saveButton = action(
-        context.getString(if (split) R.string.editor_save_history_short else R.string.editor_save),
-        context.getString(if (split) R.string.editor_save_history else R.string.editor_save),
+        context.getString(if (split) R.string.editor_save_history_short else if (fileName != "config.yaml") R.string.editor_save_apply else R.string.editor_save),
+        context.getString(if (split) R.string.editor_save_history else if (fileName != "config.yaml") R.string.editor_save_apply else R.string.editor_save),
     ) { requests.trySend(Request.Save) }
     private val applyButton = action(context.getString(R.string.editor_apply), null) { requests.trySend(Request.Apply) }
     // CUSTOM.md #71: three big filled dots (the text "⋮" was small and thin); iconAction gives it a 44dp touch area
