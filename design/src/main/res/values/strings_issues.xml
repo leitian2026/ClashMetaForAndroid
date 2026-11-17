@@ -16,6 +16,9 @@
     <string name="issue_geo">Geo file problem: %1$s</string>
     <string name="issue_provider">External resource update failed: %1$s</string>
     <string name="issue_other">Problem: %1$s</string>
+    <string name="issue_hint_dns">Next: open Config Check and tap Check DNS</string>
+    <string name="issue_hint_ip">Next: open Proxy and test this node again</string>
+    <string name="issue_hint_sub">Next: open Profiles and update this subscription manually</string>
     <string name="main_issues_card_more">tap to see all</string>
     <string name="issues_card_title">%1$d runtime problem(s)</string>
 </resources>

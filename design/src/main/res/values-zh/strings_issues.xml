@@ -16,6 +16,9 @@
     <string name="issue_geo">地理数据文件问题：%1$s</string>
     <string name="issue_provider">外部资源更新失败：%1$s</string>
     <string name="issue_other">问题：%1$s</string>
+    <string name="issue_hint_dns">下一步：去“配置检查”页点“检查 DNS”</string>
+    <string name="issue_hint_ip">下一步：去“代理”页重新测速这个节点</string>
+    <string name="issue_hint_sub">下一步：去“配置”页手动更新这个订阅</string>
     <string name="main_issues_card_more">点此查看全部</string>
     <string name="issues_card_title">%1$d 个运行中的问题</string>
 </resources>

@@ -109,6 +109,15 @@ class IssuesBlock(private val context: Context, private val onIgnore: (String, B
                 setTextColor(colorSecondary)
             },
         )
+        if (!item.ignored && !item.resolved) {
+            IssueText.hintRes(item.kind)?.let { hint ->
+                col.addView(TextView(context).apply {
+                    setText(hint)
+                    textSize = 11f
+                    setTextColor(colorSecondary)
+                })
+            }
+        }
 
         row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 

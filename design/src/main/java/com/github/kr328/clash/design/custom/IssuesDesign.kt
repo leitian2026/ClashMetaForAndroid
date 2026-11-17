@@ -110,6 +110,15 @@ class IssuesDesign(context: Context) : Design<IssuesDesign.Request>(context) {
                 alpha = 0.75f
             },
         )
+        if (!item.ignored && !item.resolved) {
+            IssueText.hintRes(item.kind)?.let { hint ->
+                col.addView(TextView(context).apply {
+                    setText(hint)
+                    textSize = 11f
+                    alpha = 0.75f
+                })
+            }
+        }
 
         row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 

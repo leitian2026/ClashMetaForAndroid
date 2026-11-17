@@ -5,6 +5,13 @@ import com.github.kr328.clash.design.R
 
 /** CUSTOM (CUSTOM.md #53): the words for the kinds of problems of the running config. */
 object IssueText {
+    fun hintRes(kind: String): Int? = when (kind) {
+        "doh", "dns" -> R.string.issue_hint_dns
+        "ip" -> R.string.issue_hint_ip
+        "sub" -> R.string.issue_hint_sub
+        else -> null // No verified in-app entry point for ECH, geo files or external resources.
+    }
+
     fun kindRes(kind: String): Int = when (kind) {
         "doh" -> R.string.issue_doh
         "ip" -> R.string.issue_ip
