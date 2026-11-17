@@ -60,7 +60,7 @@
     <string name="editor_readonly_notice">Subscription and externally imported profiles cannot be edited here (the service refuses to write them); view and find only</string>
     <string name="editor_saved_applied">Saved and applied</string>
     <string name="editor_apply_failed_title">Not applied</string>
-    <string name="editor_apply_failed">The core did not accept this config, the applied version did not change. It is kept in the history marked “failed the check”; fix it and tap Apply again.\n\n%1$s</string>
+    <string name="editor_apply_failed">The core did not accept this config; the applied version did not change. It is kept in the history marked “failed the check”; fix it and tap Apply again.\n\n%1$s</string>
     <!-- CUSTOM (CUSTOM.md #56): history versions, apply, compare -->
     <string name="editor_save_history">History version</string>
     <string name="editor_save_history_short">History version</string>
