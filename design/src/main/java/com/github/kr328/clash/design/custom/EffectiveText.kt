@@ -289,6 +289,17 @@ class EffectiveText(
     }
 
     private fun header(sb: SpannableStringBuilder, onChange: () -> Unit) {
+        if (!compare) {
+            val titleAt = sb.length
+            sb.append(context.getString(R.string.eff_title)).append('\n')
+            sb.setSpan(StyleSpan(Typeface.BOLD), titleAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+            val noteAt = sb.length
+            sb.append(context.getString(R.string.eff_note)).append('\n')
+            sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(RelativeSizeSpan(0.85f), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append('\n')
+        }
         sb.append(
             context.getString(
                 if (compare) R.string.cmp_summary else R.string.eff_summary,
@@ -337,11 +348,12 @@ class EffectiveText(
             sb.append(context.getString(if (compare) R.string.cmp_no_diff else R.string.eff_no_diff)).append('\n')
         }
 
-        val noteAt = sb.length
-
-        sb.append(context.getString(if (compare) R.string.cmp_note else R.string.eff_note)).append('\n')
-        sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(RelativeSizeSpan(0.85f), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (compare) {
+            val noteAt = sb.length
+            sb.append(context.getString(R.string.cmp_note)).append('\n')
+            sb.setSpan(ForegroundColorSpan(colorMuted), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(RelativeSizeSpan(0.85f), noteAt, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
 
         sb.append('\n')
     }

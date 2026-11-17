@@ -36,6 +36,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
     // CUSTOM.md #43: the running job is a "test other IPs"; the core has to be told to stop it
     private var ipTesting = false
+    private var checkTesting = false
 
     // CUSTOM (CUSTOM.md #52): what the last round used (for the download of a row), the rows it has, the download running
     private class IpRun(val direct: Boolean, val domain: String, val node: String, val ports: String, val url: String)
@@ -109,16 +110,28 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     }
 
     private suspend fun cancelRunning(design: ConfigCheckDesign) {
+        // Capture before cancelling: the child's finally block can clear these flags immediately.
+        val wasIp = ipTesting
+        val wasCheck = checkTesting
+
         job?.cancel()
         job = null
 
-        val wasIp = ipTesting
-
-        if (ipTesting) {
+        if (wasIp) {
             ipTesting = false
 
             try {
                 withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+
+        if (wasCheck) {
+            checkTesting = false
+            try {
+                withClash { closeCustomConnection(CustomConnections.CANCEL_CHECK) }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -568,11 +581,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             return
         }
 
+        checkTesting = true
         design.setRunning(true)
-
         val text = try {
             val request = JSONObject().put("domain", domain).toString()
-
             ConfigCheckText.build(
                 this,
                 ConfigCheckReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }),
@@ -581,15 +593,16 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             throw e
         } catch (e: Exception) {
             getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
+        } finally {
+            checkTesting = false
+            withContext(NonCancellable) { design.setRunning(false) }
         }
-
-        design.setRunning(false)
         design.showText(text)
     }
 
-    // CUSTOM (CUSTOM.md #30): the config of the profile in use, with what the core and the app changed marked in
-    // place. The core reads the config.yaml that is loaded (the saved one, not an unsaved edit), runs the same steps
-    // it runs on loading and compares; nothing is loaded or downloaded. Runs once per tap, nothing in the background.
+    // CUSTOM (CUSTOM.md #30 #101): infer the result of applying the core and app load-time steps to the saved
+    // profile config.yaml. This is not a snapshot of the complete config currently held by the running core.
+    // Nothing is loaded or downloaded. Runs once per tap, nothing in the background.
     private suspend fun runEffective(design: ConfigCheckDesign) {
         if (!clashRunning) {
             design.showText(getString(R.string.connections_not_running))
@@ -638,23 +651,22 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         val id = if (choice == 2) CustomConnections.FLUSH_FAKEIP else CustomConnections.FLUSH_DNS
 
+        var failure = ""
         val ok = try {
             withClash { closeCustomConnection(id) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            failure = e.message ?: e.javaClass.simpleName
             false
         }
-
-        design.showText(
-            getString(
-                when {
-                    !ok -> R.string.check_flush_failed
-                    choice == 2 -> R.string.check_flush_done_fakeip
-                    else -> R.string.check_flush_done_dns
-                },
-            ),
-        )
+        val message = when {
+            ok && choice == 2 -> getString(R.string.check_flush_done_fakeip)
+            ok -> getString(R.string.check_flush_done_dns)
+            failure.isNotEmpty() -> getString(R.string.check_flush_failed_reason, failure)
+            else -> getString(R.string.check_flush_failed)
+        }
+        design.showText(message)
     }
 
     // CUSTOM (CUSTOM.md #25): the DNS check. Same rules as the ECH check: runs only when tapped, nothing in the background.
@@ -671,25 +683,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             return
         }
 
+        checkTesting = true
         design.setRunning(true, dns = true)
-
-        var failure = ""
-
-        val report = try {
-            val request = JSONObject().put("domain", domain).put("kind", "dns").toString()
-
-            DnsCheckReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            failure = getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
-
-            null
+        try {
+            var failure = ""
+            val report = try {
+                val request = JSONObject().put("domain", domain).put("kind", "dns").toString()
+                DnsCheckReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failure = getString(R.string.check_error, e.message ?: e.javaClass.simpleName)
+                null
+            }
+            if (report != null) design.showDns(report) else design.showText(failure)
+        } finally {
+            checkTesting = false
+            withContext(NonCancellable) { design.setRunning(false) }
         }
-
-        design.setRunning(false)
-
-        // CUSTOM.md #26 (r32): the page has lines that open on a tap
-        if (report != null) design.showDns(report) else design.showText(failure)
     }
 }

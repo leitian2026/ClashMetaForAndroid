@@ -77,6 +77,13 @@ func closeCustomConnection(id C.c_string) C.int {
 		return 1
 	}
 
+	if C.GoString(id) == conftest.CancelCheckID { // CUSTOM.md #101: cancel ECH and DNS checks
+		if conftest.CancelCheck() {
+			return 1
+		}
+		return 0
+	}
+
 	if C.GoString(id) == conftest.CancelIPTestID { // CUSTOM.md #43: stop the running "test other IPs"
 		if conftest.CancelIPTest() {
 			return 1

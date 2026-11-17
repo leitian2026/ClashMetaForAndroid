@@ -125,26 +125,37 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
-    // [dns]: the running test is the DNS check (CUSTOM.md #25); the button that started it turns into "cancel"
-    suspend fun setRunning(running: Boolean, dns: Boolean = false) {
-        withContext(Dispatchers.Main) {
-            binding.checkToggleView.setText(if (running && !dns) R.string.check_cancel else R.string.check_start)
-            binding.checkDnsView.setText(if (running && dns) R.string.check_cancel else R.string.check_dns_start)
+    private enum class RunningTask { NONE, ECH, DNS, IP }
 
-            if (running) {
-                textMode() // CUSTOM.md #52
+    // CUSTOM.md #101: state-driven button availability; only the active test can be cancelled.
+    private suspend fun setTaskRunning(task: RunningTask) {
+        withContext(Dispatchers.Main) {
+            val running = task != RunningTask.NONE
+            binding.checkToggleView.setText(if (task == RunningTask.ECH) R.string.check_cancel else R.string.check_start)
+            binding.checkDnsView.setText(if (task == RunningTask.DNS) R.string.check_cancel else R.string.check_dns_start)
+            binding.checkIpView.setText(if (task == RunningTask.IP) R.string.check_cancel else R.string.iptest_button)
+            binding.checkToggleView.isEnabled = !running || task == RunningTask.ECH
+            binding.checkDnsView.isEnabled = !running || task == RunningTask.DNS
+            binding.checkIpView.isEnabled = !running || task == RunningTask.IP
+            binding.checkEffectiveView.isEnabled = !running
+            binding.checkFlushView.isEnabled = !running
+            binding.checkHintButton.isEnabled = !running
+            binding.checkCopyView.isEnabled = !running
+            binding.checkCopyView.alpha = if (running) 0.38f else 1f
+            if (task == RunningTask.ECH || task == RunningTask.DNS) {
+                textMode()
                 binding.checkTextView.text = context.getString(R.string.check_running)
             }
         }
     }
 
-    // CUSTOM.md #43: the button of "test other IPs" turns into "cancel" while its test runs
-    suspend fun setIpRunning(running: Boolean) {
-        withContext(Dispatchers.Main) {
-            binding.checkIpView.setText(if (running) R.string.check_cancel else R.string.iptest_button)
+    suspend fun setRunning(running: Boolean, dns: Boolean = false) {
+        setTaskRunning(if (!running) RunningTask.NONE else if (dns) RunningTask.DNS else RunningTask.ECH)
+    }
 
-            ipView?.setBusy(running, null) // CUSTOM.md #52: no download while the round runs
-        }
+    suspend fun setIpRunning(running: Boolean) {
+        setTaskRunning(if (running) RunningTask.IP else RunningTask.NONE)
+        withContext(Dispatchers.Main) { ipView?.setBusy(running, null) }
     }
 
     /** CUSTOM.md #43: the dialog of "test other IPs"; null when cancelled. */

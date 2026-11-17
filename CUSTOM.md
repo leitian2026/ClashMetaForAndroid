@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r116
+当前版本：2_11_36-r117
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -12,6 +12,7 @@
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 #37 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37） |
+| `core/src/main/golang/native/connections.go` | #8 #15 #101 | 低 | 重加 `queryCustomConnections` 的自定义分派和 `closeCustomConnection` 的自定义关闭分支；#101 在 `CANCEL_IPTEST` 前加 `CANCEL_CHECK` 分支，调用 `conftest.CancelCheck()` |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 #55 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
@@ -44,7 +45,7 @@
 | `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt` | #57 | 低 | `subtext` 的 setter 里，`binding.subtextView.text = value` 改成 `binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)`（首页代理卡片的 ✓ 绿 / ✗ 红） |
 | `design/build.gradle.kts` | #87 | 低 | 增加 `libs.kotlin.serialization.json` 依赖，供配置检查页将最近一轮 `IpTestReport` 编码 / 解码为本地 JSON；不改插件、构建任务或其他依赖 |
 
-共 34 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 35 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -385,7 +386,7 @@
 **改了上游文件：** `design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`AndroidManifest.xml`（入口，同 #20）；`MainApplication.kt`（一行 `CrashRecorder.install(this)` 和 import），见总表。
 
 ## 22. 配置检查页（r20，r22 改为同配置只测一次）
-**效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"ECH测试"（r29 起按钮叫这个名字，原来叫"开始测试"，功能不变）才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；r25 起另有"检查 DNS"按钮（见 #25）；其余字段（规则、provider 等）以后逐项加。
+**效果：** 首页"错误与诊断"上面多一个"配置检查"入口。点"ECH检查"（r29 起按钮叫这个名字，原来叫"开始测试"，功能不变）才会真的联网跑一次，检查配置里**写了的**字段有没有效，每项给出结论和原因。这一版只有第一项：节点的 `ech-opts`；r25 起另有"检查 DNS"按钮（见 #25）；其余字段（规则、provider 等）以后逐项加。
 - **输入框：** 填一个确定被封的域名（例如 `xxx.workers.dev`），必须由节点的服务器（或它前面的 CDN）托管。只在测试里当内层 SNI 用，**不改配置**；最后填的域名记在页面自己的 SharedPreferences（`custom_config_check`）。
 - **每项只用自己需要的字段，不代入整个配置：** ECH 项只读节点的 `type`、`server`、`port`、`alpn`、`servername` / `sni`、`ech-opts`，不碰 xhttp 路径、Host、UUID 等。以后每一项都这样。
 - **ECH 配置从哪来：** `ech-opts.config` 写了就直接用（base64）；没写就和内核一样去 DNS 取：向 DoH 查某个域名的 HTTPS 记录（类型 65），取出里面的 `ech` 参数。查的域名依次是 `query-server-name`、节点的 `servername`、`sni`、输入框的域名。DoH 服务器依次是配置 `dns:` 里所有 `https://` 开头的地址（加载配置时 `ipdelay.CaptureDNS` 记下，`#` 后面的参数去掉；通过 JSON 遍历整个 `dns:`，不依赖内核结构体的字段名），再是三个公共 DoH（`223.5.5.5`、`1.12.12.12`、`1.1.1.1`）。DNS 报文自己拼、自己解析（`doh.go`），不引入新依赖。拨号都走内核的 `dialer.DialContext`，`hosts:` 映射生效，socket 不走 VPN。
@@ -464,7 +465,7 @@
    - **哪几个有问题、影不影响：** 把被标记的服务器按组分开。内核真正在问的（`nameserver`、`fallback`、`nameserver-policy`）里有问题 → 红字"会直接影响解析"；只用于特定场景的（`direct-nameserver`、`default-nameserver`、`proxy-server-nameserver` 等）有问题 → 橙字"疑似被污染，它们不是主 DNS，只在直连域名或解析 DoH 服务器自己的域名时才用到"。这只说它们是干什么的，不替你判断这个域名受不受影响（域名走不走直连，这个报告不知道）。
    - **服务器按这两组列，每个一行**：标记（✓ 正常 / ⚠ 有问题 / ✗ 没应答 / · 不支持或域名不存在）、地址、结果一个词（和内核一致 / 有应答 / 没应答 / 不支持 / 域名不存在 / 很可能是假的 / 疑似被污染）和毫秒数。**点一行**才展开它的 A / AAAA、失败原因、h3 等细节（`DnsCheckText.serverDetail`）。
    - **"详情"折叠区默认收起：** 应用拿到的地址（hosts / fake-ip）、内核解析器完整答案、`nameserver-policy`、AAAA 说明、说明文字（`DnsCheckText.details`，内容和以前中间那段一样）。
-   - 新文件 `design/.../custom/DnsCheckView.kt`；`DnsCheckText.build()` 改成 `DnsCheckView(...).plain()`（全部展开的文本，复制按钮和诊断包用它，`DiagnosticBundle` 不用改）；`ConfigCheckDesign.showDns()`（和最终生效配置页一样，点击交给文本里的链接）；`ConfigCheckActivity.runDns()` 改调 `showDns`；文案 `check_dns_c_*` `check_dns_g_*` `check_dns_r_*` `check_dns_fold_*` `check_dns_tap_hint`。点一下只重画，不再查询；没有新增定时器。
+   - 新文件 `design/.../custom/DnsCheckView.kt`；`DnsCheckText.build()` 改成 `DnsCheckView(...).plain()`（全部展开的文本，复制按钮和诊断包用它，`DiagnosticBundle` 不用改）；`ConfigCheckDesign.showDns()`（和推算最终配置页一样，点击交给文本里的链接）；`ConfigCheckActivity.runDns()` 改调 `showDns`；文案 `check_dns_c_*` `check_dns_g_*` `check_dns_r_*` `check_dns_fold_*` `check_dns_tap_hint`。点一下只重画，不再查询；没有新增定时器。
    - **局限：** 服务器按"角色名"分组，角色名就是 `dns:` 里的键名；`dns.listen` 那一项（内核自己的 DNS 服务器）不在列表里，仍在详情里；没有编译过，要靠 Actions 构建验证。
 
 **对照内核源码（AGENTS.md 第 8 条）：** mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`（与子模块一致）。`hub/route/dns.go`（`queryDNS`）、`hub/route/cache.go`（两个 flush）、`component/resolver/resolver.go`（`DefaultResolver`、`ClearCache`、`DefaultDNSTimeout`）、`component/resolver/enhancer.go`（`FlushFakeIP`）、`dns/resolver.go`（`ExchangeContext`、`matchPolicy`、`makePolicy`）、`config/config.go`（`parseNameServerPolicy`、`NameServerPolicy` 是有序 map）。内核升级后这些要重新对照。
@@ -511,8 +512,8 @@
 **新增文件：** `app/.../custom/DiagnosticBundle.kt`、`ConfigMask.kt`；`BackupActivity.kt`（#17）加 `ACTION_DIAG`；`BackupPreference.kt`（#17）加入口；文案 `diag_*`。
 **依赖：** `queryCustomConnections` 的 `SORT_ERRORS` / `SORT_MUX` / `SORT_CHECK`；`Bridge.nativeCoreVersion()`；`clashDir`。
 
-## 30. 最终生效配置：你的配置上直接标出内核和 App 改了什么（r28，r29 修正归属和锚点，r31 改排序和颜色）
-**效果：** "配置检查"页（#22）第二排按钮多一个"最终生效配置"。点一次，对**正在使用的配置**（已保存的那份 `config.yaml`，不是没保存的编辑）做一次对比，结果显示在页面的文字区里：以**你写的配置为底**，差异直接标在原位，不另开一段：
+## 30. 推算最终配置：你的配置上直接标出内核和 App 改了什么（r28，r29 修正归属和锚点，r31 改排序和颜色）
+**效果：** "配置检查"页（#22）第二排按钮多一个"推算最终配置"。点一次，对**正在使用的配置**（已保存的那份 `config.yaml`，不是没保存的编辑）做一次对比，结果显示在页面的文字区里：以**你写的配置为底**，差异直接标在原位，不另开一段：
 - 没变的行：普通颜色。
 - 被改写的值（**蓝色**，行首 `~`；r31 起，原来是橙色，手机上和红色容易看混）：旧值划线灰色，紧跟着是实际生效的值（蓝色加粗）。例：`~ external-controller: ~~127.0.0.1:9090~~ ""`。
 - 被删除的字段（红色加删除线，行首 `-`）：留在原位。包括内核不认识的字段（行末写"内核不认识，已忽略"）、被 App 去掉的监听（tproxy / redir / tun）。
@@ -656,7 +657,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **验证和局限：** 补丁在上面这份内核源码上按 0001、0002、0003 的顺序 `patch --dry-run` 再真打通过，打完的文件 `gofmt` 干净；`preferip.go` 单独拿出来跑过 `go vet` 和 `go test -race`（设置、清除、4in6、不在列表里、只清自己那个、非法参数）；`pickIPs` 单独跑过 8 个用例。**没有编译整个内核**（这里拉不到内核的依赖），Go / Kotlin 要靠 Actions 构建验证。如果构建因为 0003 出错，把 `0003-preferred-ip.patch` 单独删掉，同时把 `ipdelay.go` 里的 `dialer.SetPreferredIP` / `ClearPreferredIP` / `ClearPreferredIPs` 三处调用（`setFastest`、`testProxy` 的 `len(all)==0` 分支、`CaptureConfig` 末尾）去掉；#1 的测速收窄不受影响。
 
 ## 43. 测试其他 IP（配置检查页，r45；r46 加域名、调深小字颜色）
-**效果：** 配置检查页在"最终生效配置 / 清缓存 / 检查 DNS"那一行下面多一个"测试其他 IP"按钮，测**不在配置里**的 IP（r46 起也可以填域名，见 B）。点开是一个对话框：多行输入框填 IP 或域名（每行一个，也可以用逗号、分号、空格分隔，全角的也行；`1.1.1.1:443`、`[2606::1]:443`、`example.com:443` 取其中的地址或域名，端口不用；重复的去掉；既不是 IP 也不是域名的词在结果里列出来），下面选一个节点，两个按钮："直连测 IP"（A）和"套入节点测"（B）。填的 IP 和选的节点记在页面自己的 SharedPreferences（`custom_config_check` 的 `ip_text`、`ip_node`）。结果出来后，**点一行复制这个 IP**，最后一行"复制全部能用的 IP"；右上角的复制按钮复制整页文字。
+**效果：** 配置检查页在"推算最终配置 / 清缓存 / 检查 DNS"那一行下面多一个"测试其他 IP"按钮，测**不在配置里**的 IP（r46 起也可以填域名，见 B）。点开是一个对话框：多行输入框填 IP 或域名（每行一个，也可以用逗号、分号、空格分隔，全角的也行；`1.1.1.1:443`、`[2606::1]:443`、`example.com:443` 取其中的地址或域名，端口不用；重复的去掉；既不是 IP 也不是域名的词在结果里列出来），下面选一个节点，两个按钮："直连测 IP"（A）和"套入节点测"（B）。填的 IP 和选的节点记在页面自己的 SharedPreferences（`custom_config_check` 的 `ip_text`、`ip_node`）。结果出来后，**点一行复制这个 IP**，最后一行"复制全部能用的 IP"；右上角的复制按钮复制整页文字。
 
 **结果页的小字（ECH 配置来源、TLS 和运营商那一行、提示、时间）r46 起用深一点的灰（浅色 `#616161`，夜间 `#BDBDBD`），原来固定的 `#9E9E9E` 在浅色背景上太淡；只改了这一页，DNS 检查页（`DnsCheckView`）的 `#9E9E9E` 还没动。**
 
@@ -855,8 +856,8 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **应用：** 先保证正在用的版本在历史里（`keepInUse`），再把编辑框的文字存成历史版本（已有就沿用），再写进待提交副本并 `commit`。内核通过才生效；不通过：正在用的配置不变，这个版本标"✗ 未通过检查"，这次应用自己建的待提交副本丢掉（原来就有的不动），弹窗写原因并跳到出错行。编辑框文字和正在用的完全一样时只提示"不用再应用"。
 - **检查：** 检查的是编辑框里的文字——写进缓存目录 `editor_check/config.yaml` 临时文件夹给内核（`SORT_VALIDATE` 只读那个文件夹里的 `config.yaml`），查完删掉；不再碰待提交副本。
 - **历史版本：** 只列正在编辑的这个配置（按 uuid 找，改名不影响）。每行：时间、行数、比前一版 `+增 −删`，再加状态：`正在使用`（和正在用的逐字节相同）/ `已保存未应用` / `✗ 未通过检查` / `✓ 用过没出错`（#38）。点一个版本：编辑框有没保存的修改先问"是否覆盖"；然后只是**载入编辑框**（可撤销，不应用）；~~并弹出对比页~~（r73 起不再弹，改成直接标在编辑框里，见 #58）。打开列表时顺手清孤儿历史目录。
-- **对比页（`ConfigDiff.kt` + `EffectiveText` 的 `compare` 模式）：** 样式和"最终生效配置"一样：`~` 改写（旧值划线，蓝）、`-` 删除（红，划线，是正在用的有而这份没有的）、`+` 新增（绿）；**所有行都展开，不折叠**，没有"内核默认值"那一类。顶部有"改写 N · 删除 N · 新增 N 行"汇总。**只在打开时算一次**，另有"重新对比"按钮（对比的是此刻编辑框里的文字）；菜单里的"和正在用的配置对比"随时可开。
-  - **为什么不用内核算：** 最终生效配置那一页是内核按**文件夹**读 `config.yaml` 做的"加载时被改了什么"，不能拿两段文本比。所以在 App 里做：不引入 YAML 库，按缩进把文本排成树；同一层的节点按"名字"配对——键按键名，列表项按 `name:`（`{...}` 里的也认），没有就按第一个键或整行；配对上的比值，再比下面的子节点；删掉的行放在它原来的位置。**注释、空行、`---` 不比。** 局限：整个 `{...}` 写在一行里的节点（常见的 `- {name: a, type: ss, ...}`）值不同时整行显示成"旧→新"，不拆到字段；缩进风格不同的两份文本照样能比（按树不按列）。
+- **对比页（`ConfigDiff.kt` + `EffectiveText` 的 `compare` 模式）：** 样式和"推算最终配置"一样：`~` 改写（旧值划线，蓝）、`-` 删除（红，划线，是正在用的有而这份没有的）、`+` 新增（绿）；**所有行都展开，不折叠**，没有"内核默认值"那一类。顶部有"改写 N · 删除 N · 新增 N 行"汇总。**只在打开时算一次**，另有"重新对比"按钮（对比的是此刻编辑框里的文字）；菜单里的"和正在用的配置对比"随时可开。
+  - **为什么不用内核算：** 推算最终配置那一页是内核按**文件夹**读 `config.yaml` 做的"加载时被改了什么"，不能拿两段文本比。所以在 App 里做：不引入 YAML 库，按缩进把文本排成树；同一层的节点按"名字"配对——键按键名，列表项按 `name:`（`{...}` 里的也认），没有就按第一个键或整行；配对上的比值，再比下面的子节点；删掉的行放在它原来的位置。**注释、空行、`---` 不比。** 局限：整个 `{...}` 写在一行里的节点（常见的 `- {name: a, type: ss, ...}`）值不同时整行显示成"旧→新"，不拆到字段；缩进风格不同的两份文本照样能比（按树不按列）。
 - **退出：** 有改动时问"存为历史版本 / 丢弃 / 继续编辑"（不再有"保存并生效"）。退出时，编辑框里的这份还没应用、或历史里有比正在用的更新的"已保存未应用"版本，用 Toast 提醒一句（不拦）。"用其他应用打开"：先把改动存成历史版本，打开的是配置自己的文件。
 - **历史逻辑修正：**
   - 去重和**所有**已存版本比（以前只和最新一份比）。应用前先存正在用的、再存新的，顺序不会错乱；`ProfileProcessor.apply` 里的 `ConfigHistory.keep` 发现已存在就沿用，并清掉它的"已保存未应用"和"未通过"标记。
@@ -1223,7 +1224,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ## 94. 配置检查页：表格行高、目标网址说明进弹窗、按钮列对齐（r110）
 - **表格行高：** 一行的高度取这一行里最高的那个格子（`IpTestView.redraw`）。成功的行下半截大片空白，原因是“分段耗时”列固定 84dp，窄于“首字节 447 ms”，每一行文字在 “ms” 前折行，三行变成五六行，把整行撑高。现在这一列的最小宽度取三行里最长一行的实际宽度（14sp，加格子内边距，最多 120dp），其余列宽、最小行高 `rowH`、固定 IP 列与横向滑动部分同高的规则都不变。表格比页面宽时的“其他列最多让 15%”那一步仍会按比例缩窄这一列，窄到装不下时 “ms” 还是会折行，这种情况没有特别处理。
 - **目标网址说明：** `iptest_target_sub` 只留 “目标网址：%1$s”；原来括号里的解释拆成新字符串 `iptest_target_note`（中英文两份），在“说明”弹窗里作为 `check_hint` 之后的第二段，只在表格是套入节点测（有目标网址）时显示。弹窗显示与否由 `ConfigCheckDesign` 的 `ipTarget` 决定，进入文字页时清掉。已保存的上一轮结果（#87）里存的是旧的长 `sub`，恢复时仍显示旧文字，下一次测试起才是新的。
-- **按钮列对齐：** “最终生效配置”“清缓存”所在行加一个空的第三格（`Space`，权重 1），这两个按钮和下面三个测试按钮的列对齐。按钮样式、ID、回调不变。
+- **按钮列对齐：** “推算最终配置”“清缓存”所在行加一个空的第三格（`Space`，权重 1），这两个按钮和下面三个测试按钮的列对齐。按钮样式、ID、回调不变。
 - **归档：** #88、#90 的内容已被后面的条目取代，移到 `CUSTOM_ARCHIVE.md`，主文件头部留一行说明。上游文件总表、`当前版本：` 那一行的格式和位置不变。其余条目里“部分被取代”的（#45 #50 #51 #69 等）没有动，因为要逐条判断哪些句子还有效。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`ConfigCheckDesign.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`、新增 `CUSTOM_ARCHIVE.md`；没有修改上游文件总表中的挂钩。
 - **功耗 / 网络：** 只在表格重画时多量一次文字宽度，弹窗只在点击时拼字符串；没有新增监听、定时器、轮询、网络请求或后台任务。
@@ -1288,3 +1289,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **原因与修复：** 英文资源这三条文案包含 `node's`，撇号未按 Android string resource 规则转义。现将这些撇号写为 `\'`；不改文案含义、占位符或中文资源。
 - **验证：** 已复查英文 `strings_iptest.xml` 的全部字符串，确认没有未转义撇号；未重新运行 Android 构建，因此仍需下一次 Build Debug 确认 AAPT2 资源编译通过。
 - **改动文件：** `design/src/main/res/values/strings_iptest.xml`、`CUSTOM.md`。没有改 Kotlin、Go、构建工作流或其他资源。
+
+
+## 101. 配置检查页交互、ECH / DNS 真取消及推算配置文案（r117）
+- **ECH 名称与输入提示：** “说明”统一称“ECH检查”；顶部域名框提示简化为 ECH / DNS / 直连 SNI 三种用途，完整说明写入“说明”：ECH 检查使用确定被封且由节点服务器或其前置 CDN 托管的域名；DNS 可用任意域名；直连测延迟把域名作为 SNI 和 Host，需要入口机房信息时域名必须在 Cloudflare 上。
+- **运行中按钮：** ECH、DNS、测试其他 IP 运行时，只有当前任务按钮保持可点并显示“取消”；其他测试、推算配置、清缓存、说明和复制按钮禁用，任务结束或取消后恢复。由任务状态更新 UI，不使用定时器或轮询。清缓存和推算配置的业务逻辑不变。
+- **ECH / DNS 真取消：** 新增 `CANCEL_CHECK` / `CancelCheck` 入口。ECH 配置获取、批次握手、DNS 服务器探测、内核解析器查询和本机 DNS 监听探测统一使用可取消 context；TCP / UDP 查询在 context 取消时关闭底层连接，DoH 请求和 TLS 握手使用该 context。Kotlin 取消时先捕获任务类型，再取消协程并调用对应内核取消入口，避免 finally 先清状态造成漏取消；不新增定时器或轮询。
+- **ECH 结论重试：** ECH 已接受而明文握手失败时，明文握手最多再试 2 次；ECH 握手失败而明文成功时，ECH 最多再试 2 次。任一次重试成功立即停止；只有另一侧连续 3 次失败才给出“生效并绕过封锁”或“不生效”的结论。每个地址的总重试上限为 3 次，不改地址选择顺序。
+- **清缓存失败：** 通用文案改为“清除失败”；Kotlin 能取得异常信息时另起一行显示原因。内核只返回失败布尔值时不伪造原因。
+- **推算配置命名：** 按钮改为“推算最终配置”，结果页标题为“按已保存配置推算的最终配置”；说明明确读取已保存配置，不一定等于内核当前运行配置。无差异文案不再声称“内核跑的就是你写的”。已核对当前自定义实现 `config.Effective` 只读取活动 profile 目录的 `config.yaml` 并重新执行加载步骤；当前实现没有读取并比较内核运行时完整配置的路径，因此不标注两份一致性。
+- **改动文件：** `core/src/main/golang/native/conftest/conftest.go`、`core/src/main/golang/native/conftest/dnscheck.go`、`core/src/main/golang/native/connections.go`、`core/src/main/java/com/github/kr328/clash/core/custom/CustomConnections.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/EffectiveText.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
+- **保留 / 验证：** 不改清缓存和推算配置的核心业务逻辑，不改上游 mihomo 子模块；不新增网络请求、定时器或轮询。完成源码级变更和引用检查；未运行 Go 测试、Android 编译或真机验证，需后续构建验证 Go / Kotlin / 资源编译及取消时网络连接是否及时关闭。

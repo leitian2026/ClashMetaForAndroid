@@ -125,9 +125,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="errors_code_echrejected">The server refused this ECH config; it may be out of date or not match the server</string>
     <string name="check_title">Config check</string>
     <string name="check_hint_button">Info</string>
-    <string name="check_hint">Tap ECH test to really connect once and check whether the fields written in the config work. Supported now: ech-opts of nodes. Certificates are not verified, only whether the handshake gets through. “Check DNS” asks every DNS server of the profile about the same domain (only dns: and hosts: are read).</string>
-    <string name="check_domain_hint">Blocked domain, e.g. xxx.workers.dev</string>
-    <string name="check_start">ECH test</string>
+    <string name="check_hint">Tap “ECH check” to make a real network connection and check the configured ech-opts. For the ECH check, enter a domain known to be blocked and hosted by the node server or a CDN in front of it. DNS check accepts any domain. Direct latency uses this domain as SNI and Host; to read the ingress data centre, the domain must be on Cloudflare. Certificates are not verified; only handshake success is checked. DNS check asks each configured DNS server about the same domain (only dns: and hosts: are read).</string>
+    <string name="check_domain_hint">Domain (ECH / DNS / direct SNI)</string>
+    <string name="check_start">ECH check</string>
     <string name="check_cancel">Cancel</string>
     <string name="check_running">Testing… each node waits a few seconds at most</string>
     <string name="check_cancelled">Cancelled</string>
@@ -139,10 +139,10 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_ok">OK (%1$d ms)</string>
     <string name="check_ok_accepted">OK, accepted by the server (%1$d ms)</string>
     <string name="check_failed">failed: %1$s</string>
-    <string name="check_verdict_effective">Result: ECH works and the block is got around (connects with ECH, blocked without)</string>
+    <string name="check_verdict_effective">Result: ECH works and bypasses the block (ECH connects; without ECH, all 3 attempts fail)</string>
     <string name="check_verdict_accepted">Result: ECH works, but it also connects without ECH, so this network does not block the domain and bypassing cannot be shown</string>
     <string name="check_verdict_rejected">Result: ECH does not work, the server refused the config (out of date or not matching the server)</string>
-    <string name="check_verdict_failed">Result: ECH does not work: it connects without ECH but not with it; bad config or unsupported server</string>
+    <string name="check_verdict_failed">Result: ECH is ineffective (without ECH it connects; with ECH, all 3 attempts fail; the config may be wrong or the server may not support it)</string>
     <string name="check_verdict_unknown">Result: cannot tell, none of the %1$d addresses tried got through (network may be out, node down, server not hosting the domain; or it connected but the server did not accept ECH)</string>
     <string name="check_source_config">ECH config: the config written in the file</string>
     <string name="check_source_dns">ECH config: fetched from DNS (HTTPS record of %1$s)</string>
@@ -243,7 +243,8 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="check_flush_fakeip">DNS cache and fake-ip map (also closes every connection)</string>
     <string name="check_flush_done_dns">The core’s DNS cache was cleared. The next lookup asks the servers again.</string>
     <string name="check_flush_done_fakeip">The DNS cache and the fake-ip map were cleared and every connection was closed. Apps that kept an old fake address connect again with a new lookup.</string>
-    <string name="check_flush_failed">Clearing failed (the core has no resolver loaded).</string>
+    <string name="check_flush_failed">Clear failed</string>
+    <string name="check_flush_failed_reason">Clear failed\nReason: %1$s</string>
     <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
     <string name="history_none">This config has no history version yet. One is kept when you tap Keep or Apply.</string>
     <string name="history_pick_version">Versions of %1$s</string>
@@ -257,20 +258,21 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="diag_working">Collecting…</string>
     <string name="diag_done_title">Diagnostic bundle saved</string>
     <string name="diag_done">%1$d files were written. Look through it before you send it to anyone.</string>
-    <!-- CUSTOM (CUSTOM.md #30): the config the core really runs, over the user's -->
-    <string name="eff_start">Effective config</string>
-    <string name="eff_running">Reading and comparing…</string>
+    <!-- CUSTOM (CUSTOM.md #30 #101): config inferred from the saved profile, not a live runtime snapshot -->
+    <string name="eff_start">Infer final config</string>
+    <string name="eff_title">Final config inferred from the saved profile</string>
+    <string name="eff_running">Inferring from the saved config…</string>
     <string name="eff_no_profile">No profile is in use.</string>
-    <string name="eff_error">Could not build it: %1$s</string>
+    <string name="eff_error">Could not infer: %1$s</string>
     <string name="eff_summary">%1$d replaced · %2$d removed · %3$d added</string>
     <string name="eff_legend_changed">replaced (old value struck through)</string>
     <string name="eff_legend_removed">removed</string>
     <string name="eff_legend_added">added</string>
     <string name="eff_show_kernel">%1$d fields the core added as defaults are hidden, tap here to show them</string>
     <string name="eff_hide_kernel">%1$d fields the core added as defaults are shown, tap here to hide them</string>
-    <string name="eff_no_diff">No difference: the core runs what you wrote.</string>
+    <string name="eff_no_diff">No differences were found after applying the load-time steps to the saved config.</string>
     <string name="eff_fold">… %1$d lines unchanged (tap to open)</string>
-    <string name="eff_note">This is the saved config in use, laid out again in block style (comments are not kept); only the steps the core and the app do on loading are compared.</string>
+    <string name="eff_note">This reads the saved config; it may not match the config currently running in the core. The output is reformatted in block style without comments; only the load-time steps performed by the core and app are compared.</string>
     <string name="eff_anchor">(anchor definition: unknown to the core, only used through references, not a difference)</string>
     <string name="eff_tag_override">(override settings)</string>
     <string name="eff_tag_app">(app patch)</string>

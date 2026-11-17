@@ -31,6 +31,9 @@ object CustomConnections {
     const val FLUSH_DNS = "!flush-dns"
     const val FLUSH_FAKEIP = "!flush-fakeip"
 
+    // id that close() takes to stop ECH / DNS checks and their network requests (CUSTOM #101)
+    const val CANCEL_CHECK = "!cancel-check"
+
     // id that close() takes to stop the running "test other IPs" of the config check page (CUSTOM #43)
     const val CANCEL_IPTEST = "!cancel-iptest"
 

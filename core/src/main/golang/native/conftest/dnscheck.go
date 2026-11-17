@@ -90,20 +90,24 @@ type DNSReport struct {
 func RunAny(filter string) any {
 	var req Request
 	_ = json.Unmarshal([]byte(filter), &req)
-
-	if req.Kind == "dns" {
-		return RunDNS(strings.TrimSpace(req.Domain))
-	}
-
 	if req.Kind == "ip" { // CUSTOM.md #43: test other IPs (iptest.go)
 		return RunIP(filter)
 	}
-
-	return Run(filter)
+	ctx, finish := beginCheckRun()
+	defer finish()
+	if req.Kind == "dns" {
+		return RunDNSWithContext(ctx, strings.TrimSpace(req.Domain))
+	}
+	return RunWithContext(ctx, filter)
 }
 
 // RunDNS asks every DNS server of the profile about the domain. It blocks until all of them answered or timed out.
 func RunDNS(domain string) DNSReport {
+	return RunDNSWithContext(context.Background(), domain)
+}
+
+// RunDNSWithContext checks DNS using a cancellable context.
+func RunDNSWithContext(ctx context.Context, domain string) DNSReport {
 	domain = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(domain), "."))
 
 	cfg := parseDNSConfig(ipdelay.DNSTree())
@@ -234,7 +238,7 @@ func RunDNS(domain string) DNSReport {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			results[i] = probeServer(context.Background(), e.spec, target, fakeRanges(cfg))
+			results[i] = probeServer(ctx, e.spec, target, fakeRanges(cfg))
 			results[i].Roles = e.roles
 		}(i, entries[addr])
 	}
@@ -245,7 +249,7 @@ func RunDNS(domain string) DNSReport {
 	go func() {
 		defer wg.Done()
 
-		rep.Core = askCore(context.Background(), target)
+		rep.Core = askCore(ctx, target)
 	}()
 
 	// the core's own DNS server: what an app really gets (hosts, fake-ip and all)
@@ -256,7 +260,7 @@ func RunDNS(domain string) DNSReport {
 			defer wg.Done()
 
 			spec := serverSpec{Raw: cfg.Listen, Kind: kindUDP, HostPort: net.JoinHostPort("127.0.0.1", port), Host: "127.0.0.1"}
-			kernel := probeWith(context.Background(), spec, domain, fakeRanges(cfg), func(ctx context.Context, network, addr string) (net.Conn, error) {
+			kernel := probeWith(ctx, spec, domain, fakeRanges(cfg), func(ctx context.Context, network, addr string) (net.Conn, error) {
 				var d net.Dialer
 
 				return d.DialContext(ctx, network, addr) // loopback: no need for the core's dialer
@@ -539,6 +543,8 @@ func udpExchange(ctx context.Context, dial dialFunc, addr string, query []byte) 
 		return nil, err
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
 
 	if deadline, ok := ctx.Deadline(); ok {
 		_ = conn.SetDeadline(deadline)
@@ -565,6 +571,8 @@ func streamExchange(ctx context.Context, dial dialFunc, addr string, query []byt
 		return nil, err
 	}
 	defer raw.Close()
+	stop := context.AfterFunc(ctx, func() { _ = raw.Close() })
+	defer stop()
 
 	conn := raw
 

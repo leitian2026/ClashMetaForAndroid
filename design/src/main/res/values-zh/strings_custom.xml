@@ -125,8 +125,8 @@
     <string name="errors_code_echrejected">服务器拒绝了这份 ECH 配置，配置可能已过期或与服务器不匹配</string>
     <string name="check_title">配置检查</string>
     <string name="check_hint_button">说明</string>
-    <string name="check_hint">点“ECH测试”会真的联网连一次，检查配置里写了的字段是否有效。现在支持：节点的 ech-opts。证书不校验，只看握手能不能通过。“检查 DNS”会用同一个域名，逐个查配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
-    <string name="check_domain_hint">被封域名，例如 xxx.workers.dev</string>
+    <string name="check_hint">点“ECH检查”会实际联网握手，检查配置里的 ech-opts。ECH检查要填确定被封、且由节点服务器或其前置 CDN 托管的域名；检查 DNS 可填任意域名；直连测延迟会把此域名用作 SNI 和 Host，如需读取入口机房，域名必须在 Cloudflare 上。证书不校验，只看握手能否通过。检查 DNS 会用同一个域名逐个查询配置里的 DNS 服务器（只读 dns: 和 hosts:）。</string>
+    <string name="check_domain_hint">域名（ECH / DNS / 直连 SNI）</string>
     <string name="check_start">ECH检查</string>
     <string name="check_cancel">取消</string>
     <string name="check_running">测试中…每个节点最多等几秒</string>
@@ -139,10 +139,10 @@
     <string name="check_ok">成功（%1$d 毫秒）</string>
     <string name="check_ok_accepted">成功，服务器已接受（%1$d 毫秒）</string>
     <string name="check_failed">失败：%1$s</string>
-    <string name="check_verdict_effective">结论：ECH 生效，并且绕过了封锁（开 ECH 能连上，关掉被封）</string>
+    <string name="check_verdict_effective">结论：ECH 生效，并且绕过了封锁（开 ECH 能连上，关 ECH 连续 3 次都连不上）</string>
     <string name="check_verdict_accepted">结论：ECH 生效，但关掉 ECH 也能连上，说明当前网络没有封这个域名，无法证明绕过了封锁</string>
     <string name="check_verdict_rejected">结论：ECH 不生效，服务器拒绝了这份配置（可能已过期或与服务器不匹配）</string>
-    <string name="check_verdict_failed">结论：ECH 不生效，关 ECH 能连上、开了连不上，配置有问题或服务器不支持</string>
+    <string name="check_verdict_failed">结论：ECH 不生效（关 ECH 能连上，开 ECH 连续 3 次都连不上；配置有问题或服务器不支持）</string>
     <string name="check_verdict_unknown">结论：无法判断，测了 %1$d 个地址都没通过（可能网络不通、节点不可用、服务器不托管这个域名；或者连上了但服务器没有接受 ECH）</string>
     <string name="check_source_config">ECH 配置：配置文件里写的 config</string>
     <string name="check_source_dns">ECH 配置：从 DNS 取得（%1$s 的 HTTPS 记录）</string>
@@ -243,7 +243,8 @@
     <string name="check_flush_fakeip">清 DNS 缓存和 fake-ip 映射（同时关闭所有连接）</string>
     <string name="check_flush_done_dns">已清除内核的 DNS 缓存，下一次解析会重新问服务器。</string>
     <string name="check_flush_done_fakeip">已清除 DNS 缓存和 fake-ip 映射，并关闭了所有连接。还拿着旧假地址的应用会重新解析再连接。</string>
-    <string name="check_flush_failed">清除失败（内核没有载入解析器）。</string>
+    <string name="check_flush_failed">清除失败</string>
+    <string name="check_flush_failed_reason">清除失败\n原因：%1$s</string>
     <!-- CUSTOM.md #27 #28 #29: config history, checks, diagnostic bundle -->
     <string name="history_none">这个配置还没有历史版本。点\"存历史\"或\"应用\"时会记一个版本。</string>
     <string name="history_pick_version">%1$s 的历史版本</string>
@@ -257,20 +258,21 @@
     <string name="diag_working">正在收集……</string>
     <string name="diag_done_title">诊断包已保存</string>
     <string name="diag_done">写入了 %1$d 个文件。发给别人之前请自己看一遍。</string>
-    <!-- CUSTOM (CUSTOM.md #30): the config the core really runs, over the user's -->
-    <string name="eff_start">最终生效配置</string>
-    <string name="eff_running">正在读取并对比……</string>
+    <!-- CUSTOM (CUSTOM.md #30 #101): config inferred from the saved profile, not a live runtime snapshot -->
+    <string name="eff_start">推算最终配置</string>
+    <string name="eff_title">按已保存配置推算的最终配置</string>
+    <string name="eff_running">正在按已保存配置推算……</string>
     <string name="eff_no_profile">没有正在使用的配置。</string>
-    <string name="eff_error">无法生成：%1$s</string>
+    <string name="eff_error">无法推算：%1$s</string>
     <string name="eff_summary">改写 %1$d 处 · 删除 %2$d 处 · 补上 %3$d 处</string>
     <string name="eff_legend_changed">被改写（旧值划线）</string>
     <string name="eff_legend_removed">被删除</string>
     <string name="eff_legend_added">被补上</string>
     <string name="eff_show_kernel">内核补上的默认字段共 %1$d 个，已隐藏，点这里显示</string>
     <string name="eff_hide_kernel">内核补上的默认字段共 %1$d 个，已显示，点这里隐藏</string>
-    <string name="eff_no_diff">没有任何差异，内核跑的就是你写的。</string>
+    <string name="eff_no_diff">按已保存配置推算后，没有发现载入步骤造成的差异。</string>
     <string name="eff_fold">… 共 %1$d 行没变（点击展开）</string>
-    <string name="eff_note">显示的是正在使用、已保存的配置，按块写法重新排版，注释不保留；只比对载入时内核和 App 做的那几步。</string>
+    <string name="eff_note">读取的是已保存的配置，不一定等于内核正在运行的那份。这里按块写法重新排版，注释不保留；只比对载入时内核和 App 做的那几步。</string>
     <string name="eff_anchor">（锚点定义，内核不认识，只靠引用生效，不算差异）</string>
     <string name="eff_tag_override">（覆写设置）</string>
     <string name="eff_tag_app">（App 补丁）</string>
@@ -281,7 +283,7 @@
     <string name="eff_tail_show">▸ 内核补充的默认块（%1$d 个），点开查看</string>
     <string name="eff_tail_hide">▾ 内核补充的默认块（%1$d 个），点这里收起</string>
     <string name="eff_tail_empty">其中没有被后面步骤改动的项。要看全部默认值，点最上面那一行“显示”。</string>
-    <!-- CUSTOM (CUSTOM.md #56): 一份文本相对正在用的配置，样式同最终生效配置 -->
+    <!-- CUSTOM (CUSTOM.md #56): 一份文本相对正在用的配置，样式同推算最终配置 -->
     <string name="cmp_summary">改写 %1$d 行 · 删除 %2$d 行 · 新增 %3$d 行（相对正在用的配置）</string>
     <string name="cmp_legend_changed">改写（旧值划线）</string>
     <string name="cmp_legend_removed">删除（正在用的有，这份没有）</string>

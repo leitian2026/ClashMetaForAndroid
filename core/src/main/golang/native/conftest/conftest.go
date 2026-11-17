@@ -117,8 +117,56 @@ var (
 	fetch     = fetchECH
 )
 
+const CancelCheckID = "!cancel-check"
+
+type checkRun struct {
+	cancel context.CancelFunc
+}
+
+var (
+	checkRunMu sync.Mutex
+	activeCheck *checkRun
+)
+
+// CancelCheck cancels the active ECH or DNS check, including its network operations.
+func CancelCheck() bool {
+	checkRunMu.Lock()
+	run := activeCheck
+	checkRunMu.Unlock()
+	if run == nil {
+		return false
+	}
+	run.cancel()
+	return true
+}
+
+func beginCheckRun() (context.Context, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+	run := &checkRun{cancel: cancel}
+	checkRunMu.Lock()
+	previous := activeCheck
+	activeCheck = run
+	checkRunMu.Unlock()
+	if previous != nil {
+		previous.cancel()
+	}
+	return ctx, func() {
+		cancel()
+		checkRunMu.Lock()
+		if activeCheck == run {
+			activeCheck = nil
+		}
+		checkRunMu.Unlock()
+	}
+}
+
 // Run tests every node that has ech-opts. It blocks until all attempts are over.
 func Run(filter string) Report {
+	return RunWithContext(context.Background(), filter)
+}
+
+// RunWithContext tests ECH and stops when ctx is cancelled.
+func RunWithContext(ctx context.Context, filter string) Report {
 	var req Request
 	_ = json.Unmarshal([]byte(filter), &req)
 
@@ -154,7 +202,7 @@ func Run(filter string) Report {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			items[i], lists[i], alpns[i] = prepare(name, nodes[name], req.Domain, doh, get)
+			items[i], lists[i], alpns[i] = prepareContext(ctx, name, nodes[name], req.Domain, doh, get)
 		}(i, name)
 	}
 
@@ -171,7 +219,7 @@ func Run(filter string) Report {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			b.run(req.Domain)
+			b.runContext(ctx, req.Domain)
 		}(b)
 	}
 
@@ -242,7 +290,10 @@ func groupNodes(items []Item, lists [][]byte, alpns [][]string) (batches []*batc
 // after maxTries. An address that is unreachable costs a few milliseconds, so a network without IPv6 is
 // passed over quickly, and when an IPv4 address works the IPv6 ones are never touched.
 func (b *batch) run(domain string) {
-	ctx := context.Background()
+	b.runContext(context.Background(), domain)
+}
+
+func (b *batch) runContext(ctx context.Context, domain string) {
 
 	for i, addr := range b.addrs {
 		if i >= maxTries {
@@ -260,6 +311,22 @@ func (b *batch) run(domain string) {
 
 		inner.Wait()
 
+		// Retry the failed side to avoid treating one transient timeout as proof of blocking.
+		if t.ECH.OK && t.ECH.Accepted && !t.Plain.OK {
+			for retry := 0; retry < 2 && ctx.Err() == nil; retry++ {
+				t.Plain = handshake(ctx, t.Addr, domain, nil, b.alpn)
+				if t.Plain.OK {
+					break
+				}
+			}
+		} else if !t.ECH.OK && t.Plain.OK {
+			for retry := 0; retry < 2 && ctx.Err() == nil; retry++ {
+				t.ECH = handshake(ctx, t.Addr, domain, b.list, b.alpn)
+				if t.ECH.OK {
+					break
+				}
+			}
+		}
 		t.Verdict = verdict(t.ECH, t.Plain)
 		b.group.Targets = append(b.group.Targets, t)
 
@@ -332,8 +399,12 @@ func cachedFetch(get fetchFunc) fetchFunc {
 	}
 }
 
-// prepare reads only the fields the ECH test needs: type, server, port, alpn, servername / sni and ech-opts.
+// prepare reads only the fields the ECH check needs: type, server, port, alpn, servername / sni and ech-opts.
 func prepare(name string, raw map[string]any, domain string, doh []string, get fetchFunc) (Item, []byte, []string) {
+	return prepareContext(context.Background(), name, raw, domain, doh, get)
+}
+
+func prepareContext(ctx context.Context, name string, raw map[string]any, domain string, doh []string, get fetchFunc) (Item, []byte, []string) {
 	item := Item{Node: name, Targets: []Target{}}
 
 	server, _ := raw["server"].(string)
@@ -379,7 +450,7 @@ func prepare(name string, raw map[string]any, domain string, doh []string, get f
 		query := firstString(opts["query-server-name"], raw["servername"], raw["sni"], domain)
 		item.Query = query
 
-		b, from, err := get(context.Background(), query, doh)
+		b, from, err := get(ctx, query, doh)
 		if err != nil {
 			item.Status = StatusFetchFailed
 			item.Error = err.Error()
