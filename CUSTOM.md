@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r107
+当前版本：2_11_36-r108
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1218,3 +1218,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **字符串：** 仅新增 `check_hint_button`，英文资源为 “Info”，中文资源为“说明”；`check_hint` 和 `check_domain_hint` 原文不改。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
 - **验证：** 已完成源码级检查：折叠相关代码 / 属性已移除；说明按钮绑定对话框；输入提示位于输入控件自身，外层禁用 hint；输入控件未添加自定义尺寸 / 内边距 / 背景属性；历史适配器及 prefs 调用保持不变。未运行 Android 编译或真机验证，因此按钮实际弹窗、输入框约 56dp 的最终测量高度、输入过滤下拉、软键盘布局及浅色 / 深色主题显示均**未实测**；需手动触发 Build Debug 并按上述项目真机检查。
+
+
+## 92. 将配置检查页说明按钮移入标题栏（r108）
+- **位置：** 将“说明”按钮从标题栏下方的独立一行移入顶部 `ActivityBarLayout` 内的 `RelativeLayout`，放在复制图标（`check_copy_view`）左侧并垂直居中；标题 `common_activity_bar` 的 `layout_toStartOf` 改为指向说明按钮，避免标题与按钮重叠。复制图标的位置、尺寸和属性不变。
+- **空间：** 删除原来独立占行的说明按钮，域名输入框及后续内容随之上移，不额外增加一行高度。
+- **保留：** 说明按钮的 Material TextButton 样式、字符串、点击对话框和关闭行为不变；域名输入框、历史下拉、所有其他按钮、回调、IP 测试结果恢复、ECH / DNS / IP 测试逻辑均不改。
+- **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改 Kotlin 逻辑、字符串资源或上游文件总表。
+- **验证：** 已检查标题栏相对定位关系、说明按钮位于复制图标左侧、标题指向说明按钮、原独立按钮行已删除，复制图标属性未改。未运行 Android 编译或真机验证；需手动触发 Build Debug 检查窄屏标题空间、按钮点击区域及实际垂直居中效果。
