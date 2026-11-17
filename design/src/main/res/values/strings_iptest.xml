@@ -31,7 +31,7 @@
     <string name="iptest_colo">ingress data centre %1$s</string>
     <string name="iptest_cf">Cloudflare confirmed</string>
     <string name="iptest_running">Testing… a random 1 to 3 seconds between two IPs; tap the button again to cancel</string>
-    <string name="iptest_dialog_hint">Enter IPs or domains that are not in the config, one per line (commas and spaces work too), at most 20. The direct latency test checks IP addresses only and uses the domain above as SNI and Host. The via-node latency test temporarily replaces the chosen node's server with this IP or domain, then tests through that node (the core resolves domains). The test also reads the ingress data centre, registered operator and registered location; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds).</string>
+    <string name="iptest_dialog_hint">Enter IPs or domains that are not in the config, one per line (commas and spaces work too), at most 20. The direct latency test checks IP addresses only and uses the domain above as SNI and Host. The via-node latency test temporarily replaces the chosen node\'s server with this IP or domain, then tests through that node (the core resolves domains). The test also reads the ingress data centre, registered operator and registered location; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds).</string>
     <string name="iptest_ports_label">Ports (direct latency test: each working IP gets a handshake on these ports, separated by spaces or commas)</string>
     <string name="iptest_url_direct_label">Direct download-test URL (for download testing only; direct; must be hosted on Cloudflare)</string>
     <string name="iptest_url_node_label">Via-node download-test URL (for download testing only; through the node; preferably not hosted on Cloudflare — Workers can be slow to access CF sites and may time out)</string>
@@ -91,7 +91,7 @@
     <string name="iptest_log_land_ok">%1$s exit country: %2$s (through node %3$s, asked now)</string>
     <string name="iptest_log_land_none">%1$s exit country: not found (through node %2$s, asked now)</string>
     <string name="iptest_log_land_no_node">No config node uses %1$s as its server, so the exit country is not queried (it can only be seen through a node)</string>
-    <string name="iptest_log_node_colo_ok">%1$s ingress data centre: %2$s (one extra direct connection to this IP with the node's own domain as SNI; usually the same as the node's, not guaranteed)</string>
+    <string name="iptest_log_node_colo_ok">%1$s ingress data centre: %2$s (one extra direct connection to this IP with the node\'s own domain as SNI; usually the same as the node\'s, not guaranteed)</string>
     <string name="iptest_log_node_colo_nosni">%1$s ingress data centre: not read, the node has no domain to use as SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s ingress data centre: not read (the extra direct connection failed: %2$s)</string>
     <string name="iptest_target_label">Target URL (used for via-node latency and exit data centre; optional. To see the exit data centre, use a Cloudflare-hosted site)</string>
@@ -135,5 +135,5 @@
     <string name="iptest_speed_timeout">timeout</string>
     <string name="iptest_speed_no_data">no data</string>
     <string name="iptest_measure_direct_note">Handshake latency = TCP connection + TLS handshake. Jitter is the mean deviation of successful results from their average.</string>
-    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node's built-in test URL is used. Ingress DC* is read using one extra direct connection; the port column shows the node's configured port and is not tested. Jitter is the mean deviation of successful results from their average.</string>
+    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node\'s built-in test URL is used. Ingress DC* is read using one extra direct connection; the port column shows the node\'s configured port and is not tested. Jitter is the mean deviation of successful results from their average.</string>
 </resources>

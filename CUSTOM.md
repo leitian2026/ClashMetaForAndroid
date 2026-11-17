@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r115
+当前版本：2_11_36-r116
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1281,3 +1281,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** core/src/main/golang/native/ipdelay/iptry_download.go、design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt、design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt、app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt、design/src/main/res/values-zh/strings_iptest.xml、design/src/main/res/values/strings_iptest.xml 和本登记文件；没有新增文件，没有改上游文件总表。
 - **功耗 / 网络：** 不新增网络请求、定时器、轮询或后台任务；下载测速仍只在用户点击某行按钮时发生。
 - **验证：** 已完成源码修改与字符串引用 / 占位符检查；未运行 Go 测试、Android 编译或真机验证。需要验证首字节 10 秒等待、首字节后 5 秒窗口、首秒跳过、10 MB 上限、错误原因显示及各模式文案；不会自动触发构建。
+
+
+## 100. 修复测 IP 英文字符串资源中的未转义撇号（r116）
+- **构建错误：** #99 的 Build Debug 在 `:app:mergeAlphaReleaseResources` 失败，AAPT2 报告 `iptest_dialog_hint`、`iptest_log_node_colo_ok`、`iptest_measure_node_note` 字符串资源解析失败。
+- **原因与修复：** 英文资源这三条文案包含 `node's`，撇号未按 Android string resource 规则转义。现将这些撇号写为 `\'`；不改文案含义、占位符或中文资源。
+- **验证：** 已复查英文 `strings_iptest.xml` 的全部字符串，确认没有未转义撇号；未重新运行 Android 构建，因此仍需下一次 Build Debug 确认 AAPT2 资源编译通过。
+- **改动文件：** `design/src/main/res/values/strings_iptest.xml`、`CUSTOM.md`。没有改 Kotlin、Go、构建工作流或其他资源。
