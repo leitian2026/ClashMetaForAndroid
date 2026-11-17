@@ -83,6 +83,7 @@
     <string name="iptest_log_speed_start">%1$s download test started (at most 10 MB or 5 seconds, the first second is left out)</string>
     <string name="iptest_log_speed_done">%1$s download test done: %2$s MB/s (read %3$s, %4$d ms)</string>
     <string name="iptest_log_speed_fail">%1$s download test failed: %2$s</string>
+    <string name="iptest_http_403_note">The server refused the request</string>
     <string name="iptest_log_speed_cancelled">%1$s download test cancelled</string>
     <string name="iptest_log_error">Error: %1$s</string>
     <string name="iptest_log_geo">%1$s registered in: %2$s</string>

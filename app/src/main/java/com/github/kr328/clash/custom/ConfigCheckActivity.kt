@@ -453,6 +453,30 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
     }
 
+    // CUSTOM.md #95: keep the raw download error and explain it on the following line.
+    private fun speedErrorText(error: String): String {
+        val raw = error.ifBlank { "-" }
+        val lower = raw.lowercase()
+        val explanation = when {
+            Regex("^HTTP\\s+403\\b", RegexOption.IGNORE_CASE).containsMatchIn(raw) ->
+                getString(R.string.iptest_http_403_note)
+            "timeout" in lower || "deadline exceeded" in lower ->
+                ErrorsText.explain(this, "timeout")
+            "connection refused" in lower ->
+                ErrorsText.explain(this, "refused")
+            "connection reset" in lower || "reset by peer" in lower ->
+                ErrorsText.explain(this, "reset")
+            "unexpected eof" in lower || "unexpected end of file" in lower ->
+                ErrorsText.explain(this, "eof")
+            "network is unreachable" in lower || "no route to host" in lower ->
+                ErrorsText.explain(this, "network")
+            "tls" in lower || "certificate" in lower ->
+                ErrorsText.explain(this, "tls")
+            else -> ErrorsText.explain(this, "other")
+        }
+        return "$raw\n（$explanation）"
+    }
+
     // CUSTOM (CUSTOM.md #52): the download test of one row, only when its "测速" is tapped. Directly to the address,
     // or through the node in node mode. At most 10 MB or 5 seconds (the core stops it); "取消" stops it sooner.
     private suspend fun runSpeed(design: ConfigCheckDesign, ip: String) {
@@ -483,7 +507,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             when {
                 report.cancelled -> design.ipLog(getString(R.string.iptest_log_speed_cancelled, ip))
                 report.error.isNotEmpty() || row == null ->
-                    design.ipLog(getString(R.string.iptest_log_speed_fail, ip, report.error.ifEmpty { "-" }))
+                    design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(report.error)))
                 else -> {
                     ipRows = ArrayList(
                         ipRows.map {
@@ -498,7 +522,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     design.ipRows(ipRows)
 
                     if (row.speedErr.isNotEmpty()) {
-                        design.ipLog(getString(R.string.iptest_log_speed_fail, ip, ErrorsText.explain(this, row.speedErr)))
+                        design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(row.speedErr)))
                     } else {
                         design.ipLog(
                             getString(
@@ -515,7 +539,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            design.ipLog(getString(R.string.iptest_log_speed_fail, ip, e.message ?: e.javaClass.simpleName))
+            design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(e.message ?: e.javaClass.simpleName)))
         } finally {
             withContext(NonCancellable) { design.ipSpeedBusy(null) }
         }

@@ -87,6 +87,7 @@
     <string name="iptest_log_speed_start">%1$s 开始测速（最多 10 MB 或 5 秒，前 1 秒不计）</string>
     <string name="iptest_log_speed_done">%1$s 测速完成：%2$s MB/s（读了 %3$s，用时 %4$d 毫秒）</string>
     <string name="iptest_log_speed_fail">%1$s 测速失败：%2$s</string>
+    <string name="iptest_http_403_note">服务器拒绝访问</string>
     <string name="iptest_log_speed_cancelled">%1$s 测速已取消</string>
     <string name="iptest_log_error">出错：%1$s</string>
     <string name="iptest_log_node_colo_ok">%1$s 机房：%2$s（对这个 IP 额外直连一次，用节点自己的域名当 SNI 读到的；通常和节点走的一致，不保证每次相同）</string>
