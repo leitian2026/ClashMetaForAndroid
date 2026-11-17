@@ -387,7 +387,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="cloud_cmp_replaced">File subscriptions replaced by the backup\'s content: %1$s</string>
     <string name="cloud_names_more"> … %1$d in all</string>
     <string name="connections_summary_filtered_more">%1$d of %2$d connections match (only %3$d shown) · shown %3$d total ↑ %4$s · ↓ %5$s</string>
-    <string name="connection_node_ip_note">This is a node-level IP and may not be the IP used by this connection. Reused transports such as grpc, h2 and smux can show only the most recently dialed IP. The flag indicates the exit country reached through this IP, not the IP's registered location.</string>
+    <string name="connection_node_ip_note">This is a node-level IP and may not be the IP used by this connection. Reused transports such as grpc, h2 and smux can show only the most recently dialed IP. The flag indicates the exit country reached through this IP, not the IP\'s registered location.</string>
     <string name="ip_history_note">An entry is added when an IP appears for the first time or a node changes IP.</string>
     <string name="connections_close_failed">Close failed: %1$s</string>
 </resources>

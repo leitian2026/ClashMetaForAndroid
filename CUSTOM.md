@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r159
+当前版本：2_11_36-r160
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -219,7 +219,8 @@
 - `design/.../custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`（含 `ConnectionText`）、`res/layout/design_connections.xml`、`res/layout/adapter_connection.xml`；文案 `connection*`。
 - `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`。
 
-**r159 改动文件：** `core/src/main/golang/native/connlist/connlist.go`、`core/src/main/java/com/github/kr328/clash/core/model/ConnectionSnapshot.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConnectionAdapter.kt` 和本登记文件。类型判断依据为指定 mihomo commit `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的 `constant/adapters.go`（`ProxyAdapter.Type()` 与 `Direct` / `Reject` / `RejectDrop` 常量）、`adapter/outbound/direct.go`、`adapter/outbound/reject.go` 及 `tunnel/tunnel.go`（`Proxies()`）。
+**r159 改动文件：** `core/src/main/golang/native/connlist/connlist.go`、`core/src/main/java/com/github/kr328/clash/core/model/ConnectionSnapshot.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConnectionAdapter.kt` 和本登记文件。
+- **资源转义修复（r160）：** `connection_node_ip_note` 英文文案中的撇号按 Android string resource 规则转义为 `\'`，修复 AAPT2 报告的 `Invalid unicode escape sequence in string` 资源编译失败。类型判断依据为指定 mihomo commit `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的 `constant/adapters.go`（`ProxyAdapter.Type()` 与 `Direct` / `Reject` / `RejectDrop` 常量）、`adapter/outbound/direct.go`、`adapter/outbound/reject.go` 及 `tunnel/tunnel.go`（`Proxies()`）。
 **r158 改动文件：** `app/src/main/java/com/github/kr328/clash/custom/ConnectionsActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConnectionsDesign.kt`、`core/src/main/java/com/github/kr328/clash/core/custom/IpHistory.kt`、两套 `strings_custom.xml` 和本登记文件。
 **r157 改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConnectionsDesign.kt`、`ConnectionAdapter.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
 **本次补充修订改动文件：** `core/src/main/golang/native/connlist/mux.go`、`core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`、`app/src/main/java/com/github/kr328/clash/custom/MuxActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`、`MuxText.kt`、`design/src/main/res/layout/design_mux.xml`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml` 和本登记文件。
