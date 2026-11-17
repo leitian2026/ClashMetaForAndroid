@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r135
+当前版本：2_11_36-r136
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1441,3 +1441,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **应用按钮：** 统一公开状态入口为 setApplied；编辑过程中只恢复正常透明度，不做文件比较。
 - **改动文件：** EditorDesign.kt、EditorActivity.kt 和本登记文件。
 - **验证：** 静态检查点击区域参数、删除映射及回调索引；未运行 Android 编译或真机验证。
+
+
+## 118. 将编辑器查找与替换统一到 TextSearch（r136）
+- **搜索引擎：** 新增无 Android 依赖的 TextSearch，支持普通文本与正则的 next / prev / count / replacement；普通文本继续使用 String 的 indexOf / lastIndexOf 语义。
+- **正则安全：** Pattern 使用 MULTILINE 和大小写选项；零长度匹配跳过，计数上限 9999；带截止时间的 CharSequence 在超过约 2 秒后抛出 SearchTimeout。替换支持 Matcher 的 $1 与反斜杠规则，错误替换返回 null。
+- **编辑器接入：** 查找、定位计数、替换当前项和全部替换均使用 TextSearch；大文件仍以 fullText() 全文匹配，替换后沿用窗口重载流程。
+- **改动文件：** 新增 TextSearch.kt、CodeEditText.kt 和本登记文件。
+- **验证：** 完成调用链静态检查；未运行 JVM 测试或 Android 编译。
