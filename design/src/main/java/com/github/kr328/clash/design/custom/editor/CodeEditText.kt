@@ -1715,26 +1715,17 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             return 0
         }
         regexTimedOut = search.timedOut
-        val (newText, count, firstAt) = replaced
+        val (newText, count, _) = replaced
         if (count == 0) return 0
-        if (isWindowed) {
-            var line = 0
-            for (i in 0 until firstAt) if (old[i] == '\n') line++
-            clearMatch()
-            loadFull(newText, line)
-            scheduleLint(100)
-            onEdited?.invoke()
-        } else {
-            var head = 0
-            while (head < old.length && head < newText.length && old[head] == newText[head]) head++
-            var tail = 0
-            while (tail < old.length - head && tail < newText.length - head && old[old.length - 1 - tail] == newText[newText.length - 1 - tail]) tail++
-            clearMatch()
-            quiet = true
-            t.replace(head, old.length - tail, newText.substring(head, newText.length - tail))
-            quiet = false
-            setSelection(head)
-        }
+        var head = 0
+        while (head < old.length && head < newText.length && old[head] == newText[head]) head++
+        var tail = 0
+        while (tail < old.length - head && tail < newText.length - head && old[old.length - 1 - tail] == newText[newText.length - 1 - tail]) tail++
+        clearMatch()
+        quiet = true
+        t.replace(head, old.length - tail, newText.substring(head, newText.length - tail))
+        quiet = false
+        setSelection(head)
         return count
     }
 
