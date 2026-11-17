@@ -72,11 +72,11 @@
     <string name="editor_history_exists">历史里已有相同的版本，没有重复保存。</string>
     <string name="editor_history_empty">空配置不存进历史。</string>
     <string name="editor_history_too_big">超过 2 MB 的配置不存进历史。</string>
-    <string name="editor_applied">已应用并生效</string>
+    <string name="editor_applied">已应用并生效。</string>
     <string name="editor_applied_no_history">已应用并生效（这份太大，没有存进历史）。</string>
-    <string name="editor_applied_not_selected">已应用（这个配置当前没有被选中，所以没有加载）。</string>
-    <string name="editor_applied_not_selected_no_history">已应用（这个配置当前没有被选中，所以没有加载；这份太大，没有存进历史）。</string>
-    <string name="editor_apply_same">这份已经是已应用的版本。</string>
+    <string name="editor_applied_not_loaded">这个配置当前没有被选中，所以没有加载。</string>
+    
+    <string name="editor_apply_same">这份就是已应用的版本，不用再应用。</string>
     <string name="editor_history_overwrite_title">载入这个版本？</string>
     <string name="editor_history_overwrite">编辑框里有还没保存的修改，载入这个版本会覆盖它们（可以撤销）。</string>
     <string name="editor_history_load">载入</string>
@@ -101,15 +101,18 @@
     <string name="history_opened_changed"> · 当前打开（之后改过）</string>
     <string name="editor_pinned">已固定</string>
     <string name="editor_unpinned">已取消固定</string>
-    <string name="editor_history_pin">固定</string>
-    <string name="editor_history_unpin">取消固定</string>
-    <string name="editor_history_delete">删除</string>
-    <string name="editor_history_delete_title">删除这个历史版本？</string>
-    <string name="editor_history_delete_confirm">将删除这个版本及其状态标记。已应用的版本不能删除。</string>
-    <string name="editor_history_delete_failed">删除这个版本失败。</string>
+    <string name="editor_pin_menu">固定</string>
+    <string name="editor_unpin_menu">取消固定</string>
+    <string name="editor_delete_version">删除</string>
+    <string name="editor_history_delete_title">删除这个版本？</string>
+    <string name="editor_history_delete_confirm">删除后不能恢复。</string>
+    <string name="editor_delete_in_use">这是已应用的版本，不能删除</string>
     <string name="editor_pin_limit">最多固定 %1$d 个，请先取消一个</string>
     <string name="editor_regex">正则</string>
-    <string name="editor_regex_error">表达式有误</string>
+    <string name="editor_regex_invalid">表达式有误</string>
+    <string name="editor_regex_slow">太慢，已中断</string>
     <string name="editor_jump_definition">跳到定义</string>
-    <string name="editor_definition_not_found">找不到这个名称的定义。</string>
+    <string name="editor_goto_none">光标所在行没有可跳转的名字</string>
+    <string name="editor_goto_builtin">%1$s 是内置名称，没有定义行</string>
+    <string name="editor_goto_missing">没有找到 %1$s 的定义</string>
 </resources>

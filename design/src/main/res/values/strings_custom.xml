@@ -250,7 +250,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="history_pick_version">Versions of %1$s</string>
     <string name="history_version_first">%1$s · %2$d lines · earliest kept</string>
     <string name="history_version_line">%1$s · %2$d lines · +%3$d −%4$d vs the one before</string>
-    <string name="history_in_use"> · in use</string>
+    <string name="history_in_use"> · applied</string>
     <string name="diag_entry_title">Export diagnostic bundle</string>
     <string name="diag_entry_summary">One zip with the config (secrets masked), recent errors, node connections, crash records and a DNS check</string>
     <string name="diag_confirm_title">Export diagnostic bundle</string>

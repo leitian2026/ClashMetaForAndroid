@@ -74,9 +74,9 @@
     <string name="editor_history_too_big">A config over 2 MB is not kept in the history.</string>
     <string name="editor_applied">Applied and loaded.</string>
     <string name="editor_applied_no_history">Applied and loaded (this text is too big to be kept in the history).</string>
-    <string name="editor_applied_not_selected">Applied (this profile is not selected, so it was not loaded).</string>
-    <string name="editor_applied_not_selected_no_history">Applied (this profile is not selected, so it was not loaded; this text was too big to keep in history).</string>
-    <string name="editor_apply_same">This is already the applied version.</string>
+    <string name="editor_applied_not_loaded">This profile is not the selected one, so nothing was loaded.</string>
+    
+    <string name="editor_apply_same">This is already the applied version, nothing to apply.</string>
     <string name="editor_history_overwrite_title">Load this version?</string>
     <string name="editor_history_overwrite">The page has changes that are not saved. Loading the version replaces them (you can undo it).</string>
     <string name="editor_history_load">Load</string>
@@ -101,15 +101,18 @@
     <string name="history_opened_changed"> · opened (changed since)</string>
     <string name="editor_pinned">Pinned</string>
     <string name="editor_unpinned">Unpinned</string>
-    <string name="editor_history_pin">Pin</string>
-    <string name="editor_history_unpin">Unpin</string>
-    <string name="editor_history_delete">Delete</string>
-    <string name="editor_history_delete_title">Delete this history version?</string>
-    <string name="editor_history_delete_confirm">This version and its status markers will be deleted. The applied version cannot be deleted.</string>
-    <string name="editor_history_delete_failed">Could not delete this version.</string>
+    <string name="editor_pin_menu">Pin</string>
+    <string name="editor_unpin_menu">Unpin</string>
+    <string name="editor_delete_version">Delete</string>
+    <string name="editor_history_delete_title">Delete this version?</string>
+    <string name="editor_history_delete_confirm">This cannot be undone.</string>
+    <string name="editor_delete_in_use">This is the applied version and cannot be deleted.</string>
     <string name="editor_pin_limit">At most %1$d versions can be pinned; unpin one first</string>
     <string name="editor_regex">Regular expression</string>
-    <string name="editor_regex_error">Invalid expression</string>
+    <string name="editor_regex_invalid">Invalid expression</string>
+    <string name="editor_regex_slow">Too slow, stopped</string>
     <string name="editor_jump_definition">Jump to definition</string>
-    <string name="editor_definition_not_found">No definition found for this name.</string>
+    <string name="editor_goto_none">No name to jump from on this line</string>
+    <string name="editor_goto_builtin">%1$s is built in, it has no definition line</string>
+    <string name="editor_goto_missing">No definition of %1$s found</string>
 </resources>

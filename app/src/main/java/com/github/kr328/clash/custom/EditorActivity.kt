@@ -267,7 +267,17 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             return false
         }
 
-        design.toast(getString(R.string.editor_saved_applied))
+        val selected = try {
+            withProfile { queryActive()?.uuid == profileUuid() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            true
+        }
+        design.toast(
+            getString(R.string.editor_saved_applied) +
+                if (selected) "" else " " + getString(R.string.editor_applied_not_loaded),
+        )
 
         return true
     }
@@ -418,16 +428,12 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            false
+            true
         }
 
-        val message = when {
-            selected && historyKept -> R.string.editor_applied
-            selected -> R.string.editor_applied_no_history
-            historyKept -> R.string.editor_applied_not_selected
-            else -> R.string.editor_applied_not_selected_no_history
-        }
-        design.toast(getString(message))
+        val message = if (historyKept) R.string.editor_applied else R.string.editor_applied_no_history
+        val suffix = if (selected) "" else " " + getString(R.string.editor_applied_not_loaded)
+        design.toast(getString(message) + suffix)
     }
 
     private suspend fun apply(design: EditorDesign, uri: Uri): Boolean {
