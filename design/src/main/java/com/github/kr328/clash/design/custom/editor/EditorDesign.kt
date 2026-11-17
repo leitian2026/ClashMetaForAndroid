@@ -129,7 +129,10 @@ class EditorDesign(
     ) { requests.trySend(Request.Save) }
     private val applyButton = action(context.getString(R.string.editor_apply), null) { requests.trySend(Request.Apply) }
     // CUSTOM.md #71: three big filled dots (the text "⋮" was small and thin); iconAction gives it a 44dp touch area
-    private val moreButton = iconAction(R.drawable.ic_editor_more, context.getString(R.string.editor_more)) { showMore(it) }
+    private val moreButton = iconAction(R.drawable.ic_editor_more, context.getString(R.string.editor_more)) { showMore(it) }.apply {
+        // CUSTOM: keep the three-dot icon visible on both light and dark editor toolbars.
+        setColorFilter(colorAccent)
+    }
 
     // CUSTOM.md #53: one row at the bottom: where the caret is (and the problem on its line, or which lines of a big
     // text are shown), the problem count, the buttons of a big text's window, the size of the text
