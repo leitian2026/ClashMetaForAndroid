@@ -98,7 +98,7 @@ object IpTestDialog {
                     if (index >= 0) setSelection(index)
                 }
 
-                // CUSTOM.md #52: the ports to try and the download address, both remembered
+                // CUSTOM.md #52: the ports to try; CUSTOM.md #98: separate download addresses for each mode
                 val portsLabel = TextView(context).apply {
                     setText(R.string.iptest_ports_label)
                     textSize = 13f
@@ -116,20 +116,39 @@ object IpTestDialog {
                     }
                 }
 
-                val urlLabel = TextView(context).apply {
-                    setText(R.string.iptest_url_label)
+                // CUSTOM.md #98: each test mode remembers its own download address; the old "ip_url" is ignored.
+                val directUrlLabel = TextView(context).apply {
+                    setText(R.string.iptest_url_direct_label)
                     textSize = 13f
                     alpha = 0.7f
                     setPadding(0, pad / 2, 0, 0)
                 }
 
-                val urlInput = EditText(context).apply {
+                val directUrlInput = EditText(context).apply {
                     inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI or
                         InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                     setSingleLine(true)
 
                     try {
-                        setText(prefs.getString("ip_url", DEFAULT_URL) ?: DEFAULT_URL)
+                        setText(prefs.getString("ip_url_direct", DEFAULT_URL_DIRECT) ?: DEFAULT_URL_DIRECT)
+                    } catch (_: Exception) {
+                    }
+                }
+
+                val nodeUrlLabel = TextView(context).apply {
+                    setText(R.string.iptest_url_node_label)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
+                }
+
+                val nodeUrlInput = EditText(context).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI or
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+
+                    try {
+                        setText(prefs.getString("ip_url_node", DEFAULT_URL_NODE) ?: DEFAULT_URL_NODE)
                     } catch (_: Exception) {
                     }
                 }
@@ -212,8 +231,10 @@ object IpTestDialog {
                 box.addView(targetInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(urlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(urlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(directUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(directUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(nodeUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(nodeUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 val scroll = ScrollView(context).apply {
                     addView(box, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -224,12 +245,16 @@ object IpTestDialog {
                     val node = if (nodes.isEmpty()) "" else (spinner.selectedItem as? String ?: "")
 
                     val ports = portsInput.text.toString().trim().ifEmpty { DEFAULT_PORTS }
-                    val url = urlInput.text.toString().trim().ifEmpty { DEFAULT_URL }
+                    val directUrl = directUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_DIRECT }
+                    val nodeUrl = nodeUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_NODE }
+                    val url = if (mode == "direct") directUrl else nodeUrl
                     val target = targetInput.text.toString().trim()
 
                     try {
                         prefs.edit().putString("ip_text", text).putString("ip_node", node)
-                            .putString("ip_ports", ports).putString("ip_url", url).putString("ip_target", target).apply()
+                            .putString("ip_ports", ports)
+                            .putString("ip_url_direct", directUrl).putString("ip_url_node", nodeUrl)
+                            .putString("ip_target", target).apply()
                     } catch (_: Exception) {
                     }
 
@@ -338,5 +363,6 @@ object IpTestDialog {
     }
 
     private const val DEFAULT_PORTS = "443 2053 2083 2087 2096 8443"
-    private const val DEFAULT_URL = "https://speed.cloudflare.com/__down?bytes=10485760"
+    private const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=10485760"
+    private const val DEFAULT_URL_NODE = "https://proof.ovh.net/files/100Mb.dat"
 }
