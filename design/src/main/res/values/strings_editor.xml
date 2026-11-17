@@ -96,7 +96,7 @@
     <string name="editor_diff_note">The settings and the comments are compared: blank lines are ignored, and every line is shown.</string>
 
     <!-- CUSTOM.md #70: history list: the opened version, pinning -->
-    <string name="editor_pick_hint">The blue row is the version opened on this page. Long press a version for pin / unpin / delete actions. Pinned versions (up to %1$d) are never pushed out and go into the backup.</string>
+    <string name="editor_pick_hint">The blue row is the version opened on this page. Tap a version to load it; long press to pin, unpin or delete. Pinned versions (up to %1$d) are never pushed out and go into the backup.</string>
     <string name="history_opened"> · opened</string>
     <string name="history_opened_changed"> · opened (changed since)</string>
     <string name="editor_pinned">Pinned</string>

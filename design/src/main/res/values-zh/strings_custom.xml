@@ -286,7 +286,7 @@
     <!-- CUSTOM (CUSTOM.md #56): 一份文本相对已应用的版本，样式同推算最终配置 -->
     <string name="cmp_summary">改写 %1$d 行 · 删除 %2$d 行 · 新增 %3$d 行（相对已应用的版本）</string>
     <string name="cmp_legend_changed">改写（旧值划线）</string>
-    <string name="cmp_legend_removed">删除（已应用版本里有，这份没有）</string>
+    <string name="cmp_legend_removed">删除（已应用的有，这份没有）</string>
     <string name="cmp_legend_added">新增</string>
     <string name="cmp_no_diff">和已应用的版本没有差别。</string>
     <string name="cmp_note">比较配置内容和注释：空行不算，所有行都显示，不折叠。只在打开这一页时算一次，改了编辑框以后点“重新对比”。</string>
