@@ -211,10 +211,12 @@ object ConfigHistory {
         newerThanInUse: Boolean = true,
     ): Version? {
         val bytes = currentBytes(context, uuid)
+        val bytesHash = bytes?.let(::hash)
         val used = if (bytes == null) null else find(versions, bytes)
 
         return versions.firstOrNull { v ->
-            v.saved && !v.bad && (bytes == null || !same(v, bytes)) && (!newerThanInUse || used == null || v.at > used.at)
+            v.saved && !v.bad && (bytes == null || (v.size == bytes.size.toLong() && hash(v.file) != bytesHash)) &&
+                (!newerThanInUse || used == null || v.at > used.at)
         }
     }
 
@@ -320,11 +322,12 @@ object ConfigHistory {
     private fun prune(context: Context, uuid: UUID) {
         val versions = list(context, uuid)
         val bytes = currentBytes(context, uuid)
+        val used = if (bytes == null) null else find(versions, bytes)
         val pending = unapplied(context, uuid, versions, newerThanInUse = false)
         var count = 0
 
         for (v in versions) {
-            if (v.verified || v.pinned || v == pending || (bytes != null && same(v, bytes))) continue
+            if (v.verified || v.pinned || v == pending || v == used) continue
 
             count++
 
