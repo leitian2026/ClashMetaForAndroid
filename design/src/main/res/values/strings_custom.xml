@@ -26,6 +26,7 @@
     <string name="connections_summary_more">%1$d connections (only newest %2$d shown) · shown %2$d total ↑ %3$s · ↓ %4$s</string>
     <string name="connections_not_running">Proxy is not running</string>
     <string name="connections_empty">No connections</string>
+    <string name="connections_error">Read failed: %1$s</string>
     <string name="connection_close">Close connection</string>
     <string name="connection_closed">Connection closed</string>
     <string name="connection_gone">The connection has already ended</string>

@@ -50,19 +50,28 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
                         }
                         ConnectionsDesign.Request.CloseAll -> {
                             if (design.confirmCloseAll()) {
+                                var closeError: String? = null
                                 val closed = try {
                                     withClash { closeCustomConnection(CustomConnections.CLOSE_ALL) }
                                 } catch (e: CancellationException) {
                                     throw e
                                 } catch (e: Exception) {
+                                    closeError = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                                     false
                                 }
 
-                                design.showToast(
-                                    if (closed) DesignR.string.connections_all_closed
-                                    else DesignR.string.connections_nothing_to_close,
-                                    ToastDuration.Short,
-                                )
+                                if (closeError != null) {
+                                    design.showToast(
+                                        design.context.getString(DesignR.string.connections_close_failed, closeError),
+                                        ToastDuration.Short,
+                                    )
+                                } else {
+                                    design.showToast(
+                                        if (closed) DesignR.string.connections_all_closed
+                                        else DesignR.string.connections_nothing_to_close,
+                                        ToastDuration.Short,
+                                    )
+                                }
 
                                 design.refresh()
                             }
@@ -70,18 +79,27 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
                         is ConnectionsDesign.Request.Open -> {
                             // the loop waits here, so the list does not change under the dialog
                             if (design.showDetail(it.item)) {
+                                var closeError: String? = null
                                 val closed = try {
                                     withClash { closeCustomConnection(it.item.id) }
                                 } catch (e: CancellationException) {
                                     throw e
                                 } catch (e: Exception) {
+                                    closeError = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                                     false
                                 }
 
-                                design.showToast(
-                                    if (closed) DesignR.string.connection_closed else DesignR.string.connection_gone,
-                                    ToastDuration.Short,
-                                )
+                                if (closeError != null) {
+                                    design.showToast(
+                                        design.context.getString(DesignR.string.connections_close_failed, closeError),
+                                        ToastDuration.Short,
+                                    )
+                                } else {
+                                    design.showToast(
+                                        if (closed) DesignR.string.connection_closed else DesignR.string.connection_gone,
+                                        ToastDuration.Short,
+                                    )
+                                }
                             }
 
                             design.refresh()
@@ -104,19 +122,22 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
     // parsed, diffed or drawn again
     private var shownKey: String? = null
     private var shownRaw: String? = null
+    private var shownError: String? = null
 
     private suspend fun ConnectionsDesign.refresh() {
         val running = clashRunning
         val sort = if (sortByTraffic) CustomConnections.SORT_TRAFFIC else CustomConnections.SORT_TIME
         val search = filter
 
+        var error: String? = null
         val raw = if (running) {
             try {
                 withClash { queryCustomConnections(sort, search) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                null // keeps showing "no connections" until the next refresh works
+                error = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                null
             }
         } else {
             null
@@ -124,19 +145,21 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
 
         val key = "$running|$sort|$search"
 
-        if (key == shownKey && raw == shownRaw) return
-
-        shownKey = key
-        shownRaw = raw
-
         val snapshot = raw?.let {
             try {
                 ConnectionSnapshot.parse(it)
             } catch (e: Exception) {
+                error = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 null
             }
         }
 
-        patch(snapshot, running)
+        if (key == shownKey && raw == shownRaw && error == shownError) return
+
+        shownKey = key
+        shownRaw = raw
+        shownError = error
+
+        patch(snapshot, running, error)
     }
 }

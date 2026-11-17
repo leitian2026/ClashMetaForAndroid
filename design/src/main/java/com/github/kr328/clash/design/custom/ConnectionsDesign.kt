@@ -80,8 +80,8 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
         }
     }
 
-    /** [snapshot] is null while the proxy is not running or the core could not be asked. */
-    suspend fun patch(snapshot: ConnectionSnapshot?, running: Boolean) {
+    /** [error] is non-null only when querying or parsing the connection snapshot failed. */
+    suspend fun patch(snapshot: ConnectionSnapshot?, running: Boolean, error: String? = null) {
         val items = snapshot?.items ?: emptyList()
 
         adapter.patchDataSet(adapter::items, items, false, ConnectionItem::id)
@@ -90,6 +90,7 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
 
         val summary = when {
             !running -> context.getString(R.string.connections_not_running)
+            error != null -> context.getString(R.string.connections_error, error)
             snapshot == null || snapshot.total == 0 -> context.getString(R.string.connections_empty)
             searching && snapshot.matched == 0 -> context.getString(R.string.connections_no_match)
             else -> {
@@ -142,33 +143,38 @@ class ConnectionsDesign(context: Context) : Design<ConnectionsDesign.Request>(co
 
     /** Shows the recent switches of the node IP in use, newest first. */
     suspend fun showHistory() {
-        val text = withContext(Dispatchers.IO) {
-            try {
-                // written by the core: <filesDir>/custom/ip_history.json
-                context.filesDir.resolve("custom").resolve("ip_history.json").readText()
-            } catch (e: Exception) {
-                null
+        val result = withContext(Dispatchers.IO) {
+            val file = context.filesDir.resolve("custom").resolve("ip_history.json")
+            if (!file.exists()) {
+                Pair(emptyList<com.github.kr328.clash.core.custom.IpHistoryEntry>(), null as String?)
+            } else {
+                try {
+                    Pair(IpHistory.parse(file.readText()).asReversed(), null as String?)
+                } catch (e: Exception) {
+                    Pair(null, e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName)
+                }
             }
         }
-
-        val entries = if (text == null) emptyList() else IpHistory.parse(text).asReversed()
+        val entries = result.first
+        val error = result.second
 
         withContext(Dispatchers.Main) {
             val builder = MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.ip_history_title)
                 .setPositiveButton(R.string.close, null)
 
-            if (entries.isEmpty()) {
-                builder.setMessage(R.string.ip_history_empty)
-            } else {
-                val lines = entries.map {
-                    val flag = CountryFlag.of(it.country)
-                    val address = if (flag.isEmpty()) it.ip else "$flag ${it.ip}"
+            when {
+                error != null -> builder.setMessage(context.getString(R.string.connections_error, error))
+                entries.isNullOrEmpty() -> builder.setMessage(R.string.ip_history_empty)
+                else -> {
+                    val lines = entries.map {
+                        val flag = CountryFlag.of(it.country)
+                        val address = if (flag.isEmpty()) it.ip else "$flag ${it.ip}"
 
-                    "${ConnectionText.time(context, it.t, "MM-dd HH:mm:ss")}  $address · ${it.node}"
+                        "${ConnectionText.time(context, it.t, "MM-dd HH:mm:ss")}  $address · ${it.node}"
+                    }
+                    builder.setItems((listOf(context.getString(R.string.ip_history_note)) + lines).toTypedArray(), null)
                 }
-
-                builder.setItems(lines.toTypedArray(), null)
             }
 
             builder.show()

@@ -26,6 +26,7 @@
     <string name="connections_summary_more">%1$d 个连接（仅显示最新 %2$d 个）· 显示的这 %2$d 个共 ↑ %3$s · ↓ %4$s</string>
     <string name="connections_not_running">代理未运行</string>
     <string name="connections_empty">当前没有连接</string>
+    <string name="connections_error">读取失败：%1$s</string>
     <string name="connection_close">关闭连接</string>
     <string name="connection_closed">已关闭连接</string>
     <string name="connection_gone">该连接已经结束</string>

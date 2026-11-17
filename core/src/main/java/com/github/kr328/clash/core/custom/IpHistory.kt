@@ -21,10 +21,6 @@ object IpHistory {
     }
 
     fun parse(text: String): List<IpHistoryEntry> {
-        return try {
-            json.decodeFromString(ListSerializer(IpHistoryEntry.serializer()), text)
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return json.decodeFromString(ListSerializer(IpHistoryEntry.serializer()), text)
     }
 }
