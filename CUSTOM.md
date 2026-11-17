@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r105
+当前版本：2_11_36-r106
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
 
@@ -1202,3 +1202,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗 / 网络：** 仅调整静态 XML 排列，不增加监听、定时器、轮询、网络请求或后台任务。
 - **改动文件：** `design/src/main/res/layout/design_config_check.xml` 和本登记文件；没有修改上游文件总表中的挂钩。
 - **验证：** 完成 XML 结构与按钮 ID / 回调源码检查；未运行 Android 编译或真机验证。需用户手动触发 Build Debug 检查。
+
+## 90. 配置检查页说明文字折叠与域名输入框方框化（r106）
+- **说明文字：** 顶部 `check_hint` 默认只显示一行并以省略号收尾；点击后展开全文，再点收起。使用可点击背景提供涟漪反馈。展开状态只保存在当前页面实例内，退出页面后不保存；原文字和字符串资源不变。
+- **域名输入框：** 原有 `check_domain_view` 改为 `TextInputLayout` + `MaterialAutoCompleteTextView`，采用 `Widget.MaterialComponents.TextInputLayout.OutlinedBox`。原 `check_domain_hint` 从输入控件移到外层 `TextInputLayout` 的 `hint`，字符串本身不改。保留输入框 ID、`textUri`、单行、自动补全阈值、历史下拉和偏好读写；外层行原有水平 padding 不变，不额外增加上下 / 左右间距。
+- **严格保留：** 所有按钮的位置、尺寸和点击回调；域名当前值及历史记录在 `prefs` 中的读写；#87 最近一轮 IP 测试结果保存与恢复；ECH、DNS、IP 测试逻辑和结果显示；其他布局及文字内容。没有增加定时器、轮询、额外监听或后台工作。
+- **改动文件：** `design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件。两个代码文件均为自定义功能文件，没有修改上游文件总表中的挂钩；上游文件总表不变。
+- **验证：** 完成源码级检查：说明文字点击切换逻辑、Material 控件层级、原输入框 ID / `textUri` / 历史适配器与 prefs 调用均保留。未运行 Android 编译或真机验证，因此 ViewBinding 生成类型及 Kotlin 编译、历史下拉实际弹出、软键盘布局、浅色 / 深色主题边框与提示色均**未实测**；需手动触发 Build Debug，并按上述项目在真机检查。

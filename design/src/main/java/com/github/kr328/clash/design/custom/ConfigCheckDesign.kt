@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.TextUtils
 import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.Toast
@@ -412,6 +413,14 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
     init {
         binding.self = this
+
+        // CUSTOM (CUSTOM.md #90): this view-only toggle is not persisted.
+        var checkHintExpanded = false
+        binding.checkHintView.setOnClickListener {
+            checkHintExpanded = !checkHintExpanded
+            binding.checkHintView.maxLines = if (checkHintExpanded) Int.MAX_VALUE else 1
+            binding.checkHintView.ellipsize = if (checkHintExpanded) null else TextUtils.TruncateAt.END
+        }
 
         binding.activityBarLayout.applyFrom(context)
 
