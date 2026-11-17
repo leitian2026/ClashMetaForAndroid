@@ -453,28 +453,29 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
     }
 
-    // CUSTOM.md #95: keep the raw download error and explain it on the following line.
+    // CUSTOM.md #96: classify the error for the table; live logs stay on one line.
     private fun speedErrorText(error: String): String {
         val raw = error.ifBlank { "-" }
         val lower = raw.lowercase()
-        val explanation = when {
-            Regex("^HTTP\\s+403\\b", RegexOption.IGNORE_CASE).containsMatchIn(raw) ->
-                getString(R.string.iptest_http_403_note)
-            "timeout" in lower || "deadline exceeded" in lower ->
-                ErrorsText.explain(this, "timeout")
-            "connection refused" in lower ->
-                ErrorsText.explain(this, "refused")
-            "connection reset" in lower || "reset by peer" in lower ->
-                ErrorsText.explain(this, "reset")
-            "unexpected eof" in lower || "unexpected end of file" in lower ->
-                ErrorsText.explain(this, "eof")
-            "network is unreachable" in lower || "no route to host" in lower ->
-                ErrorsText.explain(this, "network")
-            "tls" in lower || "certificate" in lower ->
-                ErrorsText.explain(this, "tls")
+        return when {
+            Regex("^HTTP\\s+403\\b", RegexOption.IGNORE_CASE).containsMatchIn(raw) -> getString(R.string.iptest_http_403_note)
+            "timeout" in lower || "deadline exceeded" in lower -> ErrorsText.explain(this, "timeout")
+            "connection refused" in lower -> ErrorsText.explain(this, "refused")
+            "connection reset" in lower || "reset by peer" in lower -> ErrorsText.explain(this, "reset")
+            "unexpected eof" in lower || "unexpected end of file" in lower -> ErrorsText.explain(this, "eof")
+            "network is unreachable" in lower || "no route to host" in lower -> ErrorsText.explain(this, "network")
+            "tls" in lower || "certificate" in lower -> ErrorsText.explain(this, "tls")
             else -> ErrorsText.explain(this, "other")
         }
-        return "$raw\n（$explanation）"
+    }
+
+    // CUSTOM.md #96: write failures back to the matching IP row, even when the core returns no result row.
+    private suspend fun setSpeedError(design: ConfigCheckDesign, ip: String, error: String) {
+        val raw = error.ifBlank { "-" }
+        ipRows = ArrayList(ipRows.map {
+            if (it.ip == ip) it.copy(speed = 0.0, speedBytes = 0, speedMs = 0, speedErr = raw) else it
+        })
+        design.ipRows(ipRows)
     }
 
     // CUSTOM (CUSTOM.md #52): the download test of one row, only when its "测速" is tapped. Directly to the address,
@@ -506,8 +507,11 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
             when {
                 report.cancelled -> design.ipLog(getString(R.string.iptest_log_speed_cancelled, ip))
-                report.error.isNotEmpty() || row == null ->
-                    design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(report.error)))
+                report.error.isNotEmpty() || row == null -> {
+                    val error = report.error.ifEmpty { "测速没有返回结果" }
+                    setSpeedError(design, ip, error)
+                    design.ipLog(getString(R.string.iptest_log_speed_fail, ip, error))
+                }
                 else -> {
                     ipRows = ArrayList(
                         ipRows.map {
@@ -522,7 +526,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     design.ipRows(ipRows)
 
                     if (row.speedErr.isNotEmpty()) {
-                        design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(row.speedErr)))
+                        design.ipLog(getString(R.string.iptest_log_speed_fail, ip, row.speedErr))
                     } else {
                         design.ipLog(
                             getString(
@@ -539,7 +543,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            design.ipLog(getString(R.string.iptest_log_speed_fail, ip, speedErrorText(e.message ?: e.javaClass.simpleName)))
+            val error = e.message ?: e.javaClass.simpleName
+            setSpeedError(design, ip, error)
+            design.ipLog(getString(R.string.iptest_log_speed_fail, ip, error))
         } finally {
             withContext(NonCancellable) { design.ipSpeedBusy(null) }
         }
