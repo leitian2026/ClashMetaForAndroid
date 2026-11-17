@@ -490,8 +490,8 @@ class EditorDesign(
     // the whole text, also the part of a big text that is not in the text box
     fun currentText(): String = editor.fullText()
 
-    /** CUSTOM.md #113: resolve the name under the caret when the user asks, never while typing. */
-    fun definitionLineAtCaret(): Int? = YamlLint.definitionLine(editor.fullText(), editor.fullCaretOffset())
+    /** Text and full-document caret offset for on-demand definition navigation. */
+    fun definitionContext(): Pair<String, Int> = editor.fullText() to editor.fullCaretOffset()
 
     /** CUSTOM.md #108: the page matches its committed applied version; alpha is visual only, never disables taps. */
     fun setApplied(same: Boolean) {

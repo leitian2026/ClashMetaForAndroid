@@ -1,5 +1,6 @@
 package com.github.kr328.clash.custom
 
+import com.github.kr328.clash.design.custom.editor.YamlLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -106,9 +107,16 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
                 EditorDesign.Request.RefreshApplyState -> if (split) refreshApplyState(design)
                 EditorDesign.Request.JumpDefinition -> {
-                    val line = design.definitionLineAtCaret()
-                    if (line == null) design.toast(getString(R.string.editor_definition_not_found))
-                    else design.goToLine(line + 1, false)
+                    val (text, offset) = design.definitionContext()
+                    val resolution = withContext(Dispatchers.Default) {
+                        YamlLint.resolve(YamlLint.links(text), text, offset)
+                    }
+                    when {
+                        resolution.link == null -> design.toast(getString(R.string.editor_goto_none))
+                        resolution.builtIn -> design.toast(getString(R.string.editor_goto_builtin, resolution.link.name))
+                        resolution.definitionLine == null -> design.toast(getString(R.string.editor_goto_missing, resolution.link.name))
+                        else -> design.goToLine(resolution.definitionLine + 1, false)
+                    }
                 }
                 EditorDesign.Request.Check -> check(design, uri, profile)
                 EditorDesign.Request.External -> openExternal(design, uri)

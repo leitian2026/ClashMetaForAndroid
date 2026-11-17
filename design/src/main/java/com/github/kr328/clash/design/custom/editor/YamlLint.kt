@@ -28,18 +28,51 @@ class Diagnostic(
 )
 
 object YamlLint {
+    data class Link(val line: Int, val name: String, val kind: String)
+    data class Links(
+        val refs: List<Link>,
+        val names: Map<String, Int>,
+        val providers: Map<String, Int>,
+        val ruleProviders: Map<String, Int>,
+    )
+    data class Resolution(val link: Link?, val definitionLine: Int?, val builtIn: Boolean)
+
     fun run(text: String): List<Diagnostic> {
         val lines = text.split('\n').map { if (it.endsWith("\r")) it.substring(0, it.length - 1) else it }
 
         return Walker(lines).walk()
     }
 
-    /** CUSTOM.md #113: parse once on demand and resolve the reference under the caret to its first definition. */
-    fun definitionLine(text: String, caretOffset: Int): Int? {
+    /** Parse names and references once when the user requests navigation. */
+    fun links(text: String): Links {
         val lines = text.split('\n').map { if (it.endsWith("\r")) it.substring(0, it.length - 1) else it }
         val walker = Walker(lines)
         walker.walk()
-        return walker.definitionLineAt(caretOffset)
+        return walker.snapshot()
+    }
+
+    fun resolve(links: Links, text: String, caretOffset: Int): Resolution {
+        val offset = caretOffset.coerceIn(0, text.length)
+        val lineNumber = text.substring(0, offset).count { it == '\n' }
+        val lineStart = if (offset == 0) 0 else text.lastIndexOf('\n', offset - 1) + 1
+        val lineEnd = text.indexOf('\n', offset).let { if (it < 0) text.length else it }
+        val lineText = text.substring(lineStart, lineEnd)
+        val column = offset - lineStart
+        val candidates = links.refs.filter { it.line == lineNumber }
+        if (candidates.isEmpty()) return Resolution(null, null, false)
+        val link = candidates.firstOrNull { ref ->
+            val at = lineText.indexOf(ref.name)
+            at >= 0 && column >= at && column < at + ref.name.length
+        } ?: candidates.first()
+        val builtin = link.name in builtin
+        if (builtin) return Resolution(link, null, true)
+        val definition = when (link.kind) {
+            "use" -> links.providers[link.name]
+            "ruleset" -> links.ruleProviders[link.name]
+            "proxy", "policy" -> links.names[link.name]
+            else -> null
+        }
+        return Resolution(link, definition, false)
     }
 
     private val builtin = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL")
@@ -59,8 +92,6 @@ object YamlLint {
     private class Level(val col: Int) {
         val keys = HashMap<String, Int>()
     }
-
-    private class Ref(val line: Int, val name: String, val kind: String)
 
     // a flow collection ("[a, b]", "{a: 1}") that may go on over several lines; for the lists that name proxies or
     // providers ([kind] not empty) the items are collected
@@ -220,7 +251,7 @@ object YamlLint {
     private class Walker(private val lines: List<String>) {
         private val diags = ArrayList<Diagnostic>()
         private val stack = ArrayList<Level>()
-        private val refs = ArrayList<Ref>()
+        private val refs = ArrayList<Link>()
         private val names = LinkedHashMap<String, Int>() // proxies and groups share their names; first definition wins
         private val providers = LinkedHashMap<String, Int>()
         private val ruleProviders = LinkedHashMap<String, Int>()
@@ -385,7 +416,7 @@ object YamlLint {
                         } else if (listKind.isNotEmpty() && indent >= listCol && dashes.size == 1 && kv == null) {
                             val nm = unquote(rest)
 
-                            if (nm.isNotEmpty() && !rest.startsWith("{") && !rest.startsWith("[")) refs.add(Ref(i, nm, listKind))
+                            if (nm.isNotEmpty() && !rest.startsWith("{") && !rest.startsWith("[")) refs.add(Link(i, nm, listKind))
                         }
                     } else if (kv != null) {
                         if (itemMap == -1 && itemDash >= 0 && indent > itemDash) itemMap = indent
@@ -628,6 +659,8 @@ object YamlLint {
 
             refs.add(Ref(line, policy, "policy"))
         }
+
+        fun snapshot(): Links = Links(refs.toList(), names.toMap(), providers.toMap(), ruleProviders.toMap())
 
         fun definitionLineAt(caretOffset: Int): Int? {
             val full = lines.joinToString("\n")
