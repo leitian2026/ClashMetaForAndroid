@@ -368,7 +368,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val matches = withContext(Dispatchers.IO) {
             ConfigHistory.isInUse(this@EditorActivity, profileUuid(), design.currentText())
         }
-        design.setApplyMatchesApplied(matches)
+        design.setApplied(matches)
     }
 
     private fun profileUuid(): UUID = UUID.fromString(profileId)
@@ -595,7 +595,6 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             getString(R.string.editor_pick_hint, ConfigHistory.MAX_PINNED),
             versions.indices.map { shown(it) },
             versions.indexOfFirst { it.at == openedAt },
-            canDelete = { i -> versions[i] != inUse },
             onPin = { i ->
             val v = versions[i]
             val want = !v.pinned
@@ -620,24 +619,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             },
             onDelete = { i ->
                 val v = versions[i]
-                val confirmed = design.ask(
-                    getString(R.string.editor_history_delete_title),
-                    getString(R.string.editor_history_delete_confirm),
-                    getString(R.string.editor_history_delete),
-                )
-                if (!confirmed) {
-                    false
+                val deleted = withContext(Dispatchers.IO) { ConfigHistory.delete(this@EditorActivity, uuid, v) }
+                if (deleted) {
+                    if (openedAt == v.at) openedAt = 0L
+                    0
+                } else if (v == inUse) {
+                    1
                 } else {
-                    val deleted = withContext(Dispatchers.IO) { ConfigHistory.delete(this@EditorActivity, uuid, v) }
-                    if (deleted) {
-                        if (openedAt == v.at) openedAt = 0L
-                        versions.removeAt(i)
-                        base.removeAt(i)
-                        true
-                    } else {
-                        design.toast(getString(R.string.editor_history_delete_failed))
-                        false
-                    }
+                    null
                 }
             },
         )

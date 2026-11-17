@@ -119,8 +119,8 @@ class EditorDesign(
     }
 
     // CUSTOM.md #70: filled arrows in the text colour (the text arrows were thin lines in the pale accent colour)
-    private val undoButton = iconAction(R.drawable.ic_editor_undo, context.getString(R.string.editor_undo)) { editor.undoEdit() }
-    private val redoButton = iconAction(R.drawable.ic_editor_redo, context.getString(R.string.editor_redo)) { editor.redoEdit() }
+    private val undoButton = iconAction(R.drawable.ic_editor_undo, context.getString(R.string.editor_undo), box = true) { editor.undoEdit() }
+    private val redoButton = iconAction(R.drawable.ic_editor_redo, context.getString(R.string.editor_redo), box = true) { editor.redoEdit() }
     private val findButton = action(context.getString(R.string.editor_find), null) { toggleFind() }
     private val checkButton = action(context.getString(R.string.editor_check), null) { requests.trySend(Request.Check) }
     private val saveButton = action(
@@ -449,7 +449,7 @@ class EditorDesign(
 
         editor.onEdited = {
             setDirty(!editor.undo.isAtSavePoint)
-            applyButton.alpha = 1f
+            if (split) applyButton.alpha = 1f
             refreshStatus()
         }
         editor.onCaretChanged = { refreshStatus() }
@@ -494,8 +494,8 @@ class EditorDesign(
     fun definitionLineAtCaret(): Int? = YamlLint.definitionLine(editor.fullText(), editor.fullCaretOffset())
 
     /** CUSTOM.md #108: the page matches its committed applied version; alpha is visual only, never disables taps. */
-    fun setApplyMatchesApplied(matches: Boolean) {
-        applyButton.alpha = if (matches) 0.38f else 1f
+    fun setApplied(same: Boolean) {
+        if (split) applyButton.alpha = if (same) 0.38f else 1f
     }
 
     /** CUSTOM.md #47: puts text picked from elsewhere in place of the text (one undo step, the page becomes unsaved). */
@@ -667,55 +667,65 @@ class EditorDesign(
         hint: CharSequence,
         items: List<CharSequence>,
         opened: Int,
-        canDelete: (Int) -> Boolean,
         onPin: suspend (Int) -> CharSequence?,
-        onDelete: suspend (Int) -> Boolean,
+        onDelete: suspend (Int) -> Int?,
     ): Int {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<Int> { c ->
                 val labels = ArrayList(items)
+                val originalIndices = items.indices.toMutableList()
                 val openedBg = if (night) Color.parseColor("#26456E") else Color.parseColor("#D6E4F7")
 
                 val adapter = object : ArrayAdapter<CharSequence>(context, android.R.layout.simple_list_item_1, labels) {
                     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                         val view = super.getView(position, convertView, parent) as TextView
-
-                        // CUSTOM.md #74: use the app's primary text colour and standard list-row sizing.
                         view.setTextColor(themedColor(android.R.attr.textColorPrimary, if (night) Color.WHITE else Color.BLACK))
                         view.textSize = 16f
                         view.setPadding(dp(16), 0, dp(16), 0)
                         view.minHeight = dp(48)
-                        view.setBackgroundColor(if (position == opened) openedBg else Color.TRANSPARENT)
-
+                        view.setBackgroundColor(if (originalIndices[position] == opened) openedBg else Color.TRANSPARENT)
                         return view
                     }
                 }
 
                 val dialogRef = arrayOfNulls<androidx.appcompat.app.AlertDialog>(1)
-
                 val list = ListView(context).apply {
                     this.adapter = adapter
-                    // CUSTOM.md #71: a tap on a row also closes the list (it stayed open over the page); the dismiss listener
-                    // answers -1 only while nobody has answered yet, so the picked index wins
                     setOnItemClickListener { _, _, which, _ ->
-                        if (c.isActive) c.resume(which)
-
+                        if (c.isActive) c.resume(originalIndices[which])
                         dialogRef[0]?.dismiss()
                     }
                     setOnItemLongClickListener { _, row, which, _ ->
+                        val original = originalIndices[which]
                         PopupMenu(context, row).apply {
-                            menu.add(0, 1, 0, context.getString(if (labels[which].startsWith("📌")) R.string.editor_history_unpin else R.string.editor_history_pin))
-                            if (canDelete(which)) menu.add(0, 2, 1, context.getString(R.string.editor_history_delete))
+                            menu.add(0, 1, 0, context.getString(
+                                if (labels[which].toString().startsWith("📌")) R.string.editor_unpin_menu else R.string.editor_pin_menu
+                            ))
+                            menu.add(0, 2, 1, context.getString(R.string.editor_delete_version))
                             setOnMenuItemClickListener { item ->
                                 launch {
                                     if (item.itemId == 1) {
-                                        onPin(which)?.let {
+                                        onPin(original)?.let {
                                             labels[which] = it
                                             adapter.notifyDataSetChanged()
                                         }
-                                    } else if (item.itemId == 2 && onDelete(which)) {
-                                        labels.removeAt(which)
-                                        adapter.notifyDataSetChanged()
+                                    } else if (item.itemId == 2) {
+                                        val confirmed = ask(
+                                            context.getString(R.string.editor_history_delete_title),
+                                            context.getString(R.string.editor_history_delete_confirm),
+                                            context.getString(R.string.editor_delete_version),
+                                        )
+                                        if (confirmed) {
+                                            when (onDelete(original)) {
+                                                0 -> {
+                                                    labels.removeAt(which)
+                                                    originalIndices.removeAt(which)
+                                                    adapter.notifyDataSetChanged()
+                                                }
+                                                1 -> toast(context.getString(R.string.editor_delete_in_use))
+                                                else -> Unit
+                                            }
+                                        }
                                     }
                                 }
                                 true
@@ -727,7 +737,6 @@ class EditorDesign(
 
                 val box = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
-
                     addView(
                         TextView(context).apply {
                             text = hint
@@ -739,16 +748,13 @@ class EditorDesign(
                     )
                     addView(list, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
                 }
-
                 val dialog = MaterialAlertDialogBuilder(context)
                     .setTitle(title)
                     .setView(box)
                     .setNegativeButton(android.R.string.cancel, null)
                     .setOnDismissListener { if (c.isActive) c.resume(-1) }
                     .show()
-
                 dialogRef[0] = dialog
-
                 c.invokeOnCancellation { dialog.dismiss() }
             }
         }
@@ -1086,13 +1092,19 @@ class EditorDesign(
     }
 
     // CUSTOM.md #70: a button that is a filled icon, in the text colour; [alpha] is set by the callers as for the text ones
-    private fun iconAction(res: Int, description: String, onClick: (View) -> Unit): ImageView {
+    private fun iconAction(res: Int, description: String, box: Boolean = false, onClick: (View) -> Unit): ImageView {
         return ImageView(context).apply {
             setImageResource(res)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
-            val pad = dp(12)
-            setPadding(pad, pad, pad, pad)
+            val width = dp(if (split) 40 else 44)
+            layoutParams = LinearLayout.LayoutParams(if (box) width else dp(48), if (box) ViewGroup.LayoutParams.MATCH_PARENT else dp(48))
+            if (box) {
+                val horizontal = (width - dp(24)) / 2
+                setPadding(horizontal, dp(16), horizontal, dp(16))
+            } else {
+                val pad = dp(12)
+                setPadding(pad, pad, pad, pad)
+            }
             isClickable = true
             contentDescription = description
             setBackgroundResource(context.resolveThemedResourceId(android.R.attr.selectableItemBackground))
