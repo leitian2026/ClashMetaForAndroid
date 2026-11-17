@@ -192,3 +192,27 @@ func TestExistingDialIssueStillAccumulates(t *testing.T) {
 		t.Fatalf("existing issue did not accumulate: %+v", s.Items)
 	}
 }
+
+
+func TestResolveByExtra(t *testing.T) {
+	reset()
+	Report(KindIP, "1.2.3.4:443", "timeout", "timeout", "node-a")
+	Report(KindIP, "2.3.4.5:443", "timeout", "timeout", "node-a")
+	Report(KindIP, "3.4.5.6:443", "timeout", "timeout", "node-b")
+
+	ResolveByExtra(KindIP, "node-a")
+
+	s := Query()
+	resolved := 0
+	for _, it := range s.Items {
+		if it.Extra == "node-a" && it.Resolved {
+			resolved++
+		}
+		if it.Extra == "node-b" && it.Resolved {
+			t.Fatalf("another node was resolved: %+v", it)
+		}
+	}
+	if resolved != 2 || s.Active != 1 {
+		t.Fatalf("unexpected snapshot: %+v", s)
+	}
+}

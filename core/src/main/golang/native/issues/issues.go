@@ -221,6 +221,20 @@ func Resolve(kind, subject string) {
 	}
 }
 
+// ResolveByExtra resolves every problem of the kind whose Extra matches the supplied value.
+// For KindIP, Extra is the node name; a successful test through that node resolves its unreachable addresses.
+func ResolveByExtra(kind, extra string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, it := range items {
+		if it.Kind == kind && it.Extra == extra && !it.Resolved {
+			it.Resolved = true
+			changedLocked()
+		}
+	}
+}
+
 // ResolveExcept resolves every problem of the kind whose subject is not in keep: a check that found only `keep`
 // failing says the others work (or are gone from the profile).
 func ResolveExcept(kind string, keep map[string]bool) {

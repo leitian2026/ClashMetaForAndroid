@@ -15,6 +15,8 @@
 package ipdelay
 
 import (
+	"cfa/native/issues"
+
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -852,6 +854,14 @@ func testProxy(name string, raw map[string]any, testURL string) {
 	}
 
 	results[name] = list
+
+	// CUSTOM: a successful result from the existing per-IP latency test proves this node is reachable.
+	for _, item := range list {
+		if item.Delay > 0 {
+			issues.ResolveByExtra(issues.KindIP, name)
+			break
+		}
+	}
 
 	for _, item := range list {
 		if item.Country != "" {
