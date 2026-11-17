@@ -14,16 +14,18 @@ data class MuxIp(
 
 /**
  * CUSTOM (CUSTOM.md #20): [tcp] / [udp] are the sockets the core really has open to the node (with
- * multiplexing working, [tcp] stays far below [requests]). [node] is "" for sockets that belong to no node.
+ * multiplexing working, [tcp] stays far below [connections]). [node] is "" for sockets that belong to no node.
  */
 @Serializable
 data class MuxNode(
     val node: String = "",
     val tcp: Int = 0,
     val udp: Int = 0,
-    val requests: Int = 0,
+    val connections: Int = 0,
     val ips: List<MuxIp> = emptyList(),
     val udpIps: List<MuxIp> = emptyList(), // addresses of the UDP sockets; ip is "" when the socket was made without a peer
+    val ipsOmitted: Int = 0,
+    val udpIpsOmitted: Int = 0,
 )
 
 /** CUSTOM (CUSTOM.md #20): the answer of the core to a query with sort mode SORT_MUX. */
@@ -31,6 +33,7 @@ data class MuxNode(
 data class MuxSnapshot(
     val total: Int = 0,
     val mux: List<MuxNode> = emptyList(),
+    val nodesOmitted: Int = 0,
 ) {
     companion object {
         private val json = Json {

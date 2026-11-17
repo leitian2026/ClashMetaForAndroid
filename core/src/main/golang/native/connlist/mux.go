@@ -31,21 +31,24 @@ type MuxIP struct {
 }
 
 // MuxNode tells, for one node, how many sockets the core really has open to it (Tcp, and Udp) and
-// how many connections (requests) are carried by the node. With multiplexing working, Tcp stays far
-// below Requests. Node "" holds the sockets that belong to no node (DNS and the like).
+// how many upper connections are carried by the node. With multiplexing working, Tcp stays far
+// below Connections. Node "" holds the sockets that belong to no node (DNS and the like).
 type MuxNode struct {
 	Node     string  `json:"node"`
 	Tcp      int     `json:"tcp"`
 	Udp      int     `json:"udp"`
-	Requests int     `json:"requests"`
+	Connections int     `json:"connections"`
 	IPs      []MuxIP `json:"ips,omitempty"`
 	UdpIPs   []MuxIP `json:"udpIps,omitempty"` // the addresses of the UDP sockets; IP "" when the socket was made without a peer
+	IPsOmitted int `json:"ipsOmitted,omitempty"`
+	UdpIPsOmitted int `json:"udpIpsOmitted,omitempty"`
 }
 
 // MuxSnapshot is the answer of QueryMux. Total counts every connection of the core.
 type MuxSnapshot struct {
-	Total int       `json:"total"`
-	Mux   []MuxNode `json:"mux"`
+    Total        int       `json:"total"`
+    Mux          []MuxNode `json:"mux"`
+    NodesOmitted int       `json:"nodesOmitted,omitempty"`
 }
 
 // QueryMux joins the socket counts of the core (dialer.ConnCounts) with the number of connections
@@ -60,24 +63,24 @@ func QueryMux() (result MuxSnapshot) {
 		}
 	}()
 
-	requests := map[string]int{}
+	upperConnections := map[string]int{}
 
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
 		result.Total++
 
 		if chain := c.Chains(); len(chain) > 0 {
-			requests[chain[0]]++
+			upperConnections[chain[0]]++
 		}
 
 		return true
 	})
 
-	result.Mux = buildMux(requests)
+	result.Mux, result.NodesOmitted = buildMux(upperConnections)
 
 	return result
 }
 
-func buildMux(requests map[string]int) []MuxNode {
+func buildMux(upperConnections map[string]int) ([]MuxNode, int) {
 	byNode := map[string]*MuxNode{}
 
 	get := func(name string) *MuxNode {
@@ -104,22 +107,22 @@ func buildMux(requests map[string]int) []MuxNode {
 		n.IPs = append(n.IPs, MuxIP{IP: c.IP, Count: c.Count, Country: countryOf(c.Owner, c.IP), Since: c.Since})
 	}
 
-	for name, count := range requests {
-		get(name).Requests = count
+	for name, count := range upperConnections {
+		get(name).Connections = count
 	}
 
 	nodes := make([]MuxNode, 0, len(byNode))
 
 	for _, n := range byNode {
-		if n.Tcp == 0 && n.Udp == 0 && n.Requests == 0 {
+		if n.Tcp == 0 && n.Udp == 0 && n.Connections == 0 {
 			continue
 		}
 
 		sortIPs(n.IPs)
 		sortIPs(n.UdpIPs)
 
-		n.IPs = capIPs(n.IPs)
-		n.UdpIPs = capIPs(n.UdpIPs)
+		n.IPs, n.IPsOmitted = capIPs(n.IPs)
+		n.UdpIPs, n.UdpIPsOmitted = capIPs(n.UdpIPs)
 
 		nodes = append(nodes, *n)
 	}
@@ -135,18 +138,20 @@ func buildMux(requests map[string]int) []MuxNode {
 			return a.Udp > b.Udp
 		}
 
-		if a.Requests != b.Requests {
-			return a.Requests > b.Requests
+		if a.Connections != b.Connections {
+			return a.Connections > b.Connections
 		}
 
 		return a.Node < b.Node
 	})
 
+	omitted := 0
 	if len(nodes) > maxMuxNodes {
+		omitted = len(nodes) - maxMuxNodes
 		nodes = nodes[:maxMuxNodes]
 	}
 
-	return nodes
+	return nodes, omitted
 }
 
 // countryOf is the country of an address when the app already knows it; sockets without a peer have none.
@@ -168,10 +173,11 @@ func sortIPs(list []MuxIP) {
 	})
 }
 
-func capIPs(list []MuxIP) []MuxIP {
+func capIPs(list []MuxIP) ([]MuxIP, int) {
 	if len(list) > maxMuxIPs {
-		return list[:maxMuxIPs]
+		omitted := len(list) - maxMuxIPs
+		return list[:maxMuxIPs], omitted
 	}
 
-	return list
+	return list, 0
 }

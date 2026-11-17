@@ -53,9 +53,11 @@ class MuxActivity : BaseActivity<MuxDesign>() {
     // what the page shows now; an unchanged answer is not parsed or drawn again
     private var shownRunning: Boolean? = null
     private var shownRaw: String? = null
+    private var shownError: String? = null
 
     private suspend fun MuxDesign.refresh() {
         val running = clashRunning
+        var error: String? = null
 
         val raw = if (running) {
             try {
@@ -63,25 +65,28 @@ class MuxActivity : BaseActivity<MuxDesign>() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                null // keeps showing "no connections" until the next refresh works
+                error = e.message ?: e.javaClass.simpleName
+                null
             }
         } else {
             null
         }
 
-        if (running == shownRunning && raw == shownRaw) return
-
-        shownRunning = running
-        shownRaw = raw
-
         val snapshot = raw?.let {
             try {
                 MuxSnapshot.parse(it)
             } catch (e: Exception) {
+                error = e.message ?: e.javaClass.simpleName
                 null
             }
         }
 
-        patch(snapshot, running)
+        if (running == shownRunning && raw == shownRaw && error == shownError) return
+
+        shownRunning = running
+        shownRaw = raw
+        shownError = error
+
+        patch(snapshot, running, error)
     }
 }

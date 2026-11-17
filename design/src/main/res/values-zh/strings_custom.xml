@@ -81,12 +81,19 @@
     <string name="backup_result_settings">已恢复应用设置</string>
     <string name="backup_result_override">已恢复覆盖设置</string>
     <string name="backup_result_hint">覆盖设置和服务相关设置需要重新加载配置或重启服务后生效。</string>
-    <string name="connections_mux_node">%1$s · 底层 %2$d 条 / 请求 %3$d 个</string>
-    <string name="connections_mux_node_udp">%1$s · 底层 %2$d 条 / 请求 %3$d 个 · UDP %4$d 个</string>
+    <string name="connections_mux_node">%1$s · 底层 %2$d 条 / 上层连接 %3$d 个</string>
+    <string name="connections_mux_node_udp">%1$s · 底层 %2$d 条 / 上层连接 %3$d 个 · UDP %4$d 个</string>
     <string name="connections_mux_ip">%1$s · %2$d 条</string>
     <string name="connections_mux_other">其他（不属于任何节点）</string>
     <string name="mux_title">底层连接</string>
-    <string name="mux_hint">底层 = 内核真正为该节点开着的连接数（多路复用生效时应远少于请求数）；请求 = 经该节点的连接数。</string>
+    <string name="mux_help_button">说明</string>
+    <string name="mux_help">1. 链式节点（dialer-proxy）的里层节点显示“底层 0 条”是正常的：物理 socket 统计在第一跳节点上。\n\n2. QUIC 类节点（hysteria、tuic）整个会话只用一个 UDP socket，不能用底层数判断多路复用是否生效。\n\n3. 关闭网站后，数字不会马上归零；空闲的多路复用连接会保留一段时间。\n\n4. “底层”统计内核为该节点打开的所有 socket，包括节点健康检查、延迟测试、经节点进行的 DNS 查询，以及本 App 测试其他 IP 时临时建立的连接。这些连接不在连接列表里，因此不算作上层连接。空闲时也可能出现“底层 3 条 / 上层连接 0 个”。\n\n5. 没有正常关闭、而是被丢弃的 socket，要等 Go 垃圾回收触发清理后才会从计数中减掉，数字可能暂时偏高。\n\n6. 打开 smux 的 statistic: true 时，承载连接本身也会计入上层连接数。\n\n7. 国旗只在 App 已经知道该 IP 的国家/地区（测过或被探测过）时显示，不会为了显示国旗额外查询。</string>
+    <string name="mux_nodes_omitted">另有 %1$d 个节点没列出</string>
+    <string name="mux_ips_omitted">另有 %1$d 个地址没列出</string>
+    <string name="mux_udp_ips_omitted">另有 %1$d 个 UDP 地址没列出</string>
+    <string name="mux_error">读取失败：%1$s</string>
+    <string name="connections_mux_since">自 %1$s</string>
+    <string name="mux_hint">底层 = 内核真正为该节点开着的 TCP socket 数；上层连接 = 经该节点的连接数，开了多路复用时底层应远少于上层连接。</string>
     <string name="errors_title">错误与诊断</string>
     <string name="errors_hint">数据都是已有的：内核日志里的失败记录、节点测速结果、软件崩溃记录。内核重启后连接失败记录会重新计数。</string>
     <string name="errors_clear">清除记录</string>

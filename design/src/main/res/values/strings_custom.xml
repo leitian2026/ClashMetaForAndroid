@@ -81,12 +81,19 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="backup_result_settings">App settings restored</string>
     <string name="backup_result_override">Override settings restored</string>
     <string name="backup_result_hint">Override and service settings take effect after reloading the profile or restarting the service.</string>
-    <string name="connections_mux_node">%1$s · underlying %2$d / requests %3$d</string>
-    <string name="connections_mux_node_udp">%1$s · underlying %2$d / requests %3$d · UDP %4$d</string>
+    <string name="connections_mux_node">%1$s · underlying %2$d / upper connections %3$d</string>
+    <string name="connections_mux_node_udp">%1$s · underlying %2$d / upper connections %3$d · UDP %4$d</string>
     <string name="connections_mux_ip">%1$s · %2$d</string>
     <string name="connections_mux_other">Other (no node)</string>
     <string name="mux_title">Underlying connections</string>
-    <string name="mux_hint">Underlying = connections the core really has open to the node (far fewer than requests when multiplexing works). Requests = connections carried by the node.</string>
+    <string name="mux_help_button">Info</string>
+    <string name="mux_help">1. For chained nodes (dialer-proxy), an inner node showing “underlying 0” is normal: the physical socket is counted on the first hop.\n\n2. QUIC-based nodes (hysteria, tuic) use a single UDP socket for the whole session. The underlying count cannot tell you whether multiplexing is working.\n\n3. After you close a website, the count does not drop to zero immediately. Idle multiplexed connections are kept open for a while.\n\n4. “Underlying” counts every socket the core opens for the node, including node health checks, latency tests, DNS queries through the node, and temporary connections created when this app tests other IPs. These are not in the connections list, so they are not upper connections. While idle, you may therefore see “underlying 3 / upper connections 0”.\n\n5. A socket discarded without being closed normally is removed from the count only after Go garbage collection runs its cleanup finalizer, so the count can stay temporarily high.\n\n6. With smux statistic: true, the carrier connection itself is also counted as an upper connection.\n\n7. A country flag is shown only when the app already knows the IP’s country/region (from a test or probe). No extra lookup is made just to show a flag.</string>
+    <string name="mux_nodes_omitted">%1$d more nodes not listed</string>
+    <string name="mux_ips_omitted">%1$d more addresses not listed</string>
+    <string name="mux_udp_ips_omitted">%1$d more UDP addresses not listed</string>
+    <string name="mux_error">Read failed: %1$s</string>
+    <string name="connections_mux_since">since %1$s</string>
+    <string name="mux_hint">Underlying = TCP sockets the core actually keeps open to the node. Upper connections = connections carried by the node; with multiplexing, underlying should be far fewer.</string>
     <string name="errors_title">Errors &amp; diagnostics</string>
     <string name="errors_hint">All of this data already exists: failures from the core log, node speed-test results and the app\'s crash records. Connection failures start counting again when the core restarts.</string>
     <string name="errors_clear">Clear records</string>
