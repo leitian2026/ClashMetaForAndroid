@@ -33,7 +33,8 @@
     <string name="iptest_running">Testing… a random 1 to 3 seconds between two IPs; tap the button again to cancel</string>
     <string name="iptest_dialog_hint">Enter IPs or domains that are not in the config, one per line (commas and spaces work too), at most 20. Direct tests IP addresses only and uses the domain of the field above as SNI and Host; Through node puts the IP or domain in place of the chosen node server (the core resolves a domain itself). Every IP is tried 10 times (up to 5 at once, each at most 3 seconds).</string>
     <string name="iptest_ports_label">Ports (Direct: an IP that works gets a handshake on each of these, separated by spaces or commas)</string>
-    <string name="iptest_url_label">Download test address (downloaded only when you tap Speed on a row; goes straight to the IP, SNI and Host from the address)</string>
+    <string name="iptest_url_direct_label">Direct speed-test URL (must be hosted on Cloudflare)</string>
+    <string name="iptest_url_node_label">Through-node speed-test URL (must not be hosted on Cloudflare)</string>
     <string name="iptest_col_ip">IP</string>
     <string name="iptest_col_colo">Data centre (city)</string>
     <string name="iptest_col_asn">Operator</string>
