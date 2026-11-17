@@ -466,7 +466,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.TARGET -> 84
                 Key.TCOLO -> 84
                 Key.TEST -> 52
-                Key.SPEED -> 112
+                Key.SPEED -> 76
             },
         )
     }
@@ -529,29 +529,18 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         return coloHead(code) + coloTail(code)
     }
 
-    // CUSTOM.md #96: show the failure and its explanation in the Speed table cell, not the live log.
+    // CUSTOM.md #97: keep the table compact; show only an HTTP status code under the failure label.
     private fun speedText(r: IpTestRow): String {
         return when {
             speedIp == r.ip -> "…"
             r.speed > 0 -> context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", r.speed))
-            r.speedErr.isNotEmpty() -> context.getString(R.string.iptest_speed_failed) +
-                "\n" + r.speedErr + "\n（" + speedErrorExplanation(r.speedErr) + "）"
+            r.speedErr.isNotEmpty() -> {
+                val status = Regex("\\bHTTP(?:/\\d(?:\\.\\d)?)?\\s+(\\d{3})\\b", RegexOption.IGNORE_CASE)
+                    .find(r.speedErr)?.groupValues?.get(1)
+                context.getString(R.string.iptest_speed_failed) +
+                    if (status != null) "\nHTTP $status" else ""
+            }
             else -> "-"
-        }
-    }
-
-    private fun speedErrorExplanation(error: String): String {
-        val lower = error.lowercase()
-        return when {
-            Regex("^HTTP\\s+403\\b", RegexOption.IGNORE_CASE).containsMatchIn(error) ->
-                context.getString(R.string.iptest_http_403_note)
-            "timeout" in lower || "deadline exceeded" in lower -> ErrorsText.explain(context, "timeout")
-            "connection refused" in lower -> ErrorsText.explain(context, "refused")
-            "connection reset" in lower || "reset by peer" in lower -> ErrorsText.explain(context, "reset")
-            "unexpected eof" in lower || "unexpected end of file" in lower -> ErrorsText.explain(context, "eof")
-            "network is unreachable" in lower || "no route to host" in lower -> ErrorsText.explain(context, "network")
-            "tls" in lower || "certificate" in lower -> ErrorsText.explain(context, "tls")
-            else -> ErrorsText.explain(context, "other")
         }
     }
 
