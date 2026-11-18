@@ -458,13 +458,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
         content.addView(operatorActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val onlyReachable = CheckBox(context).apply {
-            setText(R.string.saved_ip_only_reachable)
-            isChecked = false
-            isEnabled = rows.isNotEmpty()
-        }
-        content.addView(onlyReachable)
-
+        // CUSTOM (CUSTOM.md #156 step 20): reachable-only saving is an immediate dialog action.
         // CUSTOM (CUSTOM.md #156 step 19): paste-only saving is an immediate action beside add-operator.
         val saveCountView = TextView(context).apply {
             textSize = 13f
@@ -476,10 +470,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             .setTitle(R.string.saved_ip_save_title)
             .setView(android.widget.ScrollView(context).apply { addView(content) })
             .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.saved_ip_only_reachable, null)
             .setPositiveButton(android.R.string.ok, null)
             .create()
         dialog.setOnShowListener {
             val positive = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            val onlyReachableButton = dialog.getButton(android.app.AlertDialog.BUTTON_NEUTRAL)
             onlyPastedButton.setOnClickListener {
                 val operatorId = selectedId
                 if (operatorId.isBlank()) return@setOnClickListener
@@ -511,13 +507,54 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                     Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }
+            onlyReachableButton.setOnClickListener {
+                val operatorId = selectedId
+                if (operatorId.isBlank()) return@setOnClickListener
+                val reachableRows = rows.filter { !it.isDomain && it.ip.isNotBlank() && it.ok }
+                if (reachableRows.isEmpty()) {
+                    Toast.makeText(context, R.string.saved_ip_paste_no_valid, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                try {
+                    val result = SavedIpStore.saveRows(
+                        context,
+                        operatorId,
+                        reachableRows,
+                        false,
+                        emptyList(),
+                        0,
+                        0,
+                    )
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.saved_ip_save_result,
+                            result.added,
+                            result.updated,
+                            result.repeatedPasted,
+                            result.ignoredPasted,
+                            result.skippedDomains,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    dialog.dismiss()
+                } catch (e: SavedIpLimitException) {
+                    Log.w("ConfigCheckDesign", "Reachable IP save rejected by the ${SavedIpStore.MAX_IP_COUNT}-entry limit", e)
+                    Toast.makeText(context, context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT), Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Log.e("ConfigCheckDesign", "Failed to save reachable IPs", e)
+                    Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                }
+            }
             refreshSaveAvailability = {
                 val eligibleRows = rows.filter { row ->
-                    !row.isDomain && row.ip.isNotBlank() && (!onlyReachable.isChecked || row.ok)
+                    !row.isDomain && row.ip.isNotBlank()
                 }
+                val reachableRows = eligibleRows.filter { it.ok }
                 val testAddresses = eligibleRows.mapTo(LinkedHashSet()) { it.ip.trim() }
                 val pasted = SavedIpParser.extract(pastedInput.text.toString())
                 onlyPastedButton.isEnabled = selectedId.isNotBlank() && pasted.addresses.isNotEmpty()
+                onlyReachableButton.isEnabled = selectedId.isNotBlank() && reachableRows.isNotEmpty()
                 val currentOperator = SavedIpStore.read(context).operators.firstOrNull { it.id == selectedId }
                 val existing = currentOperator?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
                 val newPastedCount = pasted.addresses.count { it !in testAddresses && it !in existing }
@@ -525,7 +562,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 saveCountView.text = context.getString(R.string.saved_ip_save_count, eligibleCount)
                 positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
             }
-            onlyReachable.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
             pastedInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -547,7 +583,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         context,
                         operatorId,
                         rows,
-                        onlyReachable.isChecked,
+                        false,
                         pasted.addresses,
                         pasted.duplicates,
                         pasted.ignored,
