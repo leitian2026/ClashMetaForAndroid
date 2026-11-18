@@ -166,8 +166,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     /** CUSTOM.md #43: the dialog of "test other IPs"; null when cancelled. */
-    suspend fun askIpTest(nodes: List<String>, readConfig: (suspend () -> IpTestReport?)? = null): IpTestChoice? {
-        return IpTestDialog.ask(context, prefs, nodes, readConfig) // CUSTOM.md #69: readConfig = "read the IPs of the config"
+    suspend fun askIpTest(
+        nodes: List<String>,
+        readConfig: (suspend () -> IpTestReport?)? = null,
+        presetIps: String? = null,
+    ): IpTestChoice? {
+        return IpTestDialog.ask(context, prefs, nodes, readConfig, presetIps) // CUSTOM.md #69, #156
     }
 
     // CUSTOM (CUSTOM.md #52): the IP test page is a table (IpTestView) with the live status under it. The activity
@@ -308,7 +312,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     // CUSTOM (CUSTOM.md #156 step 2): choose an operator and merge the completed rows into its saved-IP list.
-    fun showSaveIpBatch(rows: List<IpTestRow>) {
+    fun showSaveIpBatch(rows: List<IpTestRow>, preferredOperatorId: String? = null) {
         if (rows.isEmpty()) return
 
         val snapshot = SavedIpStore.read(context)
@@ -328,7 +332,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         )
 
         val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
-        var selectedId = snapshot.lastOperatorId
+        var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } } ?: snapshot.lastOperatorId
         val ids = HashMap<Int, String>()
         for (operator in snapshot.operators) {
             val button = RadioButton(context).apply {
