@@ -475,11 +475,12 @@ class SavedIpDesign(
                 val operator = current.operators[index]
                 val existing = operator.ips.mapTo(HashSet()) { it.address }
                 val entries = operator.ips.toMutableList()
+                val addedAt = System.currentTimeMillis()
                 var added = 0
                 var repeated = extraction.duplicates
                 for (address in extraction.addresses) {
                     if (existing.add(address)) {
-                        entries += SavedIpEntry(address, SavedIpStatus.UNTESTED)
+                        entries += SavedIpEntry(address, SavedIpStatus.UNTESTED, addedAt = addedAt)
                         added++
                     } else {
                         repeated++
