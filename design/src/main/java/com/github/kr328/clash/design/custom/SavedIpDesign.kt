@@ -349,13 +349,20 @@ class SavedIpDesign(
         if (age >= 15L * 24L * 60L * 60L * 1000L) {
             val tested = Calendar.getInstance().apply { timeInMillis = at }
             val current = Calendar.getInstance().apply { timeInMillis = now }
-            val pattern = if (tested.get(Calendar.YEAR) == current.get(Calendar.YEAR)) {
+            val sameYear = tested.get(Calendar.YEAR) == current.get(Calendar.YEAR)
+            val pattern = if (sameYear) {
                 context.getString(R.string.saved_ip_time_date_same_year)
             } else {
                 context.getString(R.string.saved_ip_time_date_other_year)
             }
+            val compactPattern = if (sameYear) {
+                context.getString(R.string.saved_ip_time_date_same_year_compact)
+            } else {
+                context.getString(R.string.saved_ip_time_date_other_year_compact)
+            }
             val date = SimpleDateFormat(pattern, Locale.getDefault()).format(Date(at))
-            return SavedIpTimeLabel(date, date, true)
+            val compactDate = SimpleDateFormat(compactPattern, Locale.getDefault()).format(Date(at))
+            return SavedIpTimeLabel(date, compactDate, true)
         }
         return SavedIpTimeLabel(
             AgeText.reachAgo(context, at, now),
