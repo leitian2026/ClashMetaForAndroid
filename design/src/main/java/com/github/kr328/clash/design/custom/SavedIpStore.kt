@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import com.github.kr328.clash.core.model.IpTestRow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -32,6 +33,14 @@ data class SavedIpOperator(
     val id: String,
     val name: String = "",
     val ips: List<SavedIpEntry> = emptyList(),
+)
+
+/** Counts returned after saving one completed test batch. */
+data class SavedIpSaveResult(
+    val added: Int,
+    val updated: Int,
+    val skippedDomains: Int,
+    val skippedOther: Int,
 )
 
 /** Persisted state for the saved-IP feature. */
@@ -116,6 +125,68 @@ object SavedIpStore {
             .edit()
             .putString(KEY_DATA, value)
             .apply()
+    }
+
+    /**
+     * Merge tested rows into one operator. Existing addresses keep their position and only have their status
+     * refreshed; new addresses are appended. Domain rows are never stored.
+     */
+    fun saveRows(
+        context: Context,
+        operatorId: String,
+        rows: List<IpTestRow>,
+        onlyReachable: Boolean,
+    ): SavedIpSaveResult {
+        val snapshot = read(context)
+        val operatorIndex = snapshot.operators.indexOfFirst { it.id == operatorId }
+        require(operatorIndex >= 0) { "Unknown saved-IP operator: $operatorId" }
+
+        val operator = snapshot.operators[operatorIndex]
+        val entries = operator.ips.toMutableList()
+        val positions = entries.mapIndexed { index, entry -> entry.address to index }.toMap()
+        var added = 0
+        var updated = 0
+        var skippedDomains = 0
+        var skippedOther = 0
+
+        for (row in rows) {
+            if (row.isDomain) {
+                skippedDomains++
+                continue
+            }
+            if (onlyReachable && !row.ok) {
+                skippedOther++
+                continue
+            }
+
+            val address = row.ip.trim()
+            if (address.isEmpty()) {
+                skippedOther++
+                continue
+            }
+
+            val status = if (row.ok) SavedIpStatus.REACHABLE else SavedIpStatus.UNREACHABLE
+            val existing = positions[address]
+            if (existing != null) {
+                entries[existing] = entries[existing].copy(status = status)
+                updated++
+            } else {
+                entries += SavedIpEntry(address, status)
+                added++
+            }
+        }
+
+        val operators = snapshot.operators.toMutableList()
+        operators[operatorIndex] = operator.copy(ips = entries)
+        val resultSnapshot = snapshot.copy(operators = operators, lastOperatorId = operatorId)
+        val total = resultSnapshot.operators.sumOf { it.ips.size }
+        require(total <= MAX_IP_COUNT) { "Saved IP limit exceeded: $total/$MAX_IP_COUNT" }
+
+        if (added > 0 || updated > 0 || snapshot.lastOperatorId != operatorId) {
+            write(context, resultSnapshot)
+        }
+
+        return SavedIpSaveResult(added, updated, skippedDomains, skippedOther)
     }
 
     private fun normalize(snapshot: SavedIpSnapshot): SavedIpSnapshot {
