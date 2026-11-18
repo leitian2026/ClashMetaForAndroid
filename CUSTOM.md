@@ -604,7 +604,7 @@
 **依赖的上游接口：** 同 #17（`IProfileManager` 的 `create` / `patch` / `commit` / `queryAll` / `queryActive` / `queryByUUID` / `setActive`，另外 `delete`；`pendingDir` / `importedDir`；`ServiceStore`）。
 
 ## 33. 首页"网络状况"卡（r39，**r42 取消**）
-r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和首页代理卡片 / 通知重复，第二行（最近切换）是连接页的节点 IP 使用记录（#10）的摘要，只有"节点延迟"是新的，而延迟在代理页测速里本来就有。**现在的状态：** 首页没有这张卡；`MainDesign.setCustomCards(running, state)` 和 `refreshCustom(running)` 回到两个参数；`design_main.xml` 没有 `customNet` 和那张卡；`custom_net_*` 文案删掉。`MainCustomNet.kt`、`MainCustomNetLoader.kt` 两个文件已没有人用，r42 包里把它们换成了只有一行 `package` 的空文件，**可以直接删除**（不删也不影响构建）。
+r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和首页代理卡片 / 通知重复，第二行（最近切换）是连接页的节点 IP 使用记录（#10）的摘要，只有"节点延迟"是新的，而延迟在代理页测速里本来就有。**现在的状态：** 首页没有这张卡；`MainDesign.setCustomCards(running, state)` 和 `refreshCustom(running)` 回到两个参数；`design_main.xml` 没有 `customNet` 和那张卡；`custom_net_*` 文案删掉。`MainCustomNet.kt`、`MainCustomNetLoader.kt` 两个文件已确认没有引用，现已删除。
 
 ## 34. 推送 custom 分支时的快速检查（r39）
 **效果：** `.github/workflows/check-custom.yaml`（新文件）：往 `custom` 分支推送（rebase 到上游 main 之后、或任何改动）时自动跑，也可以手动启动；**不做 Gradle 构建**，大约一分钟，构建仍然只能手动（#2）。检查两件事：① `bash scripts/check-custom.sh`（#19，有 `origin/main` 时用 `UPSTREAM_REF=origin/main`，没有就用宽松检查）：挂钩丢了、新挂钩没登记会失败；② 只检出内核子模块（`--depth 1`，带重试），按顺序对 `patches/mihomo/*.patch` 先 `--dry-run` 再真打：内核升级后补丁对不上会失败，不用等到构建失败才发现。
@@ -1681,3 +1681,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 改动文件：reach.go、tunnel.go、TunnelState.kt、MainCustomCards.kt、AgeText.kt、design 中英文 strings_custom.xml、MainCustomRefresh.kt 和本登记文件。
 - 源码依据：mihomo 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8：component/dialer/dialer.go 中 DialContext / parallelDialContext / serialDialContext / dns resolve failed 包装；adapter/outbound/base.go 中 ProxyAdapter.DialContext 的 (C.Conn, error) 签名；本仓库 ipdelay.go 的 requestVia 直接返回 dial 与 HTTP 请求错误。
 - 验证：静态核对错误分类、JSON 字段、时间单位、刷新间隔和 ConfigVerified 条件；未运行 Go 测试、Android 编译或真机测试。
+
+
+## 148. 删除已废弃的空网络状态文件（补充五 48）
+- 确认：两个文件只有 package 声明和注释，没有类或函数；代码搜索未发现 MainCustomNet / MainCustomNetLoader 引用，scripts/check-custom.sh 也没有引用。
+- 删除：design/.../custom/MainCustomNet.kt、app/.../custom/MainCustomNetLoader.kt；同步将 #33 的状态改为“已删除”。
+- 改动文件：删除上述两个空文件和本登记文件。
+- 验证：检查两文件内容、代码搜索结果、检查脚本和 CUSTOM.md 文件总表；未运行 Android 编译。
