@@ -607,10 +607,51 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                     val night = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                         android.content.res.Configuration.UI_MODE_NIGHT_YES
                     android.text.SpannableStringBuilder(painted).apply {
+                        val density = resources.displayMetrics.density
+                        val horizontalPadding = 5f * density
+                        val verticalPadding = 2f * density
+                        val badgeColor = android.graphics.Color.parseColor(if (night) "#388E3C" else "#2E9D50")
                         setSpan(
-                            android.text.style.ForegroundColorSpan(
-                                android.graphics.Color.parseColor(if (night) "#66BB6A" else "#2E9D50")
-                            ),
+                            object : android.text.style.ReplacementSpan() {
+                                override fun getSize(
+                                    paint: android.graphics.Paint,
+                                    text: CharSequence,
+                                    start: Int,
+                                    end: Int,
+                                    fm: android.graphics.Paint.FontMetricsInt?,
+                                ): Int {
+                                    return (paint.measureText(text, start, end) + horizontalPadding * 2).toInt()
+                                }
+
+                                override fun draw(
+                                    canvas: android.graphics.Canvas,
+                                    text: CharSequence,
+                                    start: Int,
+                                    end: Int,
+                                    x: Float,
+                                    top: Int,
+                                    y: Int,
+                                    bottom: Int,
+                                    paint: android.graphics.Paint,
+                                ) {
+                                    val width = paint.measureText(text, start, end)
+                                    val metrics = paint.fontMetrics
+                                    val rect = android.graphics.RectF(
+                                        x,
+                                        y + metrics.ascent - verticalPadding,
+                                        x + width + horizontalPadding * 2,
+                                        y + metrics.descent + verticalPadding,
+                                    )
+                                    val background = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                                        color = badgeColor
+                                    }
+                                    canvas.drawRoundRect(rect, 4f * density, 4f * density, background)
+                                    val originalColor = paint.color
+                                    paint.color = android.graphics.Color.WHITE
+                                    canvas.drawText(text, start, end, x + horizontalPadding, y, paint)
+                                    paint.color = originalColor
+                                }
+                            },
                             range.first,
                             range.last + 1,
                             android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
