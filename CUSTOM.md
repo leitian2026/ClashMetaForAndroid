@@ -1830,3 +1830,4 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围与功耗：** 只调整按钮外观、布局和现有结果状态驱动的可见性 / 可点击状态；不改保存数据格式、运营商选择、保存流程或 IP 测试行为。没有定时器、轮询、动画或新增联网请求。
 - **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt、design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt、design/src/main/res/layout/design_config_check.xml 和本登记文件。
 - **验证：** 静态核对纯文字按钮、颜色来源、筛选选中样式、按钮间距与点击高度、旧按钮移除、标题栏控件顺序、结果行驱动的显示 / 禁用状态、视图切换隐藏及恢复结果显示规则；未运行编译和真机测试。
+- **构建修正（r178 后续）：** Build Debug 在 `design:compileAlphaReleaseKotlin` 阶段报 `IpTestView.kt:747` 的 `Unresolved reference: MaterialButton`。原因是第 2/3 次提交删除了 `IpTestView.kt` 的 MaterialButton import，但该文件第 747 行仍有“下载测速 / 取消”描边按钮；它属于配置检查结果表，不是本步骤要改成纯文字的“已保存 IP”页按钮。已恢复 `import com.google.android.material.button.MaterialButton`，不改变该测速按钮的外观和行为。
