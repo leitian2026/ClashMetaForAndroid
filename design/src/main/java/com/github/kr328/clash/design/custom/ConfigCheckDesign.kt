@@ -235,6 +235,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             ipView?.let { view ->
                 view.setColos(saved.report.colos, saved.report.coloCountries)
                 view.setRows(saved.report.rows)
+                view.setSaveAvailable(saved.report.rows.isNotEmpty()) // CUSTOM.md #156 step 2: restore the save action
                 view.setProgress(saved.total, saved.tested)
                 view.setLogs(saved.logs)
                 shown = view.plain()
@@ -278,6 +279,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
 
         view.setInfo(head, sub, warnings)
+        view.setSaveAvailable(false) // CUSTOM.md #156 step 2: a new round must finish before it can be saved
         ipView = view
 
         binding.checkIpContainer.removeAllViews()
@@ -374,8 +376,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT),
                         Toast.LENGTH_LONG,
                     ).show()
-                } catch (_: Exception) {
-                    Toast.makeText(context, R.string.check_error_generic, Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }
             .show()
