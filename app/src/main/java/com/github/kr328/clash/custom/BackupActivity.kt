@@ -57,15 +57,33 @@ class BackupActivity : BaseActivity<BackupDesign>() {
     }
 
     private suspend fun exportBackup(design: BackupDesign) {
+        val passwords = design.form(
+            getString(DesignR.string.local_backup_password_title),
+            getString(DesignR.string.local_backup_password_message),
+            listOf(
+                BackupDesign.Field(getString(DesignR.string.local_backup_password), ""),
+                BackupDesign.Field(getString(DesignR.string.local_backup_password_confirm), ""),
+            ),
+        ) ?: return
+
+        val password = passwords[0]
+        if (password.length < 8 || password != passwords[1]) {
+            design.message(
+                getString(DesignR.string.backup_failed_title),
+                getString(if (password.length < 8) DesignR.string.local_backup_password_short else DesignR.string.local_backup_password_mismatch),
+            )
+            return
+        }
+
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
         val uri = startActivityForResult(
-            ActivityResultContracts.CreateDocument("application/zip"),
-            "ClashMeta-backup-$stamp.zip",
+            ActivityResultContracts.CreateDocument("application/octet-stream"),
+            "ClashMeta-backup-$stamp.enc",
         ) ?: return
 
         design.setStatus(getString(DesignR.string.backup_working))
 
-        val count = BackupManager.export(this, uri)
+        val count = BackupManager.export(this, uri, password)
 
         design.message(
             getString(DesignR.string.backup_export_done_title),
@@ -107,7 +125,28 @@ class BackupActivity : BaseActivity<BackupDesign>() {
 
         design.setStatus(getString(DesignR.string.backup_working))
 
-        val backup = BackupManager.open(this, uri)
+        val source = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw java.io.IOException("cannot open $uri")
+        val zip = if (BackupCrypto.isEncrypted(source)) {
+            val values = design.form(
+                getString(DesignR.string.local_backup_unlock_title),
+                getString(DesignR.string.local_backup_unlock_message),
+                listOf(BackupDesign.Field(getString(DesignR.string.local_backup_password), "")),
+            ) ?: return
+            try {
+                BackupCrypto.decrypt(source, values[0])
+            } catch (e: BackupCrypto.WrongPasswordException) {
+                design.message(
+                    getString(DesignR.string.backup_failed_title),
+                    getString(DesignR.string.local_backup_wrong_password),
+                )
+                return
+            }
+        } else {
+            // Compatibility: older local backups were plain ZIP files.
+            source
+        }
+        val backup = BackupManager.open(this, zip)
 
         val date = if (backup.createdAt > 0) {
             SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(backup.createdAt))

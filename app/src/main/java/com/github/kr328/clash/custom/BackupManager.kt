@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.github.kr328.clash.design.custom.GeoFile
 import com.github.kr328.clash.design.custom.GeoSiteDownloader
+import com.github.kr328.clash.design.custom.SavedIpStore
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.model.Profile
@@ -64,12 +65,18 @@ object BackupManager {
 
     // ---- export -------------------------------------------------------------------------------
 
-    /** Writes the backup into [uri]; returns the number of subscriptions it holds. */
-    suspend fun export(context: Context, uri: Uri): Int {
-        return write(context, sync = false) {
-            context.contentResolver.openOutputStream(uri, "w")
+    /** Writes an AES-GCM encrypted local backup into [uri]. */
+    suspend fun export(context: Context, uri: Uri, password: String): Int {
+        val zip = ByteArrayOutputStream()
+        val count = write(context, sync = false) { zip }
+        val encrypted = withContext(Dispatchers.Default) {
+            BackupCrypto.encrypt(zip.toByteArray(), password)
+        }
+        withContext(Dispatchers.IO) {
+            context.contentResolver.openOutputStream(uri, "w")?.use { it.write(encrypted) }
                 ?: throw BackupException("cannot open $uri")
         }
+        return count
     }
 
     /**
@@ -131,6 +138,8 @@ object BackupManager {
                     }
                 })
                 put("override", readOverride(context) ?: JSONObject.NULL)
+                // CUSTOM.md #156 step 25: saved IP data is inside the ZIP and encrypted for local and cloud exports.
+                put("savedIps", JSONObject(SavedIpStore.encodeBackup(context)))
             }
 
             val output = open()
@@ -243,6 +252,10 @@ object BackupManager {
         applySettings: Boolean = true,
         replaceFiles: Boolean = replace,
     ): RestoreResult {
+        // Validate optional saved-IP data before changing subscriptions or settings. Older backups omit it.
+        val savedIps = backup.manifest.optJSONObject("savedIps")?.toString()
+        savedIps?.let { SavedIpStore.validateBackup(it) }
+
         val settings = withContext(Dispatchers.IO) {
             applySettings && restoreSettings(context, backup.manifest)
         }
@@ -378,6 +391,9 @@ object BackupManager {
                 }
             }
         }
+
+        // Saved IPs are user data, so restore them even when cloud restore keeps device settings.
+        savedIps?.let { SavedIpStore.restoreBackup(context, it) }
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 

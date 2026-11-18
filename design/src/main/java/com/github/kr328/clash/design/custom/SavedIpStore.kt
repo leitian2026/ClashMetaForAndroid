@@ -133,6 +133,33 @@ object SavedIpStore {
         return normalize(decoded)
     }
 
+    /** Strictly serialize the current snapshot for inclusion in an encrypted backup. */
+    fun encodeBackup(context: Context): String {
+        val raw = context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getString(KEY_DATA, null)
+        val snapshot = if (raw.isNullOrBlank()) {
+            emptySnapshot()
+        } else {
+            json.decodeFromString(SavedIpSnapshot.serializer(), raw)
+        }
+        return json.encodeToString(SavedIpSnapshot.serializer(), normalize(snapshot))
+    }
+
+    /** Validate a backup snapshot without changing local data. */
+    fun validateBackup(raw: String) {
+        val snapshot = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
+        val normalized = normalize(snapshot)
+        val total = normalized.operators.sumOf { it.ips.size }
+        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
+    }
+
+    /** Restore a previously validated snapshot through the normal storage path. */
+    fun restoreBackup(context: Context, raw: String) {
+        val snapshot = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
+        write(context, snapshot)
+    }
+
     /**
      * Persist a complete snapshot after an explicit user action.
      *
