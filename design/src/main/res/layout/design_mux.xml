@@ -94,10 +94,9 @@
                 android:clipToPadding="false"
                 android:paddingBottom="@{self.surface.insets.bottom}">
 
-                <com.github.kr328.clash.design.custom.MuxColumnLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
                     android:orientation="vertical">
 
                     <!-- the one-line messages (not running, empty, read failed) -->
@@ -117,7 +116,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical" />
-                </com.github.kr328.clash.design.custom.MuxColumnLayout>
+                </LinearLayout>
             </androidx.core.widget.NestedScrollView>
         </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
