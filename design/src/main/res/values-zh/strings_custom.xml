@@ -408,4 +408,30 @@
     <string name="saved_ip_operator_mobile">移动</string>
     <string name="saved_ip_save_result">新增 %1$d，更新 %2$d，跳过域名 %3$d。</string>
     <string name="saved_ip_save_limit">已保存 IP 达到上限（最多 %1$d 个），请先删除部分 IP 再保存。</string>
+
+    <!-- CUSTOM #156 第 3 步：已保存 IP 页面和运营商管理 -->
+    <string name="saved_ip_entry">已保存 IP</string>
+    <string name="saved_ip_title">已保存的 IP</string>
+    <string name="saved_ip_add_operator">新增运营商</string>
+    <string name="saved_ip_paste">粘贴 IP</string>
+    <string name="saved_ip_empty">还没有保存 IP。</string>
+    <string name="saved_ip_no_ips">这个运营商还没有 IP。</string>
+    <string name="saved_ip_add_operator_title">新增运营商</string>
+    <string name="saved_ip_edit_operator_title">修改运营商名称</string>
+    <string name="saved_ip_operator_name_hint">运营商名称（最多 12 个字）</string>
+    <string name="saved_ip_operator_name_empty">请输入运营商名称。</string>
+    <string name="saved_ip_operator_name_too_long">名称不能超过 12 个字。</string>
+    <string name="saved_ip_operator_name_duplicate">这个运营商名称已经存在。</string>
+    <string name="saved_ip_operator_delete_title">删除运营商？</string>
+    <string name="saved_ip_operator_delete_message">删除这个运营商及其 %1$d 个已保存 IP？</string>
+    <string name="saved_ip_delete_ip_title">删除已保存的 IP？</string>
+    <string name="saved_ip_delete_ip_message">从这个运营商中删除 %1$s？</string>
+    <string name="saved_ip_paste_title">粘贴 IP 地址</string>
+    <string name="saved_ip_paste_hint">粘贴包含 IPv4 或 IPv6 地址的文本</string>
+    <string name="saved_ip_paste_result">新增 %1$d，重复 %2$d，忽略 %3$d。</string>
+    <string name="saved_ip_copied">已复制 IP</string>
+    <string name="saved_ip_rename">改名</string>
+    <string name="saved_ip_delete">删除</string>
+    <string name="saved_ip_add">添加</string>
+    <string name="saved_ip_paste_no_valid">没有找到有效的 IP 地址。</string>
 </resources>

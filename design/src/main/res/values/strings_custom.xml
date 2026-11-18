@@ -408,4 +408,30 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_operator_mobile">China Mobile</string>
     <string name="saved_ip_save_result">Added %1$d, updated %2$d, skipped domains %3$d.</string>
     <string name="saved_ip_save_limit">The saved-IP list is full (maximum %1$d). Remove some IPs before saving more.</string>
+
+    <!-- CUSTOM #156 step 3: saved-IP list page and operator management -->
+    <string name="saved_ip_entry">Saved IPs</string>
+    <string name="saved_ip_title">Saved IPs</string>
+    <string name="saved_ip_add_operator">Add operator</string>
+    <string name="saved_ip_paste">Paste IPs</string>
+    <string name="saved_ip_empty">No saved IPs yet.</string>
+    <string name="saved_ip_no_ips">No IPs in this operator.</string>
+    <string name="saved_ip_add_operator_title">Add operator</string>
+    <string name="saved_ip_edit_operator_title">Rename operator</string>
+    <string name="saved_ip_operator_name_hint">Operator name (up to 12 characters)</string>
+    <string name="saved_ip_operator_name_empty">Enter an operator name.</string>
+    <string name="saved_ip_operator_name_too_long">The name must be no more than 12 characters.</string>
+    <string name="saved_ip_operator_name_duplicate">An operator with this name already exists.</string>
+    <string name="saved_ip_operator_delete_title">Delete operator?</string>
+    <string name="saved_ip_operator_delete_message">Delete this operator and its %1$d saved IPs?</string>
+    <string name="saved_ip_delete_ip_title">Delete saved IP?</string>
+    <string name="saved_ip_delete_ip_message">Delete %1$s from this operator?</string>
+    <string name="saved_ip_paste_title">Paste IP addresses</string>
+    <string name="saved_ip_paste_hint">Paste text containing IPv4 or IPv6 addresses</string>
+    <string name="saved_ip_paste_result">Added %1$d, repeated %2$d, ignored %3$d.</string>
+    <string name="saved_ip_copied">IP copied</string>
+    <string name="saved_ip_rename">Rename</string>
+    <string name="saved_ip_delete">Delete</string>
+    <string name="saved_ip_add">Add</string>
+    <string name="saved_ip_paste_no_valid">No valid IP addresses were found.</string>
 </resources>
