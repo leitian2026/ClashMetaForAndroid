@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r185
+当前版本：2_11_36-r186
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1896,3 +1896,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
 - **CUSTOM 标记：** 所有改动处带 `CUSTOM.md #156 step 13`。
 - **验证：** 静态核对读写都已显式指定 `SavedIpSnapshot.serializer()`、不再引用 `decodeFromString` / `encodeToString` 扩展 import、三处保存出错提示已换成 `editor_save_failed`、新字符串中英文各一条；未运行 Kotlin 编译、Android 构建或真机测试。没有新增定时器、轮询或联网请求。
+
+
+### 第 14 步：已保存 IP 通断状态改为纯色圆点（r186）
+- **状态标记：** 每条已保存 IP 左侧的状态标记改为纯色圆点：通为绿色、不通为红色、没测过不显示；复用 `CheckMark.MARK_DOT_GOOD` / `MARK_DOT_BAD` 的既有颜色，不再显示圆内勾号或叉号。
+- **删除入口：** 每条 IP 右侧原有蓝色“×”仍是单条删除按钮，保留原样，不与状态圆点混用。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件；没有新增文件或修改上游文件总表。
+- **CUSTOM 标记：** 状态圆点实现标记为 `CUSTOM.md #156 step 14`。
+- **验证：** 静态核对三种状态映射、圆点使用既有绿 / 红色常量、右侧删除按钮与测试时间逻辑未改；未运行 Kotlin 编译、Android 构建或真机测试。没有新增定时器、轮询或联网请求。
