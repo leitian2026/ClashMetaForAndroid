@@ -64,6 +64,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             }
         }
         design.onSpeedCancel = { launch { cancelSpeed(design) } }
+        // CUSTOM.md #156 step 2: saving is local-only and is unavailable while another test or download runs.
+        design.onSaveIpBatch = {
+            if (job?.isActive != true && speedJob?.isActive != true && !ipTesting && !checkTesting) {
+                design.showSaveIpBatch(ipRows.toList())
+            }
+        }
 
         while (isActive) {
             select<Unit> {
@@ -439,7 +445,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         } finally {
             ipTesting = false
 
-            withContext(NonCancellable) { design.setIpRunning(false) }
+            withContext(NonCancellable) {
+                design.setIpRunning(false)
+                design.ipSaveAvailable(ipRows.isNotEmpty()) // CUSTOM.md #156 step 2: cancelled rounds may save completed rows
+            }
         }
     }
 
