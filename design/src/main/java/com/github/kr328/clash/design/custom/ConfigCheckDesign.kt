@@ -5,10 +5,17 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.text.method.LinkMovementMethod
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import android.widget.ArrayAdapter
+import android.widget.CheckBox
+import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.TextView
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.core.model.IpTestReport
+import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.core.model.DnsCheckReport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
@@ -168,6 +175,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // A tap on "测速" of a row (onSpeedTest) or on its "取消" (onSpeedCancel) goes to the activity.
     var onSpeedTest: ((String) -> Unit)? = null
     var onSpeedCancel: (() -> Unit)? = null
+    var onSaveIpBatch: (() -> Unit)? = null // CUSTOM.md #156 step 2
 
     private var ipView: IpTestView? = null
     private var ipSaved: IpTestRestore? = readIpTest()
@@ -259,6 +267,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
         view.onSpeedCancel = { onSpeedCancel?.invoke() }
+        view.onSaveBatch = { onSaveIpBatch?.invoke() } // CUSTOM.md #156 step 2
 
         view.onDetail = { title, text ->
             MaterialAlertDialogBuilder(context)
@@ -288,6 +297,92 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             persistIpTest()
             shown = ipView?.plain().orEmpty()
         }
+    }
+
+    // CUSTOM (CUSTOM.md #156 step 2): choose an operator and merge the completed rows into its saved-IP list.
+    fun showSaveIpBatch(rows: List<IpTestRow>) {
+        if (rows.isEmpty()) return
+
+        val snapshot = SavedIpStore.read(context)
+        val density = context.resources.displayMetrics.density
+        val pad = (20 * density + 0.5f).toInt()
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, 0, pad, 0)
+        }
+        content.addView(
+            TextView(context).apply {
+                setText(R.string.saved_ip_operator_label)
+                textSize = 13f
+                alpha = 0.75f
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+        )
+
+        val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
+        var selectedId = snapshot.lastOperatorId
+        val ids = HashMap<Int, String>()
+        for (operator in snapshot.operators) {
+            val button = RadioButton(context).apply {
+                id = View.generateViewId()
+                text = when (operator.id) {
+                    SavedIpStore.OPERATOR_TELECOM -> context.getString(R.string.saved_ip_operator_telecom)
+                    SavedIpStore.OPERATOR_UNICOM -> context.getString(R.string.saved_ip_operator_unicom)
+                    SavedIpStore.OPERATOR_MOBILE -> context.getString(R.string.saved_ip_operator_mobile)
+                    else -> operator.name.ifBlank { operator.id }
+                }
+            }
+            ids[button.id] = operator.id
+            group.addView(button)
+            if (operator.id == selectedId) group.check(button.id)
+        }
+        if (group.checkedRadioButtonId == -1 && group.childCount > 0) {
+            group.check(group.getChildAt(0).id)
+            selectedId = ids[group.checkedRadioButtonId].orEmpty()
+        }
+        group.setOnCheckedChangeListener { _, checked -> selectedId = ids[checked].orEmpty() }
+        content.addView(group)
+
+        val onlyReachable = CheckBox(context).apply {
+            setText(R.string.saved_ip_only_reachable)
+            isChecked = false
+        }
+        content.addView(onlyReachable)
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_save_title)
+            .setView(content)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val operatorId = selectedId
+                if (operatorId.isBlank()) return@setPositiveButton
+                try {
+                    val result = SavedIpStore.saveRows(context, operatorId, rows, onlyReachable.isChecked)
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.saved_ip_save_result,
+                            result.added,
+                            result.updated,
+                            result.skippedDomains,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } catch (_: IllegalArgumentException) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } catch (_: Exception) {
+                    Toast.makeText(context, R.string.check_error_generic, Toast.LENGTH_LONG).show()
+                }
+            }
+            .show()
+    }
+
+    suspend fun ipSaveAvailable(available: Boolean) {
+        withContext(Dispatchers.Main) { ipView?.setSaveAvailable(available) }
     }
 
     suspend fun ipInfo(head: String, sub: String, warnings: List<String>) {
