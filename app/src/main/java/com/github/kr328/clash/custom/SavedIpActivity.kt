@@ -15,8 +15,10 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
             onBack = { finish() },
             canRetest = canRetest,
             onRetest = { operatorId, addresses ->
+                // CUSTOM.md #156 step 25: reuse the existing config-check page instead of stacking test pages.
                 startActivity(
                     Intent(this, ConfigCheckActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         .putExtra(EXTRA_PRESET_IPS, addresses.joinToString("\n"))
                         .putExtra(EXTRA_OPERATOR_ID, operatorId),
                 )
