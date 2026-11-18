@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r169
+当前版本：2_11_36-r170
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -887,11 +887,13 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 
 ## 57. 全 App 的 ✓ 和 ✗ 上色：✓ 绿、✗ 红，最粗最深（r69）
 **效果：** 所有显示 ✓ / ✗（也包括 ✔ / ✘）的地方，✓ 一律绿色、✗ 一律红色，字重用最粗的（粗体再加一层"伪粗体"描边），颜色：白天 ✓ 深绿 `#005A0A`、✗ 深红 `#A50000`；深色主题下深色在黑底上看不见，改用最亮的 `#00E676` / `#FF5252`（r71 曾改成白天也用最亮，r72 按要求改回）。
-- **涉及的地方：** 首页代理卡片的"✓ 123 ms / ✗ 不通"（#37）；编辑页历史版本列表的"✓ 节点能连通 / ✗ 未通过检查"（#38 #56）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26）；测 IP 表格里不通的端口前的 ✗（#52）。
-- **怎么做：** 新文件 `design/.../custom/CheckMark.kt`：`paint(context, 文字)` 扫一遍文字，给每个 ✓ / ✗ 单独加一个字符样式（`CharacterStyle`：颜色、粗体、`isFakeBoldText`）；`apply(...)` 给正在拼的文字的一段加样式。文字本身不变，复制出来的纯文本不受影响。以后新加带 ✓ / ✗ 的地方，调用其中一个即可。
+- **涉及的地方：** 首页代理卡片副标题（#37，`LargeActionCard.subtext`）；编辑页历史版本列表（#38 #56，`EditorActivity.kt`）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26，`DnsCheckView.kt`）；测 IP 表格端口结果（#52，`IpTestView.kt`）。r170 另将配置工具里的历史版本选择列表接入同一套样式（`ConfigTools.kt`）。
+- **怎么做（r170）：** `CheckMark.kt` 的 `MarkSpan` 改为 `ReplacementSpan`，一次绘制勾叉、间距和同色实心圆点；勾叉仍为粗体 + `isFakeBoldText`。圆点直径为字号的 0.5 倍，勾叉 / 圆点及圆点 / 后文各留字号的 0.25 倍间距，圆点按字体 ascent / descent 垂直居中。`getSize()` 把圆点和间距计入宽度，因此 TextView 的换行、省略号和测量会使用真实宽度。底层文字不插入圆点字符，复制 / 导出 / 排序不变；`paint()` 和 `apply()` 的调用入口不变。
 - **首页卡片：** 文字是上游的 `LargeActionCard.subtext` 显示的（**r69 误挂在 `LargeActionLabel` 上，首页卡片没生效，r70 改正**），所以在它的 setter 里调了一次 `CheckMark.paint`（上游文件，已登记到总表）。
-**功耗：** 文字显示时扫一遍，没有定时器。
-**局限：** 没编译、没在手机上看过。
+**功耗：** 文字显示时扫描并绘制，没有定时器、轮询或动画。
+**宽度：** 首页副标题由 ReplacementSpan 的 `getSize()` 自然参与 TextView 单行省略；IP 测试表格的端口结果列最小宽度由 84dp 调为 100dp，为圆点留出空间。纯文本 `portsPlain` 不变。
+**配置工具历史列表：** `BackupDesign.pick` 原本就接收 `List<CharSequence>`，只需在 `ConfigTools.kt` 将列表项通过 `CheckMark.paint` 处理；没有修改弹窗组件的参数类型。
+**验证：** 静态核对 ReplacementSpan 绘制与宽度、四个原调用入口及新增的 ConfigTools 列表调用；未运行 Kotlin 编译、Android 构建或真机显示测试。
 
 ## 58. 历史版本载入后不弹对比页：增、改、删直接标在编辑页里（r73）
 **效果：** 编辑页"历史版本…"选一个版本后，只载入编辑框（和以前一样），**不再弹对比页**；这个版本和**正在用的配置**相比，哪些行不同，直接画在编辑框里：
@@ -1688,3 +1690,17 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 删除：design/.../custom/MainCustomNet.kt、app/.../custom/MainCustomNetLoader.kt；同步将 #33 的状态改为“已删除”。
 - 改动文件：删除上述两个空文件和本登记文件。
 - 验证：检查两文件内容、代码搜索结果、检查脚本和 CUSTOM.md 文件总表；未运行 Android 编译。
+
+
+## 149. 勾叉后绘制同色实心圆点（r170，补充六提交 1）
+- **绘制：** `CheckMark.kt` 将 `CharacterStyle` 替换为 `ReplacementSpan`，对 ✓ / ✗ / ✔ / ✘ 一次绘制原字符、间距和同色圆点；圆点直径约为字号的 0.5 倍，前后间距各约 0.25 倍字号并垂直居中。
+- **文字与宽度：** 不修改原始字符串，不插入圆点字符；`getSize()` 返回包含圆点和间距的宽度，现有 `paint()` / `apply()` 调用方式不变。
+- **涉及文件：** `design/.../custom/CheckMark.kt`；现有调用处为 `LargeActionCard.kt`、`EditorActivity.kt`、`DnsCheckView.kt`、`IpTestView.kt`，这些调用点无需改动。
+- **验证：** 静态核对四个现有调用入口；未运行 Kotlin 编译、Android 构建或真机显示测试。
+
+## 150. 配置历史勾叉接入及端口列宽适配（r170，补充六提交 2）
+- **配置历史：** `ConfigTools.kt` 的历史版本选择列表也通过 `CheckMark.paint` 绘制 ✓ / ✗。`BackupDesign.pick` 已接收 `List<CharSequence>`，无需修改弹窗组件参数类型。
+- **端口列：** `IpTestView.kt` 的端口结果列最小宽度从 84dp 增至 100dp，为 ReplacementSpan 增加的圆点和间距留出宽度；`portsPlain` 纯文本复制 / 导出保持原样。
+- **首页卡片：** `LargeActionCard.subtext` 由 TextView 绘制，ReplacementSpan 的 `getSize()` 已把新增宽度交给原有省略逻辑，无需另改卡片布局。
+- **改动文件：** `ConfigTools.kt`、`IpTestView.kt` 和本登记文件。
+- **验证：** 静态核对列表类型、端口列宽和纯文本导出路径；未运行 Kotlin 编译、Android 构建或真机测试。
