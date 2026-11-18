@@ -66,7 +66,14 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         // CUSTOM.md #52: a tap on "下载测速" / "取消" of a row of the IP test
         design.onSpeedTest = { ip ->
             if (job?.isActive != true && speedJob?.isActive != true) {
-                speedJob = launch { runSpeed(design, ip) }
+                speedJob = launch {
+                    design.setSaveBatchBusy(true)
+                    try {
+                        runSpeed(design, ip)
+                    } finally {
+                        design.setSaveBatchBusy(false)
+                    }
+                }
             }
         }
         design.onSpeedCancel = { launch { cancelSpeed(design) } }
@@ -97,10 +104,24 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 design.requests.onReceive {
                     when (it) {
                         ConfigCheckDesign.Request.Copy -> design.copyAll()
-                        ConfigCheckDesign.Request.Flush -> flush(design) // CUSTOM.md #26
+                        ConfigCheckDesign.Request.Flush -> {
+                            design.setSaveBatchBusy(true)
+                            try {
+                                flush(design)
+                            } finally {
+                                design.setSaveBatchBusy(false)
+                            }
+                        } // CUSTOM.md #26 #156 step 10
                         ConfigCheckDesign.Request.Effective -> {
                             // CUSTOM.md #30: ignored while a test is running (its button is the "cancel" one)
-                            if (job?.isActive != true) job = launch { runEffective(design) }
+                            if (job?.isActive != true) job = launch {
+                                design.setSaveBatchBusy(true)
+                                try {
+                                    runEffective(design)
+                                } finally {
+                                    design.setSaveBatchBusy(false)
+                                }
+                            }
 
                             Unit
                         }
@@ -116,7 +137,14 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                                 val preferredOperatorId = pendingSavedIpOperatorId
                                 pendingSavedIpPreset = null
                                 pendingSavedIpOperatorId = null
-                                job = launch { runIpTest(design, preset, preferredOperatorId) }
+                                job = launch {
+                                    design.setSaveBatchBusy(true)
+                                    try {
+                                        runIpTest(design, preset, preferredOperatorId)
+                                    } finally {
+                                        design.setSaveBatchBusy(false)
+                                    }
+                                }
                             }
 
                             Unit
@@ -127,9 +155,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                             if (running) {
                                 cancelRunning(design)
                             } else if (it == ConfigCheckDesign.Request.Dns) {
-                                job = launch { runDns(design) } // CUSTOM.md #25
+                                job = launch {
+                                    design.setSaveBatchBusy(true)
+                                    try {
+                                        runDns(design)
+                                    } finally {
+                                        design.setSaveBatchBusy(false)
+                                    }
+                                } // CUSTOM.md #25 #156 step 10
                             } else {
-                                job = launch { runCheck(design) }
+                                job = launch {
+                                    design.setSaveBatchBusy(true)
+                                    try {
+                                        runCheck(design)
+                                    } finally {
+                                        design.setSaveBatchBusy(false)
+                                    }
+                                }
                             }
 
                             Unit

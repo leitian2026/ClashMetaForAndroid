@@ -165,7 +165,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     suspend fun setIpRunning(running: Boolean) {
-        ipTestRunning = running
         setTaskRunning(if (running) RunningTask.IP else RunningTask.NONE)
         withContext(Dispatchers.Main) {
             ipView?.setBusy(running, null)
@@ -196,16 +195,23 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     private var ipView: IpTestView? = null
-    private var ipTestRunning = false
+    private var saveBatchBusy = false
     private var ipSaveAvailable = false
     private var ipSaved: IpTestRestore? = readIpTest()
 
-    // CUSTOM.md #156 step 7: the save action belongs to the toolbar and follows the visible result-table state.
+    // CUSTOM.md #156 step 10: keep the save action visible in every subview; Activity reports task transitions.
     private fun updateSaveBatchAction() {
-        val visible = ipView != null && ipSaveAvailable
-        binding.checkSaveBatchButton.visibility = if (visible) View.VISIBLE else View.GONE
-        binding.checkSaveBatchButton.isEnabled = visible && !ipTestRunning
-        binding.checkSaveBatchButton.alpha = if (binding.checkSaveBatchButton.isEnabled) 1f else 0.35f
+        binding.checkSaveBatchButton.visibility = View.VISIBLE
+        binding.checkSaveBatchButton.isEnabled = !saveBatchBusy
+        binding.checkSaveBatchButton.alpha = if (saveBatchBusy) 0.35f else 1f
+    }
+
+    // CUSTOM.md #156 step 10: event-driven busy state; no timer or polling.
+    suspend fun setSaveBatchBusy(busy: Boolean) {
+        withContext(Dispatchers.Main) {
+            saveBatchBusy = busy
+            updateSaveBatchAction()
+        }
     }
 
     private fun readIpTest(): IpTestRestore? {
@@ -330,10 +336,9 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
-    // CUSTOM (CUSTOM.md #156 step 2): choose an operator and merge the completed rows into its saved-IP list.
+    // CUSTOM (CUSTOM.md #156 step 2/10): choose an operator and merge completed rows into its saved-IP list.
+    // Empty rows are allowed so the same dialog can be used for the later paste-IP step.
     fun showSaveIpBatch(rows: List<IpTestRow>, preferredOperatorId: String? = null) {
-        if (rows.isEmpty()) return
-
         val snapshot = SavedIpStore.read(context)
         val density = context.resources.displayMetrics.density
         val pad = (20 * density + 0.5f).toInt()
@@ -343,6 +348,16 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
         content.addView(
             TextView(context).apply {
+                setText(R.string.saved_ip_no_test_results)
+                textSize = 13f
+                alpha = 0.8f
+                visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+        )
+
+        content.addView(
+            TextView(context).apply {
                 setText(R.string.saved_ip_operator_label)
                 textSize = 13f
                 alpha = 0.75f
@@ -350,6 +365,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
         )
 
+        var refreshSaveAvailability: (() -> Unit)? = null
         val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
         var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } } ?: snapshot.lastOperatorId
         val ids = HashMap<Int, String>()
@@ -367,7 +383,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             group.check(group.getChildAt(0).id)
             selectedId = ids[group.checkedRadioButtonId].orEmpty()
         }
-        group.setOnCheckedChangeListener { _, checked -> selectedId = ids[checked].orEmpty() }
+        group.setOnCheckedChangeListener { _, checked ->
+            selectedId = ids[checked].orEmpty()
+            refreshSaveAvailability?.invoke()
+        }
         content.addView(group)
 
         // CUSTOM (CUSTOM.md #156 step 9): add an operator without leaving the batch-save dialog.
@@ -416,16 +435,33 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         val onlyReachable = CheckBox(context).apply {
             setText(R.string.saved_ip_only_reachable)
             isChecked = false
+            isEnabled = rows.isNotEmpty()
         }
         content.addView(onlyReachable)
+        val saveCountView = TextView(context).apply {
+            textSize = 13f
+            alpha = 0.8f
+        }
+        content.addView(saveCountView)
 
-        MaterialAlertDialogBuilder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(R.string.saved_ip_save_title)
             .setView(content)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
+            .setPositiveButton(android.R.string.ok, null)
+            .create()
+        dialog.setOnShowListener {
+            val positive = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            refreshSaveAvailability = {
+                val eligibleCount = if (onlyReachable.isChecked) rows.count { it.ok } else rows.size
+                saveCountView.text = context.getString(R.string.saved_ip_save_count, eligibleCount)
+                positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
+            }
+            onlyReachable.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
+            refreshSaveAvailability?.invoke()
+            positive.setOnClickListener {
                 val operatorId = selectedId
-                if (operatorId.isBlank()) return@setPositiveButton
+                if (operatorId.isBlank()) return@setOnClickListener
                 try {
                     val result = SavedIpStore.saveRows(context, operatorId, rows, onlyReachable.isChecked)
                     Toast.makeText(
@@ -438,6 +474,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         ),
                         Toast.LENGTH_LONG,
                     ).show()
+                    dialog.dismiss()
                 } catch (e: SavedIpLimitException) {
                     Log.w("ConfigCheckDesign", "Saved IP batch rejected by the ${SavedIpStore.MAX_IP_COUNT}-entry limit", e)
                     Toast.makeText(
@@ -450,7 +487,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                     Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }
-            .show()
+        }
+        dialog.show()
     }
 
     suspend fun ipSaveAvailable(available: Boolean) {
@@ -604,7 +642,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         binding.self = this
 
         // CUSTOM (CUSTOM.md #91): show the complete explanation without changing page state.
-        binding.checkSaveBatchButton.setOnClickListener { onSaveIpBatch?.invoke() } // CUSTOM.md #156 step 7
+        binding.checkSaveBatchButton.setOnClickListener { onSaveIpBatch?.invoke() } // CUSTOM.md #156 step 7/10
         updateSaveBatchAction()
 
         binding.checkHintButton.setOnClickListener {

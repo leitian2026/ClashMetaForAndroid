@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r181
+当前版本：2_11_36-r182
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1856,3 +1856,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt 和本登记文件。
 - **CUSTOM 标记：** 共用名称校验及保存弹窗入口均标记 CUSTOM.md #156 step 9。
 - **验证：** 静态核对新建入口、校验规则复用、内置名称本地化重复判断、随机 ID、写入失败处理、新建项加入并选中及原保存流程不变；未运行编译、Android 构建或真机测试，未触发 Build Debug。
+
+### 第 10 步：保存入口跨视图显示与任务状态联动（r182）
+- **入口显示：** “保存这一批”固定显示在配置检查页标题栏，不再随 IP 结果表、ECH、DNS、最终配置和说明等视图切换而隐藏；无测试结果也可打开弹窗。
+- **任务禁用：** IP 测试、单行下载测速、ECH 检查、DNS 检查、配置检查、推算最终配置和清缓存任务运行期间，保存按钮不可点击且透明度为 0.35；任务完成、取消或失败退出后通过任务生命周期事件立即恢复。保留 `ConfigCheckActivity` 的 `job`、`speedJob`、`ipTesting`、`checkTesting` 二次保护，不以 UI 状态代替业务判断。
+- **空结果弹窗：** `showSaveIpBatch()` 不再因 rows 为空提前返回；无测试行时在运营商选项上方显示“本次没有测试结果，只能保存粘贴的 IP”。本步骤尚未增加粘贴输入框，因此无测试行时“确定”保持禁用。
+- **可保存数量：** 弹窗显示符合当前条件的测试行数量；勾选 / 取消“只保存通的”时事件驱动更新数量和“确定”按钮。可保存数量仅按测试结果行计算，不计入后续提交的粘贴 IP。
+- **资源：** 新增 `saved_ip_no_test_results`、`saved_ip_save_count` 中英文文案；中英文资源键集合与占位符保持一致。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
+- **CUSTOM 标记：** 新增保存按钮状态、任务事件及空结果弹窗逻辑均标记 `CUSTOM.md #156 step 10`。
+- **验证：** 静态核对跨视图常显、所有任务的开始 / 结束 / 取消 / 失败路径状态通知、Activity 原有二次保护、空结果提示、零数量禁用、只保存通的数量动态更新及中英文键 / 占位符；未运行编译、Android 构建或真机测试，未触发 Build Debug。

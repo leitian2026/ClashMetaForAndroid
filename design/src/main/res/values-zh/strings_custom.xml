@@ -401,6 +401,8 @@
     <!-- CUSTOM #156 第 2 步：保存本轮 IP 测试结果 -->
     <string name="saved_ip_save_batch">保存这一批</string>
     <string name="saved_ip_save_title">保存已测试的 IP</string>
+    <string name="saved_ip_no_test_results">本次没有测试结果，只能保存粘贴的 IP</string>
+    <string name="saved_ip_save_count">可保存 IP：%1$d 个</string>
     <string name="saved_ip_operator_label">保存到运营商</string>
     <string name="saved_ip_only_reachable">只保存通的</string>
     <string name="saved_ip_operator_telecom">电信</string>

@@ -401,6 +401,8 @@ The app settings and override settings will be replaced, and the subscriptions o
     <!-- CUSTOM #156 step 2: save the completed IP test batch -->
     <string name="saved_ip_save_batch">Save this batch</string>
     <string name="saved_ip_save_title">Save tested IPs</string>
+    <string name="saved_ip_no_test_results">There are no test results this time. Only pasted IPs can be saved.</string>
+    <string name="saved_ip_save_count">Eligible IPs to save: %1$d</string>
     <string name="saved_ip_operator_label">Save to operator</string>
     <string name="saved_ip_only_reachable">Save reachable IPs only</string>
     <string name="saved_ip_operator_telecom">China Telecom</string>
