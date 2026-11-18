@@ -579,7 +579,14 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                     getString(R.string.history_version_line, date, stat.lines, stat.added, stat.removed)
                 }
 
-                if (v == inUse) label += getString(R.string.history_in_use)
+                var appliedRange: IntRange? = null
+                if (v == inUse) {
+                    val appliedLabel = getString(R.string.history_in_use)
+                    label += appliedLabel
+                    val appliedText = appliedLabel.substringAfter('·').trim()
+                    val appliedStart = label.lastIndexOf(appliedText)
+                    if (appliedStart >= 0) appliedRange = appliedStart until (appliedStart + appliedText.length)
+                }
 
                 if (v.bad) {
                     label += getString(R.string.history_bad)
@@ -595,7 +602,21 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                     label += getString(if (v.text() == pageText) R.string.history_opened else R.string.history_opened_changed)
                 }
 
-                CheckMark.paint(this@EditorActivity, label) ?: label // CUSTOM.md #57: ✓ green, ✗ red
+                val painted = CheckMark.paint(this@EditorActivity, label) ?: label
+                appliedRange?.let { range ->
+                    val night = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                    android.text.SpannableStringBuilder(painted).apply {
+                        setSpan(
+                            android.text.style.ForegroundColorSpan(
+                                android.graphics.Color.parseColor(if (night) "#66BB6A" else "#2E9D50")
+                            ),
+                            range.first,
+                            range.last + 1,
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                        )
+                    }
+                } ?: painted // CUSTOM.md #57: ✓ green, ✗ red
             }
         }
 
