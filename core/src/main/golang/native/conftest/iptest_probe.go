@@ -699,6 +699,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		ray      string
 		soft     string // CUSTOM.md #67
 		softNote string
+		detail   *ipdelay.TargetResult
 		dials    []int // CUSTOM.md #68: the parts of the tries that worked (the ones that did not measure a part are left out of it)
 		shakes   []int
 		firsts   []int
@@ -720,6 +721,10 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			okMs = append(okMs, res.Delay)
 			dials, shakes, firsts = addPhases(dials, shakes, firsts, res.Ph.Dial, res.Ph.Shake, res.Ph.First)
 			statuses[res.Status]++
+			if detail == nil {
+				copy := res
+				detail = &copy
+			}
 
 			if location == "" {
 				location = res.Location
@@ -786,6 +791,22 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			row.TargetNote = location
 			row.TargetColo = coloOf(ray)
 			row.TargetSoft, row.TargetSoftNote = soft, softNote
+			if detail != nil {
+				row.TargetTLS = detail.TLS
+				row.TargetALPN = detail.ALPN
+				row.TargetCertSubject = detail.CertSubject
+				row.TargetCertIssuer = detail.CertIssuer
+				row.TargetCertNotBefore = detail.CertNotBefore
+				row.TargetCertNotAfter = detail.CertNotAfter
+				row.TargetCertDNSNames = detail.CertDNSNames
+				row.TargetCertIPAddresses = detail.CertIPAddresses
+				row.TargetCertVerification = detail.CertVerification
+				row.TargetServer = detail.Server
+				row.TargetCfRay = detail.CfRay
+				row.TargetContentType = detail.ContentType
+				row.TargetRetryAfter = detail.RetryAfter
+				row.TargetCfMitigated = detail.CfMitigated
+			}
 
 			// the exit country is asked through the node as before (the target address is not asked for it)
 			if !t.IsDomain {

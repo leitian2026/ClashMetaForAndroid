@@ -100,6 +100,21 @@ type IPRow struct {
 	TargetStatus int    `json:"targetStatus"`
 	TargetNote   string `json:"targetNote"`
 	TargetColo   string `json:"targetColo"`
+	// CUSTOM.md #156 step 41: TLS / certificate / response headers from the same target GET (no extra request).
+	TargetTLS              string `json:"targetTls"`
+	TargetALPN             string `json:"targetAlpn"`
+	TargetCertSubject      string `json:"targetCertSubject"`
+	TargetCertIssuer       string `json:"targetCertIssuer"`
+	TargetCertNotBefore    string `json:"targetCertNotBefore"`
+	TargetCertNotAfter     string `json:"targetCertNotAfter"`
+	TargetCertDNSNames     string `json:"targetCertDnsNames"`
+	TargetCertIPAddresses  string `json:"targetCertIpAddresses"`
+	TargetCertVerification string `json:"targetCertVerification"`
+	TargetServer           string `json:"targetServer"`
+	TargetCfRay            string `json:"targetCfRay"`
+	TargetContentType      string `json:"targetContentType"`
+	TargetRetryAfter       string `json:"targetRetryAfter"`
+	TargetCfMitigated      string `json:"targetCfMitigated"`
 	// CUSTOM.md #67: what the page says about being moved or refused ("refresh", "script", "region", "" when nothing) and
 	// the address or the words that gave it away; a guess from the first 64 KB of the page
 	TargetSoft     string `json:"targetSoft"`

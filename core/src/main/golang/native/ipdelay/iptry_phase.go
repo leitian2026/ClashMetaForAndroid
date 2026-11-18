@@ -30,12 +30,18 @@ type Phases struct{ Dial, Shake, First int }
 
 // phaseClock holds the moments (unix nanoseconds, 0 = not seen) the transport reports. The callbacks may run in other
 // goroutines than the one that reads them, so they are stored and loaded atomically.
-type phaseClock struct{ tlsStart, tlsDone, wrote, first int64 }
+type phaseClock struct {
+	tlsStart, tlsDone, wrote, first int64
+	tlsState tls.ConnectionState // read after the request completes
+}
 
 func (p *phaseClock) trace() *httptrace.ClientTrace {
 	return &httptrace.ClientTrace{
 		TLSHandshakeStart: func() { atomic.StoreInt64(&p.tlsStart, time.Now().UnixNano()) },
-		TLSHandshakeDone:  func(tls.ConnectionState, error) { atomic.StoreInt64(&p.tlsDone, time.Now().UnixNano()) },
+		TLSHandshakeDone:  func(state tls.ConnectionState, _ error) {
+			p.tlsState = state
+			atomic.StoreInt64(&p.tlsDone, time.Now().UnixNano())
+		},
 		WroteRequest:      func(httptrace.WroteRequestInfo) { atomic.StoreInt64(&p.wrote, time.Now().UnixNano()) },
 		GotFirstResponseByte: func() {
 			atomic.StoreInt64(&p.first, time.Now().UnixNano())

@@ -31,6 +31,21 @@ data class IpTestRow(
     val targetStatus: Int = 0,
     val targetNote: String = "",
     val targetColo: String = "",
+    // CUSTOM.md #156 step 41: details from the same through-node target GET; empty means not obtained.
+    val targetTls: String = "",
+    val targetAlpn: String = "",
+    val targetCertSubject: String = "",
+    val targetCertIssuer: String = "",
+    val targetCertNotBefore: String = "",
+    val targetCertNotAfter: String = "",
+    val targetCertDnsNames: String = "",
+    val targetCertIpAddresses: String = "",
+    val targetCertVerification: String = "",
+    val targetServer: String = "",
+    val targetCfRay: String = "",
+    val targetContentType: String = "",
+    val targetRetryAfter: String = "",
+    val targetCfMitigated: String = "",
     val targetSoft: String = "", // CUSTOM.md #67: "refresh" / "script" / "region" / "" (a guess from the page's first 64 KB)
     val targetSoftNote: String = "",
     val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found

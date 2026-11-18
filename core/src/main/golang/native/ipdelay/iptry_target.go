@@ -28,6 +28,18 @@ type TargetResult struct {
 	Location string // the `Location` header of a redirect, "" otherwise
 	CfRay    string // `Cf-Ray` of the answer, "" when it has none (the site is not behind Cloudflare)
 	Server   string // `Server` of the answer
+	TLS      string // TLS version of the same connection
+	ALPN     string // negotiated protocol of the same connection
+	CertSubject      string // leaf certificate subject
+	CertIssuer       string // leaf certificate issuer
+	CertNotBefore    string // RFC3339 UTC
+	CertNotAfter     string // RFC3339 UTC
+	CertDNSNames     string // leaf certificate DNS SANs
+	CertIPAddresses  string // leaf certificate IP SANs
+	CertVerification string // "skipped": TLSClientConfig intentionally skips verification
+	ContentType      string // Content-Type of the same response
+	RetryAfter       string // Retry-After of the same response
+	CfMitigated      string // CF-Mitigated of the same response
 	// CUSTOM.md #67: what the first part of the page says (SniffPage): SniffRefresh / SniffScript / SniffRegion, "" when nothing
 	Soft     string
 	SoftNote string // the address, or the words that gave it away
@@ -133,13 +145,45 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		delay = 1
 	}
 
+	state := clock.tlsState
+	tlsName := ""
+	switch state.Version {
+	case tls.VersionTLS13:
+		tlsName = "1.3"
+	case tls.VersionTLS12:
+		tlsName = "1.2"
+	case tls.VersionTLS11:
+		tlsName = "1.1"
+	case tls.VersionTLS10:
+		tlsName = "1.0"
+	}
+
 	res := TargetResult{
-		Delay:    delay,
-		Status:   resp.StatusCode,
-		Location: strings.TrimSpace(resp.Header.Get("Location")),
-		CfRay:    strings.TrimSpace(resp.Header.Get("Cf-Ray")),
-		Server:   strings.TrimSpace(resp.Header.Get("Server")),
-		Ph:       clock.phases(dialed),
+		Delay:            delay,
+		Status:           resp.StatusCode,
+		Location:         strings.TrimSpace(resp.Header.Get("Location")),
+		CfRay:            strings.TrimSpace(resp.Header.Get("Cf-Ray")),
+		Server:           strings.TrimSpace(resp.Header.Get("Server")),
+		TLS:              tlsName,
+		ALPN:             state.NegotiatedProtocol,
+		CertVerification: "skipped",
+		ContentType:      strings.TrimSpace(resp.Header.Get("Content-Type")),
+		RetryAfter:       strings.TrimSpace(resp.Header.Get("Retry-After")),
+		CfMitigated:      strings.TrimSpace(resp.Header.Get("CF-Mitigated")),
+		Ph:               clock.phases(dialed),
+	}
+	if len(state.PeerCertificates) > 0 {
+		cert := state.PeerCertificates[0]
+		res.CertSubject = cert.Subject.String()
+		res.CertIssuer = cert.Issuer.String()
+		res.CertNotBefore = cert.NotBefore.UTC().Format(time.RFC3339)
+		res.CertNotAfter = cert.NotAfter.UTC().Format(time.RFC3339)
+		res.CertDNSNames = strings.Join(cert.DNSNames, ", ")
+		ips := make([]string, 0, len(cert.IPAddresses))
+		for _, ip := range cert.IPAddresses {
+			ips = append(ips, ip.String())
+		}
+		res.CertIPAddresses = strings.Join(ips, ", ")
 	}
 
 	// CUSTOM.md #67: the first part of the page (a failed or cut read just means less text; the delay above is already taken)

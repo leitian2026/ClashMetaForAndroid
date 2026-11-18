@@ -96,6 +96,36 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private val tableBox = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
+    // CUSTOM.md #156 step 41: collapsible diagnostics below the unchanged IP table; expanded by default.
+    private var diagnosticsExpanded = true
+    private val diagnosticsBody = TextView(context).apply {
+        textSize = 13f
+        setTextColor(colorText)
+        setPadding(dp(8), dp(8), dp(8), dp(8))
+        background = GradientDrawable().apply {
+            setColor(colorSurface)
+            cornerRadius = dp(6).toFloat()
+        }
+    }
+    private val diagnosticsTitle = TextView(context).apply {
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(colorText)
+        setPadding(0, dp(8), 0, dp(6))
+        text = "详细诊断  ▴"
+        setOnClickListener {
+            diagnosticsExpanded = !diagnosticsExpanded
+            diagnosticsBody.visibility = if (diagnosticsExpanded) View.VISIBLE else View.GONE
+            text = if (diagnosticsExpanded) "详细诊断  ▴" else "详细诊断  ▾"
+        }
+    }
+    private val diagnosticsBox = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = if (target) View.VISIBLE else View.GONE
+        addView(diagnosticsTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        addView(diagnosticsBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
     private val hint = TextView(context).apply {
         setText(R.string.iptest_table_hint)
         textSize = 13f
@@ -147,6 +177,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(diagnosticsBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logScroll, lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)))
 
@@ -176,6 +207,35 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun setRows(list: List<IpTestRow>) {
         rows = sorted(list)
         redraw()
+        updateDiagnostics()
+    }
+
+    private fun updateDiagnostics() {
+        if (!target) return
+        if (rows.isEmpty()) {
+            diagnosticsBody.text = "暂无已完成的目标站测试结果"
+            return
+        }
+        fun value(v: String): String = v.ifBlank { "未获取" }
+        val sb = StringBuilder()
+        for ((index, row) in rows.withIndex()) {
+            if (index > 0) sb.append("\n\n")
+            sb.append(row.ip).append('\n')
+            sb.append("TLS：").append(value(row.targetTls)).append("   ALPN：").append(value(row.targetAlpn)).append('\n')
+            sb.append("证书主题：").append(value(row.targetCertSubject)).append('\n')
+            sb.append("颁发者：").append(value(row.targetCertIssuer)).append('\n')
+            sb.append("有效期：").append(value(row.targetCertNotBefore)).append(" 至 ").append(value(row.targetCertNotAfter)).append('\n')
+            sb.append("DNS SAN：").append(value(row.targetCertDnsNames)).append('\n')
+            sb.append("IP SAN：").append(value(row.targetCertIpAddresses)).append('\n')
+            sb.append("证书验证：").append(if (row.targetCertVerification == "skipped") "未验证（测试跳过证书验证）" else value(row.targetCertVerification)).append('\n')
+            sb.append("Server：").append(value(row.targetServer)).append('\n')
+            sb.append("Cf-Ray：").append(value(row.targetCfRay)).append('\n')
+            sb.append("Content-Type：").append(value(row.targetContentType)).append('\n')
+            sb.append("Location：").append(value(row.targetNote)).append('\n')
+            sb.append("Retry-After：").append(value(row.targetRetryAfter)).append('\n')
+            sb.append("CF-Mitigated：").append(value(row.targetCfMitigated))
+        }
+        diagnosticsBody.text = sb.toString()
     }
 
     /** [testing]: the round is running (no download then); [ip]: the row whose download is running. */
@@ -262,6 +322,10 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
+        if (target && diagnosticsBody.text.isNotEmpty()) {
+            sb.append("\n\n详细诊断\n").append(diagnosticsBody.text)
+        }
+
         sb.append('\n').append(logLines.joinToString("\n"))
 
         return sb.toString()

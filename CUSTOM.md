@@ -2170,3 +2170,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 不改变 IP 解析、去重、排序、状态、时间、运营商规则、5000 条上限、备份格式及普通读取错误提示。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件；未修改上游文件，无需更新上游文件总表。
 - **验证：** 静态检查全部六类页面修改入口均走 `SavedIpStore.update()`；`saveRows()` 与 `update()` 共用同步监视器；未运行 Kotlin 编译、Android 构建或真机测试。
+
+
+### 第 41 步：套入节点测试增加目标站详细诊断（r220）
+- **采集：** 在原有目标站 GET 请求的同一条 TLS 连接和 HTTP 响应中，补充 TLS 版本、ALPN、叶证书主题 / 颁发者 / 有效期 / DNS SAN / IP SAN，以及 Server、Cf-Ray、Content-Type、Location、Retry-After、CF-Mitigated 响应头。
+- **证书验证说明：** 当前目标站测速仍使用 InsecureSkipVerify（Android core 内没有可用的系统 CA 验证链），因此只展示对端证书内容，并明确显示“未验证（测试跳过证书验证）”；不得显示为证书验证通过。
+- **展示：** 原 IP 测试表格的列、顺序、数据和绘制逻辑不变；在表格下方新增独立“详细诊断”区域，默认展开，可整体折叠；每个已测试 IP 直接分组展示，未采集字段显示“未获取”。
+- **网络与功耗：** 不增加连接、请求、握手、定时器或后台任务；只读取现有 GET 响应及其 TLS ConnectionState。失败的尝试不覆盖首个成功响应的诊断字段。
+- **数据：** 新字段随现有 IpTestReport 一起保存和恢复；不新增历史累积。
+- **范围：** 本步只实现第一批的目标站 TLS / 证书 / HTTP 响应头采集与展示；DNS 查询耗时和非目标站模式 TLS / ALPN 展示留给第二批。不改 mihomo 子模块和自动构建工作流。
+- **改动文件：** `core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/ipdelay/iptry_target.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件。
+- **验证：** 仅完成静态结构核对；未运行 Go 测试、Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
