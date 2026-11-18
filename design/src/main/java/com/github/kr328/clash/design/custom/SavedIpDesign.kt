@@ -321,16 +321,28 @@ class SavedIpDesign(
                     contentDescription = label.full
                 }
                 row.addView(time, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                // Decide once after this row is laid out; no periodic refresh or timer.
-                row.post {
-                    val addressWidth = address.paint.measureText(entry.address)
-                    val fullWidth = time.paint.measureText(label.full)
-                    val compactWidth = time.paint.measureText(label.compact)
-                    val fixedWidth = row.width - address.width
-                    if (addressWidth + fullWidth + fixedWidth > row.width) {
-                        time.text = label.compact
+                // Decide once on the first layout pass; no periodic refresh or timer.
+                row.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+                    override fun onLayoutChange(
+                        view: View,
+                        left: Int,
+                        top: Int,
+                        right: Int,
+                        bottom: Int,
+                        oldLeft: Int,
+                        oldTop: Int,
+                        oldRight: Int,
+                        oldBottom: Int,
+                    ) {
+                        row.removeOnLayoutChangeListener(this)
+                        val addressWidth = address.paint.measureText(entry.address)
+                        val fullWidth = time.paint.measureText(label.full)
+                        val fixedWidth = row.width - address.width
+                        if (addressWidth + fullWidth + fixedWidth > row.width) {
+                            time.text = label.compact
+                        }
                     }
-                }
+                })
             }
             operatorList.addView(row, fullWidth())
         }
