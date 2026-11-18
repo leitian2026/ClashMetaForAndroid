@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r179
+当前版本：2_11_36-r180
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1839,3 +1839,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/build.gradle.kts`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
 - **CUSTOM 标记：** 两处代码改动均带有 `CUSTOM.md #156 step 8` 标记。
 - **验证：** 静态核对插件 ID 与 core 模块一致、Log import 和解码异常分支；未运行编译、Android 构建或真机测试。没有新增定时器、轮询、联网请求；未修改 UI、Go、mihomo core、patches 或其他构建文件。
+
+
+### 第 8 步补充修正：区分保存容量异常与写入错误（r180）
+- **问题：** `SerializationException` 可能被 `IllegalArgumentException` 捕获分支误判为“已达到 5000 条上限”，掩盖序列化器或其他写入异常。
+- **修复：** 新增专用 `SavedIpLimitException`，仅在总 IP 数超过 5000 时抛出；`ConfigCheckDesign.showSaveIpBatch()` 仅对该异常显示容量提示，其他异常记录 `Log.e` 并显示 `check_error` 的真实错误信息。`SavedIpDesign` 的全部清单写入统一经过 `writeSnapshot()`，同样区分容量异常与其他异常；写入失败不继续执行成功后的刷新等操作。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件。
+- **CUSTOM 标记：** 三处代码改动均带有 `CUSTOM.md #156 step 8` 标记。
+- **验证：** 静态核对容量判断不再使用 `require()` / `IllegalArgumentException`，所有 `SavedIpStore.write()` 调用仅保留在统一错误处理函数内；未运行编译或 Android 构建，未触发 Build Debug。

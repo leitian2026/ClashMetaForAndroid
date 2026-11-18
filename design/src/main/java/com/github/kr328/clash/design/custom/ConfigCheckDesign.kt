@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.util.Log
 import android.text.method.LinkMovementMethod
 import android.view.View
 import android.view.ViewGroup
@@ -395,13 +396,15 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         ),
                         Toast.LENGTH_LONG,
                     ).show()
-                } catch (_: IllegalArgumentException) {
+                } catch (e: SavedIpLimitException) {
+                    Log.w("ConfigCheckDesign", "Saved IP batch rejected by the ${SavedIpStore.MAX_IP_COUNT}-entry limit", e)
                     Toast.makeText(
                         context,
                         context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT),
                         Toast.LENGTH_LONG,
                     ).show()
                 } catch (e: Exception) {
+                    Log.e("ConfigCheckDesign", "Failed to save IP batch", e)
                     Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }

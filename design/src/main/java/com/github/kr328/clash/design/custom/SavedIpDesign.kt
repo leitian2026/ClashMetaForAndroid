@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.util.Log
 import android.graphics.Color
 import android.text.InputType
 import android.text.TextUtils
@@ -502,7 +503,7 @@ class SavedIpDesign(
                     if (operator.id == operatorId) operator.copy(ips = operator.ips.filterNot { it.address in addresses })
                     else operator
                 }
-                SavedIpStore.write(context, snapshot.copy(operators = operators))
+                if (!writeSnapshot(snapshot.copy(operators = operators))) return@setPositiveButton
                 clearSelectionState()
                 refresh()
             }
@@ -568,7 +569,7 @@ class SavedIpDesign(
                     val index = operators.indexOfFirst { it.id == existing.id }
                     if (index >= 0) operators[index] = operators[index].copy(name = name)
                 }
-                SavedIpStore.write(context, snapshot.copy(operators = operators))
+                if (!writeSnapshot(snapshot.copy(operators = operators))) return@setOnClickListener
                 dialog.dismiss()
                 refresh()
             }
@@ -590,13 +591,12 @@ class SavedIpDesign(
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
                 val snapshot = SavedIpStore.read(context)
-                SavedIpStore.write(
-                    context,
+                if (!writeSnapshot(
                     snapshot.copy(
                         operators = snapshot.operators.filterNot { it.id == operator.id },
                         lastOperatorId = if (snapshot.lastOperatorId == operator.id) SavedIpStore.OPERATOR_TELECOM else snapshot.lastOperatorId,
                     ),
-                )
+                )) return@setPositiveButton
                 refresh()
             }
             .show()
@@ -616,7 +616,7 @@ class SavedIpDesign(
                         ips = current.ips.filterNot { it.status == SavedIpStatus.UNREACHABLE }
                     ) else current
                 }
-                SavedIpStore.write(context, snapshot.copy(operators = operators))
+                if (!writeSnapshot(snapshot.copy(operators = operators))) return@setPositiveButton
                 if (selectedOperatorId == operator.id) clearSelectionState()
                 refresh()
                 Toast.makeText(context, context.getString(R.string.saved_ip_delete_unreachable_done, count), Toast.LENGTH_SHORT).show()
@@ -635,7 +635,7 @@ class SavedIpDesign(
                     if (operator.id == operatorId) operator.copy(ips = operator.ips.filterNot { it.address == address })
                     else operator
                 }
-                SavedIpStore.write(context, snapshot.copy(operators = operators))
+                if (!writeSnapshot(snapshot.copy(operators = operators))) return@setPositiveButton
                 refresh()
             }
             .show()
@@ -713,19 +713,31 @@ class SavedIpDesign(
                 val operators = current.operators.toMutableList()
                 operators[index] = operator.copy(ips = entries)
                 val updated = current.copy(operators = operators, lastOperatorId = operatorId)
-                try {
-                    SavedIpStore.write(context, updated)
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.saved_ip_paste_result, added, repeated, extraction.ignored),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                    refresh()
-                } catch (_: IllegalArgumentException) {
-                    Toast.makeText(context, context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT), Toast.LENGTH_LONG).show()
-                }
+                if (!writeSnapshot(updated)) return@setPositiveButton
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.saved_ip_paste_result, added, repeated, extraction.ignored),
+                    Toast.LENGTH_LONG,
+                ).show()
+                refresh()
             }
             .show()
+    }
+
+    // CUSTOM.md #156 step 8: centralize error handling for every saved-list mutation.
+    private fun writeSnapshot(snapshot: SavedIpSnapshot): Boolean {
+        return try {
+            SavedIpStore.write(context, snapshot)
+            true
+        } catch (e: SavedIpLimitException) {
+            Log.w("SavedIpDesign", "Saved IP list reached its ${SavedIpStore.MAX_IP_COUNT}-entry limit", e)
+            Toast.makeText(context, context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT), Toast.LENGTH_LONG).show()
+            false
+        } catch (e: Exception) {
+            Log.e("SavedIpDesign", "Failed to write saved IP list", e)
+            Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+            false
+        }
     }
 
     private fun copyIp(address: String) {

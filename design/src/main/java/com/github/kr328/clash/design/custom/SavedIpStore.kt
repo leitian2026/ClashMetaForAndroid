@@ -56,6 +56,8 @@ data class SavedIpSnapshot(
 )
 
 // CUSTOM.md #156 (step 1/5): persistent data layer for the saved-IP list.
+// CUSTOM.md #156 step 8: distinguish capacity rejection from serialization and storage failures.
+class SavedIpLimitException(val total: Int) : IllegalStateException("Saved IP limit exceeded: $total/${SavedIpStore.MAX_IP_COUNT}")
 /**
  * Local storage for saved IP addresses.
  *
@@ -127,7 +129,7 @@ object SavedIpStore {
     fun write(context: Context, snapshot: SavedIpSnapshot) {
         val normalized = normalize(snapshot)
         val total = normalized.operators.sumOf { it.ips.size }
-        require(total <= MAX_IP_COUNT) { "Saved IP limit exceeded: $total/$MAX_IP_COUNT" }
+        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
 
         val value = json.encodeToString(normalized)
         context.applicationContext
@@ -202,7 +204,7 @@ object SavedIpStore {
         operators[operatorIndex] = operator.copy(ips = entries)
         val resultSnapshot = snapshot.copy(operators = operators, lastOperatorId = operatorId)
         val total = resultSnapshot.operators.sumOf { it.ips.size }
-        require(total <= MAX_IP_COUNT) { "Saved IP limit exceeded: $total/$MAX_IP_COUNT" }
+        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
 
         if (added > 0 || updated > 0 || snapshot.lastOperatorId != operatorId) {
             write(context, resultSnapshot)
