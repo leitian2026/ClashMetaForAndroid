@@ -121,20 +121,43 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
         }
     }
 
-    // CUSTOM (r212): one address = two lines of the same size and color, the address on top, "N 条 · 起始 hh:mm:ss" below
+    // CUSTOM (r218): each address keeps its two text lines; long IPv6 text is middle-ellipsized.
     private fun addressRow(prefix: String, ip: MuxIp, count: String, now: Long): View {
         val since = MuxText.sinceTime(ip, now)
         val second = if (since.isEmpty()) count else context.getString(R.string.mux_row_second, count, since)
-        val first = text(prefix + MuxText.address(context, ip), ADDRESS_SP, android.R.attr.textColorPrimary).apply {
+        val first = text(
+            prefix + MuxText.address(context, ip),
+            ADDRESS_SP,
+            android.R.attr.textColorPrimary,
+            width = ViewGroup.LayoutParams.MATCH_PARENT,
+        ).apply {
             typeface = Typeface.MONOSPACE
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setPaddingRelative(sidePadding + px(12f), px(8f), sidePadding, px(8f))
             addView(first)
             addView(text(second, ADDRESS_SP, android.R.attr.textColorPrimary))
         }
     }
+
+    // CUSTOM (r218): two address cells share one row; the divider is layout-only.
+    private fun addressPair(left: View, right: View?): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(left)
+            if (right != null) {
+                addView(View(context).apply {
+                    setBackgroundColor(themeColors(android.R.attr.colorControlHighlight)?.defaultColor ?: 0)
+                    layoutParams = LinearLayout.LayoutParams(maxOf(1, px(0.5f)), ViewGroup.LayoutParams.MATCH_PARENT)
+                })
+                addView(right)
+            }
+        }
 
     private fun nodeBlock(n: MuxNode, now: Long): View {
         val block = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -174,13 +197,13 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
         block.addView(row(title, vertical = 0f).apply { setPaddingRelative(sidePadding, px(12f), sidePadding, px(6f)) })
         block.addView(divider(sidePadding, sidePadding))
 
-        // thin divider between two addresses, indented like the addresses
-        val rows = ArrayList<View>()
-        for (ip in n.ips) rows.add(addressRow("", ip, context.getString(R.string.mux_row_count_tcp, ip.count), now))
-        for (ip in n.udpIps) rows.add(addressRow("UDP ", ip, context.getString(R.string.mux_row_count_udp, ip.count), now))
-        rows.forEachIndexed { i, v ->
-            if (i > 0) block.addView(divider(sidePadding + px(12f), sidePadding))
-            block.addView(v)
+        // CUSTOM (r218): keep TCP / UDP order, placing two addresses side by side per row.
+        val addresses = ArrayList<View>()
+        for (ip in n.ips) addresses.add(addressRow("", ip, context.getString(R.string.mux_row_count_tcp, ip.count), now))
+        for (ip in n.udpIps) addresses.add(addressRow("UDP ", ip, context.getString(R.string.mux_row_count_udp, ip.count), now))
+        addresses.chunked(2).forEachIndexed { index, pair ->
+            if (index > 0) block.addView(divider(sidePadding, sidePadding))
+            block.addView(addressPair(pair[0], pair.getOrNull(1)))
         }
         if (n.ipsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_ips_omitted, n.ipsOmitted)))
         if (n.udpIpsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_udp_ips_omitted, n.udpIpsOmitted)))
