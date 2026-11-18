@@ -407,9 +407,10 @@ class SavedIpDesign(
             }, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER))
         }
         row.addView(statusMark, LinearLayout.LayoutParams(dp(18), dp(32)))
+        // CUSTOM.md #156 (r217): increase saved-IP address text by one size.
         val address = TextView(context).apply {
             text = entry.address
-            textSize = 13f
+            textSize = 14f
             setTextColor(colorText)
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(2), dp(3), dp(2), dp(3))
@@ -466,7 +467,7 @@ class SavedIpDesign(
             detail.addView(View(context), LinearLayout.LayoutParams(dp(4), 1))
             detail.addView(TextView(context).apply {
                 text = label.compact
-                textSize = 10f
+                textSize = 11f
                 setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
                 setSingleLine(true)
                 ellipsize = TextUtils.TruncateAt.END
