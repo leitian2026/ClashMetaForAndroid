@@ -427,7 +427,10 @@ class SavedIpDesign(
                 background = selectableBackground()
                 setPadding(dp(5), dp(2), dp(5), dp(2))
                 setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }, LinearLayout.LayoutParams(dp(28), dp(32)))
+            }, LinearLayout.LayoutParams(dp(28), dp(32)).apply {
+                // CUSTOM.md #156 step 26: move the delete icon inward toward its own IP card.
+                marginEnd = dp(8)
+            })
         }
         item.addView(row, fullWidth())
         val detail = LinearLayout(context).apply {
