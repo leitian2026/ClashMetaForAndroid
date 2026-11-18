@@ -1,5 +1,6 @@
 package com.github.kr328.clash.custom
 
+import android.content.Intent
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.ConfigCheckReport
@@ -70,6 +71,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 design.showSaveIpBatch(ipRows.toList())
             }
         }
+        // CUSTOM.md #156 step 3: the saved list is local-only and can be opened regardless of Clash state.
+        design.onOpenSavedIps = { startActivity(Intent(this, SavedIpActivity::class.java)) }
 
         while (isActive) {
             select<Unit> {
