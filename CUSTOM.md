@@ -1749,7 +1749,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 静态核对系数只有一处；未运行 Kotlin 编译、Android 构建或真机显示测试。
 
 
-## 156. 已保存 IP 清单（r177，第 1/5 步：数据层）
+## 156. 已保存 IP 清单（r177，排序规则修正补充）
 - **独立存储：** 新增 `SavedIpStore.kt`，使用独立 SharedPreferences `custom_saved_ips`，JSON 保存运营商分组、IP 地址、最近状态和上次使用的运营商 ID；不复用最近一轮 IP 测试结果的 `ip_test_last`。
 - **数据结构：** 内置运营商固定 ID 为 `telecom`、`unicom`、`mobile`，内置名称留空，后续由字符串资源提供；自建运营商保存独立 ID 和名称。IP 状态仅为 `UNTESTED`、`REACHABLE`、`UNREACHABLE`，不保存延迟或端口数据。
 - **读写：** `read()` 只读取和规范化内存数据，不写偏好；仅显式调用 `write()` 时序列化并通过 `SharedPreferences.apply()` 保存。读取损坏或缺失的数据时回退为空清单，不触发自动迁移写入。
@@ -1764,7 +1764,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保存规则：** 只处理当前 `ipRows`；`isDomain` 行跳过，其他已测行按 `row.ok` 保存为通 / 不通。勾选“只保存通的”时，不通行不保存。相同运营商内已存在的 IP 只更新状态、不改变原顺序；新 IP 追加。保存逻辑由 `SavedIpStore.saveRows()` 完成，不改最近一轮测试结果。
 - **反馈与限制：** 保存后提示新增、更新和跳过域名的数量；超过 5000 条上限时拒绝整批写入并提示，不截断清单。测试运行期间按钮不可操作；取消后已完成的行仍可保存。保存过程仅操作本地 SharedPreferences，不发起网络请求。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
-- **验证：** 静态核对中英文资源键、保存按钮显示时机、默认运营商、`row.ok` 状态映射、域名跳过、重复 IP 更新顺序及 5000 条上限；未运行编译和真机测试。
+- **验证：** 静态核对中英文资源键、保存按钮显示时机、默认运营商、`row.ok` 状态映射、域名跳过、批次时间统一、批内结果表顺序、已有 IP 更新后置顶、未测试项加入时间排序及 5000 条上限；未运行编译和真机测试。
 
 
 ### 第 3/5 步：已保存 IP 页面、粘贴导入和运营商管理
@@ -1775,7 +1775,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **粘贴导入：** 可在粘贴弹窗中选择目标运营商；`SavedIpParser.kt` 在 Kotlin 层提取 IPv4 / IPv6，不调用 core。IPv4 使用严格四段十进制和 0–255 校验；IPv6 仅对字符全部属于 `0-9a-fA-F:.` 且含冒号的字面量调用 `InetAddress`，不对任意文本做 DNS 解析；IPv6 转成小写压缩形式后去重。新增项初始状态为未测试；提示新增、重复和忽略数量。
 - **边界：** 清单查看、复制、粘贴、改名和删除均为本地操作，不依赖 Clash。多选和重测留到第 4 步。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpParser.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`app/src/main/AndroidManifest.xml` 和本登记文件。
-- **验证：** 静态核对资源键、中英文文案、Activity 注册、页面入口、内置运营商固定 ID、名称校验、单 IP / 运营商删除确认、复制和粘贴逻辑；未运行编译和真机测试。
+- **验证：** 静态核对资源键、中英文文案、Activity 注册、页面入口、内置运营商固定 ID、名称校验、单 IP / 运营商删除确认、复制和粘贴逻辑及未测试 IP 的加入时间排序；未运行编译和真机测试。
 
 
 ### 第 4/5 步：多选已保存 IP 并复用现有测试流程重测
