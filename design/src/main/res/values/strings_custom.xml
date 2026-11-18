@@ -64,7 +64,7 @@
     <!-- CUSTOM #17: backup / restore -->
     <string name="backup_category">Backup and restore</string>
     <string name="backup_export_title">Export backup to file</string>
-    <string name="backup_export_summary">Save the subscriptions, app settings and override settings into one file. It contains your subscription addresses, so keep it safe</string>
+    <string name="backup_export_summary">Save subscriptions, app settings, override settings and saved IPs into one password-encrypted file. Keep the password safe; it cannot be recovered.</string>
     <string name="backup_import_title">Import backup from file</string>
     <string name="backup_import_summary">Restore from a backup file. Subscriptions with the same name and address are skipped</string>
     <string name="backup_working">Please wait…</string>

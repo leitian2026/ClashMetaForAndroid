@@ -64,7 +64,7 @@
     <!-- CUSTOM #17: backup / restore -->
     <string name="backup_category">备份与恢复</string>
     <string name="backup_export_title">导出备份到文件</string>
-    <string name="backup_export_summary">把订阅、应用设置、覆盖设置存成一个文件。文件里有订阅地址，请妥善保管</string>
+    <string name="backup_export_summary">将订阅、应用设置、覆盖设置和已保存 IP 保存为一个带密码加密的文件。请牢记密码，忘记后无法找回。</string>
     <string name="backup_import_title">从文件导入备份</string>
     <string name="backup_import_summary">从备份文件恢复。已有的同名同地址订阅会跳过</string>
     <string name="backup_working">请稍候…</string>

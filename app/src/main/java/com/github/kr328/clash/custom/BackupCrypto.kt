@@ -8,7 +8,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-// CUSTOM (CUSTOM.md #32): the encryption of the cloud backup. The file is
+// CUSTOM (CUSTOM.md #32 #156): AES-256-GCM encryption for cloud and local backup files. The file is
 //
 //   "CMFAENC1" (8 bytes) | iterations (4) | salt (16) | iv (12) | AES-256-GCM ciphertext + tag
 //

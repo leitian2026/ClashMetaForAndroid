@@ -29,7 +29,7 @@ import java.util.zip.ZipOutputStream
 // CUSTOM (CUSTOM.md #17): backup and restore of the subscriptions, the app settings and the override
 // settings, as one zip file.
 //
-//   backup.json                   everything except the profile files (see below)
+//   backup.json                   everything except the profile files (see below), including saved IPs (CUSTOM.md #156 step 25)
 //   profiles/<uuid>/<file>        the files of every imported profile (config.yaml, providers, ...)
 //   history/<uuid>/<ms>.yaml      CUSTOM.md #70: the pinned history versions of a File profile (listed in the
 //                                 manifest as "pinned": [ms, ...]; no such key = an older backup)
