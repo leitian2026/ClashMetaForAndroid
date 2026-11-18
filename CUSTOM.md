@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r215
+当前版本：2_11_36-r216
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2127,3 +2127,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件；未新增文件。
 - **CUSTOM 标记：** 三处代码挂钩均标记为 `CUSTOM.md #156 step 24`。
 - **验证：** 静态核对复选框点击回调、页面重排到前台的 Intent flag、`onNewIntent()` 更新重测权限及 `onResume()` 刷新；未运行 Kotlin 编译、Android 构建或真机测试。
+
+
+### 补充修复：重测复用配置检查页面，避免返回栈累积（r216）
+- **根因处理：** 仅复用已保存 IP 页面仍不足以解决返回栈累积，因为每次重测原先都会再创建一个新的 `ConfigCheckActivity`。多轮后配置检查页也会一层层堆叠。
+- **重测导航：** 从已保存 IP 页面发起重测时，使用 `FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP` 返回任务栈中已有的 `ConfigCheckActivity`，清除其上方旧的已保存 IP 页面，并将本次 IP / 运营商参数交给现有配置检查页。
+- **参数接收：** `ConfigCheckActivity.onNewIntent()` 接收并立即消费一次性预填 IP 与运营商 ID，随后向原有 `Request.IpTest` 通道发起请求；沿用原有测试弹窗、测试任务和结果保存流程，不另建测试实现。
+- **页面结果：** 每次重测都回到同一个配置检查页面；再次打开“已保存 IP”时创建或复用单一清单页，不会因多轮重测累积多个配置检查页和清单页。
+- **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
+- **CUSTOM 标记：** 新增导航和 Intent 接收逻辑标记为 `CUSTOM.md #156 step 25`。
+- **验证：** 静态核对 CLEAR_TOP / SINGLE_TOP 标志、`onNewIntent()` 一次性读取并移除两个 Intent extra、通过既有 `Request.IpTest` 进入原测试流程；未运行 Kotlin 编译、Android 构建或真机返回栈测试。
