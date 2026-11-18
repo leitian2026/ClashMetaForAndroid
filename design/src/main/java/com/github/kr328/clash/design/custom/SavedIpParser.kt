@@ -17,7 +17,7 @@ data class SavedIpExtraction(
  * restricted to hexadecimal digits, colon and dot, and only when the candidate contains a colon.
  */
 object SavedIpParser {
-    private val ipv4Pattern = Regex("(?<![0-9.])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9.])")
+    private val ipv4Pattern = Regex("(?<![A-Za-z0-9.])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![A-Za-z0-9.])")
     private val bracketedIpv6Pattern = Regex("\\[([0-9A-Fa-f:.]+)]")
     private val separators = Regex("[\\s,;，；|(){}<>\\\"'`]+")
 
