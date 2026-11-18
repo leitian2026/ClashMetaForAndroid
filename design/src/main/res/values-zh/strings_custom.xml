@@ -416,6 +416,10 @@
     <!-- CUSTOM #156 第 3 步：已保存 IP 页面和运营商管理 -->
     <string name="saved_ip_entry">已保存 IP</string>
     <string name="saved_ip_title">已保存的 IP</string>
+    <string name="saved_ip_search_hint">搜索 IPv4 或 IPv6 地址</string>
+    <string name="saved_ip_search_no_match">没有找到匹配的 IP 地址。</string>
+    <string name="saved_ip_group_title">%1$s（%2$d）</string>
+    <string name="saved_ip_group_counts">通 %1$d · 不通 %2$d · 未测试 %3$d</string>
     <string name="saved_ip_summary">已保存 %1$d 个 · 通 %2$d · 不通 %3$d · 未测试 %4$d</string>
     <string name="saved_ip_filter_all_count">全部 %1$d</string>
     <string name="saved_ip_filter_reachable_count">通 %1$d</string>
