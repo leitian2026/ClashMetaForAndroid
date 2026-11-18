@@ -405,6 +405,7 @@
     <string name="saved_ip_save_count">可保存 IP：%1$d 个</string>
     <string name="saved_ip_operator_label">保存到运营商</string>
     <string name="saved_ip_only_reachable">只保存通的</string>
+    <string name="saved_ip_only_pasted">只保存粘贴的 IP</string>
     <string name="saved_ip_operator_telecom">电信</string>
     <string name="saved_ip_operator_unicom">联通</string>
     <string name="saved_ip_operator_mobile">移动</string>
