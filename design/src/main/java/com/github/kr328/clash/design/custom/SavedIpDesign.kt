@@ -102,10 +102,16 @@ class SavedIpDesign(
         val isDate: Boolean,
     )
 
+    // CUSTOM.md #156 step 16: compact overall status summary above the filter chips.
+    private val summaryView = TextView(context).apply {
+        textSize = 13f
+        setTextColor(colorMuted)
+        setPadding(dp(16), dp(10), dp(16), dp(6))
+    }
     private val filterBar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), dp(2), dp(12), dp(2))
+        setPadding(dp(12), dp(2), dp(12), dp(8))
     }
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -149,6 +155,7 @@ class SavedIpDesign(
             }
         })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(summaryView, fullWidth())
 
         filterButtons.forEach { filterBar.addView(it, weighted(3)) }
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -175,9 +182,20 @@ class SavedIpDesign(
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
-        updateFilterButtons()
+        updateFilterButtons(snapshot)
         reconcileSelection(snapshot)
-        val total = snapshot.operators.sumOf { it.ips.size }
+        val allEntries = snapshot.operators.flatMap { it.ips }
+        val total = allEntries.size
+        val reachableCount = allEntries.count { it.status == SavedIpStatus.REACHABLE }
+        val unreachableCount = allEntries.count { it.status == SavedIpStatus.UNREACHABLE }
+        val untestedCount = allEntries.count { it.status == SavedIpStatus.UNTESTED }
+        summaryView.text = context.getString(
+            R.string.saved_ip_summary,
+            total,
+            reachableCount,
+            unreachableCount,
+            untestedCount,
+        )
         val visibleGroups = snapshot.operators.mapNotNull { operator ->
             val entries = visibleEntries(operator)
             if (entries.isEmpty()) null else operator to entries
@@ -238,12 +256,35 @@ class SavedIpDesign(
         }
     }
 
-    private fun updateFilterButtons() {
+    private fun updateFilterButtons(snapshot: SavedIpSnapshot) {
+        val entries = snapshot.operators.flatMap { it.ips }
+        val counts = listOf(
+            entries.size,
+            entries.count { it.status == SavedIpStatus.REACHABLE },
+            entries.count { it.status == SavedIpStatus.UNREACHABLE },
+            entries.count { it.status == SavedIpStatus.UNTESTED },
+        )
+        val labels = listOf(
+            R.string.saved_ip_filter_all_count,
+            R.string.saved_ip_filter_reachable_count,
+            R.string.saved_ip_filter_unreachable_count,
+            R.string.saved_ip_filter_untested_count,
+        )
         filterButtons.forEachIndexed { index, button ->
             val selected = currentFilter.ordinal == index
+            button.text = context.getString(labels[index], counts[index])
             button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-            button.paintFlags = if (selected) button.paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG else button.paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()
-            button.setTextColor(colorLink)
+            button.paintFlags = button.paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()
+            button.setTextColor(if (selected) colorLink else colorMuted)
+            button.background = if (selected) {
+                GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(16).toFloat()
+                    setColor(colorDivider)
+                }
+            } else {
+                selectableBackground()
+            }
         }
     }
 
@@ -276,10 +317,14 @@ class SavedIpDesign(
         operatorList.addView(header, fullWidth())
 
         for (entry in entries) {
+            val item = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(5), 0, dp(5))
+                background = selectableBackground()
+            }
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(2), 0, dp(2))
             }
             if (selectedOperatorId == operator.id) {
                 row.addView(
@@ -292,7 +337,7 @@ class SavedIpDesign(
                 )
             }
 
-            // CUSTOM.md #156 step 14: show reachability as a plain coloured dot, without a check or cross.
+            // CUSTOM.md #156 step 14/16: retain the reachability dot and add a readable status label below the address.
             val statusMark = FrameLayout(context).apply {
                 val dotColor = when (entry.status) {
                     SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
@@ -307,20 +352,20 @@ class SavedIpDesign(
                                 setColor(dotColor)
                             }
                         },
-                        FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER),
+                        FrameLayout.LayoutParams(dp(9), dp(9), Gravity.CENTER),
                     )
                 }
             }
-            row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(40)))
+            row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(36)))
 
             val address = TextView(context).apply {
                 text = entry.address
-                textSize = 14f
+                textSize = 15f
                 setTextColor(colorText)
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), dp(8), dp(4), dp(8))
+                setPadding(dp(4), dp(3), dp(4), dp(3))
                 setSingleLine(true)
-                ellipsize = null
+                ellipsize = TextUtils.TruncateAt.MIDDLE
                 setOnClickListener {
                     when (selectedOperatorId) {
                         null -> copyIp(entry.address)
@@ -335,57 +380,60 @@ class SavedIpDesign(
             }
             row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-            val remove = TextView(context).apply {
-                text = "×"
-                textSize = 22f
-                gravity = Gravity.CENTER
-                setTextColor(colorLink)
-                contentDescription = context.getString(R.string.saved_ip_delete)
-                background = selectableBackground()
-                setPadding(dp(10), dp(2), dp(10), dp(2))
-                setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }
             if (selectedOperatorId == null) {
-                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                val remove = TextView(context).apply {
+                    text = "×"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                    setTextColor(colorLink)
+                    contentDescription = context.getString(R.string.saved_ip_delete)
+                    background = selectableBackground()
+                    setPadding(dp(10), dp(2), dp(10), dp(2))
+                    setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
+                }
+                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
             }
+            item.addView(row, fullWidth())
+
+            val detail = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(if (selectedOperatorId == operator.id) 64 else 34), 0, dp(8), 0)
+            }
+            val statusText = TextView(context).apply {
+                text = when (entry.status) {
+                    SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_status_reachable)
+                    SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_status_unreachable)
+                    SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_status_untested)
+                }
+                textSize = 12f
+                setTextColor(when (entry.status) {
+                    SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
+                    SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
+                    SavedIpStatus.UNTESTED -> colorMuted
+                })
+                setSingleLine(true)
+            }
+            detail.addView(statusText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
             if (entry.lastTestedAt > 0L) {
                 val label = savedIpTimeLabel(entry.lastTestedAt)
-                val time = TextView(context).apply {
-                    text = label.full
-                    textSize = 14f
-                    setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorText)
-                    gravity = Gravity.CENTER_VERTICAL
-                    setSingleLine(true)
-                    ellipsize = TextUtils.TruncateAt.END
-                    setPadding(dp(3), dp(8), dp(3), dp(8))
-                    contentDescription = label.full
-                }
-                row.addView(time, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                // Decide once on the first layout pass; no periodic refresh or timer.
-                row.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-                    override fun onLayoutChange(
-                        view: View,
-                        left: Int,
-                        top: Int,
-                        right: Int,
-                        bottom: Int,
-                        oldLeft: Int,
-                        oldTop: Int,
-                        oldRight: Int,
-                        oldBottom: Int,
-                    ) {
-                        row.removeOnLayoutChangeListener(this)
-                        val addressWidth = address.paint.measureText(entry.address)
-                        val fullWidth = time.paint.measureText(label.full)
-                        val fixedWidth = row.width - address.width
-                        if (addressWidth + fullWidth + fixedWidth > row.width) {
-                            time.text = label.compact
-                        }
-                    }
-                })
+                detail.addView(View(context), LinearLayout.LayoutParams(dp(8), 1))
+                detail.addView(
+                    TextView(context).apply {
+                        text = label.full
+                        textSize = 12f
+                        setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
+                        gravity = Gravity.CENTER_VERTICAL
+                        setSingleLine(true)
+                        ellipsize = TextUtils.TruncateAt.END
+                        contentDescription = label.full
+                    },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                )
             }
-            operatorList.addView(row, fullWidth())
+            item.addView(detail, fullWidth())
+            operatorList.addView(item, fullWidth())
         }
     }
 
