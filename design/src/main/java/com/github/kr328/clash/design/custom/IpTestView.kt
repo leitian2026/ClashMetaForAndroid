@@ -191,9 +191,27 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         testedIps = tested.coerceIn(0, totalIps)
         val title = SpannableStringBuilder(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) {
+            // CUSTOM (CUSTOM.md #156 step 23): highlight the total and completed counts separately.
+            val progress = context.getString(R.string.iptest_log_progress, totalIps, testedIps)
             val start = title.length
-            title.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
-            title.setSpan(ForegroundColorSpan(colorMuted), start, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            title.append(progress)
+            val testedAt = progress.indexOf("，已测")
+            if (testedAt > 0) {
+                title.setSpan(
+                    ForegroundColorSpan(if (night) Color.parseColor("#90CAF9") else Color.parseColor("#64B5F6")),
+                    start,
+                    start + testedAt,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                title.setSpan(
+                    ForegroundColorSpan(if (night) Color.parseColor("#64B5F6") else Color.parseColor("#2196F3")),
+                    start + testedAt,
+                    title.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            } else {
+                title.setSpan(ForegroundColorSpan(colorMuted), start, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
         }
         logTitle.text = title
     }
