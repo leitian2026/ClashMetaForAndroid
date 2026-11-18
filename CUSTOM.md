@@ -2207,3 +2207,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 仅调整详细诊断区域的展示；原 IP 测试表格及其数据、排序、列宽和绘制逻辑不变；不增加网络请求或历史数据。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件；没有新增文件或修改上游文件总表。
 - **验证：** 静态核对表格字段均来自现有 `IpTestRow` / `DnsCheckReport`；未运行 Kotlin 编译、Android 构建或真机测试。
+
+### 补充修正：详细诊断表格去重及中文表头
+- **去重依据：** 对照原有 IP 测试表格，移除详细诊断表格中重复的入口机房、出口机房、HTTP 状态和连接结果；IP 仅作为每行诊断记录的对应标识保留，不作为新增检测项目。
+- **其他模式：** 机房已由原表格展示，不在诊断表格重复；直连模式的 TLS / ALPN 已显示在原表格 IP 单元格中，因此不重复展示。节点模式的 TLS / ALPN 保留在详细诊断表格。
+- **中文表头：** 为 ALPN、DNS SAN、IP SAN、Server、Cf-Ray、Content-Type、Location、Retry-After、CF-Mitigated 等技术字段补充中文含义，保留必要英文缩写便于核对。
+- **严格范围：** 只调整 IpTestView.kt 中新增详细诊断区域的字段及表头；原有 IP 测试表格的 redraw()、列定义、数据、排序和绘制逻辑不修改。
+- **验证：** 已对照原表格字段与诊断字段逐项检查，并对比原有 redraw() 函数；未运行 Kotlin 编译、Android 构建或真机测试。
