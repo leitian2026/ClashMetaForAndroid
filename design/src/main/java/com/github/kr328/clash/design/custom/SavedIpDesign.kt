@@ -59,7 +59,7 @@ internal fun savedIpOperatorNameError(context: Context, name: String, exceptId: 
 class SavedIpDesign(
     context: Context,
     private val onBack: () -> Unit,
-    private val canRetest: Boolean,
+    private var canRetest: Boolean,
     private val onRetest: (String, List<String>) -> Unit,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
@@ -212,6 +212,12 @@ class SavedIpDesign(
 
         root.addView(operatorList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         refresh()
+    }
+
+    // CUSTOM.md #156 step 24: update the retest gate when an existing page is brought forward.
+    fun setCanRetest(value: Boolean) {
+        canRetest = value
+        updateSelectionActions()
     }
 
     fun refresh() {
@@ -378,11 +384,12 @@ class SavedIpDesign(
             gravity = Gravity.CENTER_VERTICAL
         }
         if (selectedOperatorId == operator.id) {
-            // CUSTOM.md #156 step 23: reserve enough width for the checkbox drawable before the status dot.
+            // CUSTOM.md #156 step 24: the checkbox itself toggles the same IP selection as the address.
             row.addView(CheckBox(context).apply {
                 isChecked = entry.address in selectedAddresses
-                isClickable = false
+                isClickable = true
                 isFocusable = false
+                setOnClickListener { toggleSelection(operator.id, entry.address) }
             }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val statusMark = FrameLayout(context)
