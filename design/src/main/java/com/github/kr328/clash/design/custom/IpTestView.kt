@@ -100,15 +100,15 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     // CUSTOM.md #156 step 41: collapsible diagnostics below the unchanged IP table; expanded by default.
     private var diagnosticsExpanded = true
-    private val diagnosticsBody = TextView(context).apply {
-        textSize = 13f
-        setTextColor(colorText)
+    private val diagnosticsBody = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
         setPadding(dp(8), dp(8), dp(8), dp(8))
         background = GradientDrawable().apply {
             setColor(colorSurface)
             cornerRadius = dp(6).toFloat()
         }
     }
+    private var diagnosticsPlain = ""
     private val diagnosticsTitle = TextView(context).apply {
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
@@ -219,52 +219,188 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
 
     private fun updateDiagnostics() {
-        fun value(v: String): String = v.ifBlank { "未获取" }
-        val sb = StringBuilder()
-        if (rows.isEmpty()) {
-            sb.append("暂无已完成的 IP 测试结果")
-        } else {
-            for ((index, row) in rows.withIndex()) {
-                if (index > 0) sb.append("\n\n")
-                sb.append(row.ip).append('\n')
-                val tls = row.targetTls.ifBlank { row.tls }
-                val alpn = row.targetAlpn.ifBlank { row.alpn }
-                sb.append("TLS：").append(value(tls)).append("   ALPN：").append(value(alpn)).append('\n')
+        diagnosticsBody.removeAllViews()
+        val copied = StringBuilder()
+
+        fun appendMarkdown(headers: List<String>, values: List<List<String>>) {
+            copied.append("| ").append(headers.joinToString(" | ") { markdownCell(it) }).append(" |\n")
+            copied.append("| ").append(headers.joinToString(" | ") { "---" }).append(" |\n")
+            values.forEach { row ->
+                copied.append("| ").append(row.joinToString(" | ") { markdownCell(it) }).append(" |\n")
+            }
+            copied.append('\n')
+        }
+
+        if (rows.isNotEmpty()) {
+            val headers = if (target) {
+                listOf(
+                    "IP", "入口机房", "出口机房", "TLS 版本", "ALPN", "HTTP 状态", "连接结果",
+                    "证书主题", "证书颁发者", "生效时间", "到期时间", "DNS SAN", "IP SAN", "证书验证",
+                    "Server", "Cf-Ray", "Content-Type", "Location", "Retry-After", "CF-Mitigated",
+                )
+            } else {
+                listOf("IP", "机房", "TLS 版本", "ALPN", "测试结果")
+            }
+
+            val values = rows.map { row ->
+                val result = if (row.ok) "连接成功" else explain(row.code, row.reason)
                 if (target) {
-                    sb.append("证书主题：").append(value(row.targetCertSubject)).append('\n')
-                    sb.append("颁发者：").append(value(row.targetCertIssuer)).append('\n')
-                    sb.append("有效期：").append(value(row.targetCertNotBefore)).append(" 至 ").append(value(row.targetCertNotAfter)).append('\n')
-                    sb.append("DNS SAN：").append(value(row.targetCertDnsNames)).append('\n')
-                    sb.append("IP SAN：").append(value(row.targetCertIpAddresses)).append('\n')
-                    sb.append("证书验证：").append(if (row.targetCertVerification == "skipped") "未验证（测试跳过证书验证）" else value(row.targetCertVerification)).append('\n')
-                    sb.append("Server：").append(value(row.targetServer)).append('\n')
-                    sb.append("Cf-Ray：").append(value(row.targetCfRay)).append('\n')
-                    sb.append("Content-Type：").append(value(row.targetContentType)).append('\n')
-                    sb.append("Location：").append(value(row.targetNote)).append('\n')
-                    sb.append("Retry-After：").append(value(row.targetRetryAfter)).append('\n')
-                    sb.append("CF-Mitigated：").append(value(row.targetCfMitigated))
+                    listOf(
+                        row.ip,
+                        row.colo.ifBlank { "未获取" },
+                        row.targetColo.ifBlank { "未获取" },
+                        row.targetTls.ifBlank { "未获取" },
+                        row.targetAlpn.ifBlank { "未获取" },
+                        if (row.targetStatus > 0) row.targetStatus.toString() else "未获取",
+                        result,
+                        row.targetCertSubject.ifBlank { "未获取" },
+                        row.targetCertIssuer.ifBlank { "未获取" },
+                        row.targetCertNotBefore.ifBlank { "未获取" },
+                        row.targetCertNotAfter.ifBlank { "未获取" },
+                        row.targetCertDnsNames.ifBlank { "未获取" },
+                        row.targetCertIpAddresses.ifBlank { "未获取" },
+                        when (row.targetCertVerification) {
+                            "skipped" -> "未验证（跳过证书验证）"
+                            else -> row.targetCertVerification.ifBlank { "未获取" }
+                        },
+                        row.targetServer.ifBlank { "未获取" },
+                        row.targetCfRay.ifBlank { "未获取" },
+                        row.targetContentType.ifBlank { "未获取" },
+                        row.targetNote.ifBlank { "未获取" },
+                        row.targetRetryAfter.ifBlank { "未获取" },
+                        row.targetCfMitigated.ifBlank { "未获取" },
+                    )
+                } else {
+                    listOf(
+                        row.ip,
+                        row.colo.ifBlank { "未获取" },
+                        row.tls.ifBlank { "未获取" },
+                        row.alpn.ifBlank { "未获取" },
+                        result,
+                    )
                 }
             }
+
+            copied.append("IP 详细诊断\n")
+            appendMarkdown(headers, values)
+            addDiagnosticsTable("IP 详细诊断", headers, values)
         }
+
         dnsReport?.let { report ->
-            sb.append("\n\nDNS 检查（独立结果：").append(report.domain).append("）\n")
-            if (report.servers.isEmpty()) {
-                sb.append("没有可显示的 DNS 服务器结果")
-            } else {
-                for (server in report.servers) {
-                    sb.append(server.address).append("：")
-                    sb.append(if (server.ok && server.ms > 0) "${server.ms} ms" else "未获取")
-                    sb.append('\n')
-                }
+            val dnsRows = ArrayList<List<String>>()
+            for (server in report.servers) {
+                dnsRows += listOf(
+                    server.address.ifBlank { "未获取" },
+                    if (server.ok && server.ms > 0) "${server.ms} ms" else "未获取",
+                )
             }
             if (report.core.asked) {
-                sb.append("核心解析：").append(if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取").append('\n')
+                dnsRows += listOf("核心解析", if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取")
             }
             report.kernel?.let { kernel ->
-                sb.append("内核 DNS：").append(if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
+                dnsRows += listOf("内核 DNS", if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
             }
+            if (dnsRows.isEmpty()) dnsRows += listOf("无可显示结果", "未获取")
+
+            val dnsTitle = "DNS 检查（独立结果：${report.domain}）"
+            copied.append(dnsTitle).append('\n')
+            appendMarkdown(listOf("DNS 项目", "查询耗时"), dnsRows)
+            addDiagnosticsTable(dnsTitle, listOf("DNS 项目", "查询耗时"), dnsRows, 150, 110)
         }
-        diagnosticsBody.text = sb.toString()
+
+        diagnosticsPlain = copied.toString().trim()
+        if (diagnosticsBody.childCount == 0) {
+            val empty = TextView(context).apply {
+                text = "暂无详细诊断数据"
+                textSize = 13f
+                setTextColor(colorMuted)
+            }
+            diagnosticsBody.addView(empty, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+    }
+
+    // The diagnostics table follows the IP table: one IP per vertical row; diagnostic fields are horizontal columns.
+    // The IP column stays fixed while the remaining columns scroll horizontally.
+    private fun addDiagnosticsTable(
+        title: String,
+        headers: List<String>,
+        values: List<List<String>>,
+        firstWidthDp: Int = 140,
+        otherWidthDp: Int = 118,
+    ) {
+        val heading = TextView(context).apply {
+            text = title
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(colorText)
+            setPadding(0, dp(10), 0, dp(6))
+        }
+        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val firstWidth = dp(firstWidthDp)
+        val otherWidth = dp(otherWidthDp)
+        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val gridWidth = otherWidth * (headers.size - 1)
+
+        left.addView(diagnosticCell(headers.first(), colorSurface, true), lp(firstWidth, dp(42)))
+
+        val headRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(colorSurface)
+        }
+        headers.drop(1).forEach { header ->
+            headRow.addView(diagnosticCell(header, colorSurface, true), lp(otherWidth, dp(42)))
+        }
+        grid.addView(headRow, lp(gridWidth, dp(42)))
+
+        values.forEachIndexed { index, row ->
+            val stripe = if (index % 2 == 1) colorStripe else Color.TRANSPARENT
+            val first = diagnosticCell(row.firstOrNull().orEmpty(), stripe, true)
+            val cells = row.drop(1).map { diagnosticCell(it, stripe, false) }
+            val leftHeight = diagnosticHeight(first, firstWidth)
+            val rightHeight = cells.maxOfOrNull { diagnosticHeight(it, otherWidth) } ?: dp(42)
+            val height = maxOf(dp(42), leftHeight, rightHeight)
+
+            left.addView(first, lp(firstWidth, height))
+            val line = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(stripe)
+            }
+            cells.forEach { line.addView(it, lp(otherWidth, height)) }
+            grid.addView(line, lp(gridWidth, height))
+        }
+
+        val scroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = true
+            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        val table = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(left, lp(firstWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
+        return TextView(context).apply {
+            this.text = text.ifBlank { "未获取" }
+            textSize = 12f
+            setTextColor(colorText)
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(dp(6), dp(5), dp(6), dp(5))
+            setBackgroundColor(backgroundColor)
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+        }
+    }
+
+    private fun diagnosticHeight(view: View, width: Int): Int {
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+        return view.measuredHeight
     }
 
     /** [testing]: the round is running (no download then); [ip]: the row whose download is running. */
@@ -351,8 +487,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
-        if (diagnosticsBody.text.isNotEmpty()) {
-            sb.append("\n\n详细诊断\n").append(diagnosticsBody.text)
+        if (diagnosticsPlain.isNotEmpty()) {
+            sb.append("\n\n详细诊断\n").append(diagnosticsPlain)
         }
 
         sb.append('\n').append(logLines.joinToString("\n"))
