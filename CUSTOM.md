@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r217
+当前版本：2_11_36-r218
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2145,3 +2145,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 只调整已保存 IP 双列卡片中的 IP 地址和最近测试时间文字；状态文字、状态圆点、删除按钮、卡片尺寸、双列布局、时间格式及其他页面均不变。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件。
 - **验证：** 静态核对两处字号分别由 13sp / 10sp 改为 14sp / 11sp；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
+
+
+### 第 40 步：底层连接页 IP 双列排版（r218）
+- **排版：** 每个节点区块内，TCP / UDP 地址按原有顺序排列，每行最多两个 IP 并排显示；每个 IP 仍保留原来的两行信息：第一行国家旗帜和地址，第二行连接数量及开始时间。只有最后一个地址时占用整行。
+- **IPv6：** 地址保持单行，过长时在中间显示省略号，避免挤压另一列；IPv4 和 UDP 地址的实际内容不变。
+- **宽度与对齐：** 移除底层连接页原有的 400dp 最大宽度限制和水平居中，提示行及连接列表改为占满可用宽度、从左侧开始排布。
+- **严格保留：** 节点标题、实际连接 / 请求数统计、UDP 统计、国家旗帜来源、连接数量、开始时间、地址省略计数、空状态和错误提示、刷新及数据获取 / 更新逻辑均不变；不改其他页面。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`（仅地址行及双列容器排版）、`design/src/main/res/layout/design_mux.xml`（移除居中限宽容器）、`design/src/main/res/values/dimens_custom.xml`（删除不再使用的最大宽度尺寸）、删除 `design/src/main/java/com/github/kr328/clash/design/custom/MuxColumnLayout.kt`，以及本登记文件。
+- **验证：** 静态核对仅修改地址 View 的排布和 IPv6 单行省略显示；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
