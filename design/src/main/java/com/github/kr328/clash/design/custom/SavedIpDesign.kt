@@ -15,6 +15,7 @@ import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -28,14 +29,15 @@ import java.util.UUID
 class SavedIpDesign(
     private val context: Context,
     private val onBack: () -> Unit,
-) {
+) : Design<SavedIpDesign.Request>(context) {
+    enum class Request { Unused }
     private val density = context.resources.displayMetrics.density
     private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
     private val colorMuted = themeColor(android.R.attr.textColorSecondary, Color.GRAY)
     private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, Color.WHITE)
     private val colorDivider = themeColor(android.R.attr.colorControlHighlight, 0x22000000)
 
-    val root = LinearLayout(context).apply {
+    override val root = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setBackgroundColor(colorSurface)
     }
