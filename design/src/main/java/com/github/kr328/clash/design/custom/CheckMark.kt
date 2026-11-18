@@ -23,7 +23,7 @@ object CheckMark {
     private const val CROSS_HEAVY = '\u2718' // ✘
 
     // Fixed colour of the "in use" dot on the proxy page (ProxyView), independent of the theme and card background.
-    const val DOT_GOOD: Int = -11870592 // #FF4ADE80
+    const val DOT_GOOD: Int = -12724657 // #FF3DD64F, same as the "已应用" badge background in the editor history list (EditorActivity, CUSTOM.md #156 step 33)
 
     // Fixed, fully saturated colours of the circle behind every ✓ / ✗ (CUSTOM.md #153), independent of the theme.
     const val MARK_DOT_GOOD: Int = -16718218 // #FF00E676
