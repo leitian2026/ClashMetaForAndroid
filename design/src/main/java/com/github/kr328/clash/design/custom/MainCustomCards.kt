@@ -7,6 +7,13 @@ import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.design.R
 
+sealed class IssuesDisplayState {
+    object NotRunning : IssuesDisplayState()
+    object NoIssues : IssuesDisplayState()
+    data class Loaded(val snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot) : IssuesDisplayState()
+    data class ReadFailed(val reason: String) : IssuesDisplayState()
+}
+
 // CUSTOM (CUSTOM.md #6, #7) on the home page:
 //  - GeoSite reminder: red text under the app name while an app update has replaced the user's
 //    downloaded geosite.dat with the built-in one; tapping it opens the Meta feature settings
@@ -31,22 +38,24 @@ class MainCustomCards(
         }
 
     // CUSTOM.md #53: one line per problem; what does not fit is behind the tap (the list page)
-    fun setIssues(snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot?) {
+    fun setIssues(state: IssuesDisplayState) {
         val card = issuesCard ?: return
-        val active = snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
-
-        if (active.isEmpty()) {
-            card.visibility = View.GONE
-            return
+        when (state) {
+            IssuesDisplayState.NotRunning, IssuesDisplayState.NoIssues -> card.visibility = View.GONE
+            is IssuesDisplayState.ReadFailed -> {
+                card.text = context.getString(R.string.issues_card_read_failed_title)
+                card.subtext = state.reason
+                card.visibility = View.VISIBLE
+            }
+            is IssuesDisplayState.Loaded -> {
+                val active = state.snapshot.items.filter { !it.ignored && !it.resolved }
+                card.text = context.getString(R.string.issues_card_title, active.size)
+                val lines = active.take(2).map { context.getString(IssueText.kindRes(it.kind), IssueText.subject(it)) }
+                val more = if (active.size > lines.size) listOf(context.getString(R.string.main_issues_card_more)) else emptyList()
+                card.subtext = (lines + more).joinToString("\n")
+                card.visibility = View.VISIBLE
+            }
         }
-
-        card.text = context.getString(R.string.issues_card_title, active.size)
-
-        val lines = active.take(2).map { context.getString(IssueText.kindRes(it.kind), IssueText.subject(it)) }
-        val more = if (active.size > lines.size) listOf(context.getString(R.string.main_issues_card_more)) else emptyList()
-
-        card.subtext = (lines + more).joinToString("\n")
-        card.visibility = View.VISIBLE
     }
 
     fun update(running: Boolean, state: TunnelState): String? {

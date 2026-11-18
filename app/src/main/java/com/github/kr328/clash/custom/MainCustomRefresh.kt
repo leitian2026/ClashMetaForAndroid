@@ -2,6 +2,7 @@ package com.github.kr328.clash.custom
 
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.custom.IssuesSnapshot
+import com.github.kr328.clash.design.custom.IssuesDisplayState
 import com.github.kr328.clash.design.MainDesign
 import kotlinx.coroutines.CancellationException
 import com.github.kr328.clash.util.withClash
@@ -21,18 +22,19 @@ suspend fun MainDesign.refreshCustom(running: Boolean) {
 
 // CUSTOM (CUSTOM.md #53): the card for problems of the running config. Asked whenever the home page is fetched or
 // refreshed by an event; nothing here runs on its own.
-suspend fun MainDesign.refreshIssues(running: Boolean) {
-    val snapshot = if (running) {
+suspend fun MainDesign.refreshIssues(running: Boolean): IssuesDisplayState {
+    val result = if (!running) {
+        IssuesDisplayState.NotRunning
+    } else {
         try {
-            IssuesSnapshot.parse(withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") })
+            val snapshot = IssuesSnapshot.parse(withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") })
+            if (snapshot.items.none { !it.ignored && !it.resolved }) IssuesDisplayState.NoIssues else IssuesDisplayState.Loaded(snapshot)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            null
+            IssuesDisplayState.ReadFailed(e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName)
         }
-    } else {
-        null
     }
-
-    setCustomIssues(snapshot)
+    setCustomIssues(result)
+    return result
 }

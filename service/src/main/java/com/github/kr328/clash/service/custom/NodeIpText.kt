@@ -19,24 +19,25 @@ object NodeIpText {
     @Synchronized
     fun get(context: Context): String {
         if (dirty) {
-            dirty = false
-            cached = build(context)
+            val result = build(context)
+            cached = result.first
+            dirty = !result.second
         }
 
         return cached
     }
 
-    private fun build(context: Context): String {
+    private fun build(context: Context): Pair<String, Boolean> {
         val state = try {
             Clash.queryTunnelState()
         } catch (e: Exception) {
-            return context.getString(R.string.custom_notification_no_ip)
+            return context.getString(R.string.custom_notification_read_failed) to false
         }
 
         val ips = state.ipsText { context.getString(R.string.custom_ips_more, it) }
 
-        if (ips.isEmpty()) return context.getString(R.string.custom_notification_no_ip)
+        if (ips.isEmpty()) return context.getString(R.string.custom_notification_no_ip) to true
 
-        return "$ips · ${state.currentNode}"
+        return "$ips · ${state.currentNode}" to true
     }
 }

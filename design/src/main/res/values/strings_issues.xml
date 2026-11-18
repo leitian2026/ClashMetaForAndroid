@@ -21,4 +21,5 @@
     <string name="issue_hint_sub">Next: open Profiles and update this subscription manually</string>
     <string name="main_issues_card_more">tap to see all</string>
     <string name="issues_card_title">%1$d runtime problem(s)</string>
+    <string name="issues_card_read_failed_title">Runtime problems: read failed</string>
 </resources>

@@ -8,6 +8,7 @@ import com.github.kr328.clash.core.util.trafficTotal
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
 import com.github.kr328.clash.design.custom.MainCustomCards
 import com.github.kr328.clash.design.custom.MainCustomMenu // CUSTOM: CUSTOM.md #32
+import com.github.kr328.clash.design.custom.IssuesDisplayState
 import com.github.kr328.clash.design.databinding.DesignMainBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
@@ -50,9 +51,9 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     }
 
     // CUSTOM (CUSTOM.md #53): the card for problems of the running config
-    suspend fun setCustomIssues(snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot?) {
+    suspend fun setCustomIssues(state: IssuesDisplayState) {
         withContext(Dispatchers.Main) {
-            customCards.setIssues(snapshot)
+            customCards.setIssues(state)
         }
     }
 
