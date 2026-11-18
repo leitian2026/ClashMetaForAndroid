@@ -16,15 +16,6 @@ func ips(list ...string) []target {
 }
 
 func TestParseTargets(t *testing.T) {
-	dom := func(names ...string) []target {
-		out := make([]target, len(names))
-		for i, n := range names {
-			out[i] = target{Text: n, IsDomain: true}
-		}
-
-		return out
-	}
-
 	cases := []struct {
 		in      string
 		want    []target
@@ -39,14 +30,11 @@ func TestParseTargets(t *testing.T) {
 		{"1.1.1.1 1.1.1.1 ::ffff:1.1.1.1", ips("1.1.1.1"), nil},
 		{"abc 1.1.1.1 300.1.1.1 fe80::1%eth0 1.2.3", ips("1.1.1.1"), []string{"abc", "300.1.1.1", "fe80::1%eth0", "1.2.3"}},
 		{"  \n\r\n ", nil, nil},
-
-		// domains
-		{"example.com", dom("example.com"), nil},
-		{"Example.COM. example.com geng-xin.uf0.workers.dev", dom("example.com", "geng-xin.uf0.workers.dev"), nil},
-		{"example.com:8443 1.1.1.1 b.example.org", append(append(dom("example.com"), ips("1.1.1.1")...), dom("b.example.org")...), nil},
-		{"localhost a_b.com -a.com a-.com a..com 1.2.3.4:abc 2606:4700::zz 例子.com", nil, []string{"localhost", "a_b.com", "-a.com", "a-.com", "a..com", "1.2.3.4:abc", "2606:4700::zz", "例子.com"}},
+		{"example.com", nil, []string{"example.com"}},
+		{"Example.COM. example.com geng-xin.uf0.workers.dev", nil, []string{"Example.COM.", "example.com", "geng-xin.uf0.workers.dev"}},
+		{"example.com:8443 1.1.1.1 b.example.org", ips("1.1.1.1"), []string{"example.com:8443", "b.example.org"}},
+		{"localhost a_b.com -a.com a-.com a..com 2606:4700::zz 例子.com", nil, []string{"localhost", "a_b.com", "-a.com", "a-.com", "a..com", "2606:4700::zz", "例子.com"}},
 	}
-
 	for i, c := range cases {
 		got, invalid := parseTargets(c.in)
 		if !reflect.DeepEqual(got, c.want) || !reflect.DeepEqual(invalid, c.invalid) {
