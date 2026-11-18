@@ -416,6 +416,10 @@ The app settings and override settings will be replaced, and the subscriptions o
     <!-- CUSTOM #156 step 3: saved-IP list page and operator management -->
     <string name="saved_ip_entry">Saved IPs</string>
     <string name="saved_ip_title">Saved IPs</string>
+    <string name="saved_ip_search_hint">Search IPv4 or IPv6</string>
+    <string name="saved_ip_search_no_match">No matching IP addresses.</string>
+    <string name="saved_ip_group_title">%1$s (%2$d)</string>
+    <string name="saved_ip_group_counts">Reachable %1$d · Unreachable %2$d · Untested %3$d</string>
     <string name="saved_ip_summary">Saved %1$d IPs · Reachable %2$d · Unreachable %3$d · Untested %4$d</string>
     <string name="saved_ip_filter_all_count">All %1$d</string>
     <string name="saved_ip_filter_reachable_count">Reachable %1$d</string>
