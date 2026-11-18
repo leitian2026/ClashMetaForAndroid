@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r216
+当前版本：2_11_36-r217
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2137,3 +2137,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
 - **CUSTOM 标记：** 新增导航和 Intent 接收逻辑标记为 `CUSTOM.md #156 step 25`。
 - **验证：** 静态核对 CLEAR_TOP / SINGLE_TOP 标志、`onNewIntent()` 一次性读取并移除两个 Intent extra、通过既有 `Request.IpTest` 进入原测试流程；未运行 Kotlin 编译、Android 构建或真机返回栈测试。
+
+
+### 补充调整：已保存 IP 地址和测试时间字号增大（r217）
+- **IP 地址：** 字号由 13sp 调整为 14sp。
+- **测试时间：** 字号由 10sp 调整为 11sp。
+- **范围：** 只调整已保存 IP 双列卡片中的 IP 地址和最近测试时间文字；状态文字、状态圆点、删除按钮、卡片尺寸、双列布局、时间格式及其他页面均不变。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件。
+- **验证：** 静态核对两处字号分别由 13sp / 10sp 改为 14sp / 11sp；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
