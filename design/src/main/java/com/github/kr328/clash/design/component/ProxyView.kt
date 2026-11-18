@@ -2,6 +2,7 @@ package com.github.kr328.clash.design.component
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
@@ -30,6 +31,26 @@ class ProxyView(
     private var ipRowStep = 0f
     private var ipExtraHeight = 0
     private val ipTimeoutText by lazy { context.getString(R.string.ip_delay_timeout) }
+    // CUSTOM.md #151: separate from the faded text paint so the in-use dot stays fully opaque.
+    private val inUseDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val inUseDotOnDark = Color.parseColor("#FFB300")
+    private val inUseDotOnLight = Color.parseColor("#B26A00")
+
+    private fun colorLuminance(color: Int): Float {
+        return (Color.red(color) * 0.299f + Color.green(color) * 0.587f + Color.blue(color) * 0.114f) / 255f
+    }
+
+    // Use the actual interpolated card background; transparent grid cards inherit the surface, inferred from
+    // the existing unselected text colour (dark text means a light surface, light text a dark surface).
+    private fun inUseDotColor(state: ProxyViewState): Int {
+        val darkBackground = if (Color.alpha(state.background) == 0) {
+            colorLuminance(state.config.unselectedControl) > 0.5f
+        } else {
+            colorLuminance(state.background) < 0.5f
+        }
+
+        return if (darkBackground) inUseDotOnDark else inUseDotOnLight
+    }
 
     // CUSTOM (CUSTOM.md #12): when the per-IP delays were measured (0 = unknown). The text under the
     // IP rows is computed when the view is drawn; nothing ticks to keep it up to date.
@@ -256,16 +277,25 @@ class ProxyView(
                     else -> ""
                 }
                 val base = if (flag.isEmpty()) item.ip else "$flag ${item.ip}"
-                val label = if (item.inUse) "● $base" else base // CUSTOM.md #1 (r41): the address in use
+                val dotDiameter = state.config.textSize * 0.5f
+                val dotGap = state.config.textSize * 0.4f
+                val textX = left + if (item.inUse) dotDiameter + dotGap else 0f
+                val available = (right - textX - textWidth - state.config.textMargin).coerceAtLeast(0f)
 
                 val ipCount = paint.breakText(
-                    label,
+                    base,
                     false,
-                    (right - left - textWidth - state.config.textMargin).coerceAtLeast(0f),
+                    available,
                     null,
                 )
 
-                canvas.drawText(label, 0, ipCount, left, y, paint)
+                if (item.inUse) {
+                    inUseDotPaint.color = inUseDotColor(state)
+                    val centerY = y + (paint.ascent() + paint.descent()) / 2f
+                    canvas.drawCircle(left + dotDiameter / 2f, centerY, dotDiameter / 2f, inUseDotPaint)
+                }
+
+                canvas.drawText(base, 0, ipCount, textX, y, paint)
                 canvas.drawText(text, right - textWidth, y, paint)
             }
 

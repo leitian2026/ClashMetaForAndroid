@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r170
+当前版本：2_11_36-r171
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -18,7 +18,7 @@
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 #147 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37）、`reachReason` / `reachAt`（#147） |
-| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 #55 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
+| `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 #55 #151 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #53 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #53 #146 | 低 | 重加 `customCards`、`setCustomCards()`；#146 `setCustomIssues(IssuesDisplayState)`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
@@ -66,7 +66,7 @@
 - **（r44 改了，见下面 r44 一节）** ~~每个节点最多测 4 个 IP~~。在用的 IP（`inUseLocked`：#7 记下的请求最近走过的 IP，没有就取最近拨的 IP；只取 IPv4）仍然一定会测。显示顺序仍按名单顺序，不是"在用的排最前"，这样前后两次对得上；不在名单里的在用 IP 排在最后。
 - **名单顺序固定：** `hosts:` 里写了的，按你写的顺序；实时解析的，先把解析到的 IPv4 **排序**再取（DNS 返回的顺序每次可能不同）。
 - **"共 N 个，仅测了 M 个"（r44 起只有实时解析的节点会出现，`hosts:` 的节点不显示）：** 名单（解析到的全部 IPv4，加上不在名单里的在用 IP）超过测的个数时，页面最后一行（"N 分钟前测速"那一行）左边多写这一句。N 是**这一次解析到的个数**，不是域名一共有多少个；DNS 每次只给其中一部分的域名，N 可能前后不一样。没超过就不显示。
-- **在用的 IP 前面有 `●`：** `Get()` 返回时现算（`IPDelay.InUse`），不存；节点最近没有请求时是"最后一批"（和首页一致，直到下一个请求才变）。
+- **在用 IP 的前面绘制琥珀色实心圆点（r171）：** `Get()` 返回时现算（`IPDelay.InUse`），不存；节点最近没有请求时是"最后一批"（和首页一致，直到下一个请求才变）。不再把 `●` 拼进文字，而是在 `ProxyView.kt` 绘制独立实心圆点；实际卡片底色偏深（选中蓝卡或深色表面）用 `#FFB300`，底色偏浅用 `#B26A00`。透明网格卡片按现有未选中文字颜色推断其表面明暗。圆点直径约 0.5 倍字号，文字只在 inUse 行右移圆点直径 + 0.4 倍字号间距，省略计算同步扣除该宽度。
 - **~~限量并发~~（r44 去掉了 `testSlots` / `testJitter`，改成下面的"一个节点内一个接一个测"）。**
 - **国家查询（r44 起按来源，见下）：** 只对测通的 IP 查；**这个节点 + 这个 IP 的国家已经知道（内存里或 #11 记在磁盘上的）就不再查**，直接用，少发一次请求；新出现的 IP 才查。代价：一个 IP 的出口国家变了的话，测速不会自己刷新它（首页的失败重试照旧）。
 - **改动（r44 又改了其中的限量、并发和 `candidateIPs`，见下一节）：** `ipdelay.go`（`maxTestIPs` / `maxConcurrent` / `testJitter`、`IPDelay.Total` / `InUse`、`candidateIPs` 不再截断并对解析结果排序、新增 `pickIPs` / `inUseLocked` / `throttledTest`、`testProxy`、`Get`、`testIP` 多一个 `known` 参数）、`IpDelay.kt`（`total`、`inUse`）、`ProxyView.kt`（在用标记和"共 N 个"一行，行数没变，不改 `onMeasure`）、文案 `ip_delay_total`。
@@ -888,6 +888,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 ## 57. 全 App 的 ✓ 和 ✗ 上色：✓ 绿、✗ 红，最粗最深（r69）
 **效果：** 所有显示 ✓ / ✗（也包括 ✔ / ✘）的地方，✓ 一律绿色、✗ 一律红色，字重用最粗的（粗体再加一层"伪粗体"描边），颜色：白天 ✓ 深绿 `#005A0A`、✗ 深红 `#A50000`；深色主题下深色在黑底上看不见，改用最亮的 `#00E676` / `#FF5252`（r71 曾改成白天也用最亮，r72 按要求改回）。
 - **涉及的地方：** 首页代理卡片副标题（#37，`LargeActionCard.subtext`）；编辑页历史版本列表（#38 #56，`EditorActivity.kt`）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26，`DnsCheckView.kt`）；测 IP 表格端口结果（#52，`IpTestView.kt`）。r170 另将配置工具里的历史版本选择列表接入同一套样式（`ConfigTools.kt`）。
+- **代理页在用标记（r171）：** IP 行没有勾叉，仍只表示当前在用状态；其圆点改为琥珀色独立绘制（深底 `#FFB300`、浅底 `#B26A00`），不与本条的成功绿 / 失败红混用。
 - **怎么做（r170）：** `CheckMark.kt` 的 `MarkSpan` 改为 `ReplacementSpan`，一次绘制勾叉、间距和同色实心圆点；勾叉仍为粗体 + `isFakeBoldText`。圆点直径为字号的 0.5 倍，勾叉 / 圆点及圆点 / 后文各留字号的 0.25 倍间距，圆点按字体 ascent / descent 垂直居中。`getSize()` 把圆点和间距计入宽度，因此 TextView 的换行、省略号和测量会使用真实宽度。底层文字不插入圆点字符，复制 / 导出 / 排序不变；`paint()` 和 `apply()` 的调用入口不变。
 - **首页卡片：** 文字是上游的 `LargeActionCard.subtext` 显示的（**r69 误挂在 `LargeActionLabel` 上，首页卡片没生效，r70 改正**），所以在它的 setter 里调了一次 `CheckMark.paint`（上游文件，已登记到总表）。
 **功耗：** 文字显示时扫描并绘制，没有定时器、轮询或动画。
@@ -1704,3 +1705,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **首页卡片：** `LargeActionCard.subtext` 由 TextView 绘制，ReplacementSpan 的 `getSize()` 已把新增宽度交给原有省略逻辑，无需另改卡片布局。
 - **改动文件：** `ConfigTools.kt`、`IpTestView.kt` 和本登记文件。
 - **验证：** 静态核对列表类型、端口列宽和纯文本导出路径；未运行 Kotlin 编译、Android 构建或真机测试。
+
+
+## 151. 代理页在用 IP 改为琥珀色实心圆点（r171，补充六提交 4）
+- **绘制：** `ProxyView.kt` 不再把 `●` 拼入 IP 标签；只在 `item.inUse` 时用独立 Paint 绘制实心圆点，圆点保持完全不透明，不受文字 Paint 的 alpha 影响。
+- **颜色：** 按卡片当前实际底色亮度选择：深底（选中蓝色卡片、深色主题表面）为 `#FFB300`，浅底为 `#B26A00`；透明网格卡片用现有未选中文字颜色推断底色明暗，不硬编码选中状态。
+- **布局：** 仅在用中的行把文字起点右移圆点直径加约 0.4 倍字号间距；其他行保持原 IP 起点。breakText 可用宽度扣除圆点占位，省略号计算同步。
+- **功耗：** 沿用原有绘制流程，无定时器、轮询或动画。
+- **改动文件：** `design/.../component/ProxyView.kt` 和本登记文件。
+- **验证：** 静态核对状态底色判断、独立 Paint、inUse 行缩进及 breakText 可用宽度；未运行 Kotlin 编译、Android 构建或真机显示测试。
