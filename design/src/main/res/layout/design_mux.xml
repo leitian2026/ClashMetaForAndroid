@@ -55,11 +55,10 @@
                 </RelativeLayout>
             </com.github.kr328.clash.design.view.ActivityBarLayout>
 
-            <!-- CUSTOM (r211): at most @dimen/mux_content_max_width wide, centered (tablets) -->
-            <com.github.kr328.clash.design.custom.MuxColumnLayout
+            <!-- CUSTOM (r218): full-width, left-aligned hint row. -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="@dimen/item_tailing_margin"
@@ -81,7 +80,7 @@
                     android:layout_height="wrap_content"
                     android:minWidth="0dp"
                     android:text="@string/mux_help_button" />
-            </com.github.kr328.clash.design.custom.MuxColumnLayout>
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
