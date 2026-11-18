@@ -86,7 +86,13 @@ class SavedIpDesign(
     // CUSTOM.md #156 step 17: RecyclerView virtualizes IP rows; only visible rows are bound.
     private val listAdapter = SavedIpAdapter()
     private val operatorList = RecyclerView(context).apply {
-        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
+        layoutManager = androidx.recyclerview.widget.GridLayoutManager(context, 2).apply {
+            // CUSTOM (CUSTOM.md #156 step 22): IP cards use two columns; operator headers and messages span the full width.
+            spanSizeLookup = object : androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int =
+                    if (listAdapter.getItemViewType(position) == 1) 1 else 2
+            }
+        }
         adapter = listAdapter
         setPadding(dp(16), dp(8), dp(16), dp(24))
         clipToPadding = false
@@ -272,7 +278,7 @@ class SavedIpDesign(
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val container = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, if (viewType == 0) dp(10) else dp(4), 0, if (viewType == 0) dp(8) else dp(4))
+                setPadding(if (viewType == 1) dp(4) else 0, if (viewType == 0) dp(10) else dp(4), if (viewType == 1) dp(4) else 0, if (viewType == 0) dp(8) else dp(4))
                 if (viewType != 2) background = selectableBackground()
             }
             return object : RecyclerView.ViewHolder(container) {}
@@ -361,6 +367,7 @@ class SavedIpDesign(
         container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
     }
 
+    // CUSTOM (CUSTOM.md #156 step 22): compact two-column IP card; preserve copy, selection and delete actions.
     private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry) {
         val item = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -375,7 +382,7 @@ class SavedIpDesign(
                 isChecked = entry.address in selectedAddresses
                 isClickable = false
                 isFocusable = false
-            }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
+            }, LinearLayout.LayoutParams(dp(22), ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val statusMark = FrameLayout(context)
         val dotColor = when (entry.status) {
@@ -389,15 +396,15 @@ class SavedIpDesign(
                     shape = GradientDrawable.OVAL
                     setColor(dotColor)
                 }
-            }, FrameLayout.LayoutParams(dp(9), dp(9), Gravity.CENTER))
+            }, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER))
         }
-        row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(36)))
+        row.addView(statusMark, LinearLayout.LayoutParams(dp(18), dp(32)))
         val address = TextView(context).apply {
             text = entry.address
-            textSize = 15f
+            textSize = 13f
             setTextColor(colorText)
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(3), dp(4), dp(3))
+            setPadding(dp(2), dp(3), dp(2), dp(3))
             setSingleLine(true)
             ellipsize = TextUtils.TruncateAt.MIDDLE
             setOnClickListener {
@@ -413,20 +420,20 @@ class SavedIpDesign(
         if (selectedOperatorId == null) {
             row.addView(TextView(context).apply {
                 text = "×"
-                textSize = 22f
+                textSize = 20f
                 gravity = Gravity.CENTER
                 setTextColor(colorLink)
                 contentDescription = context.getString(R.string.saved_ip_delete)
                 background = selectableBackground()
-                setPadding(dp(10), dp(2), dp(10), dp(2))
+                setPadding(dp(5), dp(2), dp(5), dp(2))
                 setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
+            }, LinearLayout.LayoutParams(dp(28), dp(32)))
         }
         item.addView(row, fullWidth())
         val detail = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(if (selectedOperatorId == operator.id) 64 else 34), 0, dp(8), 0)
+            setPadding(dp(if (selectedOperatorId == operator.id) 40 else 18), 0, dp(3), 0)
         }
         val statusText = TextView(context).apply {
             text = when (entry.status) {
@@ -434,7 +441,8 @@ class SavedIpDesign(
                 SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_status_unreachable)
                 SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_status_untested)
             }
-            textSize = 12f
+            textSize = 11f
+            setSingleLine(true)
             setTextColor(when (entry.status) {
                 SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
                 SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
@@ -444,10 +452,10 @@ class SavedIpDesign(
         detail.addView(statusText)
         if (entry.lastTestedAt > 0L) {
             val label = savedIpTimeLabel(entry.lastTestedAt)
-            detail.addView(View(context), LinearLayout.LayoutParams(dp(8), 1))
+            detail.addView(View(context), LinearLayout.LayoutParams(dp(4), 1))
             detail.addView(TextView(context).apply {
-                text = label.full
-                textSize = 12f
+                text = label.compact
+                textSize = 10f
                 setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
                 setSingleLine(true)
                 ellipsize = TextUtils.TruncateAt.END
