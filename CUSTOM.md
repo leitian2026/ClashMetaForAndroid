@@ -1755,7 +1755,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **读写：** `read()` 只读取和规范化内存数据，不写偏好；仅显式调用 `write()` 时序列化并通过 `SharedPreferences.apply()` 保存。读取损坏或缺失的数据时回退为空清单，不触发自动迁移写入。
 - **边界：** 不同运营商允许保存相同 IP；同一运营商内按地址去重并保留首次出现顺序。全清单最多 5000 条，写入超过上限时拒绝，不静默截断。读取时补齐三个内置运营商，固定 ID 不依赖本地化名称。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
-- **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态字段、去重与 5000 条上限；未运行编译和真机测试。后续第 2–5 步继续完成界面和交互。
+- **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态字段、去重与 5000 条上限；未运行编译和真机测试。第 2–5 步的保存、页面、粘贴、多选和重测实现见下文。
 
 
 ### 第 2/5 步：保存这一批
@@ -1787,3 +1787,25 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **禁用条件：** 从配置检查页打开清单时，若整轮 IP 测试、下载测速、ECH 或 DNS 检查正在运行，传入禁用重测状态；批量删除和其他本地清单操作仍可用。
 - **改动文件：** design 中英文 `strings_custom.xml`、`design/.../custom/IpTestDialog.kt`、`design/.../custom/ConfigCheckDesign.kt`、`design/.../custom/SavedIpDesign.kt`、`app/.../custom/SavedIpActivity.kt`、`app/.../custom/ConfigCheckActivity.kt` 和本登记文件。
 - **验证：** 静态核对多选运营商隔离、20 个上限、选择状态内存化、禁用条件、Request.IpTest 路径、一次性预填清理、默认运营商和“手动保存才更新”规则；未运行编译和真机测试。
+
+
+### 第 5/5 步：资源、CUSTOM 挂钩总表核对与 #156 完成总结
+- **中英文资源：** 核对 `values/strings_custom.xml` 与 `values-zh/strings_custom.xml`：#156 使用的字符串键均存在，两边键集合一致，无重复键；所有格式占位符数量和类型一致。
+- **CUSTOM 挂钩：** 本次新增 / 修改的代码、布局、Manifest 和资源文件均带有 `CUSTOM` 标记；所有非上游新文件的文件名均已在本条登记中出现。
+- **上游文件总表：** 对照 `main` 的文件树，本次改动中只有 `app/src/main/AndroidManifest.xml` 属于上游已有文件；已在总表把 #156 加入该行，并登记 `.custom.SavedIpActivity`。其余新增文件按 #156 文件清单登记，不加入上游冲突表。
+- **总表核对：** 当前上游文件总表去重后 36 个路径均存在，且每个文件仍包含 `CUSTOM` 标记；新增文件登记检查通过。没有修改 mihomo core、Go 代码、patches、Gradle 文件或 GitHub Actions 工作流。
+- **#156 全部改动文件（共 12 个，不含本登记文件）：**
+  1. `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`
+  2. `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`
+  3. `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`
+  4. `app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`
+  5. `design/src/main/res/values/strings_custom.xml`
+  6. `design/src/main/res/values-zh/strings_custom.xml`
+  7. `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpParser.kt`
+  8. `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`
+  9. `app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`
+  10. `design/src/main/res/layout/design_config_check.xml`
+  11. `app/src/main/AndroidManifest.xml`
+  12. `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`
+- **版本与编号：** 当前版本保持 `2_11_36-r177`；功能编号为 #156；实现分为 5 步，均已完成。
+- **验证：** 完成资源键 / 占位符、CUSTOM 标记、上游总表、变更文件清单和分支范围的静态核对；未运行编译和真机测试，未触发 Build Debug。
