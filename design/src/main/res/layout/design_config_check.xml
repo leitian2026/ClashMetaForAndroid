@@ -163,6 +163,16 @@
                     android:layout_weight="1"
                     android:onClick="@{() -> self.request(Request.IpTest)}"
                     android:text="@string/iptest_button" />
+
+                <!-- CUSTOM (CUSTOM.md #156 step 3): open the locally saved IP list next to the test-IP action. -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_saved_ips_view"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="@{() -> self.openSavedIps()}"
+                    android:text="@string/saved_ip_entry" />
             </LinearLayout>
 
             <View
