@@ -63,9 +63,11 @@ object SavedIpParser {
         val parts = value.split('.')
         if (parts.size != 4) return null
 
-        val octets = parts.map { part ->
+        val octets = ArrayList<Int>(4)
+        for (part in parts) {
             if (part.isEmpty() || part.length > 3 || part.any { !it.isDigit() }) return null
-            part.toIntOrNull()?.takeIf { it in 0..255 } ?: return null
+            val octet = part.toIntOrNull()?.takeIf { it in 0..255 } ?: return null
+            octets += octet
         }
 
         return octets.joinToString(".")
