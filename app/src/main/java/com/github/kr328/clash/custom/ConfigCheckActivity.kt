@@ -86,8 +86,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         // CUSTOM.md #156 step 3/4: list management is always available; only its re-test action is gated.
         design.onOpenSavedIps = {
             val busy = job?.isActive == true || speedJob?.isActive == true || ipTesting || checkTesting
+            // CUSTOM.md #156 step 24: bring the existing saved-IP page forward instead of stacking another copy.
             startActivity(
                 Intent(this, SavedIpActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                     .putExtra(SavedIpActivity.EXTRA_CAN_RETEST, !busy && clashRunning),
             )
         }
