@@ -1,7 +1,17 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.github.kr328.clash.core.model.MuxIp
+import com.github.kr328.clash.core.model.MuxNode
 import com.github.kr328.clash.core.model.MuxSnapshot
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
@@ -31,18 +41,162 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
 
     /** [error] is non-null only when querying or parsing the core response failed. */
     suspend fun patch(snapshot: MuxSnapshot?, running: Boolean, error: String? = null) {
-        val text = when {
+        val message = when {
             !running -> context.getString(R.string.connections_not_running)
             error != null -> context.getString(R.string.mux_error, error)
             snapshot == null || (snapshot.mux.isEmpty() && snapshot.nodesOmitted == 0) -> context.getString(R.string.connections_empty)
-            else -> MuxText.build(context, snapshot)
+            else -> null
         }
 
         withContext(Dispatchers.Main) {
-            // no write (and no relayout) when the text did not change
-            if (binding.muxTextView.text.toString() != text) {
-                binding.muxTextView.text = text
+            if (message != null) {
+                binding.muxList.removeAllViews()
+                binding.muxList.visibility = View.GONE
+                binding.muxTextView.visibility = View.VISIBLE
+                // no write (and no relayout) when the text did not change
+                if (binding.muxTextView.text.toString() != message) {
+                    binding.muxTextView.text = message
+                }
+            } else if (snapshot != null) {
+                // only called when the answer of the core changed (MuxActivity compares it first)
+                binding.muxTextView.visibility = View.GONE
+                binding.muxList.visibility = View.VISIBLE
+                rebuild(snapshot)
             }
+        }
+    }
+
+    // CUSTOM (CUSTOM.md #20, r211): grouped layout, one block per node: a bold title row (name, counts), then one row
+    // per address (flag + address, count and start time in two right-aligned columns), a thin divider between nodes.
+    private val dp = context.resources.displayMetrics.density
+    private val sidePadding = context.resources.getDimensionPixelSize(R.dimen.item_tailing_margin)
+    private val countWidth = context.resources.getDimensionPixelSize(R.dimen.mux_col_count_width)
+    private val sinceWidth = context.resources.getDimensionPixelSize(R.dimen.mux_col_since_width)
+
+    private fun px(value: Float): Int = (value * dp).toInt()
+
+    private fun themeColors(attr: Int): ColorStateList? {
+        val array = context.obtainStyledAttributes(intArrayOf(attr))
+        try {
+            return array.getColorStateList(0)
+        } finally {
+            array.recycle()
+        }
+    }
+
+    private fun text(
+        value: String,
+        sp: Float,
+        color: Int,
+        bold: Boolean = false,
+        width: Int = ViewGroup.LayoutParams.WRAP_CONTENT,
+        weight: Float = 0f,
+        end: Boolean = false,
+    ): TextView = TextView(context).apply {
+        text = value
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
+        setTextColor(themeColors(color))
+        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (end) gravity = Gravity.END
+        layoutParams = LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
+    }
+
+    private fun row(vararg views: View, startPadding: Int = 0, vertical: Float = 0f): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPaddingRelative(sidePadding + startPadding, px(vertical), sidePadding, px(vertical))
+            views.forEach { addView(it) }
+        }
+
+    private fun divider(): View = View(context).apply {
+        setBackgroundColor(themeColors(android.R.attr.colorControlHighlight)?.defaultColor ?: 0)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, px(0.5f)))
+    }
+
+    private fun addressRow(prefix: String, ip: MuxIp, count: String, now: Long): View = row(
+        text(prefix + MuxText.address(context, ip), 14f, android.R.attr.textColorPrimary, weight = 1f, width = 0),
+        text(count, 13f, android.R.attr.textColorSecondary, width = countWidth, end = true),
+        text(MuxText.sinceTime(ip, now), 13f, android.R.attr.textColorTertiary, width = sinceWidth, end = true),
+        startPadding = px(12f),
+        vertical = 4f,
+    )
+
+    private fun nodeBlock(n: MuxNode, now: Long): View {
+        val block = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val other = n.node.isEmpty()
+
+        val nameBox = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(
+                text(
+                    if (other) context.getString(R.string.mux_other_name) else n.node,
+                    15f, android.R.attr.textColorPrimary, bold = true,
+                ),
+            )
+            if (other) {
+                addView(
+                    text(context.getString(R.string.mux_other_tag), 12f, android.R.attr.textColorSecondary).apply {
+                        setPaddingRelative(px(8f), px(2f), px(8f), px(2f))
+                        background = GradientDrawable().apply {
+                            cornerRadius = px(10f).toFloat()
+                            setColor(themeColors(android.R.attr.colorControlHighlight)?.defaultColor ?: 0)
+                        }
+                        (layoutParams as LinearLayout.LayoutParams).marginStart = px(8f)
+                    },
+                )
+            }
+        }
+        val counts = if (n.udp > 0) {
+            context.getString(R.string.mux_group_counts_udp, n.tcp, n.connections, n.udp)
+        } else {
+            context.getString(R.string.mux_group_counts, n.tcp, n.connections)
+        }
+        block.addView(
+            row(nameBox, text(counts, 13f, android.R.attr.textColorSecondary).apply {
+                (layoutParams as LinearLayout.LayoutParams).marginStart = px(8f)
+            }, vertical = 0f).apply { setPaddingRelative(sidePadding, px(10f), sidePadding, px(4f)) },
+        )
+
+        for (ip in n.ips) block.addView(addressRow("", ip, context.getString(R.string.mux_row_count_tcp, ip.count), now))
+        if (n.ipsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_ips_omitted, n.ipsOmitted)))
+        for (ip in n.udpIps) block.addView(addressRow("UDP ", ip, context.getString(R.string.mux_row_count_udp, ip.count), now))
+        if (n.udpIpsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_udp_ips_omitted, n.udpIpsOmitted)))
+
+        block.setPadding(0, 0, 0, px(8f))
+        return block
+    }
+
+    private fun omitted(value: String): View =
+        row(text(value, 12f, android.R.attr.textColorTertiary, weight = 1f, width = 0), startPadding = px(12f), vertical = 4f)
+
+    private fun rebuild(snapshot: MuxSnapshot) {
+        val list = binding.muxList
+        val now = System.currentTimeMillis()
+
+        list.removeAllViews()
+
+        // the column names, once at the top
+        list.addView(
+            row(
+                text(context.getString(R.string.mux_col_address), 11f, android.R.attr.textColorTertiary, weight = 1f, width = 0),
+                text(context.getString(R.string.mux_col_count), 11f, android.R.attr.textColorTertiary, width = countWidth, end = true),
+                text(context.getString(R.string.mux_col_since), 11f, android.R.attr.textColorTertiary, width = sinceWidth, end = true),
+                vertical = 8f,
+            ),
+        )
+        list.addView(divider())
+
+        snapshot.mux.forEachIndexed { index, node ->
+            if (index > 0) list.addView(divider())
+            list.addView(nodeBlock(node, now))
+        }
+
+        if (snapshot.nodesOmitted > 0) {
+            list.addView(divider())
+            list.addView(row(text(context.getString(R.string.mux_nodes_omitted, snapshot.nodesOmitted), 12f, android.R.attr.textColorTertiary), vertical = 10f))
         }
     }
 

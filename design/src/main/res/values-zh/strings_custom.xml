@@ -483,4 +483,14 @@
     <string name="saved_ip_delete_unreachable_done">已删除 %1$d 个。</string>
     <string name="saved_ip_time_date_same_year_compact">M/d</string>
     <string name="saved_ip_time_date_other_year_compact">yy/M/d</string>
+    <!-- CUSTOM (CUSTOM.md #20, r211): underlying connections page, grouped layout -->
+    <string name="mux_col_address">节点 / 地址</string>
+    <string name="mux_col_count">条数</string>
+    <string name="mux_col_since">起始时间</string>
+    <string name="mux_group_counts">底层 %1$d · 上层 %2$d</string>
+    <string name="mux_group_counts_udp">底层 %1$d · 上层 %2$d · UDP %3$d</string>
+    <string name="mux_row_count_tcp">%1$d 条</string>
+    <string name="mux_row_count_udp">%1$d 个</string>
+    <string name="mux_other_name">其他</string>
+    <string name="mux_other_tag">不属于任何节点</string>
 </resources>

@@ -55,9 +55,11 @@
                 </RelativeLayout>
             </com.github.kr328.clash.design.view.ActivityBarLayout>
 
-            <LinearLayout
+            <!-- CUSTOM (r211): at most @dimen/mux_content_max_width wide, centered (tablets) -->
+            <com.github.kr328.clash.design.custom.MuxColumnLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="@dimen/item_tailing_margin"
@@ -79,7 +81,7 @@
                     android:layout_height="wrap_content"
                     android:minWidth="0dp"
                     android:text="@string/mux_help_button" />
-            </LinearLayout>
+            </com.github.kr328.clash.design.custom.MuxColumnLayout>
 
             <View
                 android:layout_width="match_parent"
@@ -93,14 +95,30 @@
                 android:clipToPadding="false"
                 android:paddingBottom="@{self.surface.insets.bottom}">
 
-                <TextView
-                    android:id="@+id/mux_text_view"
+                <com.github.kr328.clash.design.custom.MuxColumnLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingHorizontal="@dimen/item_tailing_margin"
-                    android:paddingVertical="@dimen/item_padding_vertical"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                    android:textColor="?attr/colorControlActivated" />
+                    android:layout_gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <!-- the one-line messages (not running, empty, read failed) -->
+                    <TextView
+                        android:id="@+id/mux_text_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="@dimen/item_tailing_margin"
+                        android:paddingVertical="@dimen/item_padding_vertical"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                        android:textColor="?attr/colorControlActivated"
+                        android:visibility="gone" />
+
+                    <!-- the grouped list is built in code (MuxDesign.rebuild) -->
+                    <LinearLayout
+                        android:id="@+id/mux_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </com.github.kr328.clash.design.custom.MuxColumnLayout>
             </androidx.core.widget.NestedScrollView>
         </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

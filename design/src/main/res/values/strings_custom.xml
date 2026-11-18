@@ -483,4 +483,14 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_delete_unreachable_done">Deleted %1$d IPs.</string>
     <string name="saved_ip_time_date_same_year_compact">M/d</string>
     <string name="saved_ip_time_date_other_year_compact">M/d/yy</string>
+    <!-- CUSTOM (CUSTOM.md #20, r211): underlying connections page, grouped layout -->
+    <string name="mux_col_address">Node / address</string>
+    <string name="mux_col_count">Count</string>
+    <string name="mux_col_since">Since</string>
+    <string name="mux_group_counts">underlying %1$d · upper %2$d</string>
+    <string name="mux_group_counts_udp">underlying %1$d · upper %2$d · UDP %3$d</string>
+    <string name="mux_row_count_tcp">%1$d</string>
+    <string name="mux_row_count_udp">%1$d</string>
+    <string name="mux_other_name">Other</string>
+    <string name="mux_other_tag">no node</string>
 </resources>
