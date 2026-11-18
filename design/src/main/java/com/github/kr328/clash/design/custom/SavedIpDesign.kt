@@ -837,6 +837,11 @@ class SavedIpDesign(
             Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
             return
         }
+        // CUSTOM.md #156 step 23: clear the old multi-selection before handing off to ConfigCheckActivity.
+        // SavedIpActivity stays on the back stack while the test page is open; retaining this selection
+        // makes the next visit look as though the previous batch is still active.
+        clearSelectionState()
+        renderRows()
         onRetest(operatorId, addresses)
     }
 
