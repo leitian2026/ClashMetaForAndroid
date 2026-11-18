@@ -6,7 +6,7 @@
     <dimen name="geosite_download_indent">65dp</dimen>
     <!-- CUSTOM (CUSTOM.md #20, r211): the underlying connections page: widest the list / hint may be (tablets: centered, not
          stretched), and the widths of its two right-hand columns (count, start time) -->
-    <dimen name="mux_content_max_width">560dp</dimen>
+    <dimen name="mux_content_max_width">400dp</dimen>
     <dimen name="mux_col_count_width">44dp</dimen>
     <dimen name="mux_col_since_width">84dp</dimen>
 </resources>
