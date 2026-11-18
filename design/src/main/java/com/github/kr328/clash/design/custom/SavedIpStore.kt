@@ -167,6 +167,7 @@ object SavedIpStore {
      * The same address may exist in different operators. More than [MAX_IP_COUNT] total entries is rejected rather
      * than silently truncating the user's list.
      */
+    @Synchronized
     fun write(context: Context, snapshot: SavedIpSnapshot) {
         val normalized = normalize(snapshot)
         val total = normalized.operators.sumOf { it.ips.size }
@@ -180,7 +181,13 @@ object SavedIpStore {
             .apply()
     }
 
-    /** Strict read for read-modify-write operations: never turn a read failure into an empty list. */
+    /** Atomically read, transform, and persist a snapshot for an explicit list mutation. */
+    @Synchronized
+    fun update(context: Context, transform: (SavedIpSnapshot) -> SavedIpSnapshot) {
+        val current = readForUpdate(context)
+        write(context, transform(current))
+    }
+
     private fun readForUpdate(context: Context): SavedIpSnapshot {
         val preferences = try {
             context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -206,6 +213,7 @@ object SavedIpStore {
      * Test rows retain result-table order and override pasted duplicates; new pasted entries follow as UNTESTED.
      * Existing addresses are not duplicated and domain rows are never stored. // CUSTOM.md #156 step 11
      */
+    @Synchronized
     fun saveRows(
         context: Context,
         operatorId: String,
