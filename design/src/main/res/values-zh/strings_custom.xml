@@ -441,4 +441,5 @@
     <string name="saved_ip_cancel_selection">取消选择</string>
     <string name="saved_ip_selected_count">已选 %1$d 个</string>
     <string name="saved_ip_max_20">一次最多 20 个。</string>
+    <string name="saved_ip_delete_selected_message">删除选中的 %1$d 个 IP？</string>
 </resources>

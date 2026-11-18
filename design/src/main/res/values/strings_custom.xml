@@ -441,4 +441,5 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_cancel_selection">Cancel selection</string>
     <string name="saved_ip_selected_count">%1$d selected</string>
     <string name="saved_ip_max_20">You can select at most 20 IPs at a time.</string>
+    <string name="saved_ip_delete_selected_message">Delete %1$d selected IPs?</string>
 </resources>
