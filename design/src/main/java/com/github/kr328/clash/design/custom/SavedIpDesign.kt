@@ -25,7 +25,7 @@ import java.util.UUID
 
 /**
  * CUSTOM.md #156 step 3: local saved-IP page. All list operations are local and remain available when Clash is stopped.
- * Multi-selection and batch re-test are added in step 4.
+ * Step 4 adds in-memory multi-selection and hands selected addresses to the existing IP-test flow.
  */
 class SavedIpDesign(
     private val context: Context,
