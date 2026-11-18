@@ -45,6 +45,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
+    var onSaveBatch: () -> Unit = {} // CUSTOM.md #156 step 2: save the completed rows
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
@@ -93,6 +94,15 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         setTextColor(colorText)
         setPadding(0, 0, 0, dp(8))
     }
+
+    private val saveBatchButton = MaterialButton(context).apply {
+        setText(R.string.saved_ip_save_batch)
+        isAllCaps = false
+        visibility = View.GONE
+        setOnClickListener { onSaveBatch() }
+    }
+
+    private var saveAvailable = false
 
     private val tableBox = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
@@ -145,6 +155,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         }
 
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // CUSTOM.md #156 step 2: the action sits above the results table and appears only after a round ends.
+        root.addView(saveBatchButton, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -182,7 +194,15 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun setBusy(testing: Boolean, ip: String?) {
         this.testing = testing
         speedIp = ip
+        saveBatchButton.isEnabled = saveAvailable && !testing
         redraw()
+    }
+
+    /** CUSTOM.md #156 step 2: expose the save action only when a completed or cancelled round has rows. */
+    fun setSaveAvailable(available: Boolean) {
+        saveAvailable = available
+        saveBatchButton.visibility = if (available) View.VISIBLE else View.GONE
+        saveBatchButton.isEnabled = available && !testing
     }
 
     /** Progress counts completed IP probes, including failed results; a cancelled in-flight probe is not counted. */
