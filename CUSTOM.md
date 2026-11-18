@@ -1756,3 +1756,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **边界：** 不同运营商允许保存相同 IP；同一运营商内按地址去重并保留首次出现顺序。全清单最多 5000 条，写入超过上限时拒绝，不静默截断。读取时补齐三个内置运营商，固定 ID 不依赖本地化名称。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
 - **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态字段、去重与 5000 条上限；未运行编译和真机测试。后续第 2–5 步继续完成界面和交互。
+
+
+### 第 2/5 步：保存这一批
+- **入口：** 在“测试其他 IP”结果表上方增加“保存这一批”按钮；新一轮开始时隐藏，整轮正常结束或中途取消后，只要已有完成结果行就显示。重新进入页面恢复最近一轮结果时，也恢复该按钮。
+- **选择与默认值：** 弹窗按运营商单选，默认上次保存使用的运营商；“只保存通的”默认不勾选。内置运营商名称来自中英文资源，不把本地化文字作为 ID。
+- **保存规则：** 只处理当前 `ipRows`；`isDomain` 行跳过，其他已测行按 `row.ok` 保存为通 / 不通。勾选“只保存通的”时，不通行不保存。相同运营商内已存在的 IP 只更新状态、不改变原顺序；新 IP 追加。保存逻辑由 `SavedIpStore.saveRows()` 完成，不改最近一轮测试结果。
+- **反馈与限制：** 保存后提示新增、更新和跳过域名的数量；超过 5000 条上限时拒绝整批写入并提示，不截断清单。测试运行期间按钮不可操作；取消后已完成的行仍可保存。保存过程仅操作本地 SharedPreferences，不发起网络请求。
+- **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
+- **验证：** 静态核对中英文资源键、保存按钮显示时机、默认运营商、`row.ok` 状态映射、域名跳过、重复 IP 更新顺序及 5000 条上限；未运行编译和真机测试。
