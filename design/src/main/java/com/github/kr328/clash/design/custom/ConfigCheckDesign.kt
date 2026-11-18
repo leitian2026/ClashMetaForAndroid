@@ -454,13 +454,26 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
         content.addView(onlyReachable)
 
-        // CUSTOM.md #156 step 15: optionally save only addresses parsed from the paste field, excluding all test rows.
-        val onlyPasted = CheckBox(context).apply {
+        // CUSTOM (CUSTOM.md #156 step 18): a toggle button, not a checkbox, selects paste-only saving.
+        val onlyPasted = com.google.android.material.button.MaterialButton(context).apply {
             setText(R.string.saved_ip_only_pasted)
+            isAllCaps = false
+            isCheckable = true
             isChecked = false
+            cornerRadius = (8 * density + 0.5f).toInt()
+            val activeColor = themeColor(com.google.android.material.R.attr.colorPrimaryContainer, 0xFFE3EAF5.toInt())
+            val idleColor = themeColor(com.google.android.material.R.attr.colorSurfaceVariant, 0xFFF1F1F1.toInt())
+            backgroundTintList = android.content.res.ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(activeColor, idleColor),
+            )
+            setTextColor(themeColor(android.R.attr.textColorPrimary, Color.BLACK))
             isEnabled = true
         }
-        content.addView(onlyPasted)
+        content.addView(onlyPasted, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = (6 * density + 0.5f).toInt()
+            bottomMargin = (4 * density + 0.5f).toInt()
+        })
 
         val saveCountView = TextView(context).apply {
             textSize = 13f
@@ -496,7 +509,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
             }
             onlyReachable.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
-            onlyPasted.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
+            onlyPasted.setOnClickListener { refreshSaveAvailability?.invoke() }
             pastedInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
