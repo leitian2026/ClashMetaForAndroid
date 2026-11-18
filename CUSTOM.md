@@ -2190,3 +2190,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 只读取现有测试结果和 DNS 报告；不增加连接、请求、定时器或后台任务，不改变原 IP 表格，不保存多轮历史。不改 mihomo 子模块和自动构建工作流。
 - **改动文件：** `core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/ipdelay/iptry.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件。
 - **验证：** 静态核对数据流和页面分支；未运行 Go 测试、Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
+
+
+### 补充修复：复制内容包含共用详细诊断区域（r222）
+- **修复：** 详细诊断区域现在用于所有 IP 测试模式；复制配置检查结果时，不再只在“目标站”模式下附加详细诊断文本。节点 TLS / ALPN 以及独立 DNS 查询耗时也会随当前页面一起复制。
+- **范围：** 只修正复制文本的显示条件，不改变表格、诊断数据、DNS 请求或测试逻辑。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件。
+- **验证：** 静态核对复制文本在诊断内容非空时统一追加；未运行 Kotlin 编译或 Android 构建。

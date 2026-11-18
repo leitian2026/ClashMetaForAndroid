@@ -351,7 +351,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
-        if (target && diagnosticsBody.text.isNotEmpty()) {
+        if (diagnosticsBody.text.isNotEmpty()) {
             sb.append("\n\n详细诊断\n").append(diagnosticsBody.text)
         }
 
