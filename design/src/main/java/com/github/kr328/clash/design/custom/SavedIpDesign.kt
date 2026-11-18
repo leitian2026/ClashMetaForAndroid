@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.util.Log
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
@@ -12,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -290,16 +292,26 @@ class SavedIpDesign(
                 )
             }
 
-            val mark = TextView(context).apply {
-                textSize = 18f
-                gravity = Gravity.CENTER
-                text = when (entry.status) {
-                    SavedIpStatus.REACHABLE -> CheckMark.paint(context, "✓")
-                    SavedIpStatus.UNREACHABLE -> CheckMark.paint(context, "✗")
-                    SavedIpStatus.UNTESTED -> ""
+            // CUSTOM.md #156 step 14: show reachability as a plain coloured dot, without a check or cross.
+            val statusMark = FrameLayout(context).apply {
+                val dotColor = when (entry.status) {
+                    SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
+                    SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
+                    SavedIpStatus.UNTESTED -> null
+                }
+                if (dotColor != null) {
+                    addView(
+                        View(context).apply {
+                            background = GradientDrawable().apply {
+                                shape = GradientDrawable.OVAL
+                                setColor(dotColor)
+                            }
+                        },
+                        FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER),
+                    )
                 }
             }
-            row.addView(mark, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
+            row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(40)))
 
             val address = TextView(context).apply {
                 text = entry.address
