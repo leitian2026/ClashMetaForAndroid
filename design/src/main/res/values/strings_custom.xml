@@ -397,4 +397,15 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="reach_age_minutes">%1$d min ago</string>
     <string name="reach_age_hours">%1$d h ago</string>
     <string name="reach_age_days">%1$d d ago</string>
+
+    <!-- CUSTOM #156 step 2: save the completed IP test batch -->
+    <string name="saved_ip_save_batch">Save this batch</string>
+    <string name="saved_ip_save_title">Save tested IPs</string>
+    <string name="saved_ip_operator_label">Save to operator</string>
+    <string name="saved_ip_only_reachable">Save reachable IPs only</string>
+    <string name="saved_ip_operator_telecom">China Telecom</string>
+    <string name="saved_ip_operator_unicom">China Unicom</string>
+    <string name="saved_ip_operator_mobile">China Mobile</string>
+    <string name="saved_ip_save_result">Added %1$d, updated %2$d, skipped domains %3$d.</string>
+    <string name="saved_ip_save_limit">The saved-IP list is full (maximum %1$d). Remove some IPs before saving more.</string>
 </resources>

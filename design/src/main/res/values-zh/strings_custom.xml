@@ -397,4 +397,15 @@
     <string name="reach_age_minutes">%1$d 分钟前</string>
     <string name="reach_age_hours">%1$d 小时前</string>
     <string name="reach_age_days">%1$d 天前</string>
+
+    <!-- CUSTOM #156 第 2 步：保存本轮 IP 测试结果 -->
+    <string name="saved_ip_save_batch">保存这一批</string>
+    <string name="saved_ip_save_title">保存已测试的 IP</string>
+    <string name="saved_ip_operator_label">保存到运营商</string>
+    <string name="saved_ip_only_reachable">只保存通的</string>
+    <string name="saved_ip_operator_telecom">电信</string>
+    <string name="saved_ip_operator_unicom">联通</string>
+    <string name="saved_ip_operator_mobile">移动</string>
+    <string name="saved_ip_save_result">新增 %1$d，更新 %2$d，跳过域名 %3$d。</string>
+    <string name="saved_ip_save_limit">已保存 IP 达到上限（最多 %1$d 个），请先删除部分 IP 再保存。</string>
 </resources>
