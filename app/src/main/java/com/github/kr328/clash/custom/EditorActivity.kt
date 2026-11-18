@@ -604,15 +604,21 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
                 val painted = CheckMark.paint(this@EditorActivity, label) ?: label
                 appliedRange?.let { range ->
-                    val night = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                        android.content.res.Configuration.UI_MODE_NIGHT_YES
                     android.text.SpannableStringBuilder(painted).apply {
+                        // CUSTOM.md #156 step 33: pill badge (fully rounded, bright green + dark green text in both day and night)
                         val density = resources.displayMetrics.density
-                        val horizontalPadding = 5f * density
-                        val verticalPadding = 2f * density
-                        val badgeColor = android.graphics.Color.parseColor(if (night) "#388E3C" else "#2E9D50")
+                        val horizontalPadding = 8f * density
+                        val verticalPadding = 3f * density
+                        val badgeColor = android.graphics.Color.parseColor("#3DD64F") // same bright green day and night
+                        val textColor = android.graphics.Color.parseColor("#0B5A1A")
+                        val background = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = badgeColor }
                         setSpan(
                             object : android.text.style.ReplacementSpan() {
+                                private fun boldPaint(paint: android.graphics.Paint) = android.graphics.Paint(paint).apply {
+                                    typeface = android.graphics.Typeface.create(paint.typeface, android.graphics.Typeface.BOLD)
+                                    color = textColor
+                                }
+
                                 override fun getSize(
                                     paint: android.graphics.Paint,
                                     text: CharSequence,
@@ -620,7 +626,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                                     end: Int,
                                     fm: android.graphics.Paint.FontMetricsInt?,
                                 ): Int {
-                                    return (paint.measureText(text, start, end) + horizontalPadding * 2).toInt()
+                                    return (boldPaint(paint).measureText(text, start, end) + horizontalPadding * 2).toInt()
                                 }
 
                                 override fun draw(
@@ -634,22 +640,18 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                                     bottom: Int,
                                     paint: android.graphics.Paint,
                                 ) {
-                                    val width = paint.measureText(text, start, end)
-                                    val metrics = paint.fontMetrics
+                                    val bold = boldPaint(paint)
+                                    val width = bold.measureText(text, start, end)
+                                    val metrics = bold.fontMetrics
                                     val rect = android.graphics.RectF(
                                         x,
                                         y + metrics.ascent - verticalPadding,
                                         x + width + horizontalPadding * 2,
                                         y + metrics.descent + verticalPadding,
                                     )
-                                    val background = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                        color = badgeColor
-                                    }
-                                    canvas.drawRoundRect(rect, 4f * density, 4f * density, background)
-                                    val originalColor = paint.color
-                                    paint.color = android.graphics.Color.BLACK
-                                    canvas.drawText(text.subSequence(start, end).toString(), x + horizontalPadding, y.toFloat(), paint)
-                                    paint.color = originalColor
+                                    val radius = rect.height() / 2f
+                                    canvas.drawRoundRect(rect, radius, radius, background)
+                                    canvas.drawText(text.subSequence(start, end).toString(), x + horizontalPadding, y.toFloat(), bold)
                                 }
                             },
                             range.first,
