@@ -26,8 +26,8 @@ object CheckMark {
     private const val CROSS_HEAVY = '\u2718' // ✘
 
     // Fixed dot colours, independent of the day/night theme and card background.
-    const val DOT_GOOD = 0xFF4ADE80
-    const val DOT_BAD = 0xFFFF6B6B
+    const val DOT_GOOD: Int = -11870592 // #FF4ADE80
+    const val DOT_BAD: Int = -38037 // #FFFF6B6B
 
     private fun night(context: Context): Boolean {
         return (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r172
+当前版本：2_11_36-r173
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1716,8 +1716,8 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 静态核对独立 Paint、inUse 行缩进及 breakText 可用宽度；未运行 Kotlin 编译、Android 构建或真机显示测试。
 
 
-## 152. 全局圆点颜色统一为固定绿红两色（r172，补充六颜色修订）
-- **颜色常量：** 在 `design/.../custom/CheckMark.kt` 只定义一次公开常量 `DOT_GOOD = 0xFF4ADE80`、`DOT_BAD = 0xFFFF6B6B`。✓ / ✔ 后的圆点使用 `DOT_GOOD`，✗ / ✘ 后的圆点使用 `DOT_BAD`；勾叉字符本身继续使用原有 `good(context)` / `bad(context)`，白天 / 夜间颜色逻辑不变。
+## 152. 全局圆点颜色统一为固定绿红两色（r173，补充六颜色修订及 Int 类型修正）
+- **颜色常量：** 在 `design/.../custom/CheckMark.kt` 只定义一次公开 `Int` 常量 `DOT_GOOD = -11870592`（对应 `#FF4ADE80`）、`DOT_BAD = -38037`（对应 `#FFFF6B6B`）。使用有符号十进制值，避免 Kotlin 将大于 `Int.MAX_VALUE` 的十六进制字面量推断为 `Long`。✓ / ✔ 后的圆点使用 `DOT_GOOD`，✗ / ✘ 后的圆点使用 `DOT_BAD`；勾叉字符本身继续使用原有 `good(context)` / `bad(context)`，白天 / 夜间颜色逻辑不变。
 - **代理页：** `ProxyView.kt` 的“在用”圆点统一使用 `CheckMark.DOT_GOOD`。删除此前按卡片底色判断圆点颜色的逻辑及辅助代码。
 - **全局规则：** 所有自定义圆点仅使用绿色 `#4ADE80` 或红色 `#FF6B6B`，不按主题或卡片底色切换。
 - **改动文件：** `CheckMark.kt`、`ProxyView.kt` 和本登记文件。
