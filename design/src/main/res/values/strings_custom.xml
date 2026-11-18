@@ -461,4 +461,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_delete_unreachable_title">Delete all unreachable IPs?</string>
     <string name="saved_ip_delete_unreachable_message">Delete %2$d unreachable IPs from %1$s? This cannot be undone.</string>
     <string name="saved_ip_delete_unreachable_done">Deleted %1$d IPs.</string>
+    <string name="saved_ip_time_date_same_year_compact">M/d</string>
+    <string name="saved_ip_time_date_other_year_compact">M/d/yy</string>
 </resources>

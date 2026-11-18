@@ -461,4 +461,6 @@
     <string name="saved_ip_delete_unreachable_title">删除所有不通的 IP？</string>
     <string name="saved_ip_delete_unreachable_message">确定删除运营商“%1$s”的 %2$d 个不通 IP？删除后不能恢复。</string>
     <string name="saved_ip_delete_unreachable_done">已删除 %1$d 个。</string>
+    <string name="saved_ip_time_date_same_year_compact">M/d</string>
+    <string name="saved_ip_time_date_other_year_compact">yy/M/d</string>
 </resources>
