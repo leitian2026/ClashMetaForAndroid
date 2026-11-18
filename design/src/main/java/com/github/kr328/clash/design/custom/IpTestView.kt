@@ -384,7 +384,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
         return TextView(context).apply {
             this.text = text.ifBlank { "未获取" }
-            textSize = 12f
+            textSize = 14f
             setTextColor(colorText)
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setPadding(dp(6), dp(5), dp(6), dp(5))
