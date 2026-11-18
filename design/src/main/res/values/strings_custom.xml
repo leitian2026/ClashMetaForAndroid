@@ -487,8 +487,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="mux_col_address">Node / address</string>
     <string name="mux_col_count">Count</string>
     <string name="mux_col_since">Since</string>
-    <string name="mux_group_counts">underlying %1$d · upper %2$d</string>
-    <string name="mux_group_counts_udp">underlying %1$d · upper %2$d · UDP %3$d</string>
+    <string name="mux_group_counts">sockets %1$d · requests %2$d</string>
+    <string name="mux_group_counts_udp">sockets %1$d · requests %2$d · UDP %3$d</string>
+    <string name="mux_row_second">%1$s · since %2$s</string>
     <string name="mux_row_count_tcp">%1$d</string>
     <string name="mux_row_count_udp">%1$d</string>
     <string name="mux_other_name">Other</string>

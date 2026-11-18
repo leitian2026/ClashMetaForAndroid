@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r211
+当前版本：2_11_36-r213
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2095,3 +2095,16 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **功耗：** 没有新增定时器、轮询或动画；只有答案变了才重建行（每次重建的是几十个 TextView，只在页面前台、每 2 秒内容有变时发生）。
 - **改动文件：** `design/src/main/res/layout/design_mux.xml`、`design/.../custom/MuxDesign.kt`、`MuxText.kt`（只留 `address` / `sinceTime` 两个小函数，原来的 `build` 删了）、新文件 `MuxColumnLayout.kt`、`res/values/dimens_custom.xml`（`mux_content_max_width`、`mux_col_count_width`、`mux_col_since_width`）、`values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（新增 `mux_col_*`、`mux_group_counts*`、`mux_row_count_*`、`mux_other_*`）和本登记文件。原来的 `connections_mux_node*`、`connections_mux_ip`、`connections_mux_udp_ip`、`connections_mux_since`、`connections_mux_other` 文案不再被这一页使用，先留着。不改上游文件。
 - **验证：** 静态核对（XML 能解析、引用的 id / 字符串 / 尺寸都存在）；没有运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。第一次构建出错先看 `MuxDesign.kt`。
+
+### 第 38 步：底层连接页按截图排版（r212）
+- **调整：** 节点标题行：节点名 18sp（不加粗），“底层 N · 上层 M”（有 UDP 时加“· UDP u”）紧跟在名字后面，14sp 次要色，不再靠右；标题行下面一条缩进分隔线。每个地址两行：第一行 `国旗 地址`（等宽字体），第二行 `N 条 · 起始 时间`（没有起始时间时只写条数），两行都是 16sp、主文字色；地址之间有缩进的细分隔线，节点之间仍是整宽分隔线。UDP 行第一行前写 `UDP `，第二行写 `n 个 · 起始 …`。去掉顶部“节点 / 地址、条数、起始时间”那一行列名。
+- **逻辑不变：** 数据、刷新时机、“答案没变就不重画”都没动。
+- **改动文件：** `design/.../custom/MuxDesign.kt`、`design/src/main/res/values/strings_custom.xml` 和 `values-zh/strings_custom.xml`（新增 `mux_row_second`）、本登记文件。`mux_col_*` 文案和 `mux_col_count_width` / `mux_col_since_width` 尺寸不再被使用，先留着。
+- **功耗：** 没有新增定时器、轮询或动画；只是重建行时的 View 结构变了（每个地址一个竖排 LinearLayout）。
+- **验证：** 静态核对；未编译、未真机测试，未触发 Build Debug。第一次构建出错先看 `MuxDesign.kt`。
+
+### 第 39 步：底层连接页的“底层 / 上层”改名为“实际连接 / 请求数”（r213）
+- **调整：** 节点标题行的计数改成“实际连接 N · 请求数 M”（有 UDP 时加“· UDP u”，英文 “sockets / requests”）；顶部提示和“说明”弹窗里的“底层 / 上层连接”同步改成“实际连接 / 请求数”。页面标题和主页标签仍叫“底层连接”（未改）。
+- **改动文件：** `design/src/main/res/values-zh/strings_custom.xml`、`values/strings_custom.xml`（只改文案：`mux_group_counts*`、`mux_hint`、`mux_help`）、本登记文件。没有改代码逻辑。旧文案 `connections_mux_node*` 不再被使用，里面的“底层 / 上层”先留着。
+- **功耗：** 只改文字，无影响。
+- **验证：** 静态核对；未编译、未真机测试。
