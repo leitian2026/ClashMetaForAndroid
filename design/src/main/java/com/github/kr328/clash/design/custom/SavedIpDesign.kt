@@ -233,12 +233,10 @@ class SavedIpDesign(
         )
 
         val unreachableCount = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
-        if (selectedOperatorId == null) {
-            val deleteUnreachable = actionText(R.string.saved_ip_delete_unreachable) { confirmDeleteUnreachable(operator) }
-            deleteUnreachable.isEnabled = unreachableCount > 0
-            if (unreachableCount == 0) deleteUnreachable.setTextColor(colorMuted)
-            header.addView(deleteUnreachable)
-        }
+        val deleteUnreachable = actionText(R.string.saved_ip_delete_unreachable) { confirmDeleteUnreachable(operator) }
+        deleteUnreachable.isEnabled = unreachableCount > 0
+        if (unreachableCount == 0) deleteUnreachable.setTextColor(colorMuted)
+        header.addView(deleteUnreachable)
 
         if (operator.id !in SavedIpStore.builtInOperatorIds && selectedOperatorId == null) {
             header.addView(actionText(R.string.saved_ip_rename) { editOperator(operator) })
