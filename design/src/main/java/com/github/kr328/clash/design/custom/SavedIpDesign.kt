@@ -296,6 +296,20 @@ class SavedIpDesign(
             }
             row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
+            val remove = TextView(context).apply {
+                text = "×"
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setTextColor(colorMuted)
+                contentDescription = context.getString(R.string.saved_ip_delete)
+                background = selectableBackground()
+                setPadding(dp(10), dp(2), dp(10), dp(2))
+                setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
+            }
+            if (selectedOperatorId == null) {
+                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+
             if (entry.lastTestedAt > 0L) {
                 val label = savedIpTimeLabel(entry.lastTestedAt)
                 val time = TextView(context).apply {
@@ -315,28 +329,10 @@ class SavedIpDesign(
                     val fullWidth = time.paint.measureText(label.full)
                     val compactWidth = time.paint.measureText(label.compact)
                     val fixedWidth = row.width - address.width
-                    if (addressWidth + fullWidth + fixedWidth > row.width &&
-                        addressWidth + compactWidth + fixedWidth <= row.width
-                    ) {
-                        time.text = label.compact
-                    } else if (addressWidth + fullWidth + fixedWidth > row.width) {
+                    if (addressWidth + fullWidth + fixedWidth > row.width) {
                         time.text = label.compact
                     }
                 }
-            }
-
-            val remove = TextView(context).apply {
-                text = "×"
-                textSize = 22f
-                gravity = Gravity.CENTER
-                setTextColor(colorMuted)
-                contentDescription = context.getString(R.string.saved_ip_delete)
-                background = selectableBackground()
-                setPadding(dp(10), dp(2), dp(10), dp(2))
-                setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }
-            if (selectedOperatorId == null) {
-                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
             operatorList.addView(row, fullWidth())
         }
