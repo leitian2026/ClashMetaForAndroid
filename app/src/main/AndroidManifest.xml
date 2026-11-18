@@ -168,6 +168,12 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/check_title" />
+        <!-- CUSTOM (CUSTOM.md #156 step 3): saved IP list; local-only, no Clash service requirement. -->
+        <activity
+            android:name=".custom.SavedIpActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/saved_ip_title" />
         <!-- CUSTOM (CUSTOM.md #46): the built-in text editor; it must not be recreated by a turn of the phone, the
              text on the page that is not saved would be lost -->
         <activity
