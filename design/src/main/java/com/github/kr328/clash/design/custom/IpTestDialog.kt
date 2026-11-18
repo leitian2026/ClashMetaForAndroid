@@ -253,8 +253,10 @@ object IpTestDialog {
                     val target = targetInput.text.toString().trim()
 
                     try {
-                        prefs.edit().putString("ip_text", text).putString("ip_node", node)
-                            .putString("ip_ports", ports)
+                        val edit = prefs.edit()
+                        // CUSTOM.md #156 step 4: one-shot saved-IP prefill must not replace the next manual dialog's history.
+                        if (presetIps == null) edit.putString("ip_text", text)
+                        edit.putString("ip_node", node).putString("ip_ports", ports)
                             .putString("ip_url_direct", directUrl).putString("ip_url_node", nodeUrl)
                             .putString("ip_target", target).apply()
                     } catch (_: Exception) {
