@@ -21,6 +21,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.design.R
 import java.text.SimpleDateFormat
