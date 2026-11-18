@@ -1820,3 +1820,4 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围与功耗：** 只改已保存 IP 页面及其时间 / 排序展示辅助代码，不改 IP 测试流程、测试结果或网络行为；不增加联网请求、定时器、轮询或动画。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/AgeText.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
 - **验证：** 静态核对中英文资源键集合和占位符、15 天日期边界、未来时间处理、筛选后共用排序、多选可见范围及 20 个上限、一键选择替换逻辑、跨筛选清空选择、删除范围和确认文案；未运行 Kotlin 编译、Android 构建或真机测试。
+- **构建修正：** Build Debug 首次编译发现 `SavedIpDesign.kt` 两处 Kotlin 错误：子类构造参数重复声明父类 `Design.context`，以及将 `BaseObservable.addOnPropertyChangedCallback` 错写为 Lambda。已移除构造参数的属性声明，改用父类 `context`；属性监听改为 `Observable.OnPropertyChangedCallback` 对象。仅修正这两处编译问题，不改变页面行为。
