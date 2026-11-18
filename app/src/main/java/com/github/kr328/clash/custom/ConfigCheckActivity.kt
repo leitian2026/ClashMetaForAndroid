@@ -33,6 +33,8 @@ import kotlin.random.Random
 // stops being waited for when they tap it again (the core finishes its own attempts, each at most a few
 // seconds). Nothing runs on its own, no timer.
 class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
+    // CUSTOM.md #156 step 25: the existing page receives re-test presets through onNewIntent().
+    private var configPage: ConfigCheckDesign? = null
     private var job: Job? = null
 
     // CUSTOM.md #43: the running job is a "test other IPs"; the core has to be told to stop it
@@ -54,6 +56,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
     override suspend fun main() {
         val design = ConfigCheckDesign(this)
+        configPage = design
 
         setContentDesign(design)
 
@@ -182,6 +185,21 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 }
             }
         }
+    }
+
+    // CUSTOM.md #156 step 25: consume a one-shot saved-IP preset on the existing config-check instance.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingSavedIpPreset = intent.getStringExtra(SavedIpActivity.EXTRA_PRESET_IPS)?.takeIf { it.isNotBlank() }
+        pendingSavedIpOperatorId = if (pendingSavedIpPreset != null) {
+            intent.getStringExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
+        } else {
+            null
+        }
+        intent.removeExtra(SavedIpActivity.EXTRA_PRESET_IPS)
+        intent.removeExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
+        if (pendingSavedIpPreset != null) configPage?.request(ConfigCheckDesign.Request.IpTest)
     }
 
     private suspend fun cancelRunning(design: ConfigCheckDesign) {
