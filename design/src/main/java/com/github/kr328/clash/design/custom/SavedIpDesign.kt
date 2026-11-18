@@ -7,15 +7,18 @@ import android.util.Log
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.text.TextUtils
 import android.view.Gravity
+import android.widget.PopupMenu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
+import androidx.recyclerview.widget.RecyclerView
 import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -80,15 +83,26 @@ class SavedIpDesign(
         setNavigationOnClickListener { onBack() }
     }
 
-    private val operatorList = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
+    // CUSTOM.md #156 step 17: RecyclerView virtualizes IP rows; only visible rows are bound.
+    private val listAdapter = SavedIpAdapter()
+    private val operatorList = RecyclerView(context).apply {
+        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
+        adapter = listAdapter
         setPadding(dp(16), dp(8), dp(16), dp(24))
+        clipToPadding = false
+        itemAnimator = null
     }
 
-    private val scroll = ScrollView(context).apply {
-        isFillViewport = true
-        addView(operatorList, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    private val searchInput = EditText(context).apply {
+        setSingleLine(true)
+        textSize = 14f
+        setHint(R.string.saved_ip_search_hint)
+        inputType = InputType.TYPE_CLASS_TEXT
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        background = context.getDrawable(com.google.android.material.R.drawable.mtrl_edittext_rectangle)
     }
+    private var snapshotCache = SavedIpStore.emptySnapshot()
+    private var expandedOperatorId: String? = null
 
     // CUSTOM.md #156 step 4/6: filters and selection are page-local and never persisted.
     private enum class IpFilter { ALL, REACHABLE, UNREACHABLE, UNTESTED }
@@ -159,6 +173,19 @@ class SavedIpDesign(
 
         filterButtons.forEach { filterBar.addView(it, weighted(3)) }
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
+        root.addView(searchInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
+            marginStart = dp(16)
+            marginEnd = dp(16)
+            bottomMargin = dp(6)
+        })
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                renderRows()
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
 
         // CUSTOM.md #156 step 12: operator creation and IP pasting are managed from the config-check save dialog.
 
@@ -172,57 +199,257 @@ class SavedIpDesign(
         selectionActions.addView(selectionQuickActions, fullWidth())
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(operatorList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         refresh()
     }
 
     fun refresh() {
-        operatorList.removeAllViews()
-        val snapshot = SavedIpStore.read(context)
+        snapshotCache = SavedIpStore.read(context)
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
-        updateFilterButtons(snapshot)
-        reconcileSelection(snapshot)
-        val allEntries = snapshot.operators.flatMap { it.ips }
-        val total = allEntries.size
-        val reachableCount = allEntries.count { it.status == SavedIpStatus.REACHABLE }
-        val unreachableCount = allEntries.count { it.status == SavedIpStatus.UNREACHABLE }
-        val untestedCount = allEntries.count { it.status == SavedIpStatus.UNTESTED }
+        updateFilterButtons(snapshotCache)
+        reconcileSelection(snapshotCache)
+        val allEntries = snapshotCache.operators.flatMap { it.ips }
         summaryView.text = context.getString(
             R.string.saved_ip_summary,
-            total,
-            reachableCount,
-            unreachableCount,
-            untestedCount,
+            allEntries.size,
+            allEntries.count { it.status == SavedIpStatus.REACHABLE },
+            allEntries.count { it.status == SavedIpStatus.UNREACHABLE },
+            allEntries.count { it.status == SavedIpStatus.UNTESTED },
         )
-        val visibleGroups = snapshot.operators.mapNotNull { operator ->
-            val entries = visibleEntries(operator)
-            if (entries.isEmpty()) null else operator to entries
-        }
-        val visibleTotal = visibleGroups.sumOf { it.second.size }
+        renderRows()
+    }
 
-        val emptyMessage = when {
-            total == 0 -> R.string.saved_ip_empty
-            visibleTotal == 0 -> R.string.saved_ip_filter_no_match
-            else -> 0
+    // Search and expansion only rebuild the lightweight row model. RecyclerView creates/binds
+    // views for the viewport instead of inflating every saved IP at once.
+    private fun renderRows() {
+        val query = searchInput.text?.toString()?.trim().orEmpty()
+        val rows = ArrayList<SavedIpListRow>()
+        for (operator in snapshotCache.operators) {
+            val entries = visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
+            if (entries.isEmpty()) continue
+            val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
+            rows += SavedIpListRow.Operator(operator, entries, expanded)
+            if (expanded) entries.forEach { rows += SavedIpListRow.Ip(operator, it) }
         }
-        if (emptyMessage != 0) {
-            operatorList.addView(
-                TextView(context).apply {
-                    setText(emptyMessage)
-                    textSize = 14f
-                    setTextColor(colorMuted)
-                    setPadding(0, dp(8), 0, dp(12))
-                },
-                fullWidth(),
+        if (rows.isEmpty()) {
+            rows += SavedIpListRow.Message(
+                if (snapshotCache.operators.sumOf { it.ips.size } == 0) R.string.saved_ip_empty
+                else if (query.isNotEmpty()) R.string.saved_ip_search_no_match
+                else R.string.saved_ip_filter_no_match,
             )
         }
+        listAdapter.replaceRows(rows)
+    }
 
-        visibleGroups.forEachIndexed { index, (operator, entries) ->
-            if (index > 0) addDivider(operatorList)
-            addOperatorGroup(operator, entries)
+    private sealed class SavedIpListRow {
+        data class Operator(val operator: SavedIpOperator, val entries: List<SavedIpEntry>, val expanded: Boolean) : SavedIpListRow()
+        data class Ip(val operator: SavedIpOperator, val entry: SavedIpEntry) : SavedIpListRow()
+        data class Message(val text: Int) : SavedIpListRow()
+    }
+
+    private inner class SavedIpAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        private val rows = ArrayList<SavedIpListRow>()
+
+        fun replaceRows(updated: List<SavedIpListRow>) {
+            rows.clear()
+            rows.addAll(updated)
+            notifyDataSetChanged()
         }
+
+        override fun getItemViewType(position: Int): Int = when (rows[position]) {
+            is SavedIpListRow.Operator -> 0
+            is SavedIpListRow.Ip -> 1
+            is SavedIpListRow.Message -> 2
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val container = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, if (viewType == 0) dp(10) else dp(4), 0, if (viewType == 0) dp(8) else dp(4))
+                if (viewType != 2) background = selectableBackground()
+            }
+            return object : RecyclerView.ViewHolder(container) {}
+        }
+
+        override fun getItemCount(): Int = rows.size
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            val container = holder.itemView as LinearLayout
+            container.removeAllViews()
+            when (val row = rows[position]) {
+                is SavedIpListRow.Operator -> bindOperatorRow(container, row)
+                is SavedIpListRow.Ip -> bindIpRow(container, row.operator, row.entry)
+                is SavedIpListRow.Message -> container.addView(TextView(context).apply {
+                    setText(row.text)
+                    textSize = 14f
+                    setTextColor(colorMuted)
+                    setPadding(0, dp(12), 0, dp(16))
+                }, fullWidth())
+            }
+        }
+    }
+
+    private fun bindOperatorRow(container: LinearLayout, row: SavedIpListRow.Operator) {
+        val operator = row.operator
+        val header = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val arrow = TextView(context).apply {
+            text = if (row.expanded) "▾" else "▸"
+            textSize = 18f
+            setTextColor(colorLink)
+            gravity = Gravity.CENTER
+        }
+        header.addView(arrow, LinearLayout.LayoutParams(dp(28), dp(34)))
+        val title = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        title.addView(TextView(context).apply {
+            text = context.getString(R.string.saved_ip_group_title, displayName(operator), operator.ips.size)
+            textSize = 15f
+            setTextColor(colorText)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }, fullWidth())
+        val reachable = operator.ips.count { it.status == SavedIpStatus.REACHABLE }
+        val unreachable = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
+        val untested = operator.ips.count { it.status == SavedIpStatus.UNTESTED }
+        title.addView(TextView(context).apply {
+            text = context.getString(R.string.saved_ip_group_counts, reachable, unreachable, untested)
+            textSize = 11f
+            setTextColor(colorMuted)
+        }, fullWidth())
+        header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val menuButton = TextView(context).apply {
+            text = "⋮"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(colorLink)
+            background = selectableBackground()
+            setOnClickListener { anchor ->
+                PopupMenu(context, anchor).apply {
+                    if (unreachable > 0) menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable)
+                    if (operator.id !in SavedIpStore.builtInOperatorIds) {
+                        menu.add(0, 2, 1, R.string.saved_ip_rename)
+                        menu.add(0, 3, 2, R.string.saved_ip_delete)
+                    }
+                    setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            1 -> confirmDeleteUnreachable(operator)
+                            2 -> editOperator(operator)
+                            3 -> confirmDeleteOperator(operator)
+                        }
+                        true
+                    }
+                    show()
+                }
+            }
+        }
+        header.addView(menuButton, LinearLayout.LayoutParams(dp(40), dp(36)))
+        container.addView(header, fullWidth())
+        container.setOnClickListener {
+            expandedOperatorId = if (expandedOperatorId == operator.id) null else operator.id
+            renderRows()
+        }
+        container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+    }
+
+    private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry) {
+        val item = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(3), 0, dp(3))
+        }
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        if (selectedOperatorId == operator.id) {
+            row.addView(CheckBox(context).apply {
+                isChecked = entry.address in selectedAddresses
+                isClickable = false
+                isFocusable = false
+            }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        val statusMark = FrameLayout(context)
+        val dotColor = when (entry.status) {
+            SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
+            SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
+            SavedIpStatus.UNTESTED -> null
+        }
+        if (dotColor != null) {
+            statusMark.addView(View(context).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(dotColor)
+                }
+            }, FrameLayout.LayoutParams(dp(9), dp(9), Gravity.CENTER))
+        }
+        row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(36)))
+        val address = TextView(context).apply {
+            text = entry.address
+            textSize = 15f
+            setTextColor(colorText)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(3), dp(4), dp(3))
+            setSingleLine(true)
+            ellipsize = TextUtils.TruncateAt.MIDDLE
+            setOnClickListener {
+                if (selectedOperatorId == null) copyIp(entry.address)
+                else toggleSelection(operator.id, entry.address)
+            }
+            setOnLongClickListener {
+                toggleSelection(operator.id, entry.address)
+                true
+            }
+        }
+        row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        if (selectedOperatorId == null) {
+            row.addView(TextView(context).apply {
+                text = "×"
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setTextColor(colorLink)
+                contentDescription = context.getString(R.string.saved_ip_delete)
+                background = selectableBackground()
+                setPadding(dp(10), dp(2), dp(10), dp(2))
+                setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
+        }
+        item.addView(row, fullWidth())
+        val detail = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(if (selectedOperatorId == operator.id) 64 else 34), 0, dp(8), 0)
+        }
+        val statusText = TextView(context).apply {
+            text = when (entry.status) {
+                SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_status_reachable)
+                SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_status_unreachable)
+                SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_status_untested)
+            }
+            textSize = 12f
+            setTextColor(when (entry.status) {
+                SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
+                SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
+                SavedIpStatus.UNTESTED -> colorMuted
+            })
+        }
+        detail.addView(statusText)
+        if (entry.lastTestedAt > 0L) {
+            val label = savedIpTimeLabel(entry.lastTestedAt)
+            detail.addView(View(context), LinearLayout.LayoutParams(dp(8), 1))
+            detail.addView(TextView(context).apply {
+                text = label.full
+                textSize = 12f
+                setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
+                setSingleLine(true)
+                ellipsize = TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        item.addView(detail, fullWidth())
+        container.addView(item, fullWidth())
     }
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
@@ -251,7 +478,8 @@ class SavedIpDesign(
             if (currentFilter != filter) {
                 currentFilter = filter
                 clearSelectionState()
-                refresh()
+                renderRows()
+                updateFilterButtons(snapshotCache)
             }
         }
     }
@@ -490,7 +718,7 @@ class SavedIpDesign(
 
         if (selectedAddresses.isEmpty()) selectedOperatorId = null
         updateSelectionActions()
-        refresh()
+        renderRows()
     }
 
     private fun reconcileSelection(snapshot: SavedIpSnapshot) {
@@ -503,7 +731,7 @@ class SavedIpDesign(
             clearSelectionState()
             return
         }
-        val existing = visibleEntries(operator).mapTo(HashSet()) { it.address }
+        val existing = operator.ips.mapTo(HashSet()) { it.address }
         selectedAddresses.retainAll(existing)
         if (selectedAddresses.isEmpty()) clearSelectionState() else updateSelectionActions()
     }
@@ -517,7 +745,7 @@ class SavedIpDesign(
         deleteSelectedButton.isEnabled = selectedAddresses.isNotEmpty()
         deleteSelectedButton.alpha = if (deleteSelectedButton.isEnabled) 1f else 0.35f
         val operator = selectedOperatorId?.let { id ->
-            SavedIpStore.read(context).operators.firstOrNull { it.id == id }
+            snapshotCache.operators.firstOrNull { it.id == id }
         }
         val visible = operator?.let { visibleEntries(it) }.orEmpty()
         selectUnreachableButton.isEnabled = visible.any { it.status == SavedIpStatus.UNREACHABLE }
