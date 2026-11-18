@@ -231,28 +231,28 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             copied.append('\n')
         }
 
-        if (rows.isNotEmpty()) {
+        if (rows.isNotEmpty() && (target || !direct)) {
+            // Only show fields that are not already present in the original IP table.
+            // IP is retained solely as the row identifier for matching each diagnostic record.
             val headers = if (target) {
                 listOf(
-                    "IP", "入口机房", "出口机房", "TLS 版本", "ALPN", "HTTP 状态", "连接结果",
-                    "证书主题", "证书颁发者", "生效时间", "到期时间", "DNS SAN", "IP SAN", "证书验证",
-                    "Server", "Cf-Ray", "Content-Type", "Location", "Retry-After", "CF-Mitigated",
+                    "IP", "TLS 版本", "协商协议（ALPN）",
+                    "证书主题", "证书颁发者", "证书生效时间", "证书到期时间",
+                    "证书域名（DNS SAN）", "证书 IP 地址（IP SAN）", "证书验证状态",
+                    "服务器标识（Server）", "Cloudflare 请求编号（Cf-Ray）",
+                    "响应内容类型（Content-Type）", "重定向地址（Location）",
+                    "重试等待时间（Retry-After）", "Cloudflare 防护标识（CF-Mitigated）",
                 )
             } else {
-                listOf("IP", "机房", "TLS 版本", "ALPN", "测试结果")
+                listOf("IP", "TLS 版本", "协商协议（ALPN）")
             }
 
             val values = rows.map { row ->
-                val result = if (row.ok) "连接成功" else explain(row.code, row.reason)
                 if (target) {
                     listOf(
                         row.ip,
-                        row.colo.ifBlank { "未获取" },
-                        row.targetColo.ifBlank { "未获取" },
                         row.targetTls.ifBlank { "未获取" },
                         row.targetAlpn.ifBlank { "未获取" },
-                        if (row.targetStatus > 0) row.targetStatus.toString() else "未获取",
-                        result,
                         row.targetCertSubject.ifBlank { "未获取" },
                         row.targetCertIssuer.ifBlank { "未获取" },
                         row.targetCertNotBefore.ifBlank { "未获取" },
@@ -273,10 +273,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 } else {
                     listOf(
                         row.ip,
-                        row.colo.ifBlank { "未获取" },
                         row.tls.ifBlank { "未获取" },
                         row.alpn.ifBlank { "未获取" },
-                        result,
                     )
                 }
             }
