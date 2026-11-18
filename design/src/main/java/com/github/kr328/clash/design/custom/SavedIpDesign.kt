@@ -378,6 +378,7 @@ class SavedIpDesign(
             gravity = Gravity.CENTER_VERTICAL
         }
         if (selectedOperatorId == operator.id) {
+            // CUSTOM.md #156 step 23: reserve enough width for the checkbox drawable before the status dot.
             row.addView(CheckBox(context).apply {
                 isChecked = entry.address in selectedAddresses
                 isClickable = false
