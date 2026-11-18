@@ -11,13 +11,13 @@
 |---|---|---|---|
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
-| `core/src/main/golang/native/tunnel.go` | #1 #7 #37 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37） |
+| `core/src/main/golang/native/tunnel.go` | #1 #7 #37 #147 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37）；#147 追加 `reachReason` / `reachAt` 两个 JSON 字段 |
 | `core/src/main/golang/native/connections.go` | #8 #15 #101 | 低 | 重加 `queryCustomConnections` 的自定义分派和 `closeCustomConnection` 的自定义关闭分支；#101 在 `CANCEL_IPTEST` 前加 `CANCEL_CHECK` 分支，调用 `conftest.CancelCheck()` |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 #55 | 低 | 重加 `IPDelays` 字段和填充行 |
 | `core/src/main/golang/native/config/load.go` | #1 #22 | 低 | 重加 `ipdelay.CaptureConfig(...)`（#1）和它后面的 `ipdelay.CaptureDNS(rawCfg.DNS)`（#22） |
 | `core/src/main/golang/native/delegate/init.go` | #7 | 低 | 重加 `ipdelay.InstallSocketHook(home)`（必须在上游给 `DefaultSocketHook` 赋值之后；`home` 是 `Init` 的第一个参数，用来定位 #10 #11 的小文件） |
 | `core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt` | #1 | 低 | 重加 `ipDelays` 参数 |
-| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37） |
+| `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 #147 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37）、`reachReason` / `reachAt`（#147） |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 #55 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #53 | **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #53 #146 | 低 | 重加 `customCards`、`setCustomCards()`；#146 `setCustomIssues(IssuesDisplayState)`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
@@ -624,7 +624,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。
 
 ## 37. 首页代理卡片显示"现在通不通"（r43）
-**效果：** 首页"代理"卡片的副标题在 IP 后面多一段：`✓ 86 ms`（节点在用且能通）或 `✗ 不通`；还没测过时什么都不写。用来一眼分清"代理坏了"还是"浏览器自己的缓存坏了"（关了代理再打开打不开外网时，先看这里）。
+**效果：** 首页"代理"卡片的副标题在 IP 后面多一段：`✓ 86 ms`（节点在用且能通）或 `✗ 超时 / ✗ 连接失败 / ✗ HTTP N`；还没测过时什么都不写。用来一眼分清"代理坏了"还是"浏览器自己的缓存坏了"（关了代理再打开打不开外网时，先看这里）。
 - **测什么：** 经**正在用的节点**（`CurrentSet` 的那个节点）请求一次测速地址（和测速页同一个 `defaultTestURL`、同样 5 秒超时），不走代理组、不测别的节点。没有任何请求走过节点（还不知道在用哪个）时不测，也就不显示。
 - **什么时候测（没有定时器）：** 有人问隧道状态（打开首页、换 IP 事件、通知文字重建）时，如果上一次的结果是"通"且超过 3 分钟（`reachFresh`），或上一次是"不通"且超过 20 秒（`reachRetry`），或还没测过，就在后台发一次；另外**网络切换稳定之后**（#24 的 `MarkNetworkChanged`）对刚才那个节点再测一次。同一时间只发一个。载入新配置时（`CaptureConfig`）清空。
 - **怎么告诉首页：** 只有"从没结果变成有结果"或"通 ↔ 不通"切换时，才用 #7 的同一个事件通知（`notifyNow`，不记节点 IP 使用记录），首页和通知栏各读一次；延迟毫秒数的小变化不通知，下次打开首页才刷新。
@@ -635,7 +635,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 
 ## 38. 配置历史里标出"节点能连通"（r43）
 **效果：** 编辑页的历史版本列表（r68 前在设置里，见 #56）里，用过且当时代理是通的那个版本后面多 `· ✓ 节点能连通`，回滚时可以优先选它。
-- **怎么标：** 首页拿到 #37 的"通"（`reach > 0`）时（`MainCustomRefresh.refreshCustom`），把**正在用的配置**和它的历史版本逐字节比较，相同的那一份旁边建一个空文件 `<毫秒>.ok`（`ConfigHistory.markVerified`）。只在 `config.yaml` 变了之后才重新比较（`ConfigVerified` 记着上次的 uuid + 修改时间 + 大小）。订阅（没有历史）、没在历史里的版本不标。删历史版本时一起删它的 `.ok`。
+- **怎么标：** 首页拿到 #37 的"通"（`reach > 0`）时（`MainCustomRefresh.refreshCustom`），且没有未忽略、未恢复的问题时，把**正在用的配置**和它的历史版本逐字节比较，相同的那一份旁边建一个空文件 `<毫秒>.ok`（`ConfigHistory.markVerified`）。只在 `config.yaml` 变了之后才重新比较（`ConfigVerified` 记着上次的 uuid + 修改时间 + 大小）。订阅（没有历史）、没在历史里的版本不标。删历史版本时一起删它的 `.ok`。
 - **限制：** 只在首页打开着、并且收到"通"的那一刻才会标（后台不做）；通知栏也会收到事件，但标记是首页做的。
 - **功耗：** 不在后台跑；一次小文件比较，且同一份配置只做一次。
 - **新增文件：** `app/.../custom/ConfigVerified.kt`；`ConfigHistory.kt` 加 `Version.verified` / `markVerified`；`ConfigTools.kt` 版本标签加一段；`MainCustomRefresh.kt` 末尾多一行调用；文案 `history_verified`。
@@ -1671,3 +1671,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 通知栏查询异常显示“读取失败”并保持 dirty；下一次原有通知更新再试。查询成功但没有 IP 仍显示“暂无节点连接”。
 - 改动文件：MainCustomRefresh.kt、MainCustomCards.kt、MainDesign.kt、NodeIpText.kt、service 中英文 strings_custom.xml、design 中英文 strings_issues.xml 和本登记文件。
 - 验证：静态检查状态分支与通知缓存成功 / 失败分支；未运行 Android 编译或通知栏实测。
+
+
+## 147. 首页连通状态显示失败原因与结果时间，并限制历史标记（补充五 46–47）
+- 失败分类：reach 请求超时返回 timeout；其他请求错误返回 connect；HTTP 状态码不在 200–399 时记录具体状态码。依据用户上传的 mihomo commit 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8，核对 component/dialer/dialer.go 的 DialContext、超时错误包装和 errors.Join；用 errors.Is / errors.As 判断超时，不依赖错误文本。
+- 传递字段：TunnelState 增加 reachReason 和 reachAt（unix 毫秒）；Go queryTunnelState 只扩展 JSON 结果字段。页面显示“✓ N ms · 刚刚 / N 分钟前”或“✗ 超时 / 连接失败 / HTTP N”。相对时间只在页面渲染时计算，复用 AgeText 的区间逻辑，小于一分钟显示“刚刚”，不增加定时器。
+- 重测节奏：保留成功 3 分钟、失败 20 秒、网络切换后立即重测的既有逻辑。
+- 历史标记：只有代理运行、reach 成功且本轮问题快照确认没有未忽略未恢复的问题时，才调用 ConfigVerified.mark；读取失败或没有成功快照均不标。
+- 改动文件：reach.go、tunnel.go、TunnelState.kt、MainCustomCards.kt、AgeText.kt、design 中英文 strings_custom.xml、MainCustomRefresh.kt 和本登记文件。
+- 源码依据：mihomo 3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8：component/dialer/dialer.go 中 DialContext / parallelDialContext / serialDialContext / dns resolve failed 包装；adapter/outbound/base.go 中 ProxyAdapter.DialContext 的 (C.Conn, error) 签名；本仓库 ipdelay.go 的 requestVia 直接返回 dial 与 HTTP 请求错误。
+- 验证：静态核对错误分类、JSON 字段、时间单位、刷新间隔和 ConfigVerified 条件；未运行 Go 测试、Android 编译或真机测试。

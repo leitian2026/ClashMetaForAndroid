@@ -20,6 +20,9 @@ data class TunnelState(
     val currentMore: Int = 0,
     // CUSTOM (CUSTOM.md #37): does the node in use work? > 0 yes (delay in ms), -1 no, 0 not known yet
     val reach: Int = 0,
+    // CUSTOM (CUSTOM.md #147): failure kind (timeout / connect / http:<status>) and result time in unix ms
+    val reachReason: String = "",
+    val reachAt: Long = 0,
 ) : Parcelable {
     @Serializable
     data class CurrentIp(

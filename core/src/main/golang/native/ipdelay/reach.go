@@ -9,6 +9,10 @@ package ipdelay
 // IP change, only when the answer switched between "works" and "does not work".
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -24,21 +28,22 @@ var (
 	reachLock sync.Mutex
 	reachNode string    // the node the answer below is about
 	reachMs   int       // > 0: it works, the delay in milliseconds; -1: it does not; 0: not known
+	reachReason string // timeout, connect, or http:<status>
 	reachAt   time.Time // when the answer came, zero = it is stale
 	reachBusy bool      // a request is on its way
 )
 
 // Reach returns the last answer for the node (0 = not known yet) and starts a new request when it is due.
-func Reach(node string) int {
+func Reach(node string) (int, string, int64) {
 	if node == "" {
-		return 0
+		return 0, "", 0
 	}
 
 	reachLock.Lock()
 	defer reachLock.Unlock()
 
 	if reachNode != node {
-		reachNode, reachMs, reachAt = node, 0, time.Time{}
+		reachNode, reachMs, reachReason, reachAt = node, 0, "", time.Time{}
 	}
 
 	age := time.Since(reachAt)
@@ -53,13 +58,17 @@ func Reach(node string) int {
 		go probeReach(node)
 	}
 
-	return reachMs
+	at := int64(0)
+	if !reachAt.IsZero() {
+		at = reachAt.UnixMilli()
+	}
+	return reachMs, reachReason, at
 }
 
 // resetReach forgets the answer (a new profile was loaded).
 func resetReach() {
 	reachLock.Lock()
-	reachNode, reachMs, reachAt = "", 0, time.Time{}
+	reachNode, reachMs, reachReason, reachAt = "", 0, "", time.Time{}
 	reachLock.Unlock()
 }
 
@@ -79,7 +88,7 @@ func refreshReach() {
 }
 
 func probeReach(node string) {
-	ms := measureReach(node)
+	ms, reason := measureReach(node)
 
 	reachLock.Lock()
 
@@ -89,7 +98,7 @@ func probeReach(node string) {
 		// tell the app when there was no answer before or the answer switched between works / does not work
 		tell = reachMs == 0 || (reachMs > 0) != (ms > 0)
 
-		reachMs, reachAt = ms, time.Now()
+		reachMs, reachReason, reachAt = ms, reason, time.Now()
 	}
 
 	reachBusy = false
@@ -102,21 +111,28 @@ func probeReach(node string) {
 }
 
 // measureReach returns the delay in milliseconds, -1 when the request failed, 0 when the node is not known.
-func measureReach(node string) (ms int) {
+func measureReach(node string) (ms int, reason string)
 	defer func() {
 		if r := recover(); r != nil {
-			ms = -1
+			ms, reason = -1, "connect"
 		}
 	}()
 
 	px := tunnel.Proxies()[node]
 	if px == nil {
-		return 0
+		return 0, ""
 	}
 
 	status, _, elapsed, err := requestVia(px, defaultTestURL, testTimeout, false)
-	if err != nil || status < 200 || status >= 400 {
-		return -1
+	if err != nil {
+		var networkError net.Error
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &networkError) && networkError.Timeout()) {
+			return -1, "timeout"
+		}
+		return -1, "connect"
+	}
+	if status < 200 || status >= 400 {
+		return -1, fmt.Sprintf("http:%d", status)
 	}
 
 	ms = int(elapsed.Milliseconds())
@@ -124,7 +140,7 @@ func measureReach(node string) (ms int) {
 		ms = 1
 	}
 
-	return ms
+	return ms, ""
 }
 
 // notifyNow tells the app at once (no delay, no history entry: only what is shown is read again).

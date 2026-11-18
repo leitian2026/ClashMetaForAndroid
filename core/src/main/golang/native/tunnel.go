@@ -32,7 +32,10 @@ func queryTunnelState() *C.char {
 		CurrentIPs     []ipdelay.NodeIP `json:"currentIps,omitempty"`     // CUSTOM: every address in use (CUSTOM.md #7)
 		CurrentMore    int              `json:"currentMore,omitempty"`    // CUSTOM: how many more were left out
 		Reach          int              `json:"reach,omitempty"`          // CUSTOM (CUSTOM.md #37): >0 the node works (ms), -1 it does not
-	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country, CurrentIPs: ips, CurrentMore: more, Reach: ipdelay.Reach(node)}
+		ReachReason    string           `json:"reachReason,omitempty"`     // CUSTOM (CUSTOM.md #147): timeout, connect, or http:<status>
+		ReachAt        int64            `json:"reachAt,omitempty"`         // CUSTOM (CUSTOM.md #147): unix milliseconds
+	}{Mode: mode, CurrentNode: node, CurrentIP: ip, CurrentCountry: country, CurrentIPs: ips, CurrentMore: more}
+	response.Reach, response.ReachReason, response.ReachAt = ipdelay.Reach(node)
 
 	return marshalJson(response)
 }

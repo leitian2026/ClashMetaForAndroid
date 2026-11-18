@@ -304,7 +304,6 @@
     <string name="log_level_failed">保存日志级别失败</string>
     <string name="custom_ips_more">等 %d 个</string>
     <string name="custom_reach_ok">✓ %1$d ms</string>
-    <string name="custom_reach_fail">✗ 不通</string>
     <string name="history_verified"> · ✓ 节点能连通</string>
     <string name="history_saved_unapplied"> · 已保存未应用</string>
     <string name="history_bad"> · ✗ 未通过检查</string>
@@ -390,4 +389,12 @@
     <string name="connection_node_ip_note">这是节点级 IP，不一定是这条连接实际使用的 IP；grpc、h2、smux 等复用连接的传输只能显示最近一次拨号的 IP。国旗表示经这个 IP 出去的出口国家，不是 IP 的所在地。</string>
     <string name="ip_history_note">一个 IP 第一次出现，或节点换了 IP，会记一条。</string>
     <string name="connections_close_failed">关闭失败：%1$s</string>
+    <string name="custom_reach_fail_timeout">✗ 超时</string>
+    <string name="custom_reach_fail_connect">✗ 连接失败</string>
+    <string name="custom_reach_fail_http">✗ HTTP %1$d</string>
+    <string name="custom_reach_age"> · %1$s</string>
+    <string name="reach_age_now">刚刚</string>
+    <string name="reach_age_minutes">%1$d 分钟前</string>
+    <string name="reach_age_hours">%1$d 小时前</string>
+    <string name="reach_age_days">%1$d 天前</string>
 </resources>

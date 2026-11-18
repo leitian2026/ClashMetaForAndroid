@@ -67,9 +67,17 @@ class MainCustomCards(
         val text = state.ipsText { context.getString(R.string.custom_ips_more, it) }
 
         // does the node in use work (CUSTOM.md #37); nothing is written while that is not known yet
+        val age = if (state.reachAt > 0) context.getString(R.string.custom_reach_age, AgeText.reachAgo(context, state.reachAt)) else ""
         val reach = when {
-            state.reach > 0 -> context.getString(R.string.custom_reach_ok, state.reach)
-            state.reach < 0 -> context.getString(R.string.custom_reach_fail)
+            state.reach > 0 -> context.getString(R.string.custom_reach_ok, state.reach) + age
+            state.reach < 0 -> {
+                val failure = when {
+                    state.reachReason == "timeout" -> context.getString(R.string.custom_reach_fail_timeout)
+                    state.reachReason.startsWith("http:") -> context.getString(R.string.custom_reach_fail_http, state.reachReason.substringAfter(':').toIntOrNull() ?: 0)
+                    else -> context.getString(R.string.custom_reach_fail_connect)
+                }
+                failure + age
+            }
             else -> ""
         }
 

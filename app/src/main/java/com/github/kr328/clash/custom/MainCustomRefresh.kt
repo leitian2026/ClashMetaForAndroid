@@ -14,10 +14,10 @@ suspend fun MainDesign.refreshCustom(running: Boolean) {
     val state = withClash { queryTunnelState() }
 
     setCustomCards(running, state)
-    refreshIssues(running) // CUSTOM.md #53
+    val issues = refreshIssues(running) // CUSTOM.md #53
 
-    // CUSTOM.md #38: the node in use works -> the config version in use is marked as worked
-    if (running && state.reach > 0) ConfigVerified.mark(context)
+    // CUSTOM.md #147: only mark a reachable node when the issues snapshot confirms no active problems
+    if (running && state.reach > 0 && issues is IssuesDisplayState.NoIssues) ConfigVerified.mark(context)
 }
 
 // CUSTOM (CUSTOM.md #53): the card for problems of the running config. Asked whenever the home page is fetched or
