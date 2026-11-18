@@ -2181,3 +2181,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 本步只实现第一批的目标站 TLS / 证书 / HTTP 响应头采集与展示；DNS 查询耗时和非目标站模式 TLS / ALPN 展示留给第二批。不改 mihomo 子模块和自动构建工作流。
 - **改动文件：** `core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/ipdelay/iptry_target.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件。
 - **验证：** 仅完成静态结构核对；未运行 Go 测试、Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
+
+
+### 第 42 步：详细诊断区域整合 DNS 耗时并补齐节点 TLS / ALPN（r221）
+- **节点 TLS / ALPN：** 在原有 TryIP 请求的 TLS 握手回调中读取 TLS 版本和协商协议，随该次请求结果返回；节点模式无目标网址时也能在详细诊断区域显示。直连模式继续使用原有采集值。
+- **DNS 耗时：** 使用现有 DNS 检查报告中的各服务器查询耗时，以及报告已有的核心 / 内核解析耗时；不重新发起 DNS 请求，不把 DNS 耗时归到任何单个 IP。
+- **共用区域：** 所有 IP 测试模式共用同一个“详细诊断”折叠区域。若当前 IP 测试页面仍在显示，点击 DNS 检查后把独立 DNS 分组追加到该区域，不替换原 IP 表格；没有 IP 测试页面时，原 DNS 检查页面保持不变。
+- **范围：** 只读取现有测试结果和 DNS 报告；不增加连接、请求、定时器或后台任务，不改变原 IP 表格，不保存多轮历史。不改 mihomo 子模块和自动构建工作流。
+- **改动文件：** `core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/ipdelay/iptry.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件。
+- **验证：** 静态核对数据流和页面分支；未运行 Go 测试、Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。

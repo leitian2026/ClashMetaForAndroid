@@ -26,7 +26,10 @@ import (
 //   - Shake: the TLS handshake with the target inside the tunnel, from its start to its end (it includes whatever
 //     the tunnel needs first).
 //   - First: from the request being written to the first byte of the answer (the target's own time plus the way back).
-type Phases struct{ Dial, Shake, First int }
+type Phases struct {
+	Dial, Shake, First int
+	TLS, ALPN string
+}
 
 // phaseClock holds the moments (unix nanoseconds, 0 = not seen) the transport reports. The callbacks may run in other
 // goroutines than the one that reads them, so they are stored and loaded atomically.
@@ -146,6 +149,19 @@ func requestPhased(px C.Proxy, rawURL string, timeout time.Duration) (int, time.
 	defer resp.Body.Close()
 
 	elapsed := time.Since(start)
+	ph := clock.phases(dialed)
+	state := clock.tlsState
+	switch state.Version {
+	case tls.VersionTLS13:
+		ph.TLS = "1.3"
+	case tls.VersionTLS12:
+		ph.TLS = "1.2"
+	case tls.VersionTLS11:
+		ph.TLS = "1.1"
+	case tls.VersionTLS10:
+		ph.TLS = "1.0"
+	}
+	ph.ALPN = state.NegotiatedProtocol
 
-	return resp.StatusCode, elapsed, clock.phases(dialed), nil
+	return resp.StatusCode, elapsed, ph, nil
 }

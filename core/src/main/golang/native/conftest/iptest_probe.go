@@ -700,6 +700,8 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		soft     string // CUSTOM.md #67
 		softNote string
 		detail   *ipdelay.TargetResult
+		tlsName  string
+		alpn     string
 		dials    []int // CUSTOM.md #68: the parts of the tries that worked (the ones that did not measure a part are left out of it)
 		shakes   []int
 		firsts   []int
@@ -754,6 +756,9 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 		okMs = append(okMs, res.Delay)
 		dials, shakes, firsts = addPhases(dials, shakes, firsts, res.Ph.Dial, res.Ph.Shake, res.Ph.First) // CUSTOM.md #68
+		if tlsName == "" {
+			tlsName, alpn = res.Ph.TLS, res.Ph.ALPN
+		}
 	})
 
 	row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text]}
@@ -777,6 +782,9 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 	if st.OK > 0 {
 		row.OK = true
 		row.Dial, row.Shake, row.First = meanOf(dials), meanOf(shakes), meanOf(firsts) // CUSTOM.md #68
+		if req.Target == "" {
+			row.TLS, row.ALPN = tlsName, alpn
+		}
 
 		if req.Target != "" { // CUSTOM.md #66
 			best := 0
@@ -794,6 +802,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			if detail != nil {
 				row.TargetTLS = detail.TLS
 				row.TargetALPN = detail.ALPN
+				row.TLS, row.ALPN = detail.TLS, detail.ALPN
 				row.TargetCertSubject = detail.CertSubject
 				row.TargetCertIssuer = detail.CertIssuer
 				row.TargetCertNotBefore = detail.CertNotBefore

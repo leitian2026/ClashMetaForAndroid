@@ -22,6 +22,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.button.MaterialButton
+import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.design.R
 import java.text.SimpleDateFormat
@@ -78,6 +79,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private val headH = dp(40)
 
     private var rows: List<IpTestRow> = emptyList()
+    private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
     private var speedIp: String? = null
@@ -121,7 +123,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
     private val diagnosticsBox = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        visibility = if (target) View.VISIBLE else View.GONE
+        visibility = View.VISIBLE
         addView(diagnosticsTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         addView(diagnosticsBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
@@ -210,30 +212,57 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         updateDiagnostics()
     }
 
+    fun setDnsReport(report: DnsCheckReport) {
+        dnsReport = report
+        diagnosticsBox.visibility = View.VISIBLE
+        updateDiagnostics()
+    }
+
     private fun updateDiagnostics() {
-        if (!target) return
-        if (rows.isEmpty()) {
-            diagnosticsBody.text = "暂无已完成的目标站测试结果"
-            return
-        }
         fun value(v: String): String = v.ifBlank { "未获取" }
         val sb = StringBuilder()
-        for ((index, row) in rows.withIndex()) {
-            if (index > 0) sb.append("\n\n")
-            sb.append(row.ip).append('\n')
-            sb.append("TLS：").append(value(row.targetTls)).append("   ALPN：").append(value(row.targetAlpn)).append('\n')
-            sb.append("证书主题：").append(value(row.targetCertSubject)).append('\n')
-            sb.append("颁发者：").append(value(row.targetCertIssuer)).append('\n')
-            sb.append("有效期：").append(value(row.targetCertNotBefore)).append(" 至 ").append(value(row.targetCertNotAfter)).append('\n')
-            sb.append("DNS SAN：").append(value(row.targetCertDnsNames)).append('\n')
-            sb.append("IP SAN：").append(value(row.targetCertIpAddresses)).append('\n')
-            sb.append("证书验证：").append(if (row.targetCertVerification == "skipped") "未验证（测试跳过证书验证）" else value(row.targetCertVerification)).append('\n')
-            sb.append("Server：").append(value(row.targetServer)).append('\n')
-            sb.append("Cf-Ray：").append(value(row.targetCfRay)).append('\n')
-            sb.append("Content-Type：").append(value(row.targetContentType)).append('\n')
-            sb.append("Location：").append(value(row.targetNote)).append('\n')
-            sb.append("Retry-After：").append(value(row.targetRetryAfter)).append('\n')
-            sb.append("CF-Mitigated：").append(value(row.targetCfMitigated))
+        if (rows.isEmpty()) {
+            sb.append("暂无已完成的 IP 测试结果")
+        } else {
+            for ((index, row) in rows.withIndex()) {
+                if (index > 0) sb.append("\n\n")
+                sb.append(row.ip).append('\n')
+                val tls = row.targetTls.ifBlank { row.tls }
+                val alpn = row.targetAlpn.ifBlank { row.alpn }
+                sb.append("TLS：").append(value(tls)).append("   ALPN：").append(value(alpn)).append('\n')
+                if (target) {
+                    sb.append("证书主题：").append(value(row.targetCertSubject)).append('\n')
+                    sb.append("颁发者：").append(value(row.targetCertIssuer)).append('\n')
+                    sb.append("有效期：").append(value(row.targetCertNotBefore)).append(" 至 ").append(value(row.targetCertNotAfter)).append('\n')
+                    sb.append("DNS SAN：").append(value(row.targetCertDnsNames)).append('\n')
+                    sb.append("IP SAN：").append(value(row.targetCertIpAddresses)).append('\n')
+                    sb.append("证书验证：").append(if (row.targetCertVerification == "skipped") "未验证（测试跳过证书验证）" else value(row.targetCertVerification)).append('\n')
+                    sb.append("Server：").append(value(row.targetServer)).append('\n')
+                    sb.append("Cf-Ray：").append(value(row.targetCfRay)).append('\n')
+                    sb.append("Content-Type：").append(value(row.targetContentType)).append('\n')
+                    sb.append("Location：").append(value(row.targetNote)).append('\n')
+                    sb.append("Retry-After：").append(value(row.targetRetryAfter)).append('\n')
+                    sb.append("CF-Mitigated：").append(value(row.targetCfMitigated))
+                }
+            }
+        }
+        dnsReport?.let { report ->
+            sb.append("\n\nDNS 检查（独立结果：").append(report.domain).append("）\n")
+            if (report.servers.isEmpty()) {
+                sb.append("没有可显示的 DNS 服务器结果")
+            } else {
+                for (server in report.servers) {
+                    sb.append(server.address).append("：")
+                    sb.append(if (server.ok && server.ms > 0) "${server.ms} ms" else "未获取")
+                    sb.append('\n')
+                }
+            }
+            if (report.core.asked) {
+                sb.append("核心解析：").append(if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取").append('\n')
+            }
+            report.kernel?.let { kernel ->
+                sb.append("内核 DNS：").append(if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
+            }
         }
         diagnosticsBody.text = sb.toString()
     }

@@ -737,6 +737,14 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // rest), so like the effective config its taps go to the links; the copy button copies the whole text
     suspend fun showDns(report: DnsCheckReport) {
         withContext(Dispatchers.Main) {
+            // CUSTOM.md #156 step 42: keep the IP table and append DNS timings to its shared diagnostics fold.
+            // DNS remains a separate result group; it is never presented as an individual IP's DNS latency.
+            ipView?.let { current ->
+                current.setDnsReport(report)
+                shown = current.plain()
+                return@withContext
+            }
+
             textMode() // CUSTOM.md #52
 
             val view = DnsCheckView(context, report)
