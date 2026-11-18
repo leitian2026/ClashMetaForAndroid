@@ -25,6 +25,16 @@ type target struct {
 // address or name (the port is not used). Duplicates are dropped. Words that are neither come back in `invalid`, in
 // the order written.
 func parseTargets(text string) (list []target, invalid []string) {
+	// CUSTOM.md #156 step 28: an inline "#label" suffix belongs to the address on that line,
+	// not to the input tokens. Strip it before splitting so labels may contain spaces (e.g. "联通-FRA 2").
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if comment := strings.IndexByte(line, '#'); comment >= 0 {
+			lines[i] = line[:comment]
+		}
+	}
+	text = strings.Join(lines, "\n")
+
 	fields := strings.FieldsFunc(text, func(r rune) bool {
 		switch r {
 		case '\n', '\r', '\t', ' ', ',', ';', '，', '；', '、', '\u3000':
