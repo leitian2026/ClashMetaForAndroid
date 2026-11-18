@@ -10,7 +10,9 @@ import android.view.ViewGroup
 import android.widget.Toast
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.text.InputType
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -36,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
+import java.util.UUID
 
 // CUSTOM (CUSTOM.md #22): the "config check" page. Really connects once per tap, to see whether the fields
 // written in the config work. The last domain typed is remembered in this page's own preferences.
@@ -350,26 +353,65 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
         var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } } ?: snapshot.lastOperatorId
         val ids = HashMap<Int, String>()
-        for (operator in snapshot.operators) {
+        fun appendOperatorChoice(operator: SavedIpOperator) {
             val button = RadioButton(context).apply {
                 id = View.generateViewId()
-                text = when (operator.id) {
-                    SavedIpStore.OPERATOR_TELECOM -> context.getString(R.string.saved_ip_operator_telecom)
-                    SavedIpStore.OPERATOR_UNICOM -> context.getString(R.string.saved_ip_operator_unicom)
-                    SavedIpStore.OPERATOR_MOBILE -> context.getString(R.string.saved_ip_operator_mobile)
-                    else -> operator.name.ifBlank { operator.id }
-                }
+                text = savedIpOperatorDisplayName(context, operator).ifBlank { operator.id }
             }
             ids[button.id] = operator.id
             group.addView(button)
             if (operator.id == selectedId) group.check(button.id)
         }
+        snapshot.operators.forEach { appendOperatorChoice(it) }
         if (group.checkedRadioButtonId == -1 && group.childCount > 0) {
             group.check(group.getChildAt(0).id)
             selectedId = ids[group.checkedRadioButtonId].orEmpty()
         }
         group.setOnCheckedChangeListener { _, checked -> selectedId = ids[checked].orEmpty() }
         content.addView(group)
+
+        // CUSTOM (CUSTOM.md #156 step 9): add an operator without leaving the batch-save dialog.
+        val addOperatorButton = com.google.android.material.button.MaterialButton(context).apply {
+            setText(R.string.saved_ip_add_operator)
+            isAllCaps = false
+            setOnClickListener {
+                val input = EditText(context).apply {
+                    setHint(R.string.saved_ip_operator_name_hint)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                    setSingleLine(true)
+                }
+                val addDialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.saved_ip_add_operator_title)
+                    .setView(input)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.saved_ip_add, null)
+                    .create()
+                addDialog.setOnShowListener {
+                    addDialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val name = input.text.toString().trim()
+                        val error = savedIpOperatorNameError(context, name)
+                        if (error != 0) {
+                            input.error = context.getString(error)
+                            return@setOnClickListener
+                        }
+                        val latest = SavedIpStore.read(context)
+                        val operator = SavedIpOperator("custom_" + UUID.randomUUID().toString(), name)
+                        try {
+                            SavedIpStore.write(context, latest.copy(operators = latest.operators + operator))
+                        } catch (e: Exception) {
+                            Log.e("ConfigCheckDesign", "Failed to add saved-IP operator", e)
+                            Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                            return@setOnClickListener
+                        }
+                        addDialog.dismiss()
+                        appendOperatorChoice(operator)
+                        group.check(group.getChildAt(group.childCount - 1).id)
+                    }
+                }
+                addDialog.show()
+            }
+        }
+        content.addView(addOperatorButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val onlyReachable = CheckBox(context).apply {
             setText(R.string.saved_ip_only_reachable)

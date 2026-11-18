@@ -28,6 +28,26 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.UUID
 
+// CUSTOM (CUSTOM.md #156 step 9): shared operator-name validation for saved-IP management entry points.
+internal fun savedIpOperatorDisplayName(context: Context, operator: SavedIpOperator): String = when (operator.id) {
+    SavedIpStore.OPERATOR_TELECOM -> context.getString(R.string.saved_ip_operator_telecom)
+    SavedIpStore.OPERATOR_UNICOM -> context.getString(R.string.saved_ip_operator_unicom)
+    SavedIpStore.OPERATOR_MOBILE -> context.getString(R.string.saved_ip_operator_mobile)
+    else -> operator.name
+}
+
+internal fun savedIpOperatorNameError(context: Context, name: String, exceptId: String? = null): Int {
+    val codePoints = name.codePointCount(0, name.length)
+    return when {
+        name.isEmpty() -> R.string.saved_ip_operator_name_empty
+        codePoints > 12 -> R.string.saved_ip_operator_name_too_long
+        SavedIpStore.read(context).operators.any { operator ->
+            operator.id != exceptId && savedIpOperatorDisplayName(context, operator).equals(name, ignoreCase = true)
+        } -> R.string.saved_ip_operator_name_duplicate
+        else -> 0
+    }
+}
+
 /**
  * CUSTOM.md #156 step 3: local saved-IP page. All list operations are local and remain available when Clash is stopped.
  * Steps 4–6 add in-memory multi-selection, timestamp labels, filters and local batch actions.
@@ -549,13 +569,7 @@ class SavedIpDesign(
         dialog.setOnShowListener {
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val name = input.text.toString().trim()
-                val codePoints = name.codePointCount(0, name.length)
-                val error = when {
-                    name.isEmpty() -> R.string.saved_ip_operator_name_empty
-                    codePoints > 12 -> R.string.saved_ip_operator_name_too_long
-                    hasDuplicateName(name, existing?.id) -> R.string.saved_ip_operator_name_duplicate
-                    else -> 0
-                }
+                val error = savedIpOperatorNameError(context, name, existing?.id)
                 if (error != 0) {
                     input.error = context.getString(error)
                     return@setOnClickListener
@@ -575,12 +589,6 @@ class SavedIpDesign(
             }
         }
         dialog.show()
-    }
-
-    private fun hasDuplicateName(name: String, exceptId: String?): Boolean {
-        return SavedIpStore.read(context).operators.any { operator ->
-            operator.id != exceptId && displayName(operator).equals(name, ignoreCase = true)
-        }
     }
 
     private fun confirmDeleteOperator(operator: SavedIpOperator) {
@@ -746,12 +754,7 @@ class SavedIpDesign(
         Toast.makeText(context, R.string.saved_ip_copied, Toast.LENGTH_SHORT).show()
     }
 
-    private fun displayName(operator: SavedIpOperator): String = when (operator.id) {
-        SavedIpStore.OPERATOR_TELECOM -> context.getString(R.string.saved_ip_operator_telecom)
-        SavedIpStore.OPERATOR_UNICOM -> context.getString(R.string.saved_ip_operator_unicom)
-        SavedIpStore.OPERATOR_MOBILE -> context.getString(R.string.saved_ip_operator_mobile)
-        else -> operator.name
-    }
+    private fun displayName(operator: SavedIpOperator): String = savedIpOperatorDisplayName(context, operator)
 
     private fun actionButton(text: Int, click: () -> Unit) = TextView(context).apply {
         setText(text)

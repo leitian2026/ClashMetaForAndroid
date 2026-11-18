@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r180
+当前版本：2_11_36-r181
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1847,3 +1847,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件。
 - **CUSTOM 标记：** 三处代码改动均带有 `CUSTOM.md #156 step 8` 标记。
 - **验证：** 静态核对容量判断不再使用 `require()` / `IllegalArgumentException`，所有 `SavedIpStore.write()` 调用仅保留在统一错误处理函数内；未运行编译或 Android 构建，未触发 Build Debug。
+
+### 第 9 步：保存弹窗新增运营商入口（r181）
+- **入口：** “保存这一批”弹窗的运营商单选列表下方增加“新增运营商”按钮；点击后可直接创建自定义运营商，新建项立即加入当前列表并自动选中，不必先退出弹窗到已保存 IP 页面。
+- **名称规则：** 抽取并共用 SavedIpDesign 原有校验逻辑：去首尾空格、不能为空、最多 12 个 Unicode 码点、与现有运营商名称忽略大小写比较且不得重复；内置运营商使用当前语言显示名称参与重复检查。新建 ID 使用独立随机 ID，不使用本地化名称。
+- **保存行为：** 新运营商写入现有 SavedIpStore；创建失败记录日志并显示真实错误，不将其加入当前单选列表。成功后立即选中新运营商，后续“保存这一批”沿用原有保存逻辑。
+- **资源：** 复用现有中英文 saved_ip_add_operator、saved_ip_add_operator_title、saved_ip_operator_name_hint、名称校验错误及 saved_ip_add 文案，不新增不对称资源键。
+- **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt 和本登记文件。
+- **CUSTOM 标记：** 共用名称校验及保存弹窗入口均标记 CUSTOM.md #156 step 9。
+- **验证：** 静态核对新建入口、校验规则复用、内置名称本地化重复判断、随机 ID、写入失败处理、新建项加入并选中及原保存流程不变；未运行编译、Android 构建或真机测试，未触发 Build Debug。
