@@ -143,7 +143,7 @@ object SavedIpStore {
 
         val operator = snapshot.operators[operatorIndex]
         val entries = operator.ips.toMutableList()
-        val positions = entries.mapIndexed { index, entry -> entry.address to index }.toMap()
+        val positions = entries.mapIndexed { index, entry -> entry.address to index }.toMutableMap()
         var added = 0
         var updated = 0
         var skippedDomains = 0
@@ -172,6 +172,7 @@ object SavedIpStore {
                 updated++
             } else {
                 entries += SavedIpEntry(address, status)
+                positions[address] = entries.lastIndex
                 added++
             }
         }
