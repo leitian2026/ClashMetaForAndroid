@@ -49,7 +49,7 @@ object CheckMark {
         private val path = android.graphics.Path()
 
         /** Whole pixels, so the circle's edges sit on pixel boundaries: the diameter is even, the gap is an integer. */
-        private fun diameter(paint: Paint): Int = maxOf(Math.round(paint.textSize * 1.05f) and 1.inv(), 2)
+        private fun diameter(paint: Paint): Int = maxOf(Math.round(paint.textSize * 0.6f) and 1.inv(), 2)
 
         private fun gap(paint: Paint): Int = Math.round(paint.textSize * 0.2f)
 
