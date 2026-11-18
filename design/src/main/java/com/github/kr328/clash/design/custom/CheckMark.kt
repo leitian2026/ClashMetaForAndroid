@@ -14,8 +14,8 @@ import android.text.style.ReplacementSpan
 
 /**
  * CUSTOM (CUSTOM.md #57, not upstream): every ✓ / ✔ is drawn green and every ✗ / ✘ red, in the heaviest weight
- * (bold, plus the extra stroke of "fake bold"). A same-colour dot follows each mark. By day the colours are dark;
- * at night (dark theme) they are bright enough to read on the dark background.
+ * (bold, plus the extra stroke of "fake bold"). A fixed-colour dot follows each mark; the glyph colours retain
+ * their existing day/night theme adaptation.
  *
  * The mark and dot are drawing only: the underlying text is unchanged, including when copied or exported.
  */
@@ -24,6 +24,10 @@ object CheckMark {
     private const val CROSS = '\u2717' // ✗
     private const val CHECK_HEAVY = '\u2714' // ✔
     private const val CROSS_HEAVY = '\u2718' // ✘
+
+    // Fixed dot colours, independent of the day/night theme and card background.
+    const val DOT_GOOD = 0xFF4ADE80
+    const val DOT_BAD = 0xFFFF6B6B
 
     private fun night(context: Context): Boolean {
         return (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -34,7 +38,7 @@ object CheckMark {
 
     fun bad(context: Context): Int = if (night(context)) Color.parseColor("#FF5252") else Color.parseColor("#A50000")
 
-    private class MarkSpan(private val color: Int) : ReplacementSpan() {
+    private class MarkSpan(private val color: Int, private val dotColor: Int) : ReplacementSpan() {
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
         }
@@ -83,7 +87,7 @@ object CheckMark {
             val mark = text.subSequence(start, end).toString()
             canvas.drawText(mark, x, y.toFloat(), glyphPaint)
 
-            dotPaint.color = color
+            dotPaint.color = dotColor
             val centerY = y + (paint.ascent() + paint.descent()) / 2f
             canvas.drawCircle(x + glyphWidth + gap + diameter / 2f, centerY, diameter / 2f, dotPaint)
         }
@@ -118,8 +122,8 @@ object CheckMark {
 
         for (i in from until end) {
             when (text[i]) {
-                CHECK, CHECK_HEAVY -> text.setSpan(MarkSpan(good(context)), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                CROSS, CROSS_HEAVY -> text.setSpan(MarkSpan(bad(context)), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                CHECK, CHECK_HEAVY -> text.setSpan(MarkSpan(good(context), DOT_GOOD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                CROSS, CROSS_HEAVY -> text.setSpan(MarkSpan(bad(context), DOT_BAD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
     }

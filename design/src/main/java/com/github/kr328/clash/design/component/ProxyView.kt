@@ -2,12 +2,12 @@ package com.github.kr328.clash.design.component
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.design.R
+import com.github.kr328.clash.design.custom.CheckMark
 import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.design.store.UiStore
 
@@ -33,24 +33,6 @@ class ProxyView(
     private val ipTimeoutText by lazy { context.getString(R.string.ip_delay_timeout) }
     // CUSTOM.md #151: separate from the faded text paint so the in-use dot stays fully opaque.
     private val inUseDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val inUseDotOnDark = Color.parseColor("#FFB300")
-    private val inUseDotOnLight = Color.parseColor("#B26A00")
-
-    private fun colorLuminance(color: Int): Float {
-        return (Color.red(color) * 0.299f + Color.green(color) * 0.587f + Color.blue(color) * 0.114f) / 255f
-    }
-
-    // Use the actual interpolated card background; transparent grid cards inherit the surface, inferred from
-    // the existing unselected text colour (dark text means a light surface, light text a dark surface).
-    private fun inUseDotColor(state: ProxyViewState): Int {
-        val darkBackground = if (Color.alpha(state.background) == 0) {
-            colorLuminance(state.config.unselectedControl) > 0.5f
-        } else {
-            colorLuminance(state.background) < 0.5f
-        }
-
-        return if (darkBackground) inUseDotOnDark else inUseDotOnLight
-    }
 
     // CUSTOM (CUSTOM.md #12): when the per-IP delays were measured (0 = unknown). The text under the
     // IP rows is computed when the view is drawn; nothing ticks to keep it up to date.
@@ -290,7 +272,7 @@ class ProxyView(
                 )
 
                 if (item.inUse) {
-                    inUseDotPaint.color = inUseDotColor(state)
+                    inUseDotPaint.color = CheckMark.DOT_GOOD
                     val centerY = y + (paint.ascent() + paint.descent()) / 2f
                     canvas.drawCircle(left + dotDiameter / 2f, centerY, dotDiameter / 2f, inUseDotPaint)
                 }
