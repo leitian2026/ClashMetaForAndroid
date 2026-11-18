@@ -81,7 +81,7 @@ object CheckMark {
             val (gap, diameter) = dotMetrics(paint)
 
             val mark = text.subSequence(start, end).toString()
-            canvas.drawText(mark, x, y, glyphPaint)
+            canvas.drawText(mark, x, y.toFloat(), glyphPaint)
 
             dotPaint.color = color
             val centerY = y + (paint.ascent() + paint.descent()) / 2f
