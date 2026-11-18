@@ -67,12 +67,7 @@
     <string name="backup_export_summary">Save subscriptions, app settings, override settings and saved IPs into one password-encrypted file. Keep the password safe; it cannot be recovered.</string>
     <string name="backup_import_title">Import backup from file</string>
     <string name="backup_import_summary">Restore from a backup file. Subscriptions with the same name and address are skipped</string>
-    <string name="local_backup_password_title">Encrypt local backup</string>
-    <string name="local_backup_password_message">Set a password of at least 8 characters. You will need this password to restore the file. It is separate from the Jianguoyun backup password and cannot be recovered if forgotten.</string>
     <string name="local_backup_password">Backup password</string>
-    <string name="local_backup_password_confirm">Confirm password</string>
-    <string name="local_backup_password_short">Use a password with at least 8 characters.</string>
-    <string name="local_backup_password_mismatch">The passwords do not match.</string>
     <string name="local_backup_unlock_title">Unlock local backup</string>
     <string name="local_backup_unlock_message">Enter the password used when this backup was created.</string>
     <string name="local_backup_wrong_password">The password is wrong, or the backup file is damaged.</string>

@@ -59,33 +59,15 @@ class BackupActivity : BaseActivity<BackupDesign>() {
     }
 
     private suspend fun exportBackup(design: BackupDesign) {
-        val passwords = design.form(
-            getString(DesignR.string.local_backup_password_title),
-            getString(DesignR.string.local_backup_password_message),
-            listOf(
-                BackupDesign.Field(getString(DesignR.string.local_backup_password), ""),
-                BackupDesign.Field(getString(DesignR.string.local_backup_password_confirm), ""),
-            ),
-        ) ?: return
-
-        val password = passwords[0]
-        if (password.length < 8 || password != passwords[1]) {
-            design.message(
-                getString(DesignR.string.backup_failed_title),
-                getString(if (password.length < 8) DesignR.string.local_backup_password_short else DesignR.string.local_backup_password_mismatch),
-            )
-            return
-        }
-
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
         val uri = startActivityForResult(
-            ActivityResultContracts.CreateDocument("application/octet-stream"),
-            "ClashMeta-backup-$stamp.enc",
+            ActivityResultContracts.CreateDocument("application/zip"),
+            "ClashMeta-backup-$stamp.zip",
         ) ?: return
 
         design.setStatus(getString(DesignR.string.backup_working))
 
-        val count = BackupManager.export(this, uri, password)
+        val count = BackupManager.export(this, uri)
 
         design.message(
             getString(DesignR.string.backup_export_done_title),

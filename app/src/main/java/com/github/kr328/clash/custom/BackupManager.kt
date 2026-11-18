@@ -65,18 +65,12 @@ object BackupManager {
 
     // ---- export -------------------------------------------------------------------------------
 
-    /** Writes an AES-GCM encrypted local backup into [uri]. */
-    suspend fun export(context: Context, uri: Uri, password: String): Int {
-        val zip = ByteArrayOutputStream()
-        val count = write(context, sync = false) { zip }
-        val encrypted = withContext(Dispatchers.Default) {
-            BackupCrypto.encrypt(zip.toByteArray(), password)
-        }
-        withContext(Dispatchers.IO) {
-            context.contentResolver.openOutputStream(uri, "w")?.use { it.write(encrypted) }
+    /** Writes a plain ZIP local backup into [uri]. */
+    suspend fun export(context: Context, uri: Uri): Int {
+        return write(context, sync = false) {
+            context.contentResolver.openOutputStream(uri, "w")
                 ?: throw BackupException("cannot open $uri")
         }
-        return count
     }
 
     /**
