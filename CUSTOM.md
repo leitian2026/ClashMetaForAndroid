@@ -1750,12 +1750,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 
 ## 156. 已保存 IP 清单（r177，排序规则修正补充）
-- **独立存储：** 新增 `SavedIpStore.kt`，使用独立 SharedPreferences `custom_saved_ips`，JSON 保存运营商分组、IP 地址、最近状态和上次使用的运营商 ID；不复用最近一轮 IP 测试结果的 `ip_test_last`。
+- **独立存储：** 新增 `SavedIpStore.kt`，使用独立 SharedPreferences `custom_saved_ips`，JSON 保存运营商分组、IP 地址、最近状态、最近测试时间、加入时间和上次使用的运营商 ID；不复用最近一轮 IP 测试结果的 `ip_test_last`。
 - **数据结构：** 内置运营商固定 ID 为 `telecom`、`unicom`、`mobile`，内置名称留空，后续由字符串资源提供；自建运营商保存独立 ID 和名称。IP 状态仅为 `UNTESTED`、`REACHABLE`、`UNREACHABLE`，不保存延迟或端口数据。每条 IP 另存 `lastTestedAt`（最近测试时间，Unix 毫秒）和 `addedAt`（加入时间，Unix 毫秒）；旧 JSON 缺少字段时默认按 0 读取。
 - **读写：** `read()` 只读取和规范化内存数据，不写偏好；仅显式调用 `write()` 时序列化并通过 `SharedPreferences.apply()` 保存。读取损坏或缺失的数据时回退为空清单，不触发自动迁移写入。
 - **边界：** 不同运营商允许保存相同 IP；同一运营商内按地址去重。每个运营商按 `lastTestedAt` 从新到旧排列；未测试项（时间为 0）排在测试项之后，并按 `addedAt` 从新到旧排列。旧数据缺少时间字段时均按 0 处理，不崩溃；旧未测试项无法还原真实加入时间时保持原有相对顺序。全清单最多 5000 条，写入超过上限时拒绝，不静默截断。读取时补齐三个内置运营商，固定 ID 不依赖本地化名称。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
-- **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态字段、去重与 5000 条上限；未运行编译和真机测试。第 2–5 步的保存、页面、粘贴、多选和重测实现见下文。
+- **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态及时间字段、旧数据缺省值、去重、时间排序和 5000 条上限；未运行编译和真机测试。第 2–5 步的保存、页面、粘贴、多选和重测实现见下文。
 
 
 ### 第 2/5 步：保存这一批
