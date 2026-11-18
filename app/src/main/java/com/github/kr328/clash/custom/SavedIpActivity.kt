@@ -26,6 +26,13 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         setContentDesign(design)
     }
 
+    // CUSTOM.md #156 step 24: refresh the existing page when it is reordered to the front.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        page?.setCanRetest(intent.getBooleanExtra(EXTRA_CAN_RETEST, false))
+    }
+
     override fun onResume() {
         super.onResume()
         page?.refresh()
