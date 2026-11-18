@@ -405,6 +405,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_save_count">Eligible IPs to save: %1$d</string>
     <string name="saved_ip_operator_label">Save to operator</string>
     <string name="saved_ip_only_reachable">Save reachable IPs only</string>
+    <string name="saved_ip_only_pasted">Save only pasted IPs</string>
     <string name="saved_ip_operator_telecom">China Telecom</string>
     <string name="saved_ip_operator_unicom">China Unicom</string>
     <string name="saved_ip_operator_mobile">China Mobile</string>
