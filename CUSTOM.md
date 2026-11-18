@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r189
+当前版本：2_11_36-r190
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1935,3 +1935,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、design 中英文 `strings_custom.xml` 和本登记文件；未修改上游文件总表，因为这些均为 #156 自定义文件。
 - **CUSTOM 标记：** 大列表界面重构标记为 `CUSTOM.md #156 step 17`。
 - **验证：** 静态核对 RecyclerView Adapter 行类型、折叠分组、搜索过滤、缓存快照、IP 操作回调及批量操作保留；未运行 Kotlin 编译、Android 构建或真机测试。
+
+
+### 第 18 步：将“只保存粘贴的 IP”改为切换按键（r190）
+- **交互调整：** 将保存弹窗中的“只保存粘贴的 IP”从 CheckBox 改为可切换状态的 MaterialButton；点击按键本身启用 / 关闭该模式，不再显示复选框勾选图标。
+- **状态反馈：** 按键启用时使用主题主色容器背景，关闭时使用主题表面变体背景；文字保持原有“只保存粘贴的 IP”。按键占满弹窗内容宽度，便于触控。
+- **逻辑保持：** 沿用原有 `isChecked` 状态判断、可保存数量统计、禁用“只保存通的”选项及实际保存过滤逻辑；只更换交互控件，不改变保存行为。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt` 和本登记文件；中英文文案不变。
+- **CUSTOM 标记：** 按键控件标记为 `CUSTOM.md #156 step 18`。
+- **验证：** 静态核对原有状态判断和保存调用仍引用同一 `onlyPasted.isChecked`，点击按键触发计数刷新；未运行 Kotlin 编译、Android 构建或真机测试。
