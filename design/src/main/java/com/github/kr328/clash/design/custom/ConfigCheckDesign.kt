@@ -453,6 +453,15 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             isEnabled = rows.isNotEmpty()
         }
         content.addView(onlyReachable)
+
+        // CUSTOM.md #156 step 15: optionally save only addresses parsed from the paste field, excluding all test rows.
+        val onlyPasted = CheckBox(context).apply {
+            setText(R.string.saved_ip_only_pasted)
+            isChecked = false
+            isEnabled = true
+        }
+        content.addView(onlyPasted)
+
         val saveCountView = TextView(context).apply {
             textSize = 13f
             alpha = 0.8f
@@ -468,9 +477,15 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         dialog.setOnShowListener {
             val positive = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
             refreshSaveAvailability = {
-                val eligibleRows = rows.filter { row ->
-                    !row.isDomain && row.ip.isNotBlank() && (!onlyReachable.isChecked || row.ok)
+                val eligibleRows = if (onlyPasted.isChecked) {
+                    emptyList()
+                } else {
+                    rows.filter { row ->
+                        !row.isDomain && row.ip.isNotBlank() && (!onlyReachable.isChecked || row.ok)
+                    }
                 }
+                onlyReachable.isEnabled = rows.isNotEmpty() && !onlyPasted.isChecked
+                onlyReachable.alpha = if (onlyReachable.isEnabled) 1f else 0.45f
                 val testAddresses = eligibleRows.mapTo(LinkedHashSet()) { it.ip.trim() }
                 val pasted = SavedIpParser.extract(pastedInput.text.toString())
                 val currentOperator = SavedIpStore.read(context).operators.firstOrNull { it.id == selectedId }
@@ -481,6 +496,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
             }
             onlyReachable.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
+            onlyPasted.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
             pastedInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -501,7 +517,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                     val result = SavedIpStore.saveRows(
                         context,
                         operatorId,
-                        rows,
+                        if (onlyPasted.isChecked) emptyList() else rows,
                         onlyReachable.isChecked,
                         pasted.addresses,
                         pasted.duplicates,
