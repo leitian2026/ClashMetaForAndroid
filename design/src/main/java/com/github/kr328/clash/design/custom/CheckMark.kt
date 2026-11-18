@@ -14,7 +14,7 @@ import android.text.style.ReplacementSpan
 
 /**
  * CUSTOM (CUSTOM.md #57, not upstream): every ✓ / ✔ is drawn green and every ✗ / ✘ red, in the heaviest weight
- * (bold, plus the extra stroke of "fake bold"). A fixed-colour dot follows each mark; the glyph colours retain
+ * (bold, plus the extra stroke of "fake bold"). A fixed-colour, fully saturated dot follows each mark (pixel-aligned); the glyph colours retain
  * their existing day/night theme adaptation.
  *
  * The mark and dot are drawing only: the underlying text is unchanged, including when copied or exported.
@@ -25,9 +25,15 @@ object CheckMark {
     private const val CHECK_HEAVY = '\u2714' // ✔
     private const val CROSS_HEAVY = '\u2718' // ✘
 
-    // Fixed dot colours, independent of the day/night theme and card background.
+    // Fixed colour of the "in use" dot on the proxy page (ProxyView), independent of the theme and card background.
     const val DOT_GOOD: Int = -11870592 // #FF4ADE80
-    const val DOT_BAD: Int = -38037 // #FFFF6B6B
+
+    // Fixed, fully saturated colours of the dot behind every ✓ / ✗ (CUSTOM.md #153), independent of the theme.
+    const val MARK_DOT_GOOD: Int = -16718218 // #FF00E676
+    const val MARK_DOT_BAD: Int = -59580 // #FFFF1744
+
+    // Width in pixels of the same-colour outline of the dot; it makes the anti-aliased edge pixels more solid.
+    private const val DOT_STROKE = 0.5f
 
     private fun night(context: Context): Boolean {
         return (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -40,7 +46,8 @@ object CheckMark {
 
     private class MarkSpan(private val color: Int, private val dotColor: Int) : ReplacementSpan() {
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
+            style = Paint.Style.FILL_AND_STROKE
+            strokeWidth = DOT_STROKE
         }
 
         private fun markPaint(source: Paint): TextPaint {
@@ -51,10 +58,16 @@ object CheckMark {
             }
         }
 
-        private fun dotMetrics(paint: Paint): Pair<Float, Float> {
-            val gap = paint.textSize * 0.25f
-            val diameter = paint.textSize * 0.5f
-            return gap to diameter
+        /** Whole pixels, so the circle's edges sit on pixel boundaries: the diameter is even, the gap is an integer. */
+        private fun dotMetrics(paint: Paint): Pair<Int, Int> {
+            val gap = Math.round(paint.textSize * 0.25f)
+            val diameter = Math.round(paint.textSize * 0.65f) and 1.inv()
+
+            return gap to maxOf(diameter, 2)
+        }
+
+        private fun glyphWidth(paint: Paint, text: CharSequence, start: Int, end: Int): Int {
+            return Math.ceil(markPaint(paint).measureText(text, start, end).toDouble()).toInt()
         }
 
         override fun getSize(
@@ -64,9 +77,9 @@ object CheckMark {
             end: Int,
             fm: Paint.FontMetricsInt?,
         ): Int {
-            val glyph = markPaint(paint).measureText(text, start, end)
             val (gap, diameter) = dotMetrics(paint)
-            return (glyph + diameter + gap * 2).toInt()
+
+            return glyphWidth(paint, text, start, end) + diameter + gap * 2
         }
 
         override fun draw(
@@ -81,15 +94,20 @@ object CheckMark {
             paint: Paint,
         ) {
             val glyphPaint = markPaint(paint)
-            val glyphWidth = glyphPaint.measureText(text, start, end)
             val (gap, diameter) = dotMetrics(paint)
+            val glyph = glyphWidth(paint, text, start, end)
 
             val mark = text.subSequence(start, end).toString()
             canvas.drawText(mark, x, y.toFloat(), glyphPaint)
 
+            // The stroke grows the circle by half its width on every side; take that off the radius so the dot
+            // keeps the diameter above.
             dotPaint.color = dotColor
-            val centerY = y + (paint.ascent() + paint.descent()) / 2f
-            canvas.drawCircle(x + glyphWidth + gap + diameter / 2f, centerY, diameter / 2f, dotPaint)
+            val radius = diameter / 2f - DOT_STROKE / 2f
+            val centerX = Math.round(x + glyph + gap).toFloat() + diameter / 2f
+            val centerY = Math.round(y + (paint.ascent() + paint.descent()) / 2f).toFloat()
+
+            canvas.drawCircle(centerX, centerY, radius, dotPaint)
         }
     }
 
@@ -122,8 +140,8 @@ object CheckMark {
 
         for (i in from until end) {
             when (text[i]) {
-                CHECK, CHECK_HEAVY -> text.setSpan(MarkSpan(good(context), DOT_GOOD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                CROSS, CROSS_HEAVY -> text.setSpan(MarkSpan(bad(context), DOT_BAD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                CHECK, CHECK_HEAVY -> text.setSpan(MarkSpan(good(context), MARK_DOT_GOOD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                CROSS, CROSS_HEAVY -> text.setSpan(MarkSpan(bad(context), MARK_DOT_BAD), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
     }
