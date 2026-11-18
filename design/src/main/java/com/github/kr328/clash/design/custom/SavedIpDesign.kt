@@ -34,7 +34,7 @@ import java.util.UUID
  * CUSTOM.md #156 step 6: rendering and list-only operations; no test flow or network behavior is changed.
  */
 class SavedIpDesign(
-    private val context: Context,
+    context: Context,
     private val onBack: () -> Unit,
     private val canRetest: Boolean,
     private val onRetest: (String, List<String>) -> Unit,
@@ -122,9 +122,14 @@ class SavedIpDesign(
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
-        surface.addOnPropertyChangedCallback { _, _ ->
-            root.setPadding(0, surface.insets.top, 0, surface.insets.bottom)
-        }
+        surface.addOnPropertyChangedCallback(object : androidx.databinding.Observable.OnPropertyChangedCallback() {
+            override fun onPropertyChanged(
+                sender: androidx.databinding.Observable?,
+                propertyId: Int,
+            ) {
+                root.setPadding(0, surface.insets.top, 0, surface.insets.bottom)
+            }
+        })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         filterButtons.forEach { filterBar.addView(it, weighted()) }
