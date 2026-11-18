@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r205
+当前版本：2_11_36-r206
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2054,3 +2054,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 只调整标签文字绘制时的参数形式；黑色文字、绿色圆角底色、内边距、日间 / 夜间背景颜色及状态判断均不变。
 - **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt` 和本登记文件。
 - **验证：** 已根据 Build Debug 日志定位并修正第 651 行的 `drawText` 重载匹配错误；尚未重新运行 Android 构建或真机显示测试，未触发 Build Debug。
+
+
+### 第 32 步：修复已应用标签绘制坐标类型错误（r206）
+- **修复：** 将 `ReplacementSpan.draw()` 提供的整型基线坐标 `y` 显式转换为 `Float`，再传入 `Canvas.drawText(String, x, y, paint)`，解决 r205 中第二个参数修正后暴露的第三个参数类型不匹配。
+- **范围：** 只转换文字绘制的基线坐标类型；标签文字、黑色字体、绿色圆角底色、内边距、日间 / 夜间背景及状态判断不变。
+- **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt` 和本登记文件。
+- **验证：** 根据 r205 Build Debug 日志定位到第 651 行的 `y: Int` 与 `drawText` 所需 `Float` 不匹配；本次修正后仍需重新构建验证，未触发 Build Debug。
