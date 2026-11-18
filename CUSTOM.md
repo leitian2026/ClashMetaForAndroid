@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r183
+当前版本：2_11_36-r184
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1792,9 +1792,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ### 第 5/5 步：资源、CUSTOM 挂钩总表核对与 #156 完成总结
 - **中英文资源：** 核对 `values/strings_custom.xml` 与 `values-zh/strings_custom.xml`：#156 使用的字符串键均存在，两边键集合一致，无重复键；所有格式占位符数量和类型一致。
 - **CUSTOM 挂钩：** 本次新增 / 修改的代码、布局、Manifest 和资源文件均带有 `CUSTOM` 标记；所有非上游新文件的文件名均已在本条登记中出现。
-- **上游文件总表：** 对照 `main` 的文件树，本次改动中只有 `app/src/main/AndroidManifest.xml` 属于上游已有文件；已在总表把 #156 加入该行，并登记 `.custom.SavedIpActivity`。其余新增文件按 #156 文件清单登记，不加入上游冲突表。
+- **上游文件总表：** #156 改动涉及的上游已有文件包括 `app/src/main/AndroidManifest.xml` 和 `design/build.gradle.kts`；Manifest 登记 `.custom.SavedIpActivity`，Gradle 文件仅为 design 模块启用既有 Kotlin serialization 插件。其余 #156 自定义实现文件按下方清单登记。
 - **总表核对：** 当前上游文件总表去重后 36 个路径均存在，且每个文件仍包含 `CUSTOM` 标记；新增文件登记检查通过。没有修改 mihomo core、Go 代码、patches、Gradle 文件或 GitHub Actions 工作流。
-- **#156 全部改动文件（共 12 个，不含本登记文件）：**
+- **#156 全部改动文件（共 13 个，不含本登记文件）：**
   1. `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`
   2. `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`
   3. `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`
@@ -1807,7 +1807,8 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
   10. `design/src/main/res/layout/design_config_check.xml`
   11. `app/src/main/AndroidManifest.xml`
   12. `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`
-- **版本与编号：** 当前版本保持 `2_11_36-r177`；功能编号为 #156；实现分为 5 步，均已完成。
+  13. `design/build.gradle.kts`
+- **版本与编号：** 当前版本为 `2_11_36-r184`；功能编号为 #156。基础功能、保存弹窗增强和入口清理均已完成，详细分阶段记录见第 7–12 步。
 - **验证：** 完成资源键 / 占位符、CUSTOM 标记、上游总表、变更文件清单和分支范围的静态核对；未运行编译和真机测试，未触发 Build Debug。
 
 ### 第 6/6 步：已保存 IP 测试时间、筛选和批量操作
@@ -1877,3 +1878,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
 - **CUSTOM 标记：** 新增输入框、解析 / 预计数量、原子合并写入逻辑均标记 `CUSTOM.md #156 step 11`。
 - **验证：** 静态核对解析器复用、文本变化和筛选变化触发数量更新、测试行优先、跨来源重复规则、单次写入和整批容量拒绝、中英文占位符；未运行编译、Android 构建或真机测试，未触发 Build Debug。
+
+### 第 12 步：移除已保存 IP 页顶部新增 / 粘贴入口（r184）
+- **入口清理：** 删除 `SavedIpDesign` 顶部“新增运营商 / 粘贴 IP”操作行，避免与配置检查页“保存这一批”弹窗内的新增运营商和多行粘贴入口重复。
+- **删除范围：** 移除仅供上述顶部入口使用的 `addOperator()` 和 `pasteIps()` 方法，以及粘贴弹窗专用的 `RadioButton` / `RadioGroup` import；移除选择模式下隐藏顶部操作行的旧可见性切换。
+- **保留功能：** 保留自定义运营商改名、删除运营商、单条 IP 删除、复制 IP、筛选、多选、批量删除、重测、删除不通 IP、存储错误处理；`showOperatorNameDialog(existing)` 仍用于改名，运营商名称校验仍由配置检查保存弹窗复用。
+- **资源：** 不删除中英文资源键；新增运营商和粘贴输入文案仍由配置检查页保存弹窗使用，其他页面可能共用的资源不做清理。
+- **CUSTOM 总结修订：** 修正 #156 总结中遗漏的 `design/build.gradle.kts` 文件登记，并将上游已有文件说明更新为 AndroidManifest 与 design Gradle 文件；总文件数更新为 13 个（不含 `CUSTOM.md`）。
+- **CUSTOM 标记：** 入口清理位置标记 `CUSTOM.md #156 step 12`；`CUSTOM.md` 版本更新为 `2_11_36-r184`。
+- **验证：** 静态核对顶部入口及其专用方法 / import 已移除，改名、删除、复制、筛选、多选和重测路径保留；未运行 Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。

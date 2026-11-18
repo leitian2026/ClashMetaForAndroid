@@ -13,8 +13,6 @@ import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import java.text.SimpleDateFormat
@@ -102,10 +100,6 @@ class SavedIpDesign(
         val isDate: Boolean,
     )
 
-    private val actions = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        setPadding(dp(12), dp(2), dp(12), dp(2))
-    }
     private val filterBar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -157,9 +151,7 @@ class SavedIpDesign(
         filterButtons.forEach { filterBar.addView(it, weighted(3)) }
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        actions.addView(actionButton(R.string.saved_ip_add_operator) { addOperator() }, weighted(3))
-        actions.addView(actionButton(R.string.saved_ip_paste) { pasteIps() }, weighted(3))
-        root.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // CUSTOM.md #156 step 12: operator creation and IP pasting are managed from the config-check save dialog.
 
         selectionMainActions.addView(selectedCountView, weighted())
         selectionMainActions.addView(retestButton, weighted(2))
@@ -455,7 +447,6 @@ class SavedIpDesign(
 
     private fun updateSelectionActions() {
         val active = selectedOperatorId != null
-        actions.visibility = if (active) View.GONE else View.VISIBLE
         selectionActions.visibility = if (active) View.VISIBLE else View.GONE
         selectedCountView.text = context.getString(R.string.saved_ip_selected_count, selectedAddresses.size)
         retestButton.isEnabled = canRetest && selectedAddresses.isNotEmpty()
@@ -540,10 +531,6 @@ class SavedIpDesign(
             return
         }
         onRetest(operatorId, addresses)
-    }
-
-    private fun addOperator() {
-        showOperatorNameDialog(null)
     }
 
     private fun editOperator(operator: SavedIpOperator) {
@@ -644,89 +631,6 @@ class SavedIpDesign(
                     else operator
                 }
                 if (!writeSnapshot(snapshot.copy(operators = operators))) return@setPositiveButton
-                refresh()
-            }
-            .show()
-    }
-
-    private fun pasteIps() {
-        val snapshot = SavedIpStore.read(context)
-        val input = EditText(context).apply {
-            setHint(R.string.saved_ip_paste_hint)
-            minLines = 5
-            maxLines = 10
-            gravity = Gravity.TOP or Gravity.START
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        }
-        val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
-        val ids = HashMap<Int, String>()
-        for (operator in snapshot.operators) {
-            val button = RadioButton(context).apply {
-                id = View.generateViewId()
-                text = displayName(operator)
-            }
-            ids[button.id] = operator.id
-            group.addView(button)
-            if (operator.id == snapshot.lastOperatorId) group.check(button.id)
-        }
-        if (group.checkedRadioButtonId == -1 && group.childCount > 0) group.check(group.getChildAt(0).id)
-
-        val content = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(4), dp(20), 0)
-            addView(input, fullWidth())
-            addView(
-                TextView(context).apply {
-                    setText(R.string.saved_ip_operator_label)
-                    textSize = 13f
-                    setTextColor(colorMuted)
-                    setPadding(0, dp(8), 0, 0)
-                },
-                fullWidth(),
-            )
-            addView(group, fullWidth())
-        }
-
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_paste_title)
-            .setView(ScrollView(context).apply { addView(content) })
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_add) { _, _ ->
-                val operatorId = ids[group.checkedRadioButtonId].orEmpty()
-                if (operatorId.isBlank()) return@setPositiveButton
-                val extraction = SavedIpParser.extract(input.text.toString())
-                if (extraction.addresses.isEmpty()) {
-                    Toast.makeText(context, R.string.saved_ip_paste_no_valid, Toast.LENGTH_LONG).show()
-                    return@setPositiveButton
-                }
-
-                val current = SavedIpStore.read(context)
-                val index = current.operators.indexOfFirst { it.id == operatorId }
-                if (index < 0) return@setPositiveButton
-                val operator = current.operators[index]
-                val existing = operator.ips.mapTo(HashSet()) { it.address }
-                val entries = operator.ips.toMutableList()
-                val addedAt = System.currentTimeMillis()
-                var added = 0
-                var repeated = extraction.duplicates
-                for (address in extraction.addresses) {
-                    if (existing.add(address)) {
-                        entries += SavedIpEntry(address, SavedIpStatus.UNTESTED, addedAt = addedAt)
-                        added++
-                    } else {
-                        repeated++
-                    }
-                }
-
-                val operators = current.operators.toMutableList()
-                operators[index] = operator.copy(ips = entries)
-                val updated = current.copy(operators = operators, lastOperatorId = operatorId)
-                if (!writeSnapshot(updated)) return@setPositiveButton
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.saved_ip_paste_result, added, repeated, extraction.ignored),
-                    Toast.LENGTH_LONG,
-                ).show()
                 refresh()
             }
             .show()
