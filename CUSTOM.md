@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r198
+当前版本：2_11_36-r199
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2008,3 +2008,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **数据安全：** 备份导出时严格读取已保存 IP；数据损坏时备份失败，不会静默写入空列表。恢复前校验 IP 快照和 5000 条上限，再执行恢复。
 - **改动文件：** `BackupManager.kt`、`BackupActivity.kt`、英文和中文 `strings_custom.xml`、本登记文件；不修改云端传输协议、`BackupCrypto.kt`、core、Go、patches 或工作流。
 - **验证：** 静态核对本地导出直接写入普通 ZIP、导出不再调用密码输入或 AES 加密；导入仍兼容加密 `.enc` 和普通 ZIP；云端 AES-GCM 加密调用不变；已保存 IP 仍进入统一备份清单并在恢复时还原。未运行 Kotlin 编译、Android 构建或真机备份恢复测试，未触发 Build Debug。
+
+### 第 26 步：已保存 IP 单条删除按钮向所属 IP 靠近（r199）
+- **位置微调：** 将双列 IP 卡片第一行右侧单条删除“×”按钮增加 8dp 右侧外边距，使图标整体向左、靠近本卡片的 IP 地址，避免视觉上贴近右侧另一条 IP。
+- **范围：** 只调整删除按钮位置；不改变双列网格间距、IP 文本布局、按钮尺寸、删除确认流程或删除逻辑，也不改状态圆点、复制、多选及测试时间显示。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件。
+- **验证：** 静态核对仅在单条删除按钮的 `LayoutParams` 增加 `marginEnd = dp(8)`，删除回调 `confirmDeleteIp(operator.id, entry.address)` 保持不变；未运行 Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
