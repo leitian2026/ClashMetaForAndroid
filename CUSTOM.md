@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r177
+当前版本：2_11_36-r178
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1821,3 +1821,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/AgeText.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
 - **验证：** 静态核对中英文资源键集合和占位符、15 天日期边界、未来时间处理、筛选后共用排序、多选可见范围及 20 个上限、一键选择替换逻辑、跨筛选清空选择、删除范围和确认文案；未运行 Kotlin 编译、Android 构建或真机测试。
 - **构建修正：** Build Debug 首次编译发现 `SavedIpDesign.kt` 两处 Kotlin 错误：子类构造参数重复声明父类 `Design.context`，以及将 `BaseObservable.addOnPropertyChangedCallback` 错写为 Lambda。已移除构造参数的属性声明，改用父类 `context`；属性监听改为 `Observable.OnPropertyChangedCallback` 对象。仅修正这两处编译问题，不改变页面行为。
+### 第 7/7 步：已保存 IP 页纯文字按钮与标题栏保存入口（r178）
+- **已保存 IP 页按钮：** 顶部“全部 / 通 / 不通 / 没测过”、“新增运营商 / 粘贴 IP”、分组“删除不通的”、多选栏“重测 / 删除 / 取消选择 / 选不通的 / 选最久没测的 20 个”以及分组改名、删除等文字操作，统一使用无填充、无边框的纯文字样式；文字颜色明确取自 Material 的 colorPrimary，与“配置检查”页顶部“说明”等 TextButton 使用同一颜色来源，不依赖 TextView 默认文字色。所有这些操作保留点击波纹反馈。
+- **筛选样式与排版：** 四个筛选项等宽、单行显示，选中项加粗并带文字下划线，未选中项普通字重且无下划线；不再使用底色表示选中。筛选行与“新增运营商 / 粘贴 IP”行使用相同的左右内边距，按钮之间留有间隙，点击高度至少 40dp。原有禁用条件保留，禁用时透明度为 0.35 且不可点击。
+- **保存入口位置：** 删除 IpTestView 结果表上方原有整行宽按钮，不留空白行或额外间距；将同一“保存这一批”文字按钮放到“配置检查”标题栏右侧，位于“说明”和复制图标之间，使用与“说明”相同的 Material TextButton 样式，并复用现有 saved_ip_save_batch 字符串和原有保存回调 / 运营商选择流程。
+- **显示与状态：** 只在“测试其他 IP”结果表视图显示；至少有一条已完成的 IP 结果才显示。新一轮开始且没有结果时隐藏；整轮运行期间已有结果则显示但置灰（透明度 0.35、不可点击）；整轮完成或中途取消后，只要已有已完成结果就恢复可点。切换到 ECH 检查、检查 DNS、推算最终配置或说明等其他视图时隐藏；切回结果表或通过 restoreIpTest 恢复上一轮结果时重新按结果行判断。按钮文字单行、不换行；标题栏空间不足时标题按原有末尾省略方式缩短，不挤出右侧操作。
+- **挂钩登记：** 本步没有新增上游文件或修改上游文件总表。ConfigCheckDesign.kt 与 design_config_check.xml 新增的标题栏状态 / 控件均带 CUSTOM.md #156 step 7 标记；涉及的 SavedIpDesign.kt、IpTestView.kt 和布局文件均已包含在 #156 的改动文件登记清单中，没有遗漏新的文件路径。
+- **范围与功耗：** 只调整按钮外观、布局和现有结果状态驱动的可见性 / 可点击状态；不改保存数据格式、运营商选择、保存流程或 IP 测试行为。没有定时器、轮询、动画或新增联网请求。
+- **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt、design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt、design/src/main/res/layout/design_config_check.xml 和本登记文件。
+- **验证：** 静态核对纯文字按钮、颜色来源、筛选选中样式、按钮间距与点击高度、旧按钮移除、标题栏控件顺序、结果行驱动的显示 / 禁用状态、视图切换隐藏及恢复结果显示规则；未运行编译和真机测试。
