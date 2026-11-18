@@ -410,6 +410,7 @@
     <string name="saved_ip_operator_mobile">移动</string>
     <string name="saved_ip_save_result">新增 %1$d，更新 %2$d，粘贴重复 %3$d，忽略文本 %4$d，跳过域名 %5$d。</string>
     <string name="saved_ip_save_limit">已保存 IP 达到上限（最多 %1$d 个），请先删除部分 IP 再保存。</string>
+    <string name="saved_ip_read_failed">读取已保存的 IP 失败：%1$s</string>
 
     <!-- CUSTOM #156 第 3 步：已保存 IP 页面和运营商管理 -->
     <string name="saved_ip_entry">已保存 IP</string>

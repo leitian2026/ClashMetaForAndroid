@@ -342,6 +342,9 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // Empty rows are allowed so the same dialog can be used for the later paste-IP step.
     fun showSaveIpBatch(rows: List<IpTestRow>, preferredOperatorId: String? = null) {
         val snapshot = SavedIpStore.read(context)
+        SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
+            Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
+        }
         val density = context.resources.displayMetrics.density
         val pad = (20 * density + 0.5f).toInt()
         val content = LinearLayout(context).apply {
@@ -431,7 +434,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                             SavedIpStore.write(context, latest.copy(operators = latest.operators + operator))
                         } catch (e: Exception) {
                             Log.e("ConfigCheckDesign", "Failed to add saved-IP operator", e)
-                            Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                             return@setOnClickListener
                         }
                         addDialog.dismiss()
@@ -526,7 +529,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                     ).show()
                 } catch (e: Exception) {
                     Log.e("ConfigCheckDesign", "Failed to save IP batch", e)
-                    Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }
         }

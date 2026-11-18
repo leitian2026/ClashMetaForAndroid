@@ -410,6 +410,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_operator_mobile">China Mobile</string>
     <string name="saved_ip_save_result">Added %1$d, updated %2$d, repeated pasted IPs %3$d, ignored text items %4$d, skipped domains %5$d.</string>
     <string name="saved_ip_save_limit">The saved-IP list is full (maximum %1$d). Remove some IPs before saving more.</string>
+    <string name="saved_ip_read_failed">Could not read the saved IPs: %1$s</string>
 
     <!-- CUSTOM #156 step 3: saved-IP list page and operator management -->
     <string name="saved_ip_entry">Saved IPs</string>

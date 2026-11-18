@@ -4,8 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.github.kr328.clash.core.model.IpTestRow
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
@@ -89,6 +87,17 @@ object SavedIpStore {
         OPERATOR_MOBILE,
     )
 
+    // CUSTOM.md #156 step 13: why the last read had to fall back to an empty list; taken (and cleared) by the page
+    // that shows it, so a damaged list is no longer shown as "nothing saved" without a word.
+    @Volatile
+    private var readError: String? = null
+
+    fun takeReadError(): String? {
+        val error = readError
+        readError = null
+        return error
+    }
+
     fun emptySnapshot(): SavedIpSnapshot = SavedIpSnapshot(
         operators = listOf(
             SavedIpOperator(OPERATOR_TELECOM),
@@ -110,10 +119,13 @@ object SavedIpStore {
             emptySnapshot()
         } else {
             try {
-                json.decodeFromString<SavedIpSnapshot>(raw)
+                // CUSTOM.md #156 step 13: name the serializer explicitly (like IpTestReport / IpHistory) instead of the
+                // runtime lookup by class, which is not found in the shrunk (R8) build.
+                json.decodeFromString(SavedIpSnapshot.serializer(), raw)
             } catch (e: Exception) {
                 // CUSTOM.md #156 step 8: report corrupted or undecodable persisted data instead of silently hiding it.
                 Log.e("SavedIpStore", "Failed to decode saved IP data; using an empty snapshot", e)
+                readError = e.message ?: e.javaClass.simpleName // CUSTOM.md #156 step 13: shown once by the page
                 emptySnapshot()
             }
         }
@@ -133,7 +145,7 @@ object SavedIpStore {
         val total = normalized.operators.sumOf { it.ips.size }
         if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
 
-        val value = json.encodeToString(normalized)
+        val value = json.encodeToString(SavedIpSnapshot.serializer(), normalized) // CUSTOM.md #156 step 13
         context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()

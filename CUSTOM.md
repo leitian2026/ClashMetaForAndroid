@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r184
+当前版本：2_11_36-r185
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1887,3 +1887,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **CUSTOM 总结修订：** 修正 #156 总结中遗漏的 `design/build.gradle.kts` 文件登记，并将上游已有文件说明更新为 AndroidManifest 与 design Gradle 文件；总文件数更新为 13 个（不含 `CUSTOM.md`）。
 - **CUSTOM 标记：** 入口清理位置标记 `CUSTOM.md #156 step 12`；`CUSTOM.md` 版本更新为 `2_11_36-r184`。
 - **验证：** 静态核对顶部入口及其专用方法 / import 已移除，改名、删除、复制、筛选、多选和重测路径保留；未运行 Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
+
+### 第 13 步：序列化改为显式指定，保存 / 读取失败如实提示（r185）
+- **问题：** 点“保存这一批”弹出“测试失败：Serializer for class 'SavedIpSnapshot' is not found”，写入在序列化这一步中断，什么都没存进去；读取失败又静默回退成空清单，“已保存 IP”页永远显示空。日常构建是 `assembleAlphaRelease`（R8 已开，见 AGENTS.md），`json.encodeToString(x)` / `decodeFromString<T>()` 这种按类型在运行时查找序列化器的写法找不到序列化器。项目里能正常工作的 `IpTestReport`（`ConfigCheckDesign.persistIpTest` / `readIpTest`）和 `IpHistory.parse` 都是显式指定序列化器。
+- **修复：** `SavedIpStore.read()` / `write()` 改为 `json.decodeFromString(SavedIpSnapshot.serializer(), raw)` 和 `json.encodeToString(SavedIpSnapshot.serializer(), normalized)`，其余存储方式（SharedPreferences `custom_saved_ips`）和数据格式不变，已存的旧数据照常读取。
+- **报错文字：** 保存出错（保存弹窗保存、弹窗里新增运营商、已保存 IP 页的全部写入）不再用测试页的 `check_error`（“测试失败”），改用现有的 `editor_save_failed`（“保存失败：原因”）。容量上限的提示不变。
+- **读取失败不再静默：** `SavedIpStore.read()` 解码失败时记下原因，`takeReadError()` 取出并清除；已保存 IP 页刷新和保存弹窗打开时若有读取失败，弹一次“读取已保存的 IP 失败：原因”（新增 `saved_ip_read_failed`，中英文各一条）。仍回退为空清单，不自动写回。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
+- **CUSTOM 标记：** 所有改动处带 `CUSTOM.md #156 step 13`。
+- **验证：** 静态核对读写都已显式指定 `SavedIpSnapshot.serializer()`、不再引用 `decodeFromString` / `encodeToString` 扩展 import、三处保存出错提示已换成 `editor_save_failed`、新字符串中英文各一条；未运行 Kotlin 编译、Android 构建或真机测试。没有新增定时器、轮询或联网请求。

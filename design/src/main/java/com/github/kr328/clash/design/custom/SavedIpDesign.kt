@@ -170,6 +170,9 @@ class SavedIpDesign(
     fun refresh() {
         operatorList.removeAllViews()
         val snapshot = SavedIpStore.read(context)
+        SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
+            Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
+        }
         updateFilterButtons()
         reconcileSelection(snapshot)
         val total = snapshot.operators.sumOf { it.ips.size }
@@ -647,7 +650,7 @@ class SavedIpDesign(
             false
         } catch (e: Exception) {
             Log.e("SavedIpDesign", "Failed to write saved IP list", e)
-            Toast.makeText(context, context.getString(R.string.check_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
             false
         }
     }
