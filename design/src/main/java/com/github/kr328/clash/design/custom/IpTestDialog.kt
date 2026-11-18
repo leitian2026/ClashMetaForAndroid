@@ -45,6 +45,7 @@ object IpTestDialog {
         prefs: SharedPreferences,
         nodes: List<String>,
         readConfig: (suspend () -> IpTestReport?)? = null, // CUSTOM.md #69: null = no "read the IPs of the config" button
+        presetIps: String? = null, // CUSTOM.md #156 step 4: one-shot prefill from selected saved IPs
     ): IpTestChoice? {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<IpTestChoice?> { ctx ->
@@ -72,7 +73,8 @@ object IpTestDialog {
                     isVerticalScrollBarEnabled = true
 
                     try {
-                        setText(prefs.getString("ip_text", "") ?: "")
+                        // CUSTOM.md #156 step 4: a supplied preset wins for this dialog only; otherwise keep the manual history.
+                        setText(presetIps ?: (prefs.getString("ip_text", "") ?: ""))
                     } catch (_: Exception) {
                     }
                 }
