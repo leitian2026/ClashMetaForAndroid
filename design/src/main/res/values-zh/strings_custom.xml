@@ -10,7 +10,7 @@
     <string name="geosite_download_err_http">服务器返回 HTTP %1$d</string>
     <string name="geosite_reset_title">GeoSite 已恢复为内置版本</string>
     <string name="geosite_reset_message">应用更新后，你之前下载安装的 geosite.dat 已被内置版本替换。需要自己的版本，请到 设置 → Meta 特性 → Geo 文件 重新下载。</string>
-    <string name="main_geosite_reset_notice">域名集已恢复为内置版本，点此重新下载</string>
+    <string name="main_geosite_reset_notice">域名集已恢复为内置版本，点此去设置里重新下载</string>
     <string name="ip_delay_age_now">刚刚测速</string>
     <string name="ip_delay_age_seconds">%1$d 秒前测速</string>
     <string name="ip_delay_age_minutes">%1$d 分钟前测速</string>
@@ -63,9 +63,9 @@
 
     <!-- CUSTOM #17: backup / restore -->
     <string name="backup_category">备份与恢复</string>
-    <string name="backup_export_title">导出备份</string>
+    <string name="backup_export_title">导出备份到文件</string>
     <string name="backup_export_summary">把订阅、应用设置、覆盖设置存成一个文件。文件里有订阅地址，请妥善保管</string>
-    <string name="backup_import_title">导入备份</string>
+    <string name="backup_import_title">从文件导入备份</string>
     <string name="backup_import_summary">从备份文件恢复。已有的同名同地址订阅会跳过</string>
     <string name="backup_working">请稍候…</string>
     <string name="backup_failed_title">操作失败</string>
@@ -305,7 +305,7 @@
     <string name="custom_ips_more">等 %d 个</string>
     <string name="custom_reach_ok">✓ %1$d ms</string>
     <string name="custom_reach_fail">✗ 不通</string>
-    <string name="history_verified"> · ✓ 用过没出错</string>
+    <string name="history_verified"> · ✓ 节点能连通</string>
     <string name="history_saved_unapplied"> · 已保存未应用</string>
     <string name="history_bad"> · ✗ 未通过检查</string>
     <string name="connection_row_direct">直连 ← %1$s</string>

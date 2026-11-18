@@ -10,7 +10,7 @@
     <string name="geosite_download_err_http">Server returned HTTP %1$d</string>
     <string name="geosite_reset_title">GeoSite reset to built-in</string>
     <string name="geosite_reset_message">After the app update, the geosite.dat you downloaded was replaced by the built-in one. To use your own copy again, download it in Settings → Meta Features → Geo Files.</string>
-    <string name="main_geosite_reset_notice">GeoSite was reset to the built-in version, tap to download again</string>
+    <string name="main_geosite_reset_notice">GeoSite was reset to the built-in version; tap to open Settings and download again</string>
     <string name="ip_delay_age_now">Tested just now</string>
     <string name="ip_delay_age_seconds">Tested %1$d s ago</string>
     <string name="ip_delay_age_minutes">Tested %1$d min ago</string>
@@ -63,9 +63,9 @@
 
     <!-- CUSTOM #17: backup / restore -->
     <string name="backup_category">Backup and restore</string>
-    <string name="backup_export_title">Export backup</string>
+    <string name="backup_export_title">Export backup to file</string>
     <string name="backup_export_summary">Save the subscriptions, app settings and override settings into one file. It contains your subscription addresses, so keep it safe</string>
-    <string name="backup_import_title">Import backup</string>
+    <string name="backup_import_title">Import backup from file</string>
     <string name="backup_import_summary">Restore from a backup file. Subscriptions with the same name and address are skipped</string>
     <string name="backup_working">Please wait…</string>
     <string name="backup_failed_title">Failed</string>
@@ -305,7 +305,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="custom_ips_more">+%d more</string>
     <string name="custom_reach_ok">✓ %1$d ms</string>
     <string name="custom_reach_fail">✗ Not working</string>
-    <string name="history_verified"> · ✓ worked</string>
+    <string name="history_verified"> · ✓ node reachable</string>
     <string name="history_saved_unapplied"> · saved, not applied</string>
     <string name="history_bad"> · ✗ failed the check</string>
     <string name="connection_row_direct">Direct ← %1$s</string>

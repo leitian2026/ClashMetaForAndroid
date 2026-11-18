@@ -633,8 +633,8 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **改了上游文件：** `tunnel.go`（`queryTunnelState` 多一个 `reach` 字段）、`TunnelState.kt`（`reach`），见总表；自家文件 `ipdelay.go`（`CaptureConfig` 末尾一行 `resetReach()`）、`nodeinfo.go`（`MarkNetworkChanged` 末尾一行 `refreshReach()`）、`MainCustomCards.kt`（拼接 reach 文字）。
 - **对"关了代理再打开，浏览器打不开外网"：** 内核这边本来就没有残留：每次启动和停止都会走 `Clash.reset()` → `reset()` → `tunnel.CloseAllConnections()`，`profile.store-fake-ip` 你的配置里也已经开了。所以这一条改不了"代理工具"这一侧，只能靠本条的状态判断问题在哪边。
 
-## 38. 配置历史里标出"这个版本用过没出错"（r43）
-**效果：** 编辑页的历史版本列表（r68 前在设置里，见 #56）里，用过且当时代理是通的那个版本后面多 `· ✓ 用过没出错`，回滚时可以优先选它。
+## 38. 配置历史里标出"节点能连通"（r43）
+**效果：** 编辑页的历史版本列表（r68 前在设置里，见 #56）里，用过且当时代理是通的那个版本后面多 `· ✓ 节点能连通`，回滚时可以优先选它。
 - **怎么标：** 首页拿到 #37 的"通"（`reach > 0`）时（`MainCustomRefresh.refreshCustom`），把**正在用的配置**和它的历史版本逐字节比较，相同的那一份旁边建一个空文件 `<毫秒>.ok`（`ConfigHistory.markVerified`）。只在 `config.yaml` 变了之后才重新比较（`ConfigVerified` 记着上次的 uuid + 修改时间 + 大小）。订阅（没有历史）、没在历史里的版本不标。删历史版本时一起删它的 `.ok`。
 - **限制：** 只在首页打开着、并且收到"通"的那一刻才会标（后台不做）；通知栏也会收到事件，但标记是首页做的。
 - **功耗：** 不在后台跑；一次小文件比较，且同一份配置只做一次。
@@ -818,16 +818,16 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **验证和局限：** Go：`iptest.go`、`iptest_probe.go`、`iptry_download.go` 用桩代码（假的 `errlog` / `ipdelay` 其余部分 / `dialer` / `constant`）做了 `go vet` 和单元测试：10 次统计、端口读取、机房列表读取、本机 TLS 服务器上的直连测（h2、`Cf-Ray`、端口通 / 不通、归属地从缓存取）、全部失败、取消（几百毫秒内返回）、各种错误、本机 TLS 服务器上的下载（字节数、`Host`）、限时和限字节的下载、读列表。**没编译的：** 真正的 `ipdelay` 包（`DownloadVia` 用了 `newVariant`、`closeProxy`、`selfDialing`，都是照 `TryIP` 抄的，没跑过）和全部 Kotlin（表格、弹窗、循环），要靠 Actions 构建验证，也没在手机上看过版式（列宽、行高、左列固定是估的）。机房列表地址、`ipinfo.io` / `ipwho.is` 的格式没在真实网络里试过。
 
 
-## 53. 编辑器上下边距、配置卡片铅笔、双指缩放字号、键盘不打乱选中、运行中配置问题（并进错误与诊断页）（r59，r60 合并，r61 改成被动读取）
+## 53. 编辑器上下边距、配置卡片铅笔、双指缩放字号、键盘不打乱选中、运行中运行中的问题（并进错误与诊断页）（r59，r60 合并，r61 改成被动读取）
 **编辑器 / 配置页（小改）：**
 - 编辑器顶部不再和状态栏重叠：`EditorDesign` 的内边距取"系统栏（ViewCompat 监听）"和"`surface.insets`（其他页面用的那个）"里较大的，键盘出来时底部取键盘高度。
 - 底部变矮：原来的提示行、"勾（问题）"行合并进状态行（状态文字后面直接跟当前问题的描述，窗口提示也在这一行），问题按钮只在有问题时出现在同一行里，符号行和按钮高度降到 34 / 32dp。
 - 配置页卡片：铅笔图标 18dp（原来 24dp 加更大的内边距），和右边时间、左边文字的间距缩小（`adapter_profile.xml`）。
 - 双指缩放字号：`CodeEditText` 用 `ScaleGestureDetector`，每放大或缩小 1.08 倍加或减一个字号，手指不抬可以连续缩放；缩放时保持顶部那一行不跳。
 - 长按选 IP 后弹键盘打乱选中：**没法在手上复现，这是按读代码得出的原因做的缓解**——手指还按着时，不做"滚到光标"，也不把键盘高度加进内边距（等手指抬起再做）。API < 30 的 `adjustResize` 由系统调整窗口，延不了。
-**运行中配置问题：** 内核运行时发现有配置没生效，一个问题一条：
-- **通知**（最多显示两条，只有出现新问题才响，没有问题时自动撤掉）、**首页顶部一张卡片**（显示前两条，放不下写"点此查看全部"）；两者点开都进**错误与诊断页**，页面最上面是"配置问题"块：每条有"忽略"，已忽略和已恢复的分开列在下面，可取消忽略；右上角"清除记录"同时清除已恢复和未忽略的问题。忽略记在内核 home 目录的 `issues-ignored.json`，重启后仍然有效。复制全部时，未忽略的问题排在最前面。
-- **不重复：** 从内核日志读到的问题（下面第 4、5 类）只出现在"配置问题"块，不再同时出现在错误页的"其他警告 / 错误"里（`errlog.Hook` 返回 true 就不记进那份列表）。
+**运行中运行中的问题：** 内核运行时发现有配置没生效，一个问题一条：
+- **通知**（最多显示两条，只有出现新问题才响，没有问题时自动撤掉）、**首页顶部一张卡片**（显示前两条，放不下写"点此查看全部"）；两者点开都进**错误与诊断页**，页面最上面是"运行中的问题"块：每条有"忽略"，已忽略和已恢复的分开列在下面，可取消忽略；右上角"清除记录"同时清除已恢复和未忽略的问题。忽略记在内核 home 目录的 `issues-ignored.json`，重启后仍然有效。复制全部时，未忽略的问题排在最前面。
+- **不重复：** 从内核日志读到的问题（下面第 4、5 类）只出现在"运行中的问题"块，不再同时出现在错误页的"其他警告 / 错误"里（`errlog.Hook` 返回 true 就不记进那份列表）。
 - **原则：** 内核已经在日志里告诉我们的，直接读；内核不说的，**不主动探测**，只在"DNS 真的失败了"时才顺带问一次。r59 / r60 的"配置加载后、网络变化后主动探测所有 DNS 服务器和节点"在 r61 **整个去掉**（`ipdelay.CaptureDNS` 的 `OnLoaded` 钩子、`retest.go` 的触发、节点 TCP / 延迟探测都删了）。
 - **对照内核源码（mihomo 3f27ef39）确认过的事实：** `log.Warnln` 等函数在判断日志级别**之前**就把事件发给订阅者（`log.go`：`logCh <- event` 在 `print` 之前），所以订阅日志不用改内核日志级别，DEBUG 行也收得到。但单个 DNS 服务器失败在**任何级别都没有日志**（`dns/util.go` 的 `batchExchange`：每个服务器的错误只交给 `picker`，先返回的答案胜出、其余被取消，只在全部失败时报 `all DNS requests failed, first error: …`，第一个错误也没写是哪个服务器）。节点拨号失败有日志（`tunnel/tunnel.go` 629 / 631，WARNING，已被 `errlog` 读取），原因里的 `dial tcp <节点IP>:<端口>: …` 是 Go 网络错误的文字。
 - **能发现的：**
@@ -836,7 +836,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
   3. 订阅更新失败（`sub`）：`ProfileWorker.failed()` 末尾通知；更新成功会标"已恢复"。
   4. 订阅源（provider）更新失败、GeoSite / GeoIP / MMDB / ASN 文件缺失或损坏或更新失败、`nameserver-policy` 里有无效项、所有 DNS 请求失败（`provider` / `geo` / `dns`）：来自内核日志的 WARNING / ERROR 行，措辞对照源码确认过。这几类（拨号失败行除外）被 `issues` 取走，不再出现在错误页的"其他警告 / 错误"里（`errlog.Hook` 返回 true 就不记）。
   5. ECH 被拒绝 / 过期（`ech`）：按日志里同时出现 `ech` 和 reject / expired / retry / fail / invalid 的行判断，**措辞没有逐行对过源码，尽力匹配，可能漏报**。
-- **做法：** Go 侧新包 `issues`（存储，变化后延迟 1.5 秒回调一次；`FromLog` 读日志行；`OnDNSFailed` 钩子）、`issuecheck`（`DNSFailed`：结果感知的 1 / 2 / 5 / 10 / 30 分钟退避、单飞、问一轮）；`conftest/dnsissue.go`（`ProbeIssues`）；`ipdelay/issueprobe.go`（`WithSelfDial`，让我们自己的连接不算真实流量）；`connections.go` 加排序码 10（`SORT_ISSUES`，过滤字段为命令：空 = 列表，`sub|名|原因`、`subok|名`、`screen|1` / `screen|0` 更新屏幕状态）和 `!issue-ignore:` / `!issue-unignore:` / `!issue-clear`；`nodeip.go` 里订阅回调时设置钩子（`errlog.Hook`、`issues.OnDNSFailed`、变化时用 `fetch_report("issues")` 通知）。Kotlin：`SuspendModule` 复用既有 `ACTION_SCREEN_ON/OFF` 接收器，并在启动和 `ACTION_PROFILE_LOADED` 后读取 `PowerManager.isInteractive` 推送屏幕状态；没有新增 JNI 或独立屏幕监听。`NodeIpWatcher.start(onIssues, onChange)`；服务侧 `IssueNotifier`（通知，渠道 `custom_issues_channel`，点开进 `ErrorsActivity`）；`ACTION_ISSUES_CHANGED` 自广播，首页的 `customNodeIpEvents` 多监听这一个动作；首页卡片 `custom_issues_card`（`design_main.xml` 里一张 `LargeActionCard`，由 `MainCustomCards.setIssues` 填，点开进错误页）；`refreshIssues` 在每次首页获取和每次事件时查询；错误页的"配置问题"块由 `IssuesBlock` 画进 `design_errors.xml` 里的 `issues_list`。
+- **做法：** Go 侧新包 `issues`（存储，变化后延迟 1.5 秒回调一次；`FromLog` 读日志行；`OnDNSFailed` 钩子）、`issuecheck`（`DNSFailed`：结果感知的 1 / 2 / 5 / 10 / 30 分钟退避、单飞、问一轮）；`conftest/dnsissue.go`（`ProbeIssues`）；`ipdelay/issueprobe.go`（`WithSelfDial`，让我们自己的连接不算真实流量）；`connections.go` 加排序码 10（`SORT_ISSUES`，过滤字段为命令：空 = 列表，`sub|名|原因`、`subok|名`、`screen|1` / `screen|0` 更新屏幕状态）和 `!issue-ignore:` / `!issue-unignore:` / `!issue-clear`；`nodeip.go` 里订阅回调时设置钩子（`errlog.Hook`、`issues.OnDNSFailed`、变化时用 `fetch_report("issues")` 通知）。Kotlin：`SuspendModule` 复用既有 `ACTION_SCREEN_ON/OFF` 接收器，并在启动和 `ACTION_PROFILE_LOADED` 后读取 `PowerManager.isInteractive` 推送屏幕状态；没有新增 JNI 或独立屏幕监听。`NodeIpWatcher.start(onIssues, onChange)`；服务侧 `IssueNotifier`（通知，渠道 `custom_issues_channel`，点开进 `ErrorsActivity`）；`ACTION_ISSUES_CHANGED` 自广播，首页的 `customNodeIpEvents` 多监听这一个动作；首页卡片 `custom_issues_card`（`design_main.xml` 里一张 `LargeActionCard`，由 `MainCustomCards.setIssues` 填，点开进错误页）；`refreshIssues` 在每次首页获取和每次事件时查询；错误页的"运行中的问题"块由 `IssuesBlock` 画进 `design_errors.xml` 里的 `issues_list`。
 **新增文件：** `core/.../native/issues/issues.go`、`issues_test.go`、`issuecheck/issuecheck.go`、`issuecheck_test.go`、`conftest/dnsissue.go`、`ipdelay/issueprobe.go`；`core/.../core/custom/IssuesSnapshot.kt`；`service/.../custom/IssueNotifier.kt`；`design/.../custom/IssuesBlock.kt`、`IssueText.kt`；`strings_issues.xml`（design 和 service 各自 `values` / `values-zh`）。（r59 的 `IssuesActivity.kt`、`IssuesDesign.kt`、`design_issues.xml` 在 r60 删除，见交付说明。）
 **改了的自有文件：** `errlog.go`（`Hook`）、`doh.go`（`dohDoDial`）、`dnslogic.go`（`serverSpec.Dial`）、`dnscheck.go`（DoH 用 `spec.Dial`）、`connections.go`、`nodeip.go`、`CustomConnections.kt`、`NodeIpWatcher.kt`、`NodeIpNotifier.kt`、`CustomIntents.kt`、`NodeIpEvents.kt`、`MainCustomCards.kt`、`MainCustomRefresh.kt`、`ErrorsActivity.kt`、`ErrorsDesign.kt`、`ErrorsReport.kt`、`design_errors.xml`、`EditorDesign.kt`、`CodeEditText.kt`。上游文件见上面的表（`design_main.xml`、`MainDesign.kt`、`MainActivity.kt`、`adapter_profile.xml`、`ProfileWorker.kt`）。
 **功耗：** 没有定时器、没有轮询，也没有主动探测周期：读日志是订阅内核本来就在发的日志事件（`errlog` 早就在读）；只有"所有 DNS 都失败"时才问一轮 DNS 服务器，有网络请求，冷却按结果逐档从 1 分钟延长到最多 30 分钟。息屏时跳过 DNS 探测，亮屏本身不触发补查。通知和卡片只在问题列表变化时更新。退出编辑器等页面不会留下后台任务。
@@ -847,7 +847,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 **r169：息屏时跳过 DNS 失败探测。** 改动文件：`issuecheck/issuecheck.go`、`issuecheck/issuecheck_test.go`、`connections.go`、`SuspendModule.kt`、`CustomConnections.kt` 和本登记文件。通过 `SORT_ISSUES` 新增 `screen|1` / `screen|0` 命令传递状态；Go 默认亮屏，息屏时 `DNSFailed()` 立即返回。Kotlin 复用 `SuspendModule` 已有的亮灭屏监听，并在服务启动及配置载入后推送当前状态。验证：增加息屏跳过、状态 / 冷却不变、亮屏不补查测试；`go vet`、`go test` 未运行，Kotlin 未编译。
 
 ## 54. 测 IP 表格：字号加 2、列铺满页面不再藏到屏外、长文字换行、机房名后加中文；清掉 r59 的旧文件（r62）
-**构建错误的原因：** r60 起"配置问题"并进了错误与诊断页（#53），r59 的 `IssuesActivity.kt`、`IssuesDesign.kt`、`design_issues.xml` 本该删掉，但增量压缩包没法带上"删除"，仓库里还留着它们；`design_issues.xml` 用到的 `issues_clear` / `issues_hint`（`IssuesDesign.kt` 还用 `issues_empty` / `issues_empty_not_running`）早就没有定义，AAPT 资源链接失败。**r62 把这三个文件删掉了**（没有别的地方引用它们，已全仓库搜过；也对照所有 `R.string.*` / `@string/*` 的使用和定义查过，没有别的缺失，只剩构建时生成的 `application_name` / `launch_name` / `release_name`）。*以后增量包里凡是要删的文件，在交付说明里单独列出来。*
+**构建错误的原因：** r60 起"运行中的问题"并进了错误与诊断页（#53），r59 的 `IssuesActivity.kt`、`IssuesDesign.kt`、`design_issues.xml` 本该删掉，但增量压缩包没法带上"删除"，仓库里还留着它们；`design_issues.xml` 用到的 `issues_clear` / `issues_hint`（`IssuesDesign.kt` 还用 `issues_empty` / `issues_empty_not_running`）早就没有定义，AAPT 资源链接失败。**r62 把这三个文件删掉了**（没有别的地方引用它们，已全仓库搜过；也对照所有 `R.string.*` / `@string/*` 的使用和定义查过，没有别的缺失，只剩构建时生成的 `application_name` / `launch_name` / `release_name`）。*以后增量包里凡是要删的文件，在交付说明里单独列出来。*
 **字号（sp）全部加 2（只改 `IpTestView.kt`）：** 表格里的 IP 13→15（粗体、虚线）；IP 下面的灰色小字 10→12；表头 12→14（粗体）；数据格 12→14；测速按钮 12→14；表格上方说明 13→15；表格下面的提示 11→13；"实时状态"标题 12→14（粗体）；实时状态日志 11→13（等宽）。配置检查页本身的输入框、按钮、灰色说明没动。
 **列宽（`IpTestView.widths()`）：** 不再用固定宽度加横向滚动。每列有一个**最窄宽度**（IP 列按这一页最长的 IP 在 15 sp 粗体里量出来，112 到 150 dp；机房 / 归属地 / 端口 84 dp，丢包率 52，最小 / 最大 / 平均延迟 54，测速 52，速度 58 dp）；页面比这些最窄宽度之和更宽（平板）时，多出来的宽度按比例分给各列（机房、归属地、端口分得多一点，权重 1.8 倍），表格正好铺满页面，**不需要横向滚动，所有列都在屏幕里**；页面比最窄宽度之和还窄（手机竖屏）时才退回原来的样子：IP 列固定在左边，其余横向滚动。宽度变了（转屏、分屏）才重排一次（`tableBox` 的 `OnLayoutChangeListener`，宽度没变不动），没有定时器、没有轮询。
 **换行：** 数据格、表头不再限制 3 行加省略号，全部换行；每一行的高度取这一行里最高的那一格（`heightOf` 先按列宽量一遍），固定的 IP 列和右边部分用同一个高度，所以两边始终对齐；表头同理。端口一格里的端口按空格换行，归属地（"AS13335 Cloudflare, Inc."）按词换行，IP 下面的小字最多 6 行。测速按钮的左右内边距从 10 dp 缩到 6 dp，这样 54 dp 的列里放得下"测速" / "取消"。
@@ -870,7 +870,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 - **保存为历史版本：** 只写进历史（`ConfigHistory.add`），**不碰待提交的副本、不应用**，正在用的配置不变。和**任何一个**已存版本内容相同就不再存（提示"历史里已有相同的版本"）；空配置、超过 2 MB 的不存。
 - **应用：** 先保证正在用的版本在历史里（`keepInUse`），再把编辑框的文字存成历史版本（已有就沿用），再写进待提交副本并 `commit`。内核通过才生效；不通过：正在用的配置不变，这个版本标"✗ 未通过检查"，这次应用自己建的待提交副本丢掉（原来就有的不动），弹窗写原因并跳到出错行。编辑框文字和正在用的完全一样时只提示"不用再应用"。
 - **检查：** 检查的是编辑框里的文字——写进缓存目录 `editor_check/config.yaml` 临时文件夹给内核（`SORT_VALIDATE` 只读那个文件夹里的 `config.yaml`），查完删掉；不再碰待提交副本。
-- **历史版本：** 只列正在编辑的这个配置（按 uuid 找，改名不影响）。每行：时间、行数、比前一版 `+增 −删`，再加状态：`正在使用`（和正在用的逐字节相同）/ `已保存未应用` / `✗ 未通过检查` / `✓ 用过没出错`（#38）。点一个版本：编辑框有没保存的修改先问"是否覆盖"；然后只是**载入编辑框**（可撤销，不应用）；~~并弹出对比页~~（r73 起不再弹，改成直接标在编辑框里，见 #58）。打开列表时顺手清孤儿历史目录。
+- **历史版本：** 只列正在编辑的这个配置（按 uuid 找，改名不影响）。每行：时间、行数、比前一版 `+增 −删`，再加状态：`正在使用`（和正在用的逐字节相同）/ `已保存未应用` / `✗ 未通过检查` / `✓ 节点能连通`（#38）。点一个版本：编辑框有没保存的修改先问"是否覆盖"；然后只是**载入编辑框**（可撤销，不应用）；~~并弹出对比页~~（r73 起不再弹，改成直接标在编辑框里，见 #58）。打开列表时顺手清孤儿历史目录。
 - **对比页（`ConfigDiff.kt` + `EffectiveText` 的 `compare` 模式）：** 样式和"推算最终配置"一样：`~` 改写（旧值划线，蓝）、`-` 删除（红，划线，是正在用的有而这份没有的）、`+` 新增（绿）；**所有行都展开，不折叠**，没有"内核默认值"那一类。顶部有"改写 N · 删除 N · 新增 N 行"汇总。**只在打开时算一次**，另有"重新对比"按钮（对比的是此刻编辑框里的文字）；菜单里的"和正在用的配置对比"随时可开。
   - **为什么不用内核算：** 推算最终配置那一页是内核按**文件夹**读 `config.yaml` 做的"加载时被改了什么"，不能拿两段文本比。所以在 App 里做：不引入 YAML 库，按缩进把文本排成树；同一层的节点按"名字"配对——键按键名，列表项按 `name:`（`{...}` 里的也认），没有就按第一个键或整行；配对上的比值，再比下面的子节点；删掉的行放在它原来的位置。**注释、空行、`---` 不比。** 局限：整个 `{...}` 写在一行里的节点（常见的 `- {name: a, type: ss, ...}`）值不同时整行显示成"旧→新"，不拆到字段；缩进风格不同的两份文本照样能比（按树不按列）。
 - **退出：** 有改动时问"存为历史版本 / 丢弃 / 继续编辑"（不再有"保存并生效"）。退出时，编辑框里的这份还没应用、或历史里有比正在用的更新的"已保存未应用"版本，用 Toast 提醒一句（不拦）。"用其他应用打开"：先把改动存成历史版本，打开的是配置自己的文件。
@@ -887,7 +887,7 @@ r39 加过这张卡，r42 整张去掉：它的第一行（IP、节点名）和�
 
 ## 57. 全 App 的 ✓ 和 ✗ 上色：✓ 绿、✗ 红，最粗最深（r69）
 **效果：** 所有显示 ✓ / ✗（也包括 ✔ / ✘）的地方，✓ 一律绿色、✗ 一律红色，字重用最粗的（粗体再加一层"伪粗体"描边），颜色：白天 ✓ 深绿 `#005A0A`、✗ 深红 `#A50000`；深色主题下深色在黑底上看不见，改用最亮的 `#00E676` / `#FF5252`（r71 曾改成白天也用最亮，r72 按要求改回）。
-- **涉及的地方：** 首页代理卡片的"✓ 123 ms / ✗ 不通"（#37）；编辑页历史版本列表的"✓ 用过没出错 / ✗ 未通过检查"（#38 #56）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26）；测 IP 表格里不通的端口前的 ✗（#52）。
+- **涉及的地方：** 首页代理卡片的"✓ 123 ms / ✗ 不通"（#37）；编辑页历史版本列表的"✓ 节点能连通 / ✗ 未通过检查"（#38 #56）；DNS 检查每个服务器前的 ✓ / ✗（#25 #26）；测 IP 表格里不通的端口前的 ✗（#52）。
 - **怎么做：** 新文件 `design/.../custom/CheckMark.kt`：`paint(context, 文字)` 扫一遍文字，给每个 ✓ / ✗ 单独加一个字符样式（`CharacterStyle`：颜色、粗体、`isFakeBoldText`）；`apply(...)` 给正在拼的文字的一段加样式。文字本身不变，复制出来的纯文本不受影响。以后新加带 ✓ / ✗ 的地方，调用其中一个即可。
 - **首页卡片：** 文字是上游的 `LargeActionCard.subtext` 显示的（**r69 误挂在 `LargeActionLabel` 上，首页卡片没生效，r70 改正**），所以在它的 setter 里调了一次 `CheckMark.paint`（上游文件，已登记到总表）。
 **功耗：** 文字显示时扫一遍，没有定时器。
@@ -1091,7 +1091,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 
 ## 76. 问题列表与错误诊断视觉统一（r93）
-**目标：** 统一错误与诊断页顶部“配置问题”动态列表的文字层级、间距和分隔线；错误报告正文及所有诊断数据仍沿用原来的显示逻辑。
+**目标：** 统一错误与诊断页顶部“运行中的问题”动态列表的文字层级、间距和分隔线；错误报告正文及所有诊断数据仍沿用原来的显示逻辑。
 - **文字：** 问题标题使用 App 主题 `textColorPrimary`；详情 / 原因 / 发生时间使用 `textColorSecondary`；分组标题保留原有警告语义色，只加强字重，不改变错误分类或等级颜色。
 - **列表：** 问题行之间增加主题高亮色分隔线，左右缩进与列表内容对齐；分组标题和列表项保持原有排列顺序。
 - **按钮：** 保留现有 Material 忽略 / 取消忽略按钮样式、文案和点击回调，不改变状态切换。
@@ -1606,7 +1606,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 
 ## 138. 修正运行中的问题与错误页说明文案（r161）
-- **问题命名：** 将问题页、首页卡片和通知中的“配置问题”改为“运行中的问题”；计数改为累计次数；provider 更新统一称为“外部资源更新失败”。同步中英文资源。
+- **问题命名：** 将问题页、首页卡片和通知中的“运行中的问题”改为“运行中的问题”；计数改为累计次数；provider 更新统一称为“外部资源更新失败”。同步中英文资源。
 - **错误页说明：** 补充运行中的问题及 DNS 服务器失败检查的来源说明；代理未运行提示补齐问题页限制；连接超时文案区分代理节点与 DIRECT 目标。
 - **改动文件：** design 与 service 模块中英文 `strings_issues.xml`、design 模块中英文 `strings_custom.xml` 和本登记文件。
 - **验证：** 静态核对资源键及占位符；未运行 Android 资源编译、APK 构建或真机测试。
@@ -1655,3 +1655,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **未添加：** ECH、地理数据、外部资源问题没有写提示，避免猜测入口路径。
 - **改动文件：** `IssueText.kt`、`IssuesDesign.kt`、`IssuesBlock.kt`、design 中英文 `strings_issues.xml` 和本登记文件。
 - **验证：** 静态核对提示仅由页面 UI 调用，通知 / 首页卡片未改；未运行 Android 资源编译、APK 构建或真机测试。
+
+
+## 145. 统一首页问题与节点连通文案（补充五 41–43）
+- **问题名称：** 首页问题卡片、错误与诊断页及通知统一使用“运行中的问题”；各类问题的具体描述不变。对应 #53 文案同步。
+- **GeoSite 提示：** 明确提示点击后进入 Meta 特性设置页，再从设置中重新下载。
+- **本地备份入口：** 明确标为“导出备份到文件 / 从文件导入备份”，与坚果云云端备份区分。
+- **历史标记：** 将“用过没出错”改为“节点能连通”；只改显示文案，不迁移既有历史标记。
+- **改动文件：** design 中英文 `strings_custom.xml`、本登记文件。
+- **验证：** 静态核对中英文资源键和占位符；未运行 Android 资源编译或 APK 构建。
