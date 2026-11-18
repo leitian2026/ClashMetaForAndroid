@@ -45,8 +45,22 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_centerVertical="true"
-                        android:layout_toStartOf="@id/check_copy_view"
+                        android:layout_toStartOf="@id/check_save_batch_button"
                         android:text="@string/check_hint_button" />
+
+                    <!-- CUSTOM (CUSTOM.md #156 step 7): toolbar save action; visible only with completed IP result rows. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/check_save_batch_button"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_toStartOf="@id/check_copy_view"
+                        android:maxLines="1"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:text="@string/saved_ip_save_batch"
+                        android:visibility="gone" />
 
                     <ImageView
                         android:id="@+id/check_copy_view"

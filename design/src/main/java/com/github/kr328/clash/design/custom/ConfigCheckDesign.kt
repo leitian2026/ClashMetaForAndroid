@@ -161,8 +161,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     suspend fun setIpRunning(running: Boolean) {
+        ipTestRunning = running
         setTaskRunning(if (running) RunningTask.IP else RunningTask.NONE)
-        withContext(Dispatchers.Main) { ipView?.setBusy(running, null) }
+        withContext(Dispatchers.Main) {
+            ipView?.setBusy(running, null)
+            updateSaveBatchAction()
+        }
     }
 
     /** CUSTOM.md #43: the dialog of "test other IPs"; null when cancelled. */
@@ -188,7 +192,17 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     private var ipView: IpTestView? = null
+    private var ipTestRunning = false
+    private var ipSaveAvailable = false
     private var ipSaved: IpTestRestore? = readIpTest()
+
+    // CUSTOM.md #156 step 7: the save action belongs to the toolbar and follows the visible result-table state.
+    private fun updateSaveBatchAction() {
+        val visible = ipView != null && ipSaveAvailable
+        binding.checkSaveBatchButton.visibility = if (visible) View.VISIBLE else View.GONE
+        binding.checkSaveBatchButton.isEnabled = visible && !ipTestRunning
+        binding.checkSaveBatchButton.alpha = if (binding.checkSaveBatchButton.isEnabled) 1f else 0.35f
+    }
 
     private fun readIpTest(): IpTestRestore? {
         return try {
@@ -245,7 +259,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             ipView?.let { view ->
                 view.setColos(saved.report.colos, saved.report.coloCountries)
                 view.setRows(saved.report.rows)
-                view.setSaveAvailable(saved.report.rows.isNotEmpty()) // CUSTOM.md #156 step 2: restore the save action
+                ipSaveAvailable = saved.report.rows.isNotEmpty() // CUSTOM.md #156 step 7: restore only when completed rows exist
+                updateSaveBatchAction()
                 view.setProgress(saved.total, saved.tested)
                 view.setLogs(saved.logs)
                 shown = view.plain()
@@ -278,7 +293,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
         view.onSpeedCancel = { onSpeedCancel?.invoke() }
-        view.onSaveBatch = { onSaveIpBatch?.invoke() } // CUSTOM.md #156 step 2
 
         view.onDetail = { title, text ->
             MaterialAlertDialogBuilder(context)
@@ -289,13 +303,14 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
 
         view.setInfo(head, sub, warnings)
-        view.setSaveAvailable(false) // CUSTOM.md #156 step 2: a new round must finish before it can be saved
+        ipSaveAvailable = false // CUSTOM.md #156 step 7: a new round starts with the toolbar action hidden
         ipView = view
 
         binding.checkIpContainer.removeAllViews()
         binding.checkIpContainer.addView(view.root)
         binding.checkIpContainer.visibility = View.VISIBLE
         binding.checkTextView.visibility = View.GONE
+        updateSaveBatchAction()
         linksOn = false
     }
 
@@ -394,7 +409,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     suspend fun ipSaveAvailable(available: Boolean) {
-        withContext(Dispatchers.Main) { ipView?.setSaveAvailable(available) }
+        withContext(Dispatchers.Main) {
+            ipSaveAvailable = available
+            updateSaveBatchAction()
+        }
     }
 
     suspend fun ipInfo(head: String, sub: String, warnings: List<String>) {
@@ -412,6 +430,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.setRows(rows)
+                ipSaveAvailable = rows.isNotEmpty() // each row delivered here is a completed probe result
+                updateSaveBatchAction()
                 ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(rows = rows))
                 persistIpTest()
                 shown = it.plain()
@@ -459,6 +479,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     private fun textMode() {
         ipView = null
         ipTarget = false
+        updateSaveBatchAction()
         binding.checkIpContainer.visibility = View.GONE
         binding.checkIpContainer.removeAllViews()
         binding.checkTextView.visibility = View.VISIBLE
@@ -538,6 +559,9 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         binding.self = this
 
         // CUSTOM (CUSTOM.md #91): show the complete explanation without changing page state.
+        binding.checkSaveBatchButton.setOnClickListener { onSaveIpBatch?.invoke() } // CUSTOM.md #156 step 7
+        updateSaveBatchAction()
+
         binding.checkHintButton.setOnClickListener {
             // CUSTOM (CUSTOM.md #94): while the table shows the through-node test, the explanation that used to sit
             // under "目标网址" is the second paragraph here
