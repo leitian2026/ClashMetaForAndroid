@@ -382,7 +382,7 @@ class SavedIpDesign(
                 isChecked = entry.address in selectedAddresses
                 isClickable = false
                 isFocusable = false
-            }, LinearLayout.LayoutParams(dp(22), ViewGroup.LayoutParams.WRAP_CONTENT))
+            }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val statusMark = FrameLayout(context)
         val dotColor = when (entry.status) {
