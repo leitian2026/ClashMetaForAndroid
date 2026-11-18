@@ -47,6 +47,11 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     private var speedJob: Job? = null
     private var speedIp = ""
 
+    // CUSTOM.md #156 step 4: intent-provided IPs are consumed by exactly one Request.IpTest.
+    private var pendingSavedIpPreset: String? = null
+    private var pendingSavedIpOperatorId: String? = null
+    private var saveOperatorIdForCurrentRound: String? = null
+
     override suspend fun main() {
         val design = ConfigCheckDesign(this)
 
@@ -68,11 +73,22 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         // CUSTOM.md #156 step 2: saving is local-only and is unavailable while another test or download runs.
         design.onSaveIpBatch = {
             if (job?.isActive != true && speedJob?.isActive != true && !ipTesting && !checkTesting) {
-                design.showSaveIpBatch(ipRows.toList())
+                design.showSaveIpBatch(ipRows.toList(), saveOperatorIdForCurrentRound)
             }
         }
-        // CUSTOM.md #156 step 3: the saved list is local-only and can be opened regardless of Clash state.
-        design.onOpenSavedIps = { startActivity(Intent(this, SavedIpActivity::class.java)) }
+        // CUSTOM.md #156 step 3/4: list management is always available; only its re-test action is gated.
+        design.onOpenSavedIps = {
+            val busy = job?.isActive == true || speedJob?.isActive == true || ipTesting || checkTesting
+            startActivity(
+                Intent(this, SavedIpActivity::class.java)
+                    .putExtra(SavedIpActivity.EXTRA_CAN_RETEST, !busy && clashRunning),
+            )
+        }
+
+        // CUSTOM.md #156 step 4: the preset is one-shot; clear the intent fields before entering the existing request path.
+        pendingSavedIpPreset = intent.getStringExtra(SavedIpActivity.EXTRA_PRESET_IPS)
+        pendingSavedIpOperatorId = intent.getStringExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
+        if (!pendingSavedIpPreset.isNullOrBlank()) design.request(ConfigCheckDesign.Request.IpTest)
 
         while (isActive) {
             select<Unit> {
@@ -94,7 +110,11 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                             } else if (job?.isActive == true) {
                                 cancelRunning(design)
                             } else {
-                                job = launch { runIpTest(design) }
+                                val preset = pendingSavedIpPreset
+                                val preferredOperatorId = pendingSavedIpOperatorId
+                                pendingSavedIpPreset = null
+                                pendingSavedIpOperatorId = null
+                                job = launch { runIpTest(design, preset, preferredOperatorId) }
                             }
 
                             Unit
@@ -163,7 +183,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     // time, the app waiting the random 1 to 3 seconds between two (no timer: the wait is a suspended coroutine), and
     // the table and the live status get what each one found. Runs only when tapped; the core stops when the button is
     // tapped again.
-    private suspend fun runIpTest(design: ConfigCheckDesign) {
+    private suspend fun runIpTest(design: ConfigCheckDesign, presetIps: String? = null, preferredOperatorId: String? = null) {
         if (!clashRunning) {
             design.showText(getString(R.string.connections_not_running))
             return
@@ -183,7 +203,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             ).nodes
 
             // CUSTOM.md #69: "read the IPs of the config" in the dialog; only when tapped. null = could not be read
-            val choice = design.askIpTest(nodes) {
+            val choice = design.askIpTest(nodes, readConfig = {
                 try {
                     IpTestReport.parse(
                         withClash {
@@ -198,7 +218,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 } catch (_: Exception) {
                     null
                 }
-            } ?: return
+            }, presetIps = presetIps) ?: return
 
             if (choice.ips.isBlank()) {
                 design.showText(getString(R.string.iptest_need_ips))
@@ -263,6 +283,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             val targets = parsed.rows
 
             lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
+            saveOperatorIdForCurrentRound = preferredOperatorId // CUSTOM.md #156 step 4: prefer the source operator when saving re-test results
             ipRows = ArrayList()
 
             design.ipBegin(direct, head, "", warnings, target.isNotEmpty())
