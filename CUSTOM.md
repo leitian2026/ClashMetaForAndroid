@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r214
+当前版本：2_11_36-r215
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1780,7 +1780,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 
 ### 第 4/5 步：多选已保存 IP 并复用现有测试流程重测
-- **多选：** 在同一运营商分组内长按 IP 进入多选，再点 IP 切换选中状态；不允许跨运营商选择。选择状态只保存在页面内存，页面销毁即清除；每次清单刷新都会剔除已不存在的选中项。最多选择 20 个，第 21 个立即提示“一次最多 20 个”，不截断、不静默丢弃。
+- **多选：** 在同一运营商分组内长按 IP 进入多选，再点 IP 或左侧复选框均可切换选中状态；不允许跨运营商选择。选择状态只保存在页面内存，页面销毁即清除；每次清单刷新都会剔除已不存在的选中项。最多选择 20 个，第 21 个立即提示“一次最多 20 个”，不截断、不静默丢弃。
 - **操作：** 多选后可批量删除（确认后删除）或重测。重测按钮只在打开清单时没有其他测试 / 下载任务且 Clash 正在运行的情况下启用；列表查看、复制、粘贴、改名和删除不受这些条件限制。
 - **重测入口：** 重测把选中的 IP 按每行一个传给配置检查页，并通过现有 `ConfigCheckDesign.Request.IpTest` 入口启动，不新增 core 请求或测试实现。保留 `ConfigCheckActivity.runIpTest()` 的 `clashRunning` 检查和原有每 IP 随机 1–3 秒间隔；用户仍可在原有 `IpTestDialog.ask()` 中修改地址、选择直连 / 节点和端口。
 - **一次性预填：** `IpTestDialog.ask()` 新增可选 `presetIps` 参数；有预填时只覆盖本次弹窗输入，不写入手动输入历史。Activity 消费后立即清除 Intent extra 和待处理字段；取消、Clash 未运行、测试失败或异常退出都不会把预填留给下一次手动打开。
@@ -2117,3 +2117,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件；没有新增文件或修改上游文件总表。
 - **CUSTOM 标记：** 两处修改均标记为 `CUSTOM.md #156 step 23`。
 - **验证：** 静态核对 CheckBox 宽度、重测地址快照在清理选择前生成、选择状态清理和列表重绘发生在 Activity 跳转前；未运行 Kotlin 编译、Android 构建或真机测试。
+
+
+### 第 24 步：多选框可点击及复用已保存 IP 页面（r215）
+- **复选框交互：** 进入多选后，点击 IP 左侧的小方框也会切换该 IP 的选中状态；点击 IP 地址的原有选择行为保留。复选框仍使用 30dp 占位，避免与状态圆点重叠。
+- **页面复用：** 从配置检查页再次打开“已保存 IP”时，使用 `FLAG_ACTIVITY_REORDER_TO_FRONT` 将任务栈中已有的 `SavedIpActivity` 调到前台，不重复创建页面实例，避免多次重测后堆叠多个相同清单页。
+- **状态同步：** 已有页面收到新 Intent 时更新重测可用状态；页面恢复前台时照常刷新本地清单。
+- **范围：** 不改变重测测试流程、IP 输入、保存规则、双列布局、筛选和存储格式。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件；未新增文件。
+- **CUSTOM 标记：** 三处代码挂钩均标记为 `CUSTOM.md #156 step 24`。
+- **验证：** 静态核对复选框点击回调、页面重排到前台的 Intent flag、`onNewIntent()` 更新重测权限及 `onResume()` 刷新；未运行 Kotlin 编译、Android 构建或真机测试。
