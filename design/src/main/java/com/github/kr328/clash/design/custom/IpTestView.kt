@@ -234,32 +234,42 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         logView.text = logLines.joinToString("\n")
     }
 
-    /** The table and the log as text (what the copy button at the top of the page gets). */
+    /**
+     * The table and the log as text (what the copy button at the top of the page gets).
+     * Use a Markdown table so the columns remain readable when pasted into a chat or issue.
+     */
     fun plain(): String {
         val sb = StringBuilder()
 
-        sb.append(infoText).append('\n')
-        sb.append(context.getString(R.string.iptest_col_ip))
+        sb.append(infoText).append("\n\n")
+        sb.append("| ").append(markdownCell(context.getString(R.string.iptest_col_ip)))
+        for (k in keys) sb.append(" | ").append(markdownCell(title(k)))
+        sb.append(" |\n")
 
-        for (k in keys) sb.append('\t').append(title(k))
-
-        sb.append('\n')
+        sb.append("| --- ")
+        repeat(keys.size) { sb.append("| --- ") }
+        sb.append("|\n")
 
         for (r in rows) {
-            sb.append(r.ip)
-
-            // CUSTOM.md #68: the three lines of the time split go on one line, so a row stays one line of the copied table
-            for (k in keys) sb.append('\t').append(plainOf(k, r).let { if (k == Key.PHASE) it.replace('\n', ' ') else it })
-
-            sb.append('\n')
+            sb.append("| ").append(markdownCell(r.ip))
+            for (k in keys) {
+                // CUSTOM.md #68: keep the three phase timings on one line in the copied table.
+                val value = plainOf(k, r).let { if (k == Key.PHASE) it.replace('\n', ' ') else it }
+                sb.append(" | ").append(markdownCell(value))
+            }
+            sb.append(" |\n")
         }
 
-        sb.append('\n').append(context.getString(R.string.iptest_log_title))
+        sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
         sb.append('\n').append(logLines.joinToString("\n"))
 
         return sb.toString()
     }
+
+    // Escape Markdown table delimiters and line breaks without changing the displayed values.
+    private fun markdownCell(value: String): String =
+        value.replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
     // quickest average first, the ones that failed last (in the order they were tested)
     private fun sorted(list: List<IpTestRow>): List<IpTestRow> {
