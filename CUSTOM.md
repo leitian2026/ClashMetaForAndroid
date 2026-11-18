@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r213
+当前版本：2_11_36-r214
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2108,3 +2108,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/res/values-zh/strings_custom.xml`、`values/strings_custom.xml`（只改文案：`mux_group_counts*`、`mux_hint`、`mux_help`）、本登记文件。没有改代码逻辑。旧文案 `connections_mux_node*` 不再被使用，里面的“底层 / 上层”先留着。
 - **功耗：** 只改文字，无影响。
 - **验证：** 静态核对；未编译、未真机测试。
+
+
+### 第 23 步：修复已保存 IP 多选布局及重测返回状态（r214）
+- **选择框间距：** 双列 IP 卡片进入多选时，将 CheckBox 的布局宽度从 22dp 调整为 30dp，给系统复选框图标留出完整空间，避免与旁边的通断状态圆点视觉重叠；状态圆点本身及其颜色、尺寸不变。
+- **重测状态：** 点击“重测”后，先复制本次待测 IP 列表，再立即清除已保存 IP 页的旧多选状态并重绘列表，然后才启动配置检查页。原 SavedIpActivity 虽然会留在返回栈中，但返回后不再保留上一轮选择；用户可以直接重新长按选择 IP。
+- **范围：** 不改变 Activity 跳转方式、IP 测试输入、测试逻辑、双列布局、筛选及保存数据。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt` 和本登记文件；没有新增文件或修改上游文件总表。
+- **CUSTOM 标记：** 两处修改均标记为 `CUSTOM.md #156 step 23`。
+- **验证：** 静态核对 CheckBox 宽度、重测地址快照在清理选择前生成、选择状态清理和列表重绘发生在 Activity 跳转前；未运行 Kotlin 编译、Android 构建或真机测试。
