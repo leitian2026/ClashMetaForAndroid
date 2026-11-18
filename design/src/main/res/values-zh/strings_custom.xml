@@ -416,6 +416,14 @@
     <!-- CUSTOM #156 第 3 步：已保存 IP 页面和运营商管理 -->
     <string name="saved_ip_entry">已保存 IP</string>
     <string name="saved_ip_title">已保存的 IP</string>
+    <string name="saved_ip_summary">已保存 %1$d 个 · 通 %2$d · 不通 %3$d · 未测试 %4$d</string>
+    <string name="saved_ip_filter_all_count">全部 %1$d</string>
+    <string name="saved_ip_filter_reachable_count">通 %1$d</string>
+    <string name="saved_ip_filter_unreachable_count">不通 %1$d</string>
+    <string name="saved_ip_filter_untested_count">未测试 %1$d</string>
+    <string name="saved_ip_status_reachable">通</string>
+    <string name="saved_ip_status_unreachable">不通</string>
+    <string name="saved_ip_status_untested">未测试</string>
     <string name="saved_ip_add_operator">新增运营商</string>
     <string name="saved_ip_paste">粘贴 IP</string>
     <string name="saved_ip_empty">还没有保存 IP。</string>
