@@ -86,6 +86,10 @@ class SavedIpDesign(
     private val cancelSelectionButton = actionButton(R.string.saved_ip_cancel_selection) { clearSelection() }
 
     init {
+        // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
+        surface.addOnPropertyChangedCallback { _, _ ->
+            root.setPadding(0, surface.insets.top, 0, surface.insets.bottom)
+        }
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         actions.addView(actionButton(R.string.saved_ip_add_operator) { addOperator() }, weighted())
