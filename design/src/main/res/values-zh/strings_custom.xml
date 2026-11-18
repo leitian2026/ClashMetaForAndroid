@@ -442,4 +442,23 @@
     <string name="saved_ip_selected_count">已选 %1$d 个</string>
     <string name="saved_ip_max_20">一次最多 20 个。</string>
     <string name="saved_ip_delete_selected_message">删除选中的 %1$d 个 IP？</string>
+    <!-- CUSTOM.md #156 第 6/6 步：时间、筛选和批量操作 -->
+    <string name="saved_ip_filter_all">全部</string>
+    <string name="saved_ip_filter_reachable">通</string>
+    <string name="saved_ip_filter_unreachable">不通</string>
+    <string name="saved_ip_filter_untested">没测过</string>
+    <string name="saved_ip_filter_no_match">没有符合的 IP。</string>
+    <string name="saved_ip_time_date_same_year">M月d日</string>
+    <string name="saved_ip_time_date_other_year">yyyy年M月d日</string>
+    <string name="saved_ip_time_compact_now">刚刚</string>
+    <string name="saved_ip_time_compact_minutes">%1$d分</string>
+    <string name="saved_ip_time_compact_hours">%1$d小时</string>
+    <string name="saved_ip_time_compact_days">%1$d天</string>
+    <string name="saved_ip_select_unreachable">选不通的</string>
+    <string name="saved_ip_select_oldest_20">选最久没测的 20 个</string>
+    <string name="saved_ip_select_unreachable_overflow">不通的有 %1$d 个，已选最久没测的 20 个。</string>
+    <string name="saved_ip_delete_unreachable">删除不通的</string>
+    <string name="saved_ip_delete_unreachable_title">删除所有不通的 IP？</string>
+    <string name="saved_ip_delete_unreachable_message">确定删除运营商“%1$s”的 %2$d 个不通 IP？删除后不能恢复。</string>
+    <string name="saved_ip_delete_unreachable_done">已删除 %1$d 个。</string>
 </resources>

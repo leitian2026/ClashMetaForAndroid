@@ -442,4 +442,23 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_selected_count">%1$d selected</string>
     <string name="saved_ip_max_20">You can select at most 20 IPs at a time.</string>
     <string name="saved_ip_delete_selected_message">Delete %1$d selected IPs?</string>
+    <!-- CUSTOM.md #156 第 6/6 步：时间、筛选和批量操作 -->
+    <string name="saved_ip_filter_all">All</string>
+    <string name="saved_ip_filter_reachable">Reachable</string>
+    <string name="saved_ip_filter_unreachable">Unreachable</string>
+    <string name="saved_ip_filter_untested">Untested</string>
+    <string name="saved_ip_filter_no_match">No matching IPs.</string>
+    <string name="saved_ip_time_date_same_year">MMM d</string>
+    <string name="saved_ip_time_date_other_year">MMM d, yyyy</string>
+    <string name="saved_ip_time_compact_now">now</string>
+    <string name="saved_ip_time_compact_minutes">%1$dm</string>
+    <string name="saved_ip_time_compact_hours">%1$dh</string>
+    <string name="saved_ip_time_compact_days">%1$dd</string>
+    <string name="saved_ip_select_unreachable">Select unreachable</string>
+    <string name="saved_ip_select_oldest_20">Select 20 oldest</string>
+    <string name="saved_ip_select_unreachable_overflow">%1$d unreachable; selected the 20 least recently tested.</string>
+    <string name="saved_ip_delete_unreachable">Delete unreachable</string>
+    <string name="saved_ip_delete_unreachable_title">Delete all unreachable IPs?</string>
+    <string name="saved_ip_delete_unreachable_message">Delete %2$d unreachable IPs from %1$s? This cannot be undone.</string>
+    <string name="saved_ip_delete_unreachable_done">Deleted %1$d IPs.</string>
 </resources>
