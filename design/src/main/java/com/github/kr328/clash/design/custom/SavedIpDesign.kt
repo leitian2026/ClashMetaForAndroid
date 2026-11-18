@@ -99,7 +99,12 @@ class SavedIpDesign(
         setHint(R.string.saved_ip_search_hint)
         inputType = InputType.TYPE_CLASS_TEXT
         setPadding(dp(12), dp(8), dp(12), dp(8))
-        background = context.getDrawable(com.google.android.material.R.drawable.mtrl_edittext_rectangle)
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(8).toFloat()
+            setColor(colorSurface)
+            setStroke(dp(1), colorDivider)
+        }
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var expandedOperatorId: String? = null
