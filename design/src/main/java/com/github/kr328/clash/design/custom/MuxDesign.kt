@@ -70,8 +70,12 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
     // per address (flag + address, count and start time in two right-aligned columns), a thin divider between nodes.
     private val dp = context.resources.displayMetrics.density
     private val sidePadding = context.resources.getDimensionPixelSize(R.dimen.item_tailing_margin)
-    private val countWidth = context.resources.getDimensionPixelSize(R.dimen.mux_col_count_width)
-    private val sinceWidth = context.resources.getDimensionPixelSize(R.dimen.mux_col_since_width)
+
+    private companion object {
+        const val NAME_SP = 18f
+        const val COUNTS_SP = 14f
+        const val ADDRESS_SP = 16f
+    }
 
     private fun px(value: Float): Int = (value * dp).toInt()
 
@@ -109,31 +113,40 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
             views.forEach { addView(it) }
         }
 
-    private fun divider(): View = View(context).apply {
+    private fun divider(startInset: Int = 0, endInset: Int = 0): View = View(context).apply {
         setBackgroundColor(themeColors(android.R.attr.colorControlHighlight)?.defaultColor ?: 0)
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, px(0.5f)))
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, px(0.5f))).apply {
+            marginStart = startInset
+            marginEnd = endInset
+        }
     }
 
-    private fun addressRow(prefix: String, ip: MuxIp, count: String, now: Long): View = row(
-        text(prefix + MuxText.address(context, ip), 14f, android.R.attr.textColorPrimary, weight = 1f, width = 0),
-        text(count, 13f, android.R.attr.textColorSecondary, width = countWidth, end = true),
-        text(MuxText.sinceTime(ip, now), 13f, android.R.attr.textColorTertiary, width = sinceWidth, end = true),
-        startPadding = px(12f),
-        vertical = 4f,
-    )
+    // CUSTOM (r212): one address = two lines of the same size and color, the address on top, "N 条 · 起始 hh:mm:ss" below
+    private fun addressRow(prefix: String, ip: MuxIp, count: String, now: Long): View {
+        val since = MuxText.sinceTime(ip, now)
+        val second = if (since.isEmpty()) count else context.getString(R.string.mux_row_second, count, since)
+        val first = text(prefix + MuxText.address(context, ip), ADDRESS_SP, android.R.attr.textColorPrimary).apply {
+            typeface = Typeface.MONOSPACE
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPaddingRelative(sidePadding + px(12f), px(8f), sidePadding, px(8f))
+            addView(first)
+            addView(text(second, ADDRESS_SP, android.R.attr.textColorPrimary))
+        }
+    }
 
     private fun nodeBlock(n: MuxNode, now: Long): View {
         val block = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val other = n.node.isEmpty()
 
-        val nameBox = LinearLayout(context).apply {
+        val title = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             addView(
                 text(
                     if (other) context.getString(R.string.mux_other_name) else n.node,
-                    15f, android.R.attr.textColorPrimary, bold = true,
+                    NAME_SP, android.R.attr.textColorPrimary,
                 ),
             )
             if (other) {
@@ -148,21 +161,28 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
                     },
                 )
             }
+            // the counts sit right behind the name, not at the right edge
+            val counts = if (n.udp > 0) {
+                context.getString(R.string.mux_group_counts_udp, n.tcp, n.connections, n.udp)
+            } else {
+                context.getString(R.string.mux_group_counts, n.tcp, n.connections)
+            }
+            addView(text(counts, COUNTS_SP, android.R.attr.textColorSecondary).apply {
+                (layoutParams as LinearLayout.LayoutParams).marginStart = px(10f)
+            })
         }
-        val counts = if (n.udp > 0) {
-            context.getString(R.string.mux_group_counts_udp, n.tcp, n.connections, n.udp)
-        } else {
-            context.getString(R.string.mux_group_counts, n.tcp, n.connections)
-        }
-        block.addView(
-            row(nameBox, text(counts, 13f, android.R.attr.textColorSecondary).apply {
-                (layoutParams as LinearLayout.LayoutParams).marginStart = px(8f)
-            }, vertical = 0f).apply { setPaddingRelative(sidePadding, px(10f), sidePadding, px(4f)) },
-        )
+        block.addView(row(title, vertical = 0f).apply { setPaddingRelative(sidePadding, px(12f), sidePadding, px(6f)) })
+        block.addView(divider(sidePadding, sidePadding))
 
-        for (ip in n.ips) block.addView(addressRow("", ip, context.getString(R.string.mux_row_count_tcp, ip.count), now))
+        // thin divider between two addresses, indented like the addresses
+        val rows = ArrayList<View>()
+        for (ip in n.ips) rows.add(addressRow("", ip, context.getString(R.string.mux_row_count_tcp, ip.count), now))
+        for (ip in n.udpIps) rows.add(addressRow("UDP ", ip, context.getString(R.string.mux_row_count_udp, ip.count), now))
+        rows.forEachIndexed { i, v ->
+            if (i > 0) block.addView(divider(sidePadding + px(12f), sidePadding))
+            block.addView(v)
+        }
         if (n.ipsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_ips_omitted, n.ipsOmitted)))
-        for (ip in n.udpIps) block.addView(addressRow("UDP ", ip, context.getString(R.string.mux_row_count_udp, ip.count), now))
         if (n.udpIpsOmitted > 0) block.addView(omitted(context.getString(R.string.mux_udp_ips_omitted, n.udpIpsOmitted)))
 
         block.setPadding(0, 0, 0, px(8f))
@@ -177,17 +197,6 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
         val now = System.currentTimeMillis()
 
         list.removeAllViews()
-
-        // the column names, once at the top
-        list.addView(
-            row(
-                text(context.getString(R.string.mux_col_address), 11f, android.R.attr.textColorTertiary, weight = 1f, width = 0),
-                text(context.getString(R.string.mux_col_count), 11f, android.R.attr.textColorTertiary, width = countWidth, end = true),
-                text(context.getString(R.string.mux_col_since), 11f, android.R.attr.textColorTertiary, width = sinceWidth, end = true),
-                vertical = 8f,
-            ),
-        )
-        list.addView(divider())
 
         snapshot.mux.forEachIndexed { index, node ->
             if (index > 0) list.addView(divider())
