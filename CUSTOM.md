@@ -1765,3 +1765,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **反馈与限制：** 保存后提示新增、更新和跳过域名的数量；超过 5000 条上限时拒绝整批写入并提示，不截断清单。测试运行期间按钮不可操作；取消后已完成的行仍可保存。保存过程仅操作本地 SharedPreferences，不发起网络请求。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
 - **验证：** 静态核对中英文资源键、保存按钮显示时机、默认运营商、`row.ok` 状态映射、域名跳过、重复 IP 更新顺序及 5000 条上限；未运行编译和真机测试。
+
+
+### 第 3/5 步：已保存 IP 页面、粘贴导入和运营商管理
+- **页面入口：** 在“测试其他 IP”按钮旁增加“已保存 IP”入口，打开独立的本地管理页面；不检查 Clash 是否运行，不发起网络请求。
+- **分组显示：** 按运营商分组显示地址；通 / 不通分别使用现有 `CheckMark.paint` 的绿色实心勾 / 红色实心叉，未测试不显示图标。点击 IP 复制纯地址字符串。
+- **运营商管理：** 电信、联通、移动使用固定 ID 和中英文字符串资源显示名称，不提供改名 / 删除；用户可新增、改名、删除自建运营商。名称去首尾空格、不能为空、最多 12 个 Unicode 字符，忽略大小写检查重复。删除自建运营商前确认，并显示其中 IP 数量；确认后连同 IP 一起删除。
+- **单 IP 管理：** 每条地址提供单独删除操作，删除前二次确认。
+- **粘贴导入：** 可在粘贴弹窗中选择目标运营商；`SavedIpParser.kt` 在 Kotlin 层提取 IPv4 / IPv6，不调用 core。IPv4 使用严格四段十进制和 0–255 校验；IPv6 仅对字符全部属于 `0-9a-fA-F:.` 且含冒号的字面量调用 `InetAddress`，不对任意文本做 DNS 解析；IPv6 转成小写压缩形式后去重。新增项初始状态为未测试；提示新增、重复和忽略数量。
+- **边界：** 清单查看、复制、粘贴、改名和删除均为本地操作，不依赖 Clash。多选和重测留到第 4 步。
+- **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpParser.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`app/src/main/AndroidManifest.xml` 和本登记文件。
+- **验证：** 静态核对资源键、中英文文案、Activity 注册、页面入口、内置运营商固定 ID、名称校验、单 IP / 运营商删除确认、复制和粘贴逻辑；未运行编译和真机测试。
