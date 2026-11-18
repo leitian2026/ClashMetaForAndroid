@@ -111,7 +111,7 @@ func probeReach(node string) {
 }
 
 // measureReach returns the delay in milliseconds, -1 when the request failed, 0 when the node is not known.
-func measureReach(node string) (ms int, reason string)
+func measureReach(node string) (ms int, reason string) {
 	defer func() {
 		if r := recover(); r != nil {
 			ms, reason = -1, "connect"
