@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r204
+当前版本：2_11_36-r205
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2047,3 +2047,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 只改标签文字颜色，不改变状态判断、列表布局或其他标签。
 - **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt` 和本登记文件。
 - **验证：** 静态核对绘制文字颜色为黑色，背景颜色及其他绘制逻辑未改；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
+
+
+### 第 31 步：修复历史版本“已应用”标签绘制编译错误（r205）
+- **修复：** 绘制标签文字时，先将 `CharSequence` 指定范围转换为 `String`，再调用 `Canvas.drawText(String, x, y, paint)`，避免 Android Canvas 重载无法匹配导致 Kotlin 编译失败。
+- **范围：** 只调整标签文字绘制时的参数形式；黑色文字、绿色圆角底色、内边距、日间 / 夜间背景颜色及状态判断均不变。
+- **改动文件：** `app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt` 和本登记文件。
+- **验证：** 已根据 Build Debug 日志定位并修正第 651 行的 `drawText` 重载匹配错误；尚未重新运行 Android 构建或真机显示测试，未触发 Build Debug。
