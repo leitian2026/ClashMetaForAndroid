@@ -434,4 +434,11 @@
     <string name="saved_ip_delete">删除</string>
     <string name="saved_ip_add">添加</string>
     <string name="saved_ip_paste_no_valid">没有找到有效的 IP 地址。</string>
+
+    <!-- CUSTOM #156 第 4 步：多选已保存 IP 并重测或删除 -->
+    <string name="saved_ip_retest">重测</string>
+    <string name="saved_ip_delete_selected">删除所选</string>
+    <string name="saved_ip_cancel_selection">取消选择</string>
+    <string name="saved_ip_selected_count">已选 %1$d 个</string>
+    <string name="saved_ip_max_20">一次最多 20 个。</string>
 </resources>
