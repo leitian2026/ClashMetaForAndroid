@@ -42,6 +42,7 @@ data class SavedIpSnapshot(
     val lastOperatorId: String = SavedIpStore.OPERATOR_TELECOM,
 )
 
+// CUSTOM.md #156 (step 1/5): persistent data layer for the saved-IP list.
 /**
  * Local storage for saved IP addresses.
  *
