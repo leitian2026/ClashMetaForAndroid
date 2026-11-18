@@ -22,6 +22,9 @@ enum class SavedIpStatus {
 data class SavedIpEntry(
     val address: String,
     val status: SavedIpStatus = SavedIpStatus.UNTESTED,
+    // Defaults keep entries written by the previous schema readable.
+    val lastTestedAt: Long = 0L,
+    val addedAt: Long = 0L,
 )
 
 /**
@@ -128,8 +131,8 @@ object SavedIpStore {
     }
 
     /**
-     * Merge tested rows into one operator. Existing addresses keep their position and only have their status
-     * refreshed; new addresses are appended. Domain rows are never stored.
+     * Merge one completed test batch into an operator. The whole batch receives one test timestamp and is
+     * placed first in result-table order; untouched older entries follow. Domain rows are never stored.
      */
     fun saveRows(
         context: Context,
@@ -142,8 +145,10 @@ object SavedIpStore {
         require(operatorIndex >= 0) { "Unknown saved-IP operator: $operatorId" }
 
         val operator = snapshot.operators[operatorIndex]
-        val entries = operator.ips.toMutableList()
-        val positions = entries.mapIndexed { index, entry -> entry.address to index }.toMutableMap()
+        val existingByAddress = operator.ips.associateBy { it.address }
+        // LinkedHashMap keeps the result table's order for every address in this batch.
+        val batchEntries = LinkedHashMap<String, SavedIpEntry>()
+        val testedAt = System.currentTimeMillis()
         var added = 0
         var updated = 0
         var skippedDomains = 0
@@ -166,16 +171,25 @@ object SavedIpStore {
             }
 
             val status = if (row.ok) SavedIpStatus.REACHABLE else SavedIpStatus.UNREACHABLE
-            val existing = positions[address]
-            if (existing != null) {
-                entries[existing] = entries[existing].copy(status = status)
-                updated++
-            } else {
-                entries += SavedIpEntry(address, status)
-                positions[address] = entries.lastIndex
-                added++
+            val previousInBatch = batchEntries[address]
+            if (previousInBatch != null) {
+                // Duplicate rows within one result set keep their first position and latest result.
+                batchEntries[address] = previousInBatch.copy(status = status, lastTestedAt = testedAt)
+                continue
             }
+
+            val previous = existingByAddress[address]
+            batchEntries[address] = SavedIpEntry(
+                address = address,
+                status = status,
+                lastTestedAt = testedAt,
+                addedAt = previous?.addedAt ?: testedAt,
+            )
+            if (previous == null) added++ else updated++
         }
+
+        // The current batch is always first. Stable normalization keeps its result-table order when timestamps tie.
+        val entries = batchEntries.values.toList() + operator.ips.filterNot { it.address in batchEntries }
 
         val operators = snapshot.operators.toMutableList()
         operators[operatorIndex] = operator.copy(ips = entries)
@@ -221,9 +235,18 @@ object SavedIpStore {
 
     private fun normalizeOperator(operator: SavedIpOperator, name: String): SavedIpOperator {
         val seen = HashSet<String>()
-        val ips = operator.ips.filter { entry ->
-            entry.address.isNotBlank() && seen.add(entry.address)
-        }
+        val ips = operator.ips
+            .filter { entry -> entry.address.isNotBlank() && seen.add(entry.address) }
+            .sortedWith(Comparator { left, right ->
+                when {
+                    left.lastTestedAt != right.lastTestedAt ->
+                        right.lastTestedAt.compareTo(left.lastTestedAt)
+                    left.lastTestedAt == 0L ->
+                        right.addedAt.compareTo(left.addedAt)
+                    // For tested entries saved in the same batch, stable sort preserves result-table order.
+                    else -> 0
+                }
+            })
 
         return operator.copy(name = name, ips = ips)
     }

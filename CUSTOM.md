@@ -1751,9 +1751,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ## 156. 已保存 IP 清单（r177，排序规则修正补充）
 - **独立存储：** 新增 `SavedIpStore.kt`，使用独立 SharedPreferences `custom_saved_ips`，JSON 保存运营商分组、IP 地址、最近状态和上次使用的运营商 ID；不复用最近一轮 IP 测试结果的 `ip_test_last`。
-- **数据结构：** 内置运营商固定 ID 为 `telecom`、`unicom`、`mobile`，内置名称留空，后续由字符串资源提供；自建运营商保存独立 ID 和名称。IP 状态仅为 `UNTESTED`、`REACHABLE`、`UNREACHABLE`，不保存延迟或端口数据。
+- **数据结构：** 内置运营商固定 ID 为 `telecom`、`unicom`、`mobile`，内置名称留空，后续由字符串资源提供；自建运营商保存独立 ID 和名称。IP 状态仅为 `UNTESTED`、`REACHABLE`、`UNREACHABLE`，不保存延迟或端口数据。每条 IP 另存 `lastTestedAt`（最近测试时间，Unix 毫秒）和 `addedAt`（加入时间，Unix 毫秒）；旧 JSON 缺少字段时默认按 0 读取。
 - **读写：** `read()` 只读取和规范化内存数据，不写偏好；仅显式调用 `write()` 时序列化并通过 `SharedPreferences.apply()` 保存。读取损坏或缺失的数据时回退为空清单，不触发自动迁移写入。
-- **边界：** 不同运营商允许保存相同 IP；同一运营商内按地址去重并保留首次出现顺序。全清单最多 5000 条，写入超过上限时拒绝，不静默截断。读取时补齐三个内置运营商，固定 ID 不依赖本地化名称。
+- **边界：** 不同运营商允许保存相同 IP；同一运营商内按地址去重。每个运营商按 `lastTestedAt` 从新到旧排列；未测试项（时间为 0）排在测试项之后，并按 `addedAt` 从新到旧排列。旧数据缺少时间字段时均按 0 处理，不崩溃；旧未测试项无法还原真实加入时间时保持原有相对顺序。全清单最多 5000 条，写入超过上限时拒绝，不静默截断。读取时补齐三个内置运营商，固定 ID 不依赖本地化名称。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
 - **验证：** 静态核对独立偏好名、JSON 编解码、内置 ID、状态字段、去重与 5000 条上限；未运行编译和真机测试。第 2–5 步的保存、页面、粘贴、多选和重测实现见下文。
 
@@ -1761,7 +1761,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ### 第 2/5 步：保存这一批
 - **入口：** 在“测试其他 IP”结果表上方增加“保存这一批”按钮；新一轮开始时隐藏，整轮正常结束或中途取消后，只要已有完成结果行就显示。重新进入页面恢复最近一轮结果时，也恢复该按钮。
 - **选择与默认值：** 弹窗按运营商单选，默认上次保存使用的运营商；“只保存通的”默认不勾选。内置运营商名称来自中英文资源，不把本地化文字作为 ID。
-- **保存规则：** 只处理当前 `ipRows`；`isDomain` 行跳过，其他已测行按 `row.ok` 保存为通 / 不通。勾选“只保存通的”时，不通行不保存。相同运营商内已存在的 IP 只更新状态、不改变原顺序；新 IP 追加。保存逻辑由 `SavedIpStore.saveRows()` 完成，不改最近一轮测试结果。
+- **保存规则：** 只处理当前 `ipRows`；`isDomain` 行跳过，其他已测行按 `row.ok` 保存为通 / 不通。勾选“只保存通的”时，不通行不保存。点击“保存这一批”时统一取一次当前 Unix 毫秒时间，作为本批所有 IP 的 `lastTestedAt`；新 IP 的 `addedAt` 同时初始化为该时间，已有 IP 保留原加入时间。已有 IP 更新结果和测试时间后移到最前；新 IP 也排在更早的记录之前。同一批按结果表先后顺序排列，不按单个 IP 完成测试的先后排列。每个运营商内先按最近测试时间从新到旧；未测试项排在后面，并按加入时间从新到旧。保存逻辑由 `SavedIpStore.saveRows()` 完成，不改最近一轮测试结果。
 - **反馈与限制：** 保存后提示新增、更新和跳过域名的数量；超过 5000 条上限时拒绝整批写入并提示，不截断清单。测试运行期间按钮不可操作；取消后已完成的行仍可保存。保存过程仅操作本地 SharedPreferences，不发起网络请求。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt` 和本登记文件。
 - **验证：** 静态核对中英文资源键、保存按钮显示时机、默认运营商、`row.ok` 状态映射、域名跳过、批次时间统一、批内结果表顺序、已有 IP 更新后置顶、未测试项加入时间排序及 5000 条上限；未运行编译和真机测试。
@@ -1772,7 +1772,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **分组显示：** 按运营商分组显示地址；通 / 不通分别使用现有 `CheckMark.paint` 的绿色实心勾 / 红色实心叉，未测试不显示图标。点击 IP 复制纯地址字符串。
 - **运营商管理：** 电信、联通、移动使用固定 ID 和中英文字符串资源显示名称，不提供改名 / 删除；用户可新增、改名、删除自建运营商。名称去首尾空格、不能为空、最多 12 个 Unicode 字符，忽略大小写检查重复。删除自建运营商前确认，并显示其中 IP 数量；确认后连同 IP 一起删除。
 - **单 IP 管理：** 每条地址提供单独删除操作，删除前二次确认。
-- **粘贴导入：** 可在粘贴弹窗中选择目标运营商；`SavedIpParser.kt` 在 Kotlin 层提取 IPv4 / IPv6，不调用 core。IPv4 使用严格四段十进制和 0–255 校验；IPv6 仅对字符全部属于 `0-9a-fA-F:.` 且含冒号的字面量调用 `InetAddress`，不对任意文本做 DNS 解析；IPv6 转成小写压缩形式后去重。新增项初始状态为未测试；提示新增、重复和忽略数量。
+- **粘贴导入：** 可在粘贴弹窗中选择目标运营商；`SavedIpParser.kt` 在 Kotlin 层提取 IPv4 / IPv6，不调用 core。IPv4 使用严格四段十进制和 0–255 校验；IPv6 仅对字符全部属于 `0-9a-fA-F:.` 且含冒号的字面量调用 `InetAddress`，不对任意文本做 DNS 解析；IPv6 转成小写压缩形式后去重。新增项初始状态为未测试并记录加入时间；未测试项在已测 IP 后面按加入时间从新到旧排列。提示新增、重复和忽略数量。
 - **边界：** 清单查看、复制、粘贴、改名和删除均为本地操作，不依赖 Clash。多选和重测留到第 4 步。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpParser.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`app/src/main/AndroidManifest.xml` 和本登记文件。
 - **验证：** 静态核对资源键、中英文文案、Activity 注册、页面入口、内置运营商固定 ID、名称校验、单 IP / 运营商删除确认、复制和粘贴逻辑及未测试 IP 的加入时间排序；未运行编译和真机测试。
