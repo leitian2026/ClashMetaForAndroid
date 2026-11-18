@@ -235,19 +235,24 @@ object SavedIpStore {
 
     private fun normalizeOperator(operator: SavedIpOperator, name: String): SavedIpOperator {
         val seen = HashSet<String>()
-        val ips = operator.ips
-            .filter { entry -> entry.address.isNotBlank() && seen.add(entry.address) }
-            .sortedWith(Comparator { left, right ->
-                when {
-                    left.lastTestedAt != right.lastTestedAt ->
-                        right.lastTestedAt.compareTo(left.lastTestedAt)
-                    left.lastTestedAt == 0L ->
-                        right.addedAt.compareTo(left.addedAt)
-                    // For tested entries saved in the same batch, stable sort preserves result-table order.
-                    else -> 0
-                }
-            })
+        val ips = sortEntries(operator.ips.filter { entry ->
+            entry.address.isNotBlank() && seen.add(entry.address)
+        })
 
         return operator.copy(name = name, ips = ips)
+    }
+
+    /** Shared stable ordering for the full list and every filtered view. */
+    fun sortEntries(entries: List<SavedIpEntry>): List<SavedIpEntry> {
+        return entries.sortedWith(Comparator { left, right ->
+            when {
+                left.lastTestedAt != right.lastTestedAt ->
+                    right.lastTestedAt.compareTo(left.lastTestedAt)
+                left.lastTestedAt == 0L ->
+                    right.addedAt.compareTo(left.addedAt)
+                // Stable sorting preserves result-table order for a saved test batch.
+                else -> 0
+            }
+        })
     }
 }
