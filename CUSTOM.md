@@ -2154,3 +2154,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **严格保留：** 节点标题、实际连接 / 请求数统计、UDP 统计、国家旗帜来源、连接数量、开始时间、地址省略计数、空状态和错误提示、刷新及数据获取 / 更新逻辑均不变；不改其他页面。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`（仅地址行及双列容器排版）、`design/src/main/res/layout/design_mux.xml`（移除居中限宽容器）、`design/src/main/res/values/dimens_custom.xml`（删除不再使用的最大宽度尺寸）、删除 `design/src/main/java/com/github/kr328/clash/design/custom/MuxColumnLayout.kt`，以及本登记文件。
 - **验证：** 静态核对仅修改地址 View 的排布和 IPv6 单行省略显示；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
+
+### 补充修复：保存批次前严格读取现有清单
+- **数据保护：** “保存这一批”“只保存通的”和“只保存粘贴的 IP”最终都经过 `SavedIpStore.saveRows()`。该方法在合并写入前改用严格读取：SharedPreferences 无法打开 / 读取，或现有 JSON 损坏时，直接报错并拒绝写入，不再把读取失败当成空清单后覆盖原数据。
+- **范围：** 只改变保存批次的读失败处理；正常读取、运营商选择、IP 去重、测试状态 / 时间更新、粘贴合并顺序、5000 条上限、一次写入及备份格式均不变。普通页面读取仍按原规则回退空清单并显示读取错误。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件；没有新增文件或修改上游文件总表。
+- **CUSTOM 标记：** 严格读改写保护位于 `SavedIpStore.saveRows()`，标记为 `CUSTOM.md #156`。
+- **验证：** 静态核对三种保存入口均调用 `saveRows()`，其读取失败路径在 `write()` 前抛出异常；未运行 Kotlin 编译、Android 构建或真机测试。

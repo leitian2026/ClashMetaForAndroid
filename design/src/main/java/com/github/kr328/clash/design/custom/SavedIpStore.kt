@@ -180,6 +180,27 @@ object SavedIpStore {
             .apply()
     }
 
+    /** Strict read for read-modify-write operations: never turn a read failure into an empty list. */
+    private fun readForUpdate(context: Context): SavedIpSnapshot {
+        val preferences = try {
+            context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        } catch (e: Exception) {
+            throw IllegalStateException("Cannot open saved-IP storage; refusing to overwrite it", e)
+        }
+        val raw = try {
+            preferences.getString(KEY_DATA, null)
+        } catch (e: Exception) {
+            throw IllegalStateException("Cannot read saved-IP storage; refusing to overwrite it", e)
+        }
+        if (raw.isNullOrBlank()) return emptySnapshot()
+        val decoded = try {
+            json.decodeFromString(SavedIpSnapshot.serializer(), raw)
+        } catch (e: Exception) {
+            throw IllegalStateException("Saved-IP data is damaged; refusing to overwrite it", e)
+        }
+        return normalize(decoded)
+    }
+
     /**
      * Merge completed test rows and parsed pasted addresses into one operator in a single write.
      * Test rows retain result-table order and override pasted duplicates; new pasted entries follow as UNTESTED.
@@ -194,7 +215,8 @@ object SavedIpStore {
         pastedDuplicates: Int = 0,
         ignoredPasted: Int = 0,
     ): SavedIpSaveResult {
-        val snapshot = read(context)
+        // A batch save must never replace a damaged/unreadable list with an empty snapshot.
+        val snapshot = readForUpdate(context)
         val operatorIndex = snapshot.operators.indexOfFirst { it.id == operatorId }
         require(operatorIndex >= 0) { "Unknown saved-IP operator: $operatorId" }
 
