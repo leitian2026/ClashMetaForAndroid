@@ -7,6 +7,8 @@ import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.custom.BackupDesign
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -125,8 +127,10 @@ class BackupActivity : BaseActivity<BackupDesign>() {
 
         design.setStatus(getString(DesignR.string.backup_working))
 
-        val source = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw java.io.IOException("cannot open $uri")
+        val source = withContext(Dispatchers.IO) {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw java.io.IOException("cannot open $uri")
+        }
         val zip = if (BackupCrypto.isEncrypted(source)) {
             val values = design.form(
                 getString(DesignR.string.local_backup_unlock_title),
@@ -134,7 +138,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
                 listOf(BackupDesign.Field(getString(DesignR.string.local_backup_password), "")),
             ) ?: return
             try {
-                BackupCrypto.decrypt(source, values[0])
+                withContext(Dispatchers.Default) { BackupCrypto.decrypt(source, values[0]) }
             } catch (e: BackupCrypto.WrongPasswordException) {
                 design.message(
                     getString(DesignR.string.backup_failed_title),
