@@ -176,6 +176,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     var onSpeedTest: ((String) -> Unit)? = null
     var onSpeedCancel: (() -> Unit)? = null
     var onSaveIpBatch: (() -> Unit)? = null // CUSTOM.md #156 step 2
+    var onOpenSavedIps: (() -> Unit)? = null // CUSTOM.md #156 step 3
+
+    // CUSTOM.md #156 step 3: the adjacent layout button opens the local saved-IP activity.
+    fun openSavedIps() {
+        onOpenSavedIps?.invoke()
+    }
 
     private var ipView: IpTestView? = null
     private var ipSaved: IpTestRestore? = readIpTest()
