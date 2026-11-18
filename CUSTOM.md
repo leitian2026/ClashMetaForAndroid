@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r182
+当前版本：2_11_36-r183
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1866,3 +1866,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
 - **CUSTOM 标记：** 新增保存按钮状态、任务事件及空结果弹窗逻辑均标记 `CUSTOM.md #156 step 10`。
 - **验证：** 静态核对跨视图常显、所有任务的开始 / 结束 / 取消 / 失败路径状态通知、Activity 原有二次保护、空结果提示、零数量禁用、只保存通的数量动态更新及中英文键 / 占位符；未运行编译、Android 构建或真机测试，未触发 Build Debug。
+
+### 第 11 步：配置检查保存弹窗支持粘贴多行 IP（r183）
+- **输入：** “保存这一批”弹窗增加多行 IPv4 / IPv6 输入框，复用 `saved_ip_paste_hint` 提示和 `SavedIpParser.extract()`；只解析 IP 字面量，不做 DNS 查询。输入框支持多行、逗号、分号等解析器已有分隔规则。
+- **合并保存：** 测试结果与粘贴 IP 交给 `SavedIpStore.saveRows()` 一次合并、一次写入；测试结果行优先保留结果状态和顺序，新粘贴地址追加为未测试；与测试结果或目标运营商已有清单重复的粘贴地址不覆盖原记录、不重复添加。
+- **重复与忽略：** 汇总解析文本内部重复、目标运营商已有地址重复和与本批测试结果重复；统计无效 / 非 IP 文本及测试结果中的域名。保存成功提示新增、更新、粘贴重复、忽略文本和跳过域名数量。
+- **容量：** 测试结果和粘贴地址合并后统一检查 5000 条上限；超限时整批拒绝，不会先保存测试结果再因粘贴地址超限而部分成功。沿用 `SavedIpLimitException` 专用容量异常及原有错误日志 / 提示。
+- **动态数量：** 根据当前选中运营商、测试结果、“只保存通的”勾选和输入框内容事件驱动更新预计可保存数量；无有效测试行且没有有效粘贴 IP 时“确定”禁用。无结果情况下输入框有有效 IP 时允许保存。
+- **资源：** 复用已有粘贴输入提示 / 无效 IP 提示；更新中英文 `saved_ip_save_result` 为 5 个对应占位符，键集合和占位符保持一致。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、design 中英文 `strings_custom.xml` 和本登记文件。
+- **CUSTOM 标记：** 新增输入框、解析 / 预计数量、原子合并写入逻辑均标记 `CUSTOM.md #156 step 11`。
+- **验证：** 静态核对解析器复用、文本变化和筛选变化触发数量更新、测试行优先、跨来源重复规则、单次写入和整批容量拒绝、中英文占位符；未运行编译、Android 构建或真机测试，未触发 Build Debug。

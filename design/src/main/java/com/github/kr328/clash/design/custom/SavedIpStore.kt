@@ -45,6 +45,8 @@ data class SavedIpSaveResult(
     val updated: Int,
     val skippedDomains: Int,
     val skippedOther: Int,
+    val repeatedPasted: Int,
+    val ignoredPasted: Int,
 )
 
 /** Persisted state for the saved-IP feature. */
@@ -140,14 +142,18 @@ object SavedIpStore {
     }
 
     /**
-     * Merge one completed test batch into an operator. The whole batch receives one test timestamp and is
-     * placed first in result-table order; untouched older entries follow. Domain rows are never stored.
+     * Merge completed test rows and parsed pasted addresses into one operator in a single write.
+     * Test rows retain result-table order and override pasted duplicates; new pasted entries follow as UNTESTED.
+     * Existing addresses are not duplicated and domain rows are never stored. // CUSTOM.md #156 step 11
      */
     fun saveRows(
         context: Context,
         operatorId: String,
         rows: List<IpTestRow>,
         onlyReachable: Boolean,
+        pastedAddresses: List<String> = emptyList(),
+        pastedDuplicates: Int = 0,
+        ignoredPasted: Int = 0,
     ): SavedIpSaveResult {
         val snapshot = read(context)
         val operatorIndex = snapshot.operators.indexOfFirst { it.id == operatorId }
@@ -162,6 +168,7 @@ object SavedIpStore {
         var updated = 0
         var skippedDomains = 0
         var skippedOther = 0
+        var repeatedPasted = pastedDuplicates
 
         for (row in rows) {
             if (row.isDomain) {
@@ -197,7 +204,23 @@ object SavedIpStore {
             if (previous == null) added++ else updated++
         }
 
-        // The current batch is always first. Stable normalization keeps its result-table order when timestamps tie.
+        // CUSTOM.md #156 step 11: pasted values merge after test rows; existing/test-row duplicates are counted, not overwritten.
+        for (rawAddress in pastedAddresses) {
+            val address = rawAddress.trim()
+            if (address.isEmpty()) continue
+            if (address in batchEntries || address in existingByAddress) {
+                repeatedPasted++
+                continue
+            }
+            batchEntries[address] = SavedIpEntry(
+                address = address,
+                status = SavedIpStatus.UNTESTED,
+                addedAt = testedAt,
+            )
+            added++
+        }
+
+        // Test rows stay first in result-table order; newly pasted entries follow, then untouched older entries.
         val entries = batchEntries.values.toList() + operator.ips.filterNot { it.address in batchEntries }
 
         val operators = snapshot.operators.toMutableList()
@@ -210,7 +233,7 @@ object SavedIpStore {
             write(context, resultSnapshot)
         }
 
-        return SavedIpSaveResult(added, updated, skippedDomains, skippedOther)
+        return SavedIpSaveResult(added, updated, skippedDomains, skippedOther, repeatedPasted, ignoredPasted)
     }
 
     private fun normalize(snapshot: SavedIpSnapshot): SavedIpSnapshot {

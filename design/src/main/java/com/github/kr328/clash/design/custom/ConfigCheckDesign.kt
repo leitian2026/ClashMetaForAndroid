@@ -13,6 +13,8 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -389,6 +391,16 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
         content.addView(group)
 
+        // CUSTOM.md #156 step 11: multiline pasted IPs share the same operator and save transaction as test rows.
+        val pastedInput = EditText(context).apply {
+            setHint(R.string.saved_ip_paste_hint)
+            minLines = 4
+            maxLines = 8
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        content.addView(pastedInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
         // CUSTOM (CUSTOM.md #156 step 9): add an operator without leaving the batch-save dialog.
         val addOperatorButton = com.google.android.material.button.MaterialButton(context).apply {
             setText(R.string.saved_ip_add_operator)
@@ -446,30 +458,60 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(R.string.saved_ip_save_title)
-            .setView(content)
+            .setView(android.widget.ScrollView(context).apply { addView(content) })
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok, null)
             .create()
         dialog.setOnShowListener {
             val positive = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
             refreshSaveAvailability = {
-                val eligibleCount = if (onlyReachable.isChecked) rows.count { it.ok } else rows.size
+                val eligibleRows = rows.filter { row ->
+                    !row.isDomain && row.ip.isNotBlank() && (!onlyReachable.isChecked || row.ok)
+                }
+                val testAddresses = eligibleRows.mapTo(LinkedHashSet()) { it.ip.trim() }
+                val pasted = SavedIpParser.extract(pastedInput.text.toString())
+                val currentOperator = SavedIpStore.read(context).operators.firstOrNull { it.id == selectedId }
+                val existing = currentOperator?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
+                val newPastedCount = pasted.addresses.count { it !in testAddresses && it !in existing }
+                val eligibleCount = testAddresses.size + newPastedCount
                 saveCountView.text = context.getString(R.string.saved_ip_save_count, eligibleCount)
                 positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
             }
             onlyReachable.setOnCheckedChangeListener { _, _ -> refreshSaveAvailability?.invoke() }
+            pastedInput.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    refreshSaveAvailability?.invoke()
+                }
+                override fun afterTextChanged(s: Editable?) = Unit
+            })
             refreshSaveAvailability?.invoke()
             positive.setOnClickListener {
                 val operatorId = selectedId
                 if (operatorId.isBlank()) return@setOnClickListener
                 try {
-                    val result = SavedIpStore.saveRows(context, operatorId, rows, onlyReachable.isChecked)
+                    val pasted = SavedIpParser.extract(pastedInput.text.toString())
+                    if (rows.isEmpty() && pasted.addresses.isEmpty()) {
+                        Toast.makeText(context, R.string.saved_ip_paste_no_valid, Toast.LENGTH_LONG).show()
+                        return@setOnClickListener
+                    }
+                    val result = SavedIpStore.saveRows(
+                        context,
+                        operatorId,
+                        rows,
+                        onlyReachable.isChecked,
+                        pasted.addresses,
+                        pasted.duplicates,
+                        pasted.ignored,
+                    )
                     Toast.makeText(
                         context,
                         context.getString(
                             R.string.saved_ip_save_result,
                             result.added,
                             result.updated,
+                            result.repeatedPasted,
+                            result.ignoredPasted,
                             result.skippedDomains,
                         ),
                         Toast.LENGTH_LONG,
