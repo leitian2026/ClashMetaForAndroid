@@ -24,7 +24,6 @@ import android.widget.Toast
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.UUID
 
@@ -42,6 +41,8 @@ class SavedIpDesign(
     enum class Request { Unused }
     private val density = context.resources.displayMetrics.density
     private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
+    // Match the explicit color source used by the config-check page's Material text buttons.
+    private val colorLink = themeColor(com.google.android.material.R.attr.colorPrimary, Color.BLUE)
     private val colorMuted = themeColor(android.R.attr.textColorSecondary, Color.GRAY)
     private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, Color.WHITE)
     private val colorDivider = themeColor(android.R.attr.colorControlHighlight, 0x22000000)
@@ -82,12 +83,12 @@ class SavedIpDesign(
 
     private val actions = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
-        setPadding(dp(12), dp(4), dp(12), dp(4))
+        setPadding(dp(12), dp(2), dp(12), dp(2))
     }
     private val filterBar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(8), dp(2), dp(8), dp(2))
+        setPadding(dp(12), dp(2), dp(12), dp(2))
     }
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -132,19 +133,19 @@ class SavedIpDesign(
         })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        filterButtons.forEach { filterBar.addView(it, weighted()) }
+        filterButtons.forEach { filterBar.addView(it, weighted(3)) }
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        actions.addView(actionButton(R.string.saved_ip_add_operator) { addOperator() }, weighted())
-        actions.addView(actionButton(R.string.saved_ip_paste) { pasteIps() }, weighted())
+        actions.addView(actionButton(R.string.saved_ip_add_operator) { addOperator() }, weighted(3))
+        actions.addView(actionButton(R.string.saved_ip_paste) { pasteIps() }, weighted(3))
         root.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         selectionMainActions.addView(selectedCountView, weighted())
-        selectionMainActions.addView(retestButton, weighted())
-        selectionMainActions.addView(deleteSelectedButton, weighted())
-        selectionMainActions.addView(cancelSelectionButton, weighted())
-        selectionQuickActions.addView(selectUnreachableButton, weighted())
-        selectionQuickActions.addView(selectOldestButton, weighted())
+        selectionMainActions.addView(retestButton, weighted(2))
+        selectionMainActions.addView(deleteSelectedButton, weighted(2))
+        selectionMainActions.addView(cancelSelectionButton, weighted(2))
+        selectionQuickActions.addView(selectUnreachableButton, weighted(2))
+        selectionQuickActions.addView(selectOldestButton, weighted(2))
         selectionActions.addView(selectionMainActions, fullWidth())
         selectionActions.addView(selectionQuickActions, fullWidth())
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -200,10 +201,16 @@ class SavedIpDesign(
         return SavedIpStore.sortEntries(filtered)
     }
 
-    private fun filterButton(label: Int, filter: IpFilter) = MaterialButton(context).apply {
+    private fun filterButton(label: Int, filter: IpFilter) = TextView(context).apply {
         setText(label)
-        isAllCaps = false
-        isCheckable = true
+        textSize = 14f
+        gravity = Gravity.CENTER
+        minHeight = dp(40)
+        setSingleLine(true)
+        ellipsize = TextUtils.TruncateAt.END
+        setPadding(dp(3), 0, dp(3), 0)
+        setTextColor(colorLink)
+        background = selectableBackground()
         setOnClickListener {
             if (currentFilter != filter) {
                 currentFilter = filter
@@ -216,8 +223,9 @@ class SavedIpDesign(
     private fun updateFilterButtons() {
         filterButtons.forEachIndexed { index, button ->
             val selected = currentFilter.ordinal == index
-            button.isChecked = selected
-            button.setTextColor(if (selected) themeColor(com.google.android.material.R.attr.colorPrimary, colorText) else colorText)
+            button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            button.paintFlags = if (selected) button.paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG else button.paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()
+            button.setTextColor(colorLink)
         }
     }
 
@@ -240,7 +248,7 @@ class SavedIpDesign(
         val unreachableCount = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
         val deleteUnreachable = actionText(R.string.saved_ip_delete_unreachable) { confirmDeleteUnreachable(operator) }
         deleteUnreachable.isEnabled = unreachableCount > 0
-        if (unreachableCount == 0) deleteUnreachable.setTextColor(colorMuted)
+        deleteUnreachable.alpha = if (unreachableCount > 0) 1f else 0.35f
         header.addView(deleteUnreachable)
 
         if (operator.id !in SavedIpStore.builtInOperatorIds && selectedOperatorId == null) {
@@ -303,7 +311,7 @@ class SavedIpDesign(
                 text = "×"
                 textSize = 22f
                 gravity = Gravity.CENTER
-                setTextColor(colorMuted)
+                setTextColor(colorLink)
                 contentDescription = context.getString(R.string.saved_ip_delete)
                 background = selectableBackground()
                 setPadding(dp(10), dp(2), dp(10), dp(2))
@@ -430,13 +438,17 @@ class SavedIpDesign(
         selectionActions.visibility = if (active) View.VISIBLE else View.GONE
         selectedCountView.text = context.getString(R.string.saved_ip_selected_count, selectedAddresses.size)
         retestButton.isEnabled = canRetest && selectedAddresses.isNotEmpty()
+        retestButton.alpha = if (retestButton.isEnabled) 1f else 0.35f
         deleteSelectedButton.isEnabled = selectedAddresses.isNotEmpty()
+        deleteSelectedButton.alpha = if (deleteSelectedButton.isEnabled) 1f else 0.35f
         val operator = selectedOperatorId?.let { id ->
             SavedIpStore.read(context).operators.firstOrNull { it.id == id }
         }
         val visible = operator?.let { visibleEntries(it) }.orEmpty()
         selectUnreachableButton.isEnabled = visible.any { it.status == SavedIpStatus.UNREACHABLE }
+        selectUnreachableButton.alpha = if (selectUnreachableButton.isEnabled) 1f else 0.35f
         selectOldestButton.isEnabled = visible.isNotEmpty()
+        selectOldestButton.alpha = if (selectOldestButton.isEnabled) 1f else 0.35f
     }
 
     private fun selectUnreachable() {
@@ -729,19 +741,25 @@ class SavedIpDesign(
         else -> operator.name
     }
 
-    private fun actionButton(text: Int, click: () -> Unit) = MaterialButton(context).apply {
+    private fun actionButton(text: Int, click: () -> Unit) = TextView(context).apply {
         setText(text)
-        isAllCaps = false
+        textSize = 14f
+        setTextColor(colorLink)
+        gravity = Gravity.CENTER
+        minHeight = dp(40)
+        setPadding(dp(4), 0, dp(4), 0)
+        background = selectableBackground()
         setOnClickListener { click() }
     }
 
     private fun actionText(text: Int, click: () -> Unit) = TextView(context).apply {
         setText(text)
         textSize = 13f
-        setTextColor(themeColor(com.google.android.material.R.attr.colorPrimary, colorText))
+        setTextColor(colorLink)
         gravity = Gravity.CENTER
+        minHeight = dp(40)
         background = selectableBackground()
-        setPadding(dp(8), dp(8), dp(8), dp(8))
+        setPadding(dp(8), dp(4), dp(8), dp(4))
         setOnClickListener { click() }
     }
 
@@ -766,5 +784,10 @@ class SavedIpDesign(
 
     private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    private fun weighted() = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+    private fun weighted(gap: Int = 0) = LinearLayout.LayoutParams(0, dp(40), 1f).apply {
+        if (gap > 0) {
+            marginStart = dp(gap)
+            marginEnd = dp(gap)
+        }
+    }
 }
