@@ -1776,3 +1776,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **边界：** 清单查看、复制、粘贴、改名和删除均为本地操作，不依赖 Clash。多选和重测留到第 4 步。
 - **改动文件：** `design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpParser.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/SavedIpActivity.kt`、`design/src/main/res/layout/design_config_check.xml`、`design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`app/src/main/AndroidManifest.xml` 和本登记文件。
 - **验证：** 静态核对资源键、中英文文案、Activity 注册、页面入口、内置运营商固定 ID、名称校验、单 IP / 运营商删除确认、复制和粘贴逻辑；未运行编译和真机测试。
+
+
+### 第 4/5 步：多选已保存 IP 并复用现有测试流程重测
+- **多选：** 在同一运营商分组内长按 IP 进入多选，再点 IP 切换选中状态；不允许跨运营商选择。选择状态只保存在页面内存，页面销毁即清除；每次清单刷新都会剔除已不存在的选中项。最多选择 20 个，第 21 个立即提示“一次最多 20 个”，不截断、不静默丢弃。
+- **操作：** 多选后可批量删除（确认后删除）或重测。重测按钮只在打开清单时没有其他测试 / 下载任务且 Clash 正在运行的情况下启用；列表查看、复制、粘贴、改名和删除不受这些条件限制。
+- **重测入口：** 重测把选中的 IP 按每行一个传给配置检查页，并通过现有 `ConfigCheckDesign.Request.IpTest` 入口启动，不新增 core 请求或测试实现。保留 `ConfigCheckActivity.runIpTest()` 的 `clashRunning` 检查和原有每 IP 随机 1–3 秒间隔；用户仍可在原有 `IpTestDialog.ask()` 中修改地址、选择直连 / 节点和端口。
+- **一次性预填：** `IpTestDialog.ask()` 新增可选 `presetIps` 参数；有预填时只覆盖本次弹窗输入，不写入手动输入历史。Activity 消费后立即清除 Intent extra 和待处理字段；取消、Clash 未运行、测试失败或异常退出都不会把预填留给下一次手动打开。
+- **保存状态：** 重测不直接修改已保存清单。结果仍进入原有 `ipRows`，只有用户点击“保存这一批”才更新清单状态；从某运营商发起重测时，保存弹窗默认选中该运营商，用户仍可改选。
+- **禁用条件：** 从配置检查页打开清单时，若整轮 IP 测试、下载测速、ECH 或 DNS 检查正在运行，传入禁用重测状态；批量删除和其他本地清单操作仍可用。
+- **改动文件：** design 中英文 `strings_custom.xml`、`design/.../custom/IpTestDialog.kt`、`design/.../custom/ConfigCheckDesign.kt`、`design/.../custom/SavedIpDesign.kt`、`app/.../custom/SavedIpActivity.kt`、`app/.../custom/ConfigCheckActivity.kt` 和本登记文件。
+- **验证：** 静态核对多选运营商隔离、20 个上限、选择状态内存化、禁用条件、Request.IpTest 路径、一次性预填清理、默认运营商和“手动保存才更新”规则；未运行编译和真机测试。
