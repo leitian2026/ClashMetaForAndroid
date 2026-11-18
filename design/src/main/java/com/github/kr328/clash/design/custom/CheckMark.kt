@@ -2,21 +2,22 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.TextPaint
-import android.text.style.CharacterStyle
+import android.text.style.ReplacementSpan
 
 /**
- * CUSTOM (CUSTOM.md #57, not upstream): every ✓ in the app is drawn green and every ✗ red, in the heaviest weight
- * (bold, plus the extra stroke of "fake bold") and in a deep colour. By day the colours are the darkest that still
- * read as green and red; at night (dark theme) the same marks would vanish on the dark background, so they are the
- * brightest ones instead.
+ * CUSTOM (CUSTOM.md #57, not upstream): every ✓ / ✔ is drawn green and every ✗ / ✘ red, in the heaviest weight
+ * (bold, plus the extra stroke of "fake bold"). A same-colour dot follows each mark. By day the colours are dark;
+ * at night (dark theme) they are bright enough to read on the dark background.
  *
- * It only looks at the text it is given, once, when the text is put on the screen (nothing runs on its own).
+ * The mark and dot are drawing only: the underlying text is unchanged, including when copied or exported.
  */
 object CheckMark {
     private const val CHECK = '\u2713' // ✓
@@ -33,15 +34,61 @@ object CheckMark {
 
     fun bad(context: Context): Int = if (night(context)) Color.parseColor("#FF5252") else Color.parseColor("#A50000")
 
-    private class MarkSpan(private val color: Int) : CharacterStyle() {
-        override fun updateDrawState(tp: TextPaint) {
-            tp.color = color
-            tp.typeface = Typeface.create(tp.typeface, Typeface.BOLD)
-            tp.isFakeBoldText = true
+    private class MarkSpan(private val color: Int) : ReplacementSpan() {
+        private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+
+        private fun markPaint(source: Paint): TextPaint {
+            return TextPaint(source).apply {
+                this.color = color
+                typeface = Typeface.create(typeface, Typeface.BOLD)
+                isFakeBoldText = true
+            }
+        }
+
+        private fun dotMetrics(paint: Paint): Pair<Float, Float> {
+            val gap = paint.textSize * 0.25f
+            val diameter = paint.textSize * 0.5f
+            return gap to diameter
+        }
+
+        override fun getSize(
+            paint: Paint,
+            text: CharSequence,
+            start: Int,
+            end: Int,
+            fm: Paint.FontMetricsInt?,
+        ): Int {
+            val glyph = markPaint(paint).measureText(text, start, end)
+            val (gap, diameter) = dotMetrics(paint)
+            return (glyph + diameter + gap * 2).toInt()
+        }
+
+        override fun draw(
+            canvas: Canvas,
+            text: CharSequence,
+            start: Int,
+            end: Int,
+            x: Float,
+            top: Int,
+            y: Int,
+            bottom: Int,
+            paint: Paint,
+        ) {
+            val glyphPaint = markPaint(paint)
+            val glyphWidth = glyphPaint.measureText(text, start, end)
+            val (gap, diameter) = dotMetrics(paint)
+
+            canvas.drawText(text, start, end, x, y, glyphPaint)
+
+            dotPaint.color = color
+            val centerY = y + (paint.ascent() + paint.descent()) / 2f
+            canvas.drawCircle(x + glyphWidth + gap + diameter / 2f, centerY, diameter / 2f, dotPaint)
         }
     }
 
-    /** [text] with every ✓ and ✗ painted; the text itself is not changed. A null stays null. */
+    /** [text] with every ✓, ✗, ✔ and ✘ painted; the text itself is not changed. A null stays null. */
     fun paint(context: Context, text: CharSequence?): CharSequence? {
         if (text == null) return null
 
@@ -64,7 +111,7 @@ object CheckMark {
         return out
     }
 
-    /** Paints the ✓ and ✗ in [from, to) of a text that is being built. */
+    /** Paints the ✓, ✗, ✔ and ✘ in [from, to) of a text that is being built. */
     fun apply(context: Context, text: Spannable, from: Int, to: Int) {
         val end = minOf(to, text.length)
 
