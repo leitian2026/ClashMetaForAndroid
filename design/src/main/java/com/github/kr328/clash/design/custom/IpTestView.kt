@@ -455,7 +455,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.COLO -> 84
                 Key.ASN -> 84
                 Key.GEO, Key.LAND -> 76
-                Key.PORTS -> 84
+                Key.PORTS -> 100 // CUSTOM.md #57: room for the replacement span's same-colour dot
                 Key.PORT -> 56
                 Key.LOSS -> 52
                 Key.MIN, Key.MAX, Key.AVG -> 54

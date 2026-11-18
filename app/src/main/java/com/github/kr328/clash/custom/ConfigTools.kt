@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.custom.BackupDesign
+import com.github.kr328.clash.design.custom.CheckMark
 import com.github.kr328.clash.service.custom.ConfigErrorText
 import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.model.Profile
@@ -112,7 +113,7 @@ object ConfigTools {
 
                 val shown = if (inUse != null && inUse == text) line + context.getString(DesignR.string.history_in_use) else line
 
-                if (v.verified) shown + context.getString(DesignR.string.history_verified) else shown // CUSTOM.md #38
+                if (v.verified) CheckMark.paint(context, shown + context.getString(DesignR.string.history_verified)) ?: shown else shown // CUSTOM.md #38 #57
             }
         }
 
