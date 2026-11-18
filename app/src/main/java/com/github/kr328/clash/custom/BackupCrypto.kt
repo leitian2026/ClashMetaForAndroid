@@ -24,6 +24,9 @@ object BackupCrypto {
     private const val IV_SIZE = 12
     private const val HEADER = 8 + 4 + SALT_SIZE // the part that is also authenticated
 
+    fun isEncrypted(data: ByteArray): Boolean =
+        data.size >= MAGIC.size && data.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)
+
     fun encrypt(plain: ByteArray, password: String): ByteArray {
         val random = SecureRandom()
         val salt = ByteArray(SALT_SIZE).also { random.nextBytes(it) }
