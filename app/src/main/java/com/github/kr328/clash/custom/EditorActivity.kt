@@ -647,7 +647,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                                     }
                                     canvas.drawRoundRect(rect, 4f * density, 4f * density, background)
                                     val originalColor = paint.color
-                                    paint.color = android.graphics.Color.WHITE
+                                    paint.color = android.graphics.Color.BLACK
                                     canvas.drawText(text, start, end, x + horizontalPadding, y, paint)
                                     paint.color = originalColor
                                 }
