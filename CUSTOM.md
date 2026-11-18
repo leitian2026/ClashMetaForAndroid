@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r178
+当前版本：2_11_36-r179
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1831,3 +1831,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt、design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt、design/src/main/java/com/github/kr328/clash/design/custom/ConfigCheckDesign.kt、design/src/main/res/layout/design_config_check.xml 和本登记文件。
 - **验证：** 静态核对纯文字按钮、颜色来源、筛选选中样式、按钮间距与点击高度、旧按钮移除、标题栏控件顺序、结果行驱动的显示 / 禁用状态、视图切换隐藏及恢复结果显示规则；未运行编译和真机测试。
 - **构建修正（r178 后续）：** Build Debug 在 `design:compileAlphaReleaseKotlin` 阶段报 `IpTestView.kt:747` 的 `Unresolved reference: MaterialButton`。原因是第 2/3 次提交删除了 `IpTestView.kt` 的 MaterialButton import，但该文件第 747 行仍有“下载测速 / 取消”描边按钮；它属于配置检查结果表，不是本步骤要改成纯文字的“已保存 IP”页按钮。已恢复 `import com.google.android.material.button.MaterialButton`，不改变该测速按钮的外观和行为。
+
+
+### 第 8/8 步：修复保存 IP 序列化器缺失（r179）
+- **问题：** `SavedIpStore.kt` 的 `@Serializable` 数据类位于 `design` 模块，但该模块此前没有应用 Kotlin serialization 编译插件，导致运行时 `encodeToString` / `decodeFromString` 找不到生成的序列化器，保存失败后读取又静默回退为空清单。
+- **修复：** 在 `design/build.gradle.kts` 的 plugins 中增加 `id("kotlinx-serialization")`，与已有 `core` 模块的插件用法一致；`SavedIpStore.read()` 在 JSON 解码异常时通过 `Log.e` 记录异常及堆栈，再回退为空清单。空数据仍正常返回空清单，偏好读取行为和写入时机不变。
+- **改动文件：** `design/build.gradle.kts`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件。
+- **CUSTOM 标记：** 两处代码改动均带有 `CUSTOM.md #156 step 8` 标记。
+- **验证：** 静态核对插件 ID 与 core 模块一致、Log import 和解码异常分支；未运行编译、Android 构建或真机测试。没有新增定时器、轮询、联网请求；未修改 UI、Go、mihomo core、patches 或其他构建文件。

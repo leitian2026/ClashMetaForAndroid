@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.custom
 
 import android.content.Context
+import android.util.Log
 import com.github.kr328.clash.core.model.IpTestRow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -101,10 +102,16 @@ object SavedIpStore {
             null
         }
 
-        val decoded = try {
-            if (raw.isNullOrBlank()) emptySnapshot() else json.decodeFromString<SavedIpSnapshot>(raw)
-        } catch (_: Exception) {
+        val decoded = if (raw.isNullOrBlank()) {
             emptySnapshot()
+        } else {
+            try {
+                json.decodeFromString<SavedIpSnapshot>(raw)
+            } catch (e: Exception) {
+                // CUSTOM.md #156 step 8: report corrupted or undecodable persisted data instead of silently hiding it.
+                Log.e("SavedIpStore", "Failed to decode saved IP data; using an empty snapshot", e)
+                emptySnapshot()
+            }
         }
 
         return normalize(decoded)
