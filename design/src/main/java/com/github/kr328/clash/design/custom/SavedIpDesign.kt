@@ -8,6 +8,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -29,6 +30,8 @@ import java.util.UUID
 class SavedIpDesign(
     private val context: Context,
     private val onBack: () -> Unit,
+    private val canRetest: Boolean,
+    private val onRetest: (String, List<String>) -> Unit,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
     private val density = context.resources.displayMetrics.density
@@ -59,16 +62,42 @@ class SavedIpDesign(
         addView(operatorList, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
+    // CUSTOM.md #156 step 4: selection is held only in this page instance and never persisted.
+    private var selectedOperatorId: String? = null
+    private val selectedAddresses = LinkedHashSet<String>()
+
+    private val actions = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(dp(12), dp(4), dp(12), dp(4))
+    }
+    private val selectionActions = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(8), dp(4), dp(8), dp(4))
+        visibility = View.GONE
+    }
+    private val selectedCountView = TextView(context).apply {
+        textSize = 12f
+        setTextColor(colorMuted)
+        gravity = Gravity.CENTER
+    }
+    private val retestButton = actionButton(R.string.saved_ip_retest) { retestSelected() }
+    private val deleteSelectedButton = actionButton(R.string.saved_ip_delete_selected) { deleteSelected() }
+    private val cancelSelectionButton = actionButton(R.string.saved_ip_cancel_selection) { clearSelection() }
+
     init {
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val actions = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), dp(4), dp(12), dp(4))
-        }
         actions.addView(actionButton(R.string.saved_ip_add_operator) { addOperator() }, weighted())
         actions.addView(actionButton(R.string.saved_ip_paste) { pasteIps() }, weighted())
         root.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        selectionActions.addView(selectedCountView, weighted())
+        selectionActions.addView(retestButton, weighted())
+        selectionActions.addView(deleteSelectedButton, weighted())
+        selectionActions.addView(cancelSelectionButton, weighted())
+        root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         refresh()
     }
@@ -76,6 +105,7 @@ class SavedIpDesign(
     fun refresh() {
         operatorList.removeAllViews()
         val snapshot = SavedIpStore.read(context)
+        reconcileSelection(snapshot)
         val total = snapshot.operators.sumOf { it.ips.size }
 
         if (total == 0) {
@@ -112,7 +142,7 @@ class SavedIpDesign(
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
 
-        if (operator.id !in SavedIpStore.builtInOperatorIds) {
+        if (operator.id !in SavedIpStore.builtInOperatorIds && selectedOperatorId == null) {
             header.addView(actionText(R.string.saved_ip_rename) { editOperator(operator) })
             header.addView(actionText(R.string.saved_ip_delete) { confirmDeleteOperator(operator) })
         }
@@ -137,6 +167,17 @@ class SavedIpDesign(
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, dp(2), 0, dp(2))
             }
+            if (selectedOperatorId == operator.id) {
+                row.addView(
+                    CheckBox(context).apply {
+                        isChecked = entry.address in selectedAddresses
+                        isClickable = false
+                        isFocusable = false
+                    },
+                    LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
+
             val mark = TextView(context).apply {
                 textSize = 18f
                 gravity = Gravity.CENTER
@@ -154,7 +195,17 @@ class SavedIpDesign(
                 setTextColor(colorText)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(4), dp(8), dp(4), dp(8))
-                setOnClickListener { copyIp(entry.address) }
+                setOnClickListener {
+                    when (selectedOperatorId) {
+                        null -> copyIp(entry.address)
+                        operator.id -> toggleSelection(operator.id, entry.address)
+                        else -> Unit
+                    }
+                }
+                setOnLongClickListener {
+                    toggleSelection(operator.id, entry.address)
+                    true
+                }
             }
             row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
@@ -168,9 +219,101 @@ class SavedIpDesign(
                 setPadding(dp(10), dp(2), dp(10), dp(2))
                 setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
             }
-            row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            if (selectedOperatorId == null) {
+                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
             operatorList.addView(row, fullWidth())
         }
+    }
+
+    // CUSTOM.md #156 step 4: enter / toggle selection only inside one operator group.
+    private fun toggleSelection(operatorId: String, address: String) {
+        val currentOperator = selectedOperatorId
+        if (currentOperator != null && currentOperator != operatorId) return
+        if (currentOperator == null) selectedOperatorId = operatorId
+
+        if (address in selectedAddresses) {
+            selectedAddresses.remove(address)
+        } else {
+            if (selectedAddresses.size >= 20) {
+                Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
+                return
+            }
+            selectedAddresses.add(address)
+        }
+
+        if (selectedAddresses.isEmpty()) selectedOperatorId = null
+        updateSelectionActions()
+        refresh()
+    }
+
+    private fun reconcileSelection(snapshot: SavedIpSnapshot) {
+        val operatorId = selectedOperatorId ?: run {
+            updateSelectionActions()
+            return
+        }
+        val operator = snapshot.operators.firstOrNull { it.id == operatorId }
+        if (operator == null) {
+            clearSelectionState()
+            return
+        }
+        val existing = operator.ips.mapTo(HashSet()) { it.address }
+        selectedAddresses.retainAll(existing)
+        if (selectedAddresses.isEmpty()) clearSelectionState() else updateSelectionActions()
+    }
+
+    private fun updateSelectionActions() {
+        val active = selectedOperatorId != null
+        actions.visibility = if (active) View.GONE else View.VISIBLE
+        selectionActions.visibility = if (active) View.VISIBLE else View.GONE
+        selectedCountView.text = context.getString(R.string.saved_ip_selected_count, selectedAddresses.size)
+        retestButton.isEnabled = canRetest && selectedAddresses.isNotEmpty()
+        deleteSelectedButton.isEnabled = selectedAddresses.isNotEmpty()
+    }
+
+    private fun clearSelectionState() {
+        selectedOperatorId = null
+        selectedAddresses.clear()
+        updateSelectionActions()
+    }
+
+    private fun clearSelection() {
+        clearSelectionState()
+        refresh()
+    }
+
+    private fun deleteSelected() {
+        val operatorId = selectedOperatorId ?: return
+        val addresses = selectedAddresses.toSet()
+        if (addresses.isEmpty()) return
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_delete_ip_title)
+            .setMessage(context.getString(R.string.saved_ip_delete_selected_message, addresses.size))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
+                val snapshot = SavedIpStore.read(context)
+                val operators = snapshot.operators.map { operator ->
+                    if (operator.id == operatorId) operator.copy(ips = operator.ips.filterNot { it.address in addresses })
+                    else operator
+                }
+                SavedIpStore.write(context, snapshot.copy(operators = operators))
+                clearSelectionState()
+                refresh()
+            }
+            .show()
+    }
+
+    private fun retestSelected() {
+        val operatorId = selectedOperatorId ?: return
+        if (!canRetest) return
+        val addresses = selectedAddresses.toList()
+        if (addresses.isEmpty()) return
+        if (addresses.size > 20) {
+            Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
+            return
+        }
+        onRetest(operatorId, addresses)
     }
 
     private fun addOperator() {
