@@ -236,15 +236,15 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             // IP is retained solely as the row identifier for matching each diagnostic record.
             val headers = if (target) {
                 listOf(
-                    "IP", "TLS 版本", "协商协议（ALPN）",
+                    "IP 地址", "TLS 版本", "协商协议",
                     "证书主题", "证书颁发者", "证书生效时间", "证书到期时间",
-                    "证书域名（DNS SAN）", "证书 IP 地址（IP SAN）", "证书验证状态",
-                    "服务器标识（Server）", "Cloudflare 请求编号（Cf-Ray）",
-                    "响应内容类型（Content-Type）", "重定向地址（Location）",
-                    "重试等待时间（Retry-After）", "Cloudflare 防护标识（CF-Mitigated）",
+                    "证书域名", "证书 IP 地址", "证书验证状态",
+                    "服务器标识", "Cloudflare 请求编号",
+                    "响应内容类型", "重定向地址",
+                    "重试等待时间", "Cloudflare 防护状态",
                 )
             } else {
-                listOf("IP", "TLS 版本", "协商协议（ALPN）")
+                listOf("IP 地址", "TLS 版本", "协商协议")
             }
 
             val values = rows.map { row ->
