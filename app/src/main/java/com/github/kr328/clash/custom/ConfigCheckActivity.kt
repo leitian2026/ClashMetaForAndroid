@@ -88,6 +88,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         // CUSTOM.md #156 step 4: the preset is one-shot; clear the intent fields before entering the existing request path.
         pendingSavedIpPreset = intent.getStringExtra(SavedIpActivity.EXTRA_PRESET_IPS)
         pendingSavedIpOperatorId = intent.getStringExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
+        intent.removeExtra(SavedIpActivity.EXTRA_PRESET_IPS)
+        intent.removeExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
         if (!pendingSavedIpPreset.isNullOrBlank()) design.request(ConfigCheckDesign.Request.IpTest)
 
         while (isActive) {
