@@ -816,6 +816,8 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			if detail != nil {
 				row.TargetTLS = detail.TLS
 				row.TargetALPN = detail.ALPN
+				row.TargetHTTPProto = detail.HTTPProto
+				row.TargetHTTPProtoMajor = detail.HTTPProtoMajor
 				row.TLS, row.ALPN = detail.TLS, detail.ALPN
 				row.TargetCertSubject = detail.CertSubject
 				row.TargetCertIssuer = detail.CertIssuer
