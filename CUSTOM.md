@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r243
+当前版本：2_11_36-r244
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2378,3 +2378,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **同时修的另外两处：** `ipdelay/iptry_phase.go` 导入了没用的 `net/http`（Go 里未使用的导入是编译错误，会在上一个错误修完后接着报）；`conftest/iptest_net_test.go` 里的 `TestProbeLocal`、`TestProbeDead` 调用已不存在的 `probeIP`，两个测试已删除（同样的场景由 `iptest_probe_test.go` 的 `TestProbeDirectLocal`、`TestProbeDirectDead` 覆盖）。
 - **改动文件：** `core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/conftest/iptest_net_test.go`、`CUSTOM.md`。没有改上游文件。
 - **验证：** 对 `native/` 下所有 Go 包做了语法检查、重复定义检查、未使用导入检查，`conftest` 包（含测试）做了类型检查（内核和 `errlog` 等外部包用桩代替）；没有真正编译，未运行 Go 测试，Kotlin 部分未编译，未触发 Build Debug。
+
+
+### 第 53 步：区分详细诊断无响应、可选缺项与未取到（r244）
+- 详细诊断按行状态显示：请求失败或没有目标站响应时，除 IP 外整行显示“-”；有响应时，重定向地址、Retry-After、CF-Mitigated 和证书 IP SAN 为空显示“无”；TLS、协商协议、证书主题 / 颁发者 / 有效期 / 域名、服务器标识、Cf-Ray 和 Content-Type 等预期字段为空显示“未取到”。非目标网址模式的 TLS / ALPN 小表同样区分失败行与成功空值。
+- 证书验证状态继续显示“未验证（跳过证书验证）”，不改变现有证书验证策略。
+- 表格现有说明补充“- / 无 / 未取到”的含义及证书验证跳过原因；英文、中文资源同步。
+- 不修改原有 IP 主表、数据计算、请求逻辑、下载测速或网络请求；不新增定时器、轮询或后台任务。
+- **验证：未编译，靠 Actions 验证。**
