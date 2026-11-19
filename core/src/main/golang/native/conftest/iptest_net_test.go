@@ -134,3 +134,23 @@ func TestRunIPAsnDomainOnly(t *testing.T) {
 		t.Errorf("%+v", rep)
 	}
 }
+
+func TestBeginRunOlderCompletionKeepsNewerCancel(t *testing.T) {
+	ctxA, doneA := beginRun()
+	ctxB, doneB := beginRun()
+	defer doneB()
+
+	if ctxA.Err() != context.Canceled {
+		t.Fatalf("starting run B did not cancel run A: %v", ctxA.Err())
+	}
+
+	// Run A finishes after B has already registered its cancellation handle.
+	doneA()
+
+	if !CancelIPTest() {
+		t.Fatal("run A cleared run B's cancellation handle")
+	}
+	if ctxB.Err() != context.Canceled {
+		t.Fatalf("CancelIPTest did not cancel run B: %v", ctxB.Err())
+	}
+}

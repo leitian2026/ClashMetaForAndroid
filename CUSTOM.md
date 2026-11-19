@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r236
+当前版本：2_11_36-r237
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2329,3 +2329,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `core/src/main/golang/native/ipdelay/ipdelay.go`、`core/src/main/golang/native/ipdelay/ipdelay_proxy_test.go`、`CUSTOM.md`。
 - **未做：** 不修改 mihomo 子模块或补丁；不改其他节点测试路径，不增加网络请求、定时器或后台任务。
 - **验证：** 仅完成源码静态核对；未运行 Go 测试、未编译、未触发 Build Debug。
+
+
+### 第 44 步：补齐取消句柄竞态回归测试（r237）
+- **现有修复：** `beginRun()` 已使用递增代号登记每轮取消句柄；旧轮次结束时只有代号仍匹配才清空句柄。当前逐项测试由 `runOne` 统一调用 `beginRun()`，旧的 direct / node 批量模式及其 `RunIP` 内联登记代码已不存在，因此没有重复重构。
+- **新增测试：** 启动 A、再启动 B，确认 B 会取消 A；让 A 先执行 `done()`，随后确认 `CancelIPTest()` 仍能取消 B。
+- **改动文件：** `core/src/main/golang/native/conftest/iptest_net_test.go`、`CUSTOM.md`。
+- **未做：** 不改现有 `beginRun()` 实现；不改变 asn 查询模式的取消行为；不改 mihomo 子模块或补丁。
+- **验证：** 仅静态核对测试顺序和代号保护逻辑；未运行 Go 测试、未编译、未触发 Build Debug。
