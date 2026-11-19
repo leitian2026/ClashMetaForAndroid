@@ -2417,7 +2417,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ### 第 57 步：经节点延迟测试显示出口 IP 和出口运营商（r247）
 - `ipdelay/ipdelay.go` 的 `api.country.is` 解析同时读取 `country` 和 `ip`；备用 `ipinfo.io/country` 仍只提供国家码，走备用接口时出口 IP 留空。国家查询顺序不变，原有出口国家结果和显示不变。
-- `ipdelay.ExitCountry` 返回出口国家和出口 IP；已更新配置检查中的调用处。出口 IP 是经节点访问外部查询服务时对方看到的地址，不是被测入口 IP。
+- 新增 `ipdelay.ExitCountryDetails` 返回出口国家和出口 IP；原 `ipdelay.ExitCountry` 保留国家码单返回值，避免破坏其他调用方。配置检查改用详情接口。出口 IP 是经节点访问外部查询服务时对方看到的地址，不是被测入口 IP。
 - Go `IPRow` 与 Kotlin `IpTestRow` 新增 JSON 一致的 `exitIp`、`exitAsn` 字段。经节点测试在取得出口 IP 后，串行复用现有 `lookupOwner` 查询运营商；新增独立的出口 IP 缓存，成功和失败都按 IP 缓存，同一出口 IP 后续不再重复查询。入口 IP 的 `ownerCache` 和查询逻辑不变。
 - 经节点模式主表在“出口国家”后增加“出口 IP”列，两行显示地址和运营商；请求失败或未取得出口 IP 时显示 `-`。直连模式列集合不变。“速度”列仍在最右侧。中英文表头、说明和出口运营商查询失败日志同步更新。
 - 新增网络请求：每个首次出现且由 `api.country.is` 返回的出口 IP，最多额外执行一次现有归属查询流程；已缓存的出口 IP 不再查询。该流程复用 `lookupOwner` 的现有数据源和成功缓存，失败也由出口 IP 专用缓存记住。
