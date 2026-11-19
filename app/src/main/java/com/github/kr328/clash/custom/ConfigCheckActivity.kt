@@ -453,17 +453,19 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         },
                     )
 
-                    // CUSTOM.md #68: the jitter and where the time went (0 = not measured)
-                    design.ipLog(
-                        getString(
-                            if (direct) R.string.iptest_log_split_direct else R.string.iptest_log_split_node,
-                            row.ip,
-                            row.jitter,
-                            row.dial,
-                            row.shake,
-                            row.first,
-                        ),
-                    )
+                    // Direct-mode split timings are not all present in the node-mode table; keep that log only.
+                    if (direct) {
+                        design.ipLog(
+                            getString(
+                                R.string.iptest_log_split_direct,
+                                row.ip,
+                                row.jitter,
+                                row.dial,
+                                row.shake,
+                                row.first,
+                            ),
+                        )
+                    }
 
                     if (direct) {
                         if (report.landNode.isEmpty()) {
@@ -481,13 +483,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     // CUSTOM.md #63: through a node: the data centre comes from one extra direct connection (SNI = the node's
                     // own domain), the operator and the registered country from the public service
                     if (!direct && target.isNotEmpty()) {
-                        design.ipLog(
-                            if (row.targetStatus == 0) {
-                                getString(R.string.iptest_log_target_none, row.ip)
-                            } else {
-                                getString(R.string.iptest_log_target, row.ip, row.targetStatus, row.targetNote.ifEmpty { "-" }, row.targetColo.ifEmpty { "-" }, TargetStatusText.of(this@ConfigCheckActivity, row.targetStatus))
-                            },
-                        )
+                        if (row.targetStatus == 0) {
+                            design.ipLog(getString(R.string.iptest_log_target_none, row.ip))
+                        }
 
                         // CUSTOM.md #67: what the page itself says
                         when (row.targetSoft) {
@@ -499,10 +497,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     if (!direct && !row.isDomain) {
                         design.ipLog(
                             when {
-                                row.colo.isNotEmpty() -> getString(R.string.iptest_log_node_colo_ok, row.ip, row.colo)
+                                row.colo.isNotEmpty() -> null // Success is already shown in the IP table.
                                 row.coloErr == "nosni" -> getString(R.string.iptest_log_node_colo_nosni, row.ip)
                                 else -> getString(R.string.iptest_log_node_colo_fail, row.ip, row.coloErr.ifEmpty { "-" })
-                            },
+                            }?.let { design.ipLog(it) },
                         )
                     }
 
@@ -544,9 +542,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             }
             ipRows = ArrayList(ipRows.map { row -> if (row.ip == ip) row.copy(asn = owner.asn, geo = owner.geo) else row })
             design.ipRows(ipRows)
-            if (owner.asn.isNotEmpty()) design.ipLog(getString(R.string.iptest_log_asn_ok, ip, owner.asn))
-            else design.ipLog(getString(R.string.iptest_log_asn_none, ip))
-            if (owner.geo.isNotEmpty()) design.ipLog(getString(R.string.iptest_log_geo, ip, CountryName.label(owner.geo)))
+            if (owner.asn.isEmpty()) design.ipLog(getString(R.string.iptest_log_asn_none, ip))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
