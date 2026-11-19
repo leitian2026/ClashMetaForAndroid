@@ -85,13 +85,13 @@ func TryIP(name, server string, isDomain bool) TryResult {
 // replaced by `server` (an address, or a domain when isDomain), asked now through a copy of the node (api.country.is,
 // then ipinfo.io). CUSTOM.md #72: always asked, the one the proxy page knows from an earlier test is not used. A domain
 // is asked with a copy that has another name, like TryIP. "" when it cannot be found. Nothing is stored.
-func ExitCountry(name, server string, isDomain bool) string {
+func ExitCountry(name, server string, isDomain bool) (country, exitIP string) {
 	lock.RLock()
 	raw := proxies[name]
 	lock.RUnlock()
 
 	if raw == nil {
-		return ""
+		return "", ""
 	}
 
 	if isDomain {
@@ -103,7 +103,7 @@ func ExitCountry(name, server string, isDomain bool) string {
 
 	px := newVariant(raw, server)
 	if px == nil {
-		return ""
+		return "", ""
 	}
 	defer closeProxy(px)
 
