@@ -238,11 +238,10 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             val headers = if (target) {
                 listOf(
                     context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn),
-                    context.getString(R.string.iptest_diag_cert_subject), context.getString(R.string.iptest_diag_cert_issuer), context.getString(R.string.iptest_diag_cert_not_before), context.getString(R.string.iptest_diag_cert_not_after),
-                    context.getString(R.string.iptest_diag_cert_dns), context.getString(R.string.iptest_diag_cert_ip), context.getString(R.string.iptest_diag_cert_verify),
-                    context.getString(R.string.iptest_diag_server), context.getString(R.string.iptest_diag_cf_ray),
-                    context.getString(R.string.iptest_diag_content_type), context.getString(R.string.iptest_diag_location),
-                    context.getString(R.string.iptest_diag_retry_after), context.getString(R.string.iptest_diag_cf_mitigated),
+                    context.getString(R.string.iptest_diag_cert), context.getString(R.string.iptest_diag_cert_ip),
+                    context.getString(R.string.iptest_diag_cf_ray), context.getString(R.string.iptest_diag_content_type),
+                    context.getString(R.string.iptest_diag_location), context.getString(R.string.iptest_diag_retry_after),
+                    context.getString(R.string.iptest_diag_cf_mitigated), context.getString(R.string.iptest_diag_page_hint),
                 )
             } else {
                 listOf(context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn))
@@ -278,19 +277,19 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                                 }
                             },
                         ),
-                        required(row.targetCertSubject),
-                        required(row.targetCertIssuer),
-                        required(row.targetCertNotBefore),
-                        required(row.targetCertNotAfter),
-                        required(row.targetCertDnsNames),
+                        context.getString(
+                            R.string.iptest_diag_cert_value,
+                            required(row.targetCertDnsNames),
+                            required(row.targetCertIssuer),
+                            required(row.targetCertNotAfter),
+                        ),
                         optional(row.targetCertIpAddresses),
-                        if (failed) dash else context.getString(R.string.iptest_diag_cert_skipped),
-                        required(row.targetServer),
                         required(row.targetCfRay),
                         required(row.targetContentType),
                         optional(row.targetNote),
                         optional(row.targetRetryAfter),
                         optional(row.targetCfMitigated),
+                        optional(row.targetSoftNote.ifBlank { row.targetSoft }),
                     )
                 } else {
                     listOf(
