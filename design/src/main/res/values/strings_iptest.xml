@@ -59,7 +59,7 @@
     <string name="iptest_faster_cell">%1$d ms faster</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">failed</string>
-    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android's system certificate store. In via-node tests, Exit IP is the address seen by the target site; it is different from the registered operator of the entry IP.</string>
+    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android\'s system certificate store. In via-node tests, Exit IP is the address seen by the target site; it is different from the registered operator of the entry IP.</string>
     <string name="iptest_log_title">Live status</string>
     <string name="iptest_log_progress">(%2$d of %1$d IPs tested)</string>
     <string name="iptest_port_title">Ports: %1$s</string>
