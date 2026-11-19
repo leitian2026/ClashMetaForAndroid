@@ -44,8 +44,6 @@ type ConfigFail struct {
 type ConfigRead struct {
 	IPs     []ConfigIP
 	Fails   []ConfigFail
-	Omitted int // kept for the report; always 0 now (the proxy page's own limit is applied per node)
-	Family  int // kept for the report; always 0 now (the proxy page lists IPv4 only)
 }
 
 // displayIP is one address the proxy page shows for a node.

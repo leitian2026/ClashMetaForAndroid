@@ -113,9 +113,8 @@ data class IpTestConfigFail(
 
 /**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
- * "direct", "node" or "nodes" (then only [nodes] is filled: the nodes that can be chosen). [error] is a short code:
- * "no domain", "no node", "no address", "domain only node" (direct mode, and only domains were typed),
- * "unknown mode", or "".
+ * "nodes" (then only [nodes] is filled), "config", "asn", "parse", "probe", "nodeone", "download" or "colo".
+ * [error] is a short code such as "no node", "no address" or "unknown mode".
  */
 @Serializable
 data class IpTestReport(
@@ -125,7 +124,6 @@ data class IpTestReport(
     val nodes: List<String> = emptyList(),
     val rows: List<IpTestRow> = emptyList(),
     val invalid: List<String> = emptyList(), // words that were neither an address nor a domain
-    val skipped: List<String> = emptyList(), // direct mode: domains, which only the node mode tests
     val cut: Int = 0,
     val ref: IpTestRef? = null,
     val echSource: String = "",
@@ -139,8 +137,6 @@ data class IpTestReport(
     // domain over the limit, the ones left out by a node's ip-version
     val config: List<IpTestConfigIp> = emptyList(),
     val configFail: List<IpTestConfigFail> = emptyList(),
-    val configOmitted: Int = 0,
-    val configFamily: Int = 0,
 ) {
     companion object {
         private val json = Json {

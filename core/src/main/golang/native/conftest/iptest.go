@@ -26,10 +26,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,8 +44,6 @@ const (
 	// CancelIPTestID is the special id of closeCustomConnection that stops a running IP test.
 	CancelIPTestID = "!cancel-iptest"
 
-	ipGapMin     = 1 * time.Second
-	ipGapMax     = 3 * time.Second
 	httpTimeout  = 4 * time.Second
 	asnTimeout   = 4 * time.Second
 	echFetchWait = 8 * time.Second
@@ -56,7 +52,7 @@ const (
 // IPRequest is what the app sends (as the filter of the query, with "kind":"ip").
 type IPRequest struct {
 	Kind   string `json:"kind"`
-	Mode   string `json:"mode"`   // "direct", "node" or "nodes"
+	Mode   string `json:"mode"`   // "nodes", "config", "asn", "parse", "probe", "nodeone", "download" or "colo"
 	Domain string `json:"domain"` // direct: SNI and Host
 	Node   string `json:"node"`   // node: the node to copy
 	IPs    string `json:"ips"`    // the text as typed
@@ -65,13 +61,11 @@ type IPRequest struct {
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
 	// CUSTOM.md #66: nodeone: the address of a site the user really uses; the tries go to it through the node ("" = the node's own test URL)
 	Target string `json:"target"`
-	// parse: read the typed list without testing; Direct drops the domains (only node mode tests them)
-	Direct bool `json:"direct"`
 }
 
 // IPRow is the result for one address.
 type IPRow struct {
-	IP       string `json:"ip"` // the address, or the domain when IsDomain
+	IP       string `json:"ip"` // the address; IsDomain is retained for saved-result schema compatibility
 	IsDomain bool   `json:"isDomain"`
 	OK       bool   `json:"ok"`
 	Ms       int    `json:"ms"`
@@ -158,8 +152,7 @@ type IPReport struct {
 	Node      string   `json:"node"`
 	Nodes     []string `json:"nodes"`     // mode "nodes"
 	Rows      []IPRow  `json:"rows"`      // quickest first, the ones that failed last
-	Invalid   []string `json:"invalid"`   // words that were neither an address nor a domain
-	Skipped   []string `json:"skipped"`   // direct mode: domains, which only the node mode tests
+	Invalid   []string `json:"invalid"`   // words that were not IP addresses
 	Cut       int      `json:"cut"`       // addresses over the limit, not tested
 	Ref       *IPRef   `json:"ref"`       // node mode
 	ECHSource string   `json:"echSource"` // direct mode: the server that gave the ECH config, "" when there is none
@@ -173,12 +166,9 @@ type IPReport struct {
 	// CUSTOM.md #62: mode "probe": the node whose server is the typed domain, through which the exit country was asked
 	// ("" when the config has none, then no exit country is shown)
 	LandNode string `json:"landNode"`
-	// CUSTOM.md #69: mode "config": the addresses the profile uses for its nodes, the servers that gave none, the
-	// addresses of resolved domains over the per-domain limit, and the ones left out by a node's `ip-version`
-	Config        []ConfigIP   `json:"config"`
-	ConfigFail    []ConfigFail `json:"configFail"`
-	ConfigOmitted int          `json:"configOmitted"`
-	ConfigFamily  int          `json:"configFamily"`
+	// CUSTOM.md #69: mode "config": the addresses the profile uses for its nodes and the servers that gave none.
+	Config     []ConfigIP   `json:"config"`
+	ConfigFail []ConfigFail `json:"configFail"`
 }
 
 // ipPort is the port tested in direct mode (a variable only so that a test can point it at a local server).
@@ -218,7 +208,7 @@ func RunIP(filter string) IPReport {
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	req.Domain = strings.TrimSpace(req.Domain)
-	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Skipped: []string{}, Nodes: []string{}, Config: []ConfigIP{}, ConfigFail: []ConfigFail{}}
+	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Nodes: []string{}, Config: []ConfigIP{}, ConfigFail: []ConfigFail{}}
 
 	if req.Mode == "nodes" {
 		for name, raw := range ipdelay.RawProxies() {
@@ -237,8 +227,6 @@ func RunIP(filter string) IPReport {
 
 		rep.Config = read.IPs
 		rep.ConfigFail = read.Fails
-		rep.ConfigOmitted = read.Omitted
-		rep.ConfigFamily = read.Family
 		rep.At = time.Now().UnixMilli()
 
 		return rep
@@ -256,71 +244,8 @@ func RunIP(filter string) IPReport {
 		return runOne(req, rep)
 	}
 
-	list, invalid := parseTargets(req.IPs)
-
-	rep.Invalid = append(rep.Invalid, invalid...)
-
-	if req.Mode == "direct" {
-		var addrs []target
-
-		for _, t := range list {
-			if t.IsDomain {
-				rep.Skipped = append(rep.Skipped, t.Text)
-			} else {
-				addrs = append(addrs, t)
-			}
-		}
-
-		if len(addrs) == 0 && len(rep.Skipped) > 0 {
-			rep.Error = "domain only node"
-
-			return rep
-		}
-
-		list = addrs
-	}
-
-	if len(list) > maxIPTest {
-		rep.Cut = len(list) - maxIPTest
-		list = list[:maxIPTest]
-	}
-
-	if len(list) == 0 {
-		rep.Error = "no address"
-
-		return rep
-	}
-
-	ctx, done := beginRun()
-	defer done()
-
-	switch req.Mode {
-	case "direct":
-		runDirect(ctx, &rep, list)
-	case "node":
-		runNode(ctx, &rep, list)
-	default:
-		rep.Error = "unknown mode"
-	}
-
-	rep.Cancelled = ctx.Err() != nil
-	rep.At = time.Now().UnixMilli()
-
-	sortRows(rep.Rows)
-
+	rep.Error = "unknown mode"
 	return rep
-}
-
-// pause waits a random 1 to 3 seconds; false when the run was cancelled meanwhile.
-func pause(ctx context.Context) bool {
-	d := ipGapMin + time.Duration(rand.Int63n(int64(ipGapMax-ipGapMin)))
-
-	select {
-	case <-ctx.Done():
-		return false
-	case <-time.After(d):
-		return true
-	}
 }
 
 // configHosts is every address any node's `hosts:` entry (or literal server) has.
@@ -334,123 +259,6 @@ func configHosts() map[string]bool {
 	}
 
 	return out
-}
-
-func runNode(ctx context.Context, rep *IPReport, list []target) {
-	if rep.Node == "" {
-		rep.Error = "no node"
-
-		return
-	}
-
-	hosts := map[string]bool{}
-	for _, ip := range ipdelay.NodeAddresses(rep.Node) {
-		hosts[ip] = true
-	}
-
-	// the quickest address of the last speed test of this node, to compare with
-	for _, r := range ipdelay.Get(rep.Node) {
-		if r.Delay > 0 && (rep.Ref == nil || r.Delay < rep.Ref.Ms) {
-			rep.Ref = &IPRef{IP: r.IP, Ms: r.Delay, At: r.At}
-		}
-	}
-
-	for i, t := range list {
-		if i > 0 && !pause(ctx) {
-			return
-		}
-
-		if ctx.Err() != nil {
-			return
-		}
-
-		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
-
-		row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text], Ms: res.Delay}
-
-		if res.Err == "" {
-			row.OK = true
-			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain) // CUSTOM.md #72: asked now, once
-
-			if rep.Ref != nil && res.Delay < rep.Ref.Ms {
-				row.Faster = rep.Ref.Ms - res.Delay
-			}
-		} else {
-			row.Reason = res.Err
-			row.Code = errlog.Classify(res.Err)
-		}
-
-		rep.Rows = append(rep.Rows, row)
-	}
-}
-
-func runDirect(ctx context.Context, rep *IPReport, list []target) {
-	if rep.Domain == "" {
-		rep.Error = "no domain"
-
-		return
-	}
-
-	// one ECH config for the domain, asked from the DoH servers of the profile and a few public ones
-	var echList []byte
-
-	fctx, fcancel := context.WithTimeout(ctx, echFetchWait)
-	cfg, source, err := fetch(fctx, rep.Domain, ipdelay.DoHServers())
-	fcancel()
-
-	if err == nil {
-		echList, rep.ECHSource = cfg, source
-	}
-
-	inConfig := configHosts()
-
-	for i, t := range list {
-		if i > 0 && !pause(ctx) {
-			return
-		}
-
-		if ctx.Err() != nil {
-			return
-		}
-
-		row := probeIP(ctx, netip.MustParseAddr(t.Text), rep.Domain, echList)
-		row.InHosts = inConfig[row.IP]
-
-		rep.Rows = append(rep.Rows, row)
-	}
-}
-
-// probeIP makes one TLS connection to ip:443 with `domain` as SNI. With an ECH config the first try offers ECH; when
-// the server refuses it, a second plain one still tells whether the address works.
-func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) IPRow {
-	row := IPRow{IP: ip.String(), ECH: "none"}
-
-	addr := net.JoinHostPort(row.IP, ipPort)
-
-	conn, ms, _, ech, err := handshakeECHSplit(ctx, addr, domain, echList, attemptTimeout)
-	row.ECH = ech
-
-	row.Ms = ms
-
-	if err != nil {
-		row.Reason = err.Error()
-		row.Code = errlog.Classify(row.Reason)
-
-		return row
-	}
-
-	row.OK = true
-
-	state := conn.ConnectionState()
-	row.TLS = ipdelay.TLSVersionName(state.Version)
-	row.ALPN = state.NegotiatedProtocol
-
-	// the answer of the server (is it Cloudflare, and the data centre): not needed for the address to count as
-	// working, so a failure only leaves the fields empty. The operator is not asked here (a tap asks it, mode
-	// "asn"); CUSTOM.md #72: nothing is shown from memory any more, so it stays empty until it is asked.
-	row.Colo, row.CF = fetchEvidence(ctx, conn, domain)
-
-	return row
 }
 
 // handshakeWithin is handshakeTo with its own time limit (CUSTOM.md #52: the ten tries and the ports take 3 seconds each).

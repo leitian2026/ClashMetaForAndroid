@@ -307,9 +307,6 @@ object IpTestDialog {
             notes += context.getString(R.string.iptest_cfg_fail, f.name, f.nodes.joinToString("、"), reason)
         }
 
-        if (report.configOmitted > 0) notes += context.getString(R.string.iptest_cfg_omitted, report.configOmitted)
-        if (report.configFamily > 0) notes += context.getString(R.string.iptest_cfg_family, report.configFamily)
-
         if (report.config.isEmpty()) notes.add(0, context.getString(R.string.iptest_cfg_none))
 
         if (notes.isNotEmpty()) {

@@ -248,32 +248,11 @@ func runOne(req IPRequest, rep IPReport) IPReport {
 	return rep
 }
 
-// parseList (mode "parse") reads the typed text: the entries to test come back as rows (IP and IsDomain), the same
-// way RunIP reads them (the domains of a direct run in Skipped, more than maxIPTest cut, words not understood).
+// parseList (mode "parse") reads the typed IP list: accepted addresses, invalid words and the maxIPTest limit.
 func parseList(req IPRequest, rep *IPReport) {
 	list, invalid := parseTargets(req.IPs)
 
 	rep.Invalid = append(rep.Invalid, invalid...)
-
-	if req.Direct {
-		var addrs []target
-
-		for _, t := range list {
-			if t.IsDomain {
-				rep.Skipped = append(rep.Skipped, t.Text)
-			} else {
-				addrs = append(addrs, t)
-			}
-		}
-
-		if len(addrs) == 0 && len(rep.Skipped) > 0 {
-			rep.Error = "domain only node"
-
-			return
-		}
-
-		list = addrs
-	}
 
 	if len(list) > maxIPTest {
 		rep.Cut = len(list) - maxIPTest

@@ -46,6 +46,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
+    var onLookupOwner: (String) -> Unit = {} // a tap on the ASN cell
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
@@ -83,6 +84,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
     private var speedIp: String? = null
+    private var ownerLookupIp: String? = null
     private var testing = false
 
     private var infoText: CharSequence = ""
@@ -186,7 +188,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         redraw()
     }
 
-    /** The lines above the table: [head] bold, [sub] grey, [warnings] orange (not-understood words, skipped domains, cut). */
+    /** The lines above the table: [head] bold, [sub] grey, [warnings] orange (invalid words and cut entries). */
     fun setInfo(head: String, sub: String, warnings: List<String>) {
         val sb = SpannableStringBuilder()
 
@@ -405,6 +407,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun setBusy(testing: Boolean, ip: String?) {
         this.testing = testing
         speedIp = ip
+        redraw()
+    }
+
+    fun setOwnerLookup(ip: String?) {
+        ownerLookupIp = ip
         redraw()
     }
 
@@ -817,7 +824,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         return when (k) {
             Key.COLO -> coloLabel(r.colo)
-            Key.ASN -> r.asn.ifEmpty { "-" }
+            Key.ASN -> r.asn.ifEmpty { if (r.ok) "查询归属地" else "-" }
             Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
             Key.LAND -> if (tested) CountryName.label(r.country) else "-"
             Key.PORTS -> portsPlain(r)
@@ -837,12 +844,27 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         }
     }
 
+    private fun ownerCell(r: IpTestRow): View {
+        val value = when {
+            r.asn.isNotEmpty() -> r.asn
+            !r.ok -> "-"
+            ownerLookupIp == r.ip -> "查询中…"
+            else -> "查询归属地"
+        }
+        val color = if (r.ok && r.asn.isEmpty()) colorLink else colorText
+        return textCell(value, color).apply {
+            if (r.ok && r.asn.isEmpty() && ownerLookupIp == null && !testing) {
+                setOnClickListener { onLookupOwner(r.ip) }
+            }
+        }
+    }
     private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
         return when (k) {
             Key.PORTS -> portsCell(r)
             Key.COLO -> coloCell(r, w)
             Key.TCOLO -> coloCell(r, w, r.targetColo)
             Key.TEST -> testCell(r)
+            Key.ASN -> ownerCell(r)
             else -> {
                 val color = when (k) {
                     Key.LOSS -> lossColor(r.loss)

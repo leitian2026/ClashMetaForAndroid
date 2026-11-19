@@ -48,6 +48,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     private var ipRows = ArrayList<IpTestRow>()
     private var speedJob: Job? = null
     private var speedIp = ""
+    private var ownerLookupJob: Job? = null
 
     // CUSTOM.md #156 step 4: intent-provided IPs are consumed by exactly one Request.IpTest.
     private var pendingSavedIpPreset: String? = null
@@ -80,6 +81,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             }
         }
         design.onSpeedCancel = { launch { cancelSpeed(design) } }
+        // Registered ownership data is fetched only when the user taps the ASN cell.
+        design.onLookupOwner = { ip ->
+            if (job?.isActive != true && speedJob?.isActive != true && ownerLookupJob?.isActive != true) {
+                ownerLookupJob = launch { runOwnerLookup(design, ip) }
+            }
+        }
         // CUSTOM.md #156 step 2: saving is local-only and is unavailable while another test or download runs.
         design.onSaveIpBatch = {
             if (job?.isActive != true && speedJob?.isActive != true && !ipTesting && !checkTesting) {
@@ -310,12 +317,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 return
             }
 
-            // the list as the core reads it (addresses, domains, words it does not understand, the limit of 20)
+            // the list as the core reads it (IP addresses, invalid words, and the limit of 20)
             val parsed = IpTestReport.parse(
                 withClash {
                     queryCustomConnections(
                         CustomConnections.SORT_CHECK,
-                        JSONObject().put("kind", "ip").put("mode", "parse").put("direct", direct)
+                        JSONObject().put("kind", "ip").put("mode", "parse")
                             .put("ips", choice.ips).toString(),
                     )
                 },
@@ -326,15 +333,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     design.showText(getString(R.string.iptest_need_ips))
                     return
                 }
-                "domain only node" -> {
-                    design.showText(getString(R.string.iptest_domain_node_only))
-                    return
-                }
             }
 
             val warnings = ArrayList<String>()
 
-            if (parsed.skipped.isNotEmpty()) warnings += getString(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
             if (parsed.invalid.isNotEmpty()) warnings += getString(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
             if (parsed.cut > 0) warnings += getString(R.string.iptest_cut, parsed.cut)
 
@@ -453,20 +455,6 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     )
 
                     if (direct) {
-                        design.ipLog(
-                            if (row.asn.isNotEmpty()) {
-                                getString(R.string.iptest_log_asn_ok, row.ip, row.asn)
-                            } else {
-                                getString(R.string.iptest_log_asn_none, row.ip)
-                            },
-                        )
-
-                        // CUSTOM.md #62: the registered country comes with the operator, the exit country is asked through a
-                        // node of the config whose server is the typed domain (no such node: said once, then silent)
-                        if (row.geo.isNotEmpty()) {
-                            design.ipLog(getString(R.string.iptest_log_geo, row.ip, CountryName.label(row.geo)))
-                        }
-
                         if (report.landNode.isEmpty()) {
                             if (!landNoNodeSaid) {
                                 landNoNodeSaid = true
@@ -506,17 +494,6 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                             },
                         )
 
-                        design.ipLog(
-                            if (row.asn.isNotEmpty()) {
-                                getString(R.string.iptest_log_asn_ok, row.ip, row.asn)
-                            } else {
-                                getString(R.string.iptest_log_asn_none, row.ip)
-                            },
-                        )
-
-                        if (row.geo.isNotEmpty()) {
-                            design.ipLog(getString(R.string.iptest_log_geo, row.ip, CountryName.label(row.geo)))
-                        }
                     }
                 } else {
                     design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, ErrorsText.explain(this, row.code), row.loss))
@@ -540,6 +517,31 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
     }
 
+    // CUSTOM.md #72: ASN and registered country are queried only after the user taps that IP's ASN cell.
+    private suspend fun runOwnerLookup(design: ConfigCheckDesign, ip: String) {
+        design.ipOwnerLookup(ip)
+        try {
+            val request = JSONObject().put("kind", "ip").put("mode", "asn").put("ips", ip).toString()
+            val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+            val owner = report.rows.firstOrNull()
+            if (report.error.isNotEmpty() || owner == null) {
+                design.ipLog(getString(R.string.iptest_log_asn_none, ip))
+                return
+            }
+            ipRows = ArrayList(ipRows.map { row -> if (row.ip == ip) row.copy(asn = owner.asn, geo = owner.geo) else row })
+            design.ipRows(ipRows)
+            if (owner.asn.isNotEmpty()) design.ipLog(getString(R.string.iptest_log_asn_ok, ip, owner.asn))
+            else design.ipLog(getString(R.string.iptest_log_asn_none, ip))
+            if (owner.geo.isNotEmpty()) design.ipLog(getString(R.string.iptest_log_geo, ip, CountryName.label(owner.geo)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            design.ipLog(getString(R.string.check_error, e.message ?: e.javaClass.simpleName))
+        } finally {
+            withContext(NonCancellable) { design.ipOwnerLookup(null) }
+            ownerLookupJob = null
+        }
+    }
     // the data centre list (code -> city, code -> country) of Cloudflare, fetched online once per round; without it the
     // data centres have no English name and no flag (the Chinese names are built in)
     private suspend fun fetchColos(design: ConfigCheckDesign) {
