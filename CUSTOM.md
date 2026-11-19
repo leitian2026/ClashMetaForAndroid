@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r240
+当前版本：2_11_36-r241
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2155,7 +2155,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/MuxDesign.kt`（仅地址行及双列容器排版）、`design/src/main/res/layout/design_mux.xml`（移除居中限宽容器）、`design/src/main/res/values/dimens_custom.xml`（删除不再使用的最大宽度尺寸）、删除 `design/src/main/java/com/github/kr328/clash/design/custom/MuxColumnLayout.kt`，以及本登记文件。
 - **验证：** 静态核对仅修改地址 View 的排布和 IPv6 单行省略显示；未运行 Kotlin 编译、Android 构建或真机显示测试，未触发 Build Debug。
 
-### 补充修复：保存批次前严格读取现有清单
+### 补充修复：保存批次前严格读取现有清单（r218）
 - **数据保护：** “保存这一批”“只保存通的”和“只保存粘贴的 IP”最终都经过 `SavedIpStore.saveRows()`。该方法在合并写入前改用严格读取：SharedPreferences 无法打开 / 读取，或现有 JSON 损坏时，直接报错并拒绝写入，不再把读取失败当成空清单后覆盖原数据。
 - **范围：** 只改变保存批次的读失败处理；正常读取、运营商选择、IP 去重、测试状态 / 时间更新、粘贴合并顺序、5000 条上限、一次写入及备份格式均不变。普通页面读取仍按原规则回退空清单并显示读取错误。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt` 和本登记文件；没有新增文件或修改上游文件总表。
@@ -2199,7 +2199,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 静态核对复制文本在诊断内容非空时统一追加；未运行 Kotlin 编译或 Android 构建。
 
 
-### 补充：详细诊断改为横向字段表格（#156）
+### 补充：详细诊断改为横向字段表格（#156）（r222之后，未单独编号）
 - **IP 诊断表格：** 将原来逐项纵向堆叠的文字诊断改为表格；IP 固定在左侧并纵向一行一个，诊断字段作为横向列，列过多时只横向滚动字段区。
 - **字段：** 目标站模式展示入口机房、出口机房、TLS / ALPN、HTTP 状态、连接结果、证书主题 / 颁发者 / 有效期 / SAN / 验证状态，以及现有 HTTP 响应头。入口机房直接复用现有 `row.colo`，出口机房复用 `row.targetColo`，不增加探测。
 - **其他模式：** 展示现有机房、TLS、ALPN 和测试结果；没有采集的字段显示“未获取”，不补造数据。
@@ -2208,7 +2208,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt` 和本登记文件；没有新增文件或修改上游文件总表。
 - **验证：** 静态核对表格字段均来自现有 `IpTestRow` / `DnsCheckReport`；未运行 Kotlin 编译、Android 构建或真机测试。
 
-### 补充修正：详细诊断表格去重及中文表头
+### 补充修正：详细诊断表格去重及中文表头（r222之后，未单独编号）
 - **去重依据：** 对照原有 IP 测试表格，移除详细诊断表格中重复的入口机房、出口机房、HTTP 状态和连接结果；IP 仅作为每行诊断记录的对应标识保留，不作为新增检测项目。
 - **其他模式：** 机房已由原表格展示，不在诊断表格重复；直连模式的 TLS / ALPN 已显示在原表格 IP 单元格中，因此不重复展示。节点模式的 TLS / ALPN 保留在详细诊断表格。
 - **中文表头：** 为 ALPN、DNS SAN、IP SAN、Server、Cf-Ray、Content-Type、Location、Retry-After、CF-Mitigated 等技术字段补充中文含义，保留必要英文缩写便于核对。
@@ -2216,13 +2216,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 已对照原表格字段与诊断字段逐项检查，并对比原有 redraw() 函数；未运行 Kotlin 编译、Android 构建或真机测试。
 
 
-### 补充修正：详细诊断表格项目名称纯中文
+### 补充修正：详细诊断表格项目名称纯中文（r222之后，未单独编号）
 - **调整：** 新增详细诊断表格的项目名称改为中文，不再在表头括号中附带英文缩写。包括“IP 地址”“协商协议”“证书域名”“证书 IP 地址”“服务器标识”“Cloudflare 请求编号”“响应内容类型”“重定向地址”“重试等待时间”“Cloudflare 防护状态”等；TLS 版本保留通用技术名称。
 - **范围：** 只修改 `IpTestView.kt` 中新增详细诊断表格的表头文字；不修改原有 IP 测试表格、数据字段、检测逻辑、布局或网络请求。
 - **验证：** 静态核对表头替换位置；未运行 Kotlin 编译、Android 构建或真机测试。
 
 
-## 详细诊断表格字号统一
+### 详细诊断表格字号统一（r222之后，未单独编号）
 - `IpTestView.kt` 的 `diagnosticCell()` 字号从 12sp 调整为 14sp，与原有 IP 测试表格的表头和数据单元格字号一致。
 - 仅调整新增详细诊断表格（包括其中的 DNS 结果表格）单元格字号；原有 IP 测试表格及其他布局、逻辑不变。
 
@@ -2358,3 +2358,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **修正：** 将“内核 DNS”对应的英文资源从 “Core DNS” 改为 “Kernel DNS”，与“核心解析”（Core resolution）区分。
 - **改动文件：** `design/src/main/res/values/strings_iptest_diag.xml`、`CUSTOM.md`。
 - **验证：** 静态核对资源键值；未运行 Kotlin 编译、未编译、未触发 Build Debug。
+
+
+### 第 50 步：整理详细诊断与保存清单的历史登记（r241）
+- **登记整理：** 将末尾未标版本的五段历史补充统一为三级标题；保存批次严格读取登记为 r218，四段详细诊断补充按历史提交记录标注为“r222之后，未单独编号”，不臆造版本号。
+- **重复代码核对：** TLS 版本文字已复用 `ipdelay.TLSVersionName`；直连 / 节点 ASN 与 Geo 日志已共用 App 的自动查询函数；Cloudflare 机房城市和国家码已由 `parseColoData` 一次解码并由 `fetchColos` 同时返回。上述现有实现未重复改动。
+- **未做：** 当前 `probeDirect` 与 `nodeOwner` 没有重复的 ASN / Geo 查询：注册归属地仍由 App 自动调用 `asn` 模式，`nodeOwner` 只读取入口机房，直连探测读取出口国家；本次未擅自改变这三种数据的职责。经节点 HTTP 请求骨架此前已在 r225 / r233 合并，本次未再次重构；不合并 Go 与 Kotlin 的 IP 解析器。
+- **改动文件：** `CUSTOM.md`。
+- **验证：** 对照历史提交日期 / 版本标记及当前调用路径静态核对；未运行 Go 测试、Kotlin 编译、Android 构建或真机测试，未触发 Build Debug。
