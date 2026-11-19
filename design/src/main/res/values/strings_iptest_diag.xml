@@ -2,17 +2,19 @@
 <resources>
     <string name="iptest_diag_title">Detailed diagnostics</string>
     <string name="iptest_diag_ip_title">IP detailed diagnostics</string>
+    <string name="iptest_diag_connection">Connection</string>
+    <string name="iptest_diag_response">Response</string>
     <string name="iptest_diag_ip">IP address</string>
     <string name="iptest_diag_tls">TLS version</string>
     <string name="iptest_diag_alpn">Negotiated protocol</string>
     <string name="iptest_diag_cert">Certificate</string>
     <string name="iptest_diag_cert_value">Domains: %1$s\nIssuer: %2$s\nExpires: %3$s</string>
     <string name="iptest_diag_cert_ip">Certificate IP addresses</string>
-    <string name="iptest_diag_cf_ray">Cloudflare request ID</string>
+    <string name="iptest_diag_cf_ray">Request ID</string>
     <string name="iptest_diag_content_type">Response content type</string>
     <string name="iptest_diag_location">Redirect address</string>
-    <string name="iptest_diag_retry_after">Retry delay</string>
-    <string name="iptest_diag_cf_mitigated">Cloudflare mitigation status</string>
+    <string name="iptest_diag_retry_after">Retry wait</string>
+    <string name="iptest_diag_cf_mitigated">Protection status</string>
     <string name="iptest_diag_page_hint">Page hint</string>
     <string name="iptest_diag_not_obtained">Not obtained</string>
     <string name="iptest_diag_none">None</string>
