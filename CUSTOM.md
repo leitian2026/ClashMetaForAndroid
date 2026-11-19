@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r278
+当前版本：2_11_46-r279
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -362,6 +362,7 @@
 - 包装类型内嵌了真正的 `*net.TCPConn` / `*net.UDPConn`，所以它们的全部方法（`SyscallConn`、`ReadMsgUDP`、`CloseWrite`、`ReadFrom` 等）都还在，只有 `Close` 多做一步；唯一变化是类型断言 `.(*net.UDPConn)`，内核里对拨号结果这样断言的只有 `common/net/packet`，不是 `*net.UDPConn` 时它自己有通用后备。
 
 **新增文件**
+- `patches/mihomo/0004-lookup-fresh.patch`：只在 mihomo 的 `dns` 包新增 `dns/fresh.go`，导出 `LookupIPv4Fresh(ctx, host)` 和 `ErrFreshUnsupported`；调用 `Resolver.exchangeWithoutCache` 跳过缓存读取，仍复用原有 nameserver-policy / fallback，并在成功后按内核原逻辑写回缓存。仅支持当前已核实的 `dns.Resolvers` 值和 `*dns.Resolver`；不支持的动态类型明确返回 `ErrFreshUnsupported`，不回退缓存查询。依赖 `dns/resolver.go` 中的 `exchangeWithoutCache`、`msgToIP`，以及 `hub/executor/executor.go` 中 `DefaultResolver` 的赋值和 `dns/system.go` 中 `SystemResolver` 的赋值。
 - `patches/mihomo/0001-conn-count.patch`：给 mihomo 打的补丁（**内核文件不直接改，构建时由 workflow 应用**）。内容：新文件 `component/dialer/conncount.go`（登记表（r27 起每项除了计数还存"从 0 变 1 的时刻" `since`）、包装类型、`DialContext` / `ListenPacket`、`WithOwner`、`ConnCounts`（带 `Since`））；`component/dialer/dialer.go` 里原来的 `DialContext` / `ListenPacket` 改名为 `dialContextRaw` / `listenPacketRaw`（各一行）；`component/dialer/options.go` 的 `option` 结构体加 `owner string`；`adapter/outbound/base.go` 的 `DialOptions()` 末尾加 `dialer.WithOwner(b.name)`。
 - `core/src/main/golang/native/connlist/mux.go`：`QueryMux`、`MuxNode` / `MuxIp` / `MuxSnapshot`、`SortMux`；`ipdelay.go`（#1 #7 的文件）加 `CountryOf(node, ip)`（只读缓存）；`connections.go`（#8 的文件）里 `queryCustomConnections` 加一个 `SortMux` 分支；`core/.../custom/CustomConnections.kt` 加常量 `SORT_MUX`。
 - `core/src/main/java/com/github/kr328/clash/core/model/MuxSnapshot.kt`（`MuxNode` / `MuxIp` / `MuxSnapshot` 和解析）。
@@ -370,6 +371,7 @@
 
 **改了上游文件：** `.github/workflows/build-debug.yaml`（`Checkout submodules` 和它的缓存步骤之后加 `Apply mihomo patches` 步骤，对子模块目录 `patch -p1`，先 `--dry-run`，打不上就让构建失败；它**不是** `Apply Patches` 那个对 `GOROOT` 打补丁的上游步骤）；首页入口：`design_main.xml`（"连接"后面加一个 `LargeActionLabel`）、`MainDesign.kt`（枚举加 `OpenMux`）、`MainActivity.kt`（一个 `OpenMux` 分支和 import）、`AndroidManifest.xml`（`MuxActivity`），见总表。
 **依赖的上游接口（升级内核后先查这些）：** `dialer.DialContext` / `dialer.ListenPacket` 的签名、`option` 结构体和 `applyOptions`、`Base.DialOptions()`、`dialer.Dialer` 的 `Opt`（`WithOption(d.Opt)` 会带上 `owner`）、`statistic.Tracker.Chains()`。补丁每个文件只有几行 diff，对不上时按上面的描述在新内核上重做。
+**新增 DNS 强制查询接口（r279）：** `dns/fresh.go` 只通过 `resolver.DefaultResolver`（`Invalid()` 为真时）或 `resolver.SystemResolver` 选择解析器；两者在固定提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 中均以 `dns.Resolvers` 值赋给接口，主解析器来自其内嵌 `*Resolver`。类型不支持时返回 `ErrFreshUnsupported`。源码依据：`dns/resolver.go` 的 `exchangeWithoutCache`（跳过缓存 GET、保留 `ipExchange` 的 policy / fallback、成功后 `putMsgToCache`）和 `msgToIP`；`hub/executor/executor.go` 的 `updateDNS`；`dns/system.go` 的 `init`。不改已有解析器方法、缓存结构、TTL 或其他行为。
 **已知限制：** 补丁最初是对着 mihomo Alpha `478af2a57c48bdb8e85f6ed93b2c3735e90ceabd` 写的。r27 起已对照实际构建用的子模块提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的源码核对：`patch -p1` 能干净打上（`dialer.go` 的 `DialContext` / `ListenPacket`、`options.go` 的 `option`、`base.go` 的 `DialOptions()` 都在原位）；`conncount.go` 里计数和 `since` 的逻辑单独编译并跑过一个小测试（两条连接同 IP、断一条时间不变、全断后重连时间更新）。**但整个内核（含依赖）和 App 没有本地编译过**（这里没有网络，拉不下 Go 依赖），Kotlin 部分只做了人工检查。第一次 Actions 构建失败时，先看 `Apply mihomo patches` 步骤的输出。
 
 ## 21. 错误与诊断页（r18，r23 加折叠，r24 修折叠和清除）
@@ -2701,3 +2703,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **清除：** 点击后清空测试框、时间戳并持久化。已保存 IP 重测的一次性预填使用独立键，不覆盖原有手动输入历史。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`CUSTOM.md`。没有新增或修改上游文件总表。
 - **验证：** 静态核对初始化、手动输入、读取配置、放入测试框、清除、重开恢复及窗口重新获得焦点的更新路径；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
+
+
+### 第 83 步：新增 mihomo DNS 强制重新查询接口（r279）
+- 新增内核补丁 `patches/mihomo/0004-lookup-fresh.patch`，补丁只新增 mihomo `dns/fresh.go`，导出 `LookupIPv4Fresh(ctx, host)` 与 `ErrFreshUnsupported`。它构造 A 记录问题并调用 `Resolver.exchangeWithoutCache`，跳过 DNS 缓存读取；仍沿用当前解析器的 nameserver-policy、fallback 过滤和查询路径，成功答案仍写回原缓存。
+- 解析器选择与 `LookupIPv4WithResolver` 一致：`resolver.DefaultResolver` 的 `Invalid()` 为真时优先使用，否则使用 `resolver.SystemResolver`。已对照固定 mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`：`hub/executor/executor.go` 中 `DefaultResolver = r` 的 `r` 是 `dns.Resolvers` 值；`dns/system.go` 中 `SystemResolver = r` 也为 `dns.Resolvers` 值，主解析器是内嵌 `*Resolver`。函数仅接受已确认的 `dns.Resolvers` 和 `*dns.Resolver` 动态类型；其他类型返回 `ErrFreshUnsupported`，不静默退回缓存查询。
+- 补丁依赖 `dns/resolver.go` 的 `exchangeWithoutCache`、`msgToIP`；不修改已有内核文件、`ExchangeContext`、缓存结构、TTL 或任何既有函数行为。现有 Build Debug 的 `Apply mihomo patches` 已按 `patches/mihomo/*.patch` 自动 dry-run 并应用，无需改 workflow。
+- 改动文件：新增 `patches/mihomo/0004-lookup-fresh.patch`；更新 `CUSTOM.md` 的 #20 补丁清单和依赖说明。
+- **验证：** 已对照固定子模块提交中的相关源码和类型赋值；未运行 Go 编译 / 单测，也未触发 Build Debug，需由 Actions 验证补丁应用和 Go 构建。

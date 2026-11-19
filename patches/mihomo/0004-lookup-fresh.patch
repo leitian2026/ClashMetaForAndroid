@@ -1,0 +1,60 @@
+diff -ruN a/dns/fresh.go b/dns/fresh.go
+--- /dev/null
++++ b/dns/fresh.go
+@@ -0,0 +1,48 @@
++package dns
++
++// CUSTOM (ClashMetaForAndroid CUSTOM.md step 83): resolve an IPv4 domain without reading
++// the DNS cache. The normal resolver policy, fallback selection and cache write remain intact.
++
++import (
++	"context"
++	"errors"
++	"net/netip"
++
++	"github.com/metacubex/mihomo/component/resolver"
++	D "github.com/miekg/dns"
++)
++
++// ErrFreshUnsupported means the active resolver implementation cannot be queried without its cache.
++var ErrFreshUnsupported = errors.New("fresh DNS lookup is unsupported by this resolver")
++
++// LookupIPv4Fresh sends one A-record lookup without reading the resolver cache.
++// A successful answer is still written to the normal cache by exchangeWithoutCache.
++func LookupIPv4Fresh(ctx context.Context, host string) ([]netip.Addr, error) {
++	selected := resolver.DefaultResolver
++	if selected == nil || !selected.Invalid() {
++		selected = resolver.SystemResolver
++	}
++
++	r, ok := freshResolver(selected)
++	if !ok || r == nil {
++		return nil, ErrFreshUnsupported
++	}
++
++	query := &D.Msg{}
++	query.SetQuestion(D.Fqdn(host), D.TypeA)
++	msg, err := r.exchangeWithoutCache(ctx, query)
++	if err != nil {
++		return nil, err
++	}
++
++	ips := msgToIP(msg)
++	if len(ips) == 0 {
++		return nil, resolver.ErrIPNotFound
++	}
++	return ips, nil
++}
++
++// freshResolver extracts the main resolver from the concrete resolver values used by mihomo.
++func freshResolver(selected resolver.Resolver) (*Resolver, bool) {
++	switch value := selected.(type) {
++	case Resolvers:
++		return value.Resolver, value.Resolver != nil
++	case *Resolver:
++		return value, value != nil
++	default:
++		return nil, false
++	}
++}
++
