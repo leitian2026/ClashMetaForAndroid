@@ -79,13 +79,7 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 
 	if isDomain {
-		cp := make(map[string]any, len(raw))
-		for k, v := range raw {
-			cp[k] = v
-		}
-
-		cp["name"] = name + " (test)"
-		raw = cp
+		raw = copyNodeForDomain(raw, name)
 	}
 
 	atomic.AddInt32(&selfDialing, 1) // our own sockets are not real traffic
@@ -116,6 +110,7 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		},
 		DisableKeepAlives: true,
 		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
+		ForceAttemptHTTP2: true,
 	}
 	defer tr.CloseIdleConnections()
 
@@ -146,17 +141,7 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 
 	state := clock.tlsState
-	tlsName := ""
-	switch state.Version {
-	case tls.VersionTLS13:
-		tlsName = "1.3"
-	case tls.VersionTLS12:
-		tlsName = "1.2"
-	case tls.VersionTLS11:
-		tlsName = "1.1"
-	case tls.VersionTLS10:
-		tlsName = "1.0"
-	}
+	tlsName := TLSVersionName(state.Version)
 
 	res := TargetResult{
 		Delay:            delay,

@@ -38,6 +38,21 @@ type phaseClock struct {
 	tlsState tls.ConnectionState // read after the request completes
 }
 
+func TLSVersionName(version uint16) string {
+	switch version {
+	case tls.VersionTLS13:
+		return "1.3"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS10:
+		return "1.0"
+	default:
+		return ""
+	}
+}
+
 func (p *phaseClock) trace() *httptrace.ClientTrace {
 	return &httptrace.ClientTrace{
 		TLSHandshakeStart: func() { atomic.StoreInt64(&p.tlsStart, time.Now().UnixNano()) },
@@ -122,6 +137,7 @@ func requestPhased(px C.Proxy, rawURL string, timeout time.Duration) (int, time.
 		DisableKeepAlives: true,
 		// Latency probe only: nothing secret is sent, and the system CA store is not available inside the core on Android.
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
+		ForceAttemptHTTP2: true,
 	}
 	defer transport.CloseIdleConnections()
 
@@ -151,16 +167,7 @@ func requestPhased(px C.Proxy, rawURL string, timeout time.Duration) (int, time.
 	elapsed := time.Since(start)
 	ph := clock.phases(dialed)
 	state := clock.tlsState
-	switch state.Version {
-	case tls.VersionTLS13:
-		ph.TLS = "1.3"
-	case tls.VersionTLS12:
-		ph.TLS = "1.2"
-	case tls.VersionTLS11:
-		ph.TLS = "1.1"
-	case tls.VersionTLS10:
-		ph.TLS = "1.0"
-	}
+	ph.TLS = TLSVersionName(state.Version)
 	ph.ALPN = state.NegotiatedProtocol
 
 	return resp.StatusCode, elapsed, ph, nil

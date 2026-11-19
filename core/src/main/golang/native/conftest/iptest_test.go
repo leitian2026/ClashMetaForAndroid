@@ -116,3 +116,19 @@ func TestIsCloudflare(t *testing.T) {
 		}
 	}
 }
+
+func TestBeginRunOldDoneKeepsNewCancel(t *testing.T) {
+	_, oldDone := beginRun()
+	newCtx, newDone := beginRun()
+	defer newDone()
+
+	oldDone()
+	if !CancelIPTest() {
+		t.Fatal("new run cancel handle was cleared by old run")
+	}
+	select {
+	case <-newCtx.Done():
+	default:
+		t.Fatal("new run context was not cancelled")
+	}
+}

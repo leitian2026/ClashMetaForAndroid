@@ -155,53 +155,43 @@ func parsePorts(text string) []int {
 	return out
 }
 
-// parseColos reads Cloudflare's list ([{"iata":"HKG","city":"Hong Kong","cca2":"HK",...},...]) into code -> city.
-func parseColos(body []byte) map[string]string {
+// parseColoData reads city and country code from one decode of Cloudflare's locations list.
+func parseColoData(body []byte) (map[string]string, map[string]string) {
 	var list []struct {
 		IATA string `json:"iata"`
 		City string `json:"city"`
-	}
-
-	out := map[string]string{}
-
-	if json.Unmarshal(body, &list) != nil {
-		return out
-	}
-
-	for _, e := range list {
-		code, city := strings.ToUpper(strings.TrimSpace(e.IATA)), strings.TrimSpace(e.City)
-		if code != "" && city != "" {
-			out[code] = city
-		}
-	}
-
-	return out
-}
-
-// parseColoCountries (CUSTOM.md #62) reads the same list into code -> country code ("cca2"), for the flag of a data centre.
-func parseColoCountries(body []byte) map[string]string {
-	var list []struct {
-		IATA string `json:"iata"`
 		CCA2 string `json:"cca2"`
 	}
 
-	out := map[string]string{}
-
+	colos, countries := map[string]string{}, map[string]string{}
 	if json.Unmarshal(body, &list) != nil {
-		return out
+		return colos, countries
 	}
-
 	for _, e := range list {
-		code, cc := strings.ToUpper(strings.TrimSpace(e.IATA)), strings.ToUpper(strings.TrimSpace(e.CCA2))
+		code := strings.ToUpper(strings.TrimSpace(e.IATA))
+		city := strings.TrimSpace(e.City)
+		cc := strings.ToUpper(strings.TrimSpace(e.CCA2))
+		if code != "" && city != "" {
+			colos[code] = city
+		}
 		if code != "" && validCC(cc) {
-			out[code] = cc
+			countries[code] = cc
 		}
 	}
-
-	return out
+	return colos, countries
 }
 
-// beginRun registers the cancel of a run (an earlier one still going is stopped); done() unregisters it.
+func parseColos(body []byte) map[string]string {
+	colos, _ := parseColoData(body)
+	return colos
+}
+
+func parseColoCountries(body []byte) map[string]string {
+	_, countries := parseColoData(body)
+	return countries
+}
+
+// beginRun uses a generation token so an older run cannot clear a newer run's cancellation handle.
 func beginRun() (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -209,15 +199,17 @@ func beginRun() (context.Context, func()) {
 	if ipRunCancel != nil {
 		ipRunCancel()
 	}
-
+	ipRunID++
+	runID := ipRunID
 	ipRunCancel = cancel
 	ipRunLock.Unlock()
 
 	return ctx, func() {
 		cancel()
-
 		ipRunLock.Lock()
-		ipRunCancel = nil
+		if ipRunID == runID {
+			ipRunCancel = nil
+		}
 		ipRunLock.Unlock()
 	}
 }
@@ -312,7 +304,28 @@ func firstTarget(text string, domains bool) (target, bool) {
 	return target{}, false
 }
 
+var coloCache struct {
+	sync.Mutex
+	colos, countries map[string]string
+}
+
+func cloneStringMap(src map[string]string) map[string]string {
+	out := make(map[string]string, len(src))
+	for key, value := range src {
+		out[key] = value
+	}
+	return out
+}
+
 func fetchColos(ctx context.Context) (map[string]string, map[string]string, error) {
+	coloCache.Lock()
+	if len(coloCache.colos) > 0 {
+		colos, countries := cloneStringMap(coloCache.colos), cloneStringMap(coloCache.countries)
+		coloCache.Unlock()
+		return colos, countries, nil
+	}
+	coloCache.Unlock()
+
 	ctx, cancel := context.WithTimeout(ctx, coloTimeout)
 	defer cancel()
 
@@ -369,12 +382,19 @@ func fetchColos(ctx context.Context) (map[string]string, map[string]string, erro
 		return nil, nil, err
 	}
 
-	colos := parseColos(body)
+	colos, countries := parseColoData(body)
 	if len(colos) == 0 {
 		return nil, nil, errors.New("no entries")
 	}
 
-	return colos, parseColoCountries(body), nil
+	coloCache.Lock()
+	if len(coloCache.colos) == 0 {
+		coloCache.colos = cloneStringMap(colos)
+		coloCache.countries = cloneStringMap(countries)
+	}
+	colos, countries = cloneStringMap(coloCache.colos), cloneStringMap(coloCache.countries)
+	coloCache.Unlock()
+	return colos, countries, nil
 }
 
 // the ECH config of the domain, kept for a short time so that the addresses of one round ask for it once
@@ -421,6 +441,16 @@ func handshakeECH(ctx context.Context, addr, domain string, echList []byte, limi
 	return conn, ms, ech, err
 }
 
+// isTLSVersionError detects a TLS protocol-version negotiation failure, which can occur when ECH forces TLS 1.3
+// against an endpoint that only supports TLS 1.2.
+func isTLSVersionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "protocol version") || strings.Contains(message, "unsupported protocol")
+}
+
 // handshakeECHSplit (CUSTOM.md #68) is handshakeECH that also gives the milliseconds of the TCP connect inside `ms`
 // (of the handshake that counted: the plain one after a rejection).
 func handshakeECHSplit(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, int, string, error) {
@@ -438,7 +468,9 @@ func handshakeECHSplit(ctx context.Context, addr, domain string, echList []byte,
 			ech = "notaccepted"
 		case errors.As(err, &rej):
 			ech = "rejected"
-
+			conn, ms, tcp, err = handshakeSplit(ctx, addr, domain, nil, limit)
+		case isTLSVersionError(err):
+			ech = ""
 			conn, ms, tcp, err = handshakeSplit(ctx, addr, domain, nil, limit)
 		default:
 			ech = ""
@@ -574,12 +606,6 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	row.Ports = probePorts(ctx, row.IP, rep.Domain, parsePorts(req.Ports), row)
 
-	// the operator and the registered country, from the public services (a failure, or a limit they set, only leaves
-	// them empty); both come from one answer
-	actx, cancel := context.WithTimeout(ctx, 2*asnTimeout+time.Second)
-	row.ASN, row.Geo = lookupOwner(actx, row.IP)
-	cancel()
-
 	// CUSTOM.md #62: the exit country (落地) is seen from outside, so it needs a request through a node: the node of
 	// the config whose server is the typed domain, with this address as its server. Without such a node it stays empty.
 	if ctx.Err() == nil {
@@ -592,8 +618,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	rep.Rows = []IPRow{row}
 }
 
-// nodeOfDomain (CUSTOM.md #62) is the name of the node whose `server` (or `servername` / `sni`) is the domain; the first
-// in name order when there are several, "" when there is none.
+// nodeOfDomain matches the configured node's actual server. A matching SNI alone does not identify the entry route.
 func nodeOfDomain(domain string) string {
 	domain = strings.TrimSpace(domain)
 	if domain == "" {
@@ -610,10 +635,10 @@ func nodeOfDomain(domain string) string {
 	sort.Strings(names)
 
 	for _, name := range names {
-		for _, key := range []string{"server", "servername", "sni"} {
-			if v, ok := raws[name][key].(string); ok && strings.EqualFold(strings.TrimSpace(v), domain) {
-				return name
-			}
+		server, _ := raws[name]["server"].(string)
+		server = strings.TrimSuffix(strings.TrimSpace(server), ".")
+		if server != "" && strings.EqualFold(server, strings.TrimSuffix(domain, ".")) {
+			return name
 		}
 	}
 
@@ -897,14 +922,7 @@ func nodeOwner(ctx context.Context, row *IPRow, node string) {
 		}
 	}
 
-	if ctx.Err() != nil {
-		return
-	}
 
-	actx, cancel := context.WithTimeout(ctx, 2*asnTimeout+time.Second)
-	row.ASN, row.Geo = lookupOwner(actx, row.IP)
-	cancel()
-}
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 	t, ok := firstTarget(req.IPs, rep.Node != "")

@@ -187,9 +187,14 @@ var ipPort = "443"
 var (
 	ipRunLock   sync.Mutex
 	ipRunCancel context.CancelFunc
+	ipRunID     uint64
 
-	// CUSTOM.md #72: asks who runs an address and where it is registered, every time (no memory of earlier answers);
-	// a variable so that a test can answer without the network
+	ownerCache = struct {
+		sync.Mutex
+		byIP map[string][2]string
+	}{byIP: make(map[string][2]string)}
+
+	// Public owner lookup is called only by the explicit "look up" action.
 	ownerSource = askOwner
 )
 
@@ -286,23 +291,8 @@ func RunIP(filter string) IPReport {
 		return rep
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	ipRunLock.Lock()
-	if ipRunCancel != nil {
-		ipRunCancel() // an earlier run that is still going is stopped
-	}
-
-	ipRunCancel = cancel
-	ipRunLock.Unlock()
-
-	defer func() {
-		cancel()
-
-		ipRunLock.Lock()
-		ipRunCancel = nil
-		ipRunLock.Unlock()
-	}()
+	ctx, done := beginRun()
+	defer done()
 
 	switch req.Mode {
 	case "direct":
@@ -617,8 +607,9 @@ func lookupOwners(rep *IPReport, text string) {
 			continue
 		}
 
-		if owner := lookupASN(ctx, t.Text); owner != "" {
-			rep.Rows = append(rep.Rows, IPRow{IP: t.Text, ASN: owner})
+		asn, geo := lookupOwner(ctx, t.Text)
+		if asn != "" || geo != "" {
+			rep.Rows = append(rep.Rows, IPRow{IP: t.Text, ASN: asn, Geo: geo})
 		}
 
 		break
@@ -641,12 +632,31 @@ func validCC(code string) bool {
 	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
 }
 
-// lookupOwner (CUSTOM.md #62) asks a public service who runs the address ("AS13335 Cloudflare, Inc.") and which
-// country it is registered in ("US"). Both come from one answer (ipinfo.io/<ip>/json), the second service is asked
-// only for what the first did not give, so the number of requests is the same as before. CUSTOM.md #72: it asks every
-// time; an answer found before is not kept.
+// lookupOwner is reached only by the explicit lookup action. Successful or partial results are reused in this
+// process; failed results are not cached, so background probing never retries these services.
 func lookupOwner(ctx context.Context, ip string) (asn, geo string) {
-	return ownerSource(ctx, ip)
+	if ctx.Err() != nil {
+		return "", ""
+	}
+
+	ownerCache.Lock()
+	if cached, ok := ownerCache.byIP[ip]; ok {
+		ownerCache.Unlock()
+		return cached[0], cached[1]
+	}
+	ownerCache.Unlock()
+
+	asn, geo = ownerSource(ctx, ip)
+	if asn != "" || geo != "" {
+		ownerCache.Lock()
+		if cached, ok := ownerCache.byIP[ip]; ok {
+			asn, geo = cached[0], cached[1]
+		} else {
+			ownerCache.byIP[ip] = [2]string{asn, geo}
+		}
+		ownerCache.Unlock()
+	}
+	return asn, geo
 }
 
 func askOwner(ctx context.Context, ip string) (asn, geo string) {

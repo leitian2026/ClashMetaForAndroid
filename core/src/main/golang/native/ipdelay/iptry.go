@@ -20,6 +20,15 @@ type TryResult struct {
 	Ph      Phases // CUSTOM.md #68: where the delay went (0 = not measured)
 }
 
+func copyNodeForDomain(raw map[string]any, name string) map[string]any {
+	copy := make(map[string]any, len(raw))
+	for key, value := range raw {
+		copy[key] = value
+	}
+	copy["name"] = name + " (test)"
+	return copy
+}
+
 // TryIP tests node `name` with its server replaced by `server`: the delay of a request to the node's test URL.
 // CUSTOM.md #72: it no longer asks for the exit country (it did, on every try, when the proxy page had none for this
 // address): the caller asks once with ExitCountry. `server` is an IP address, or a domain (isDomain) that the core resolves itself when it
@@ -37,13 +46,7 @@ func TryIP(name, server string, isDomain bool) TryResult {
 	}
 
 	if isDomain {
-		cp := make(map[string]any, len(raw))
-		for k, v := range raw {
-			cp[k] = v
-		}
-
-		cp["name"] = name + " (test)"
-		raw = cp
+		raw = copyNodeForDomain(raw, name)
 	}
 
 	testURL := defaultTestURL
