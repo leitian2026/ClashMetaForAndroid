@@ -372,6 +372,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
             var landNoNodeSaid = false
             var tested = 0
+            val exitOwnerFailureLogged = HashSet<String>()
 
             fetchColos(design) // CUSTOM.md #63: the through-node table has the data centre column too
 
@@ -451,6 +452,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                             getString(R.string.iptest_log_ip_ok_noports, row.ip, row.avg, row.loss)
                         },
                     )
+                    if (!direct && row.exitIp.isNotEmpty() && row.exitAsn.isEmpty() && exitOwnerFailureLogged.add(row.exitIp)) {
+                        design.ipLog(getString(R.string.iptest_log_exit_asn_none, row.exitIp))
+                    }
 
                     // Direct-mode split timings are not all present in the node-mode table; keep that log only.
                     if (direct) {
