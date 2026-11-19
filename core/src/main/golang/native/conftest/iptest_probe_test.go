@@ -74,6 +74,7 @@ func TestParseColoCountries(t *testing.T) {
 func TestProbeDirectLocal(t *testing.T) {
 	ip, port := serveLocalTLS(t, true)
 	ipPort = port
+	// The app performs registration lookup as a separate automatic "asn" request after this probe returns.
 	ownerCalls := 0
 	ownerSource = func(context.Context, string) (string, string) {
 		ownerCalls++
