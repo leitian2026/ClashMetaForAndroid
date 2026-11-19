@@ -58,7 +58,7 @@
     <string name="iptest_faster_cell">快 %1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">失败</string>
-    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书验证按设计跳过。</string>
+    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。</string>
     <string name="iptest_log_title">实时状态</string>
     <string name="iptest_log_progress">（共 %1$d 个 IP，已测 %2$d 个）</string>
     <string name="iptest_port_title">端口结果：%1$s</string>
