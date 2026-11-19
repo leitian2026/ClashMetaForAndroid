@@ -453,12 +453,6 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 	return row
 }
 
-// handshakeTo connects to addr and does the TLS handshake. The time is from dialing to the end of the handshake.
-// The caller owns (and must close) the returned connection when err is nil; it is closed here when there is an error.
-func handshakeTo(ctx context.Context, addr, domain string, echList []byte) (*tls.Conn, int, error) {
-	return handshakeWithin(ctx, addr, domain, echList, attemptTimeout)
-}
-
 // handshakeWithin is handshakeTo with its own time limit (CUSTOM.md #52: the ten tries and the ports take 3 seconds each).
 func handshakeWithin(ctx context.Context, addr, domain string, echList []byte, limit time.Duration) (*tls.Conn, int, error) {
 	c, ms, _, err := handshakeSplit(ctx, addr, domain, echList, limit)
