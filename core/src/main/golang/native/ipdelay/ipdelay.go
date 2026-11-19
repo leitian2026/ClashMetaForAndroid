@@ -492,7 +492,7 @@ func probeCountry(key string, raw map[string]any, ip string) {
 	var country string
 
 	if px := newVariant(raw, ip); px != nil {
-		country = lookupCountry(px)
+		country, _ = lookupCountry(px)
 		closeProxy(px)
 	}
 
@@ -1213,44 +1213,52 @@ func testIP(raw map[string]any, ip, rawURL, known string, wantCountry bool) (int
 		return delay, ""
 	}
 
-	return delay, lookupCountry(px)
+	country, _ := lookupCountry(px)
+	return delay, country
 }
 
 // geo services that answer with the country of the requester
 var geoServices = []struct {
 	url   string
-	parse func(body []byte) string
+	parse func(body []byte) (country, ip string)
 }{
-	{"https://api.country.is/", func(body []byte) string {
+	{"https://api.country.is/", func(body []byte) (string, string) {
 		var v struct {
 			Country string `json:"country"`
+			IP      string `json:"ip"`
 		}
 
 		if json.Unmarshal(body, &v) != nil {
-			return ""
+			return "", ""
 		}
 
-		return v.Country
+		ip := ""
+		if addr, err := netip.ParseAddr(strings.TrimSpace(v.IP)); err == nil {
+			ip = addr.String()
+		}
+		return v.Country, ip
 	}},
-	{"https://ipinfo.io/country", func(body []byte) string {
-		return strings.TrimSpace(string(body))
+	{"https://ipinfo.io/country", func(body []byte) (string, string) {
+		return strings.TrimSpace(string(body)), ""
 	}},
 }
 
-// lookupCountry asks the geo services, through px, where the traffic exits. "" if unknown.
-func lookupCountry(px C.Proxy) string {
+// lookupCountry asks the geo services, through px, where the traffic exits. The IP is available only
+// when api.country.is returns it; the ipinfo.io/country fallback contains only the country code.
+func lookupCountry(px C.Proxy) (country, exitIP string) {
 	for _, svc := range geoServices {
 		status, body, _, err := requestVia(px, svc.url, geoTimeout, true)
 		if err != nil || status != http.StatusOK {
 			continue
 		}
 
-		if code := strings.ToUpper(strings.TrimSpace(svc.parse(body))); validCountry(code) {
-			return code
+		rawCountry, ip := svc.parse(body)
+		if code := strings.ToUpper(strings.TrimSpace(rawCountry)); validCountry(code) {
+			return code, ip
 		}
 	}
 
-	return ""
+	return "", ""
 }
 
 func validCountry(code string) bool {
