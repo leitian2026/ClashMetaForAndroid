@@ -6,8 +6,8 @@ package conftest
 //
 //   - "probe" (direct, one address): ten tries (up to five at once, each at most 3 seconds) -> loss, min, max, average;
 //     on the first one that works, the TLS version, ALPN, ECH, `Cf-Ray` data centre and "is Cloudflare"; then, for an
-//     address that works, the ports of the list (handshake only, in parallel, 3 seconds each) and the operator (AS)
-//     from the public services (from memory when asked before);
+//     address that works, the ports of the list (handshake only, in parallel, 3 seconds each).
+//     Operator / registered-country data is queried only after the user taps "look up" (mode "asn");
 //   - "nodeone" (through a node, one address or domain): the same ten tries with ipdelay.TryIP;
 //   - "download" (one address, only when the user taps "测速" on its row): at most 10 MB or 5 seconds, the first
 //     second left out, straight to the address (SNI and Host from the URL) or, with a node, through it;

@@ -427,24 +427,8 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 
 	addr := net.JoinHostPort(row.IP, ipPort)
 
-	conn, ms, err := handshakeTo(ctx, addr, domain, echList)
-
-	if len(echList) > 0 {
-		var rej *tls.ECHRejectionError
-
-		switch {
-		case err == nil && conn.ConnectionState().ECHAccepted:
-			row.ECH = "accepted"
-		case err == nil:
-			row.ECH = "notaccepted"
-		case errors.As(err, &rej):
-			row.ECH = "rejected"
-
-			conn, ms, err = handshakeTo(ctx, addr, domain, nil)
-		default:
-			row.ECH = "" // failed for another reason: nothing is known about ECH
-		}
-	}
+	conn, ms, _, ech, err := handshakeECHSplit(ctx, addr, domain, echList, attemptTimeout)
+	row.ECH = ech
 
 	row.Ms = ms
 
