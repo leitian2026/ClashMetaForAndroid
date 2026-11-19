@@ -16,6 +16,7 @@ import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -100,6 +101,30 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         setPadding(0, 0, 0, dp(8))
     }
 
+    // CUSTOM.md #156 step 75: the long explanation under the target line is collapsible; collapsed by default.
+    private var noteExpanded = false
+    private val noteBody = TextView(context).apply {
+        textSize = 15f
+        setTextColor(colorMuted)
+        visibility = View.GONE
+    }
+    private val noteToggle = TextView(context).apply {
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(colorText)
+        setPadding(0, 0, 0, dp(8))
+        visibility = View.GONE
+        setOnClickListener {
+            noteExpanded = !noteExpanded
+            applyNoteState()
+        }
+    }
+
+    private fun applyNoteState() {
+        noteBody.visibility = if (noteExpanded) View.VISIBLE else View.GONE
+        noteToggle.text = "${context.getString(R.string.iptest_note_title)}  ${if (noteExpanded) "▴" else "▾"}"
+    }
+
     private val tableBox = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
     // CUSTOM.md #156 step 41: collapsible diagnostics below the unchanged IP table; expanded by default.
@@ -163,9 +188,23 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             cornerRadius = dp(6).toFloat()
         }
 
-        // the page scrolls around it, so while a finger is on the log, the log scrolls
-        setOnTouchListener { v, _ ->
-            v.parent?.requestDisallowInterceptTouchEvent(true)
+        // CUSTOM.md #156 step 75: the log scrolls first; once it is at its top or bottom (or too short to scroll) in the
+        // direction the finger is moving, the gesture goes back to the page so the whole page keeps scrolling
+        var lastY = 0f
+        setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastY = ev.y
+                    v.parent?.requestDisallowInterceptTouchEvent(v.canScrollVertically(-1) || v.canScrollVertically(1))
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = ev.y - lastY
+                    lastY = ev.y
+                    // finger moving down = content moves down = scrolling towards the top
+                    val canScroll = if (dy > 0) v.canScrollVertically(-1) else if (dy < 0) v.canScrollVertically(1) else true
+                    v.parent?.requestDisallowInterceptTouchEvent(canScroll)
+                }
+            }
 
             false
         }
@@ -184,6 +223,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         }
 
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(noteToggle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(noteBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(diagnosticsBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -197,14 +238,23 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun setInfo(head: String, sub: String, warnings: List<String>) {
         val sb = SpannableStringBuilder()
 
+        // CUSTOM.md #156 step 75: the first line of [sub] stays visible; the explanation after it goes into the collapsible block.
+        val cut = sub.indexOf('\n')
+        val shownSub = if (cut >= 0) sub.substring(0, cut) else sub
+        val note = if (cut >= 0) sub.substring(cut + 1) else ""
+
         add(sb, head + "\n", bold = true)
 
-        if (sub.isNotEmpty()) add(sb, sub + "\n", colorMuted)
+        if (shownSub.isNotEmpty()) add(sb, shownSub + "\n", colorMuted)
 
         for (w in warnings) add(sb, w + "\n", colorWarn)
 
         infoText = sb
         info.text = sb
+
+        noteBody.text = note
+        noteToggle.visibility = if (note.isEmpty()) View.GONE else View.VISIBLE
+        if (note.isEmpty()) noteBody.visibility = View.GONE else applyNoteState()
     }
 
     fun setColos(map: Map<String, String>, countries: Map<String, String>) {
@@ -692,7 +742,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun plain(): String {
         val sb = StringBuilder()
 
-        sb.append(infoText).append("\n\n")
+        sb.append(infoText).append(if (noteBody.text.isNotEmpty()) noteBody.text.toString() + "\n" else "").append("\n\n")
         sb.append("| ").append(markdownCell(context.getString(R.string.iptest_col_ip)))
         for (k in keys) sb.append(" | ").append(markdownCell(title(k)))
         sb.append(" |\n")

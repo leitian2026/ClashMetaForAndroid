@@ -444,6 +444,8 @@ object IpTestDialog {
 
                 val resolveActions = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
+                    // CUSTOM.md #156 step 75: no baseline alignment, so the two buttons stay level after the fill button changes
+                    isBaselineAligned = false
                     addView(resolveButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                     addView(fillResolvedButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 }

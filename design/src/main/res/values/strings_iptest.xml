@@ -160,4 +160,5 @@
     <string name="iptest_resolve_no_valid_domains">No valid domains</string>
     <string name="iptest_resolve_wait">Domain lookup is still running; wait or close the dialog to cancel</string>
     <string name="iptest_resolve_omitted">%1$d more IPv4 addresses omitted (up to 8 per domain)</string>
+    <string name="iptest_note_title">Notes</string>
 </resources>

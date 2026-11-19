@@ -160,4 +160,5 @@
     <string name="iptest_resolve_no_valid_domains">没有有效域名</string>
     <string name="iptest_resolve_wait">域名还在解析，请等完成或关闭对话框取消</string>
     <string name="iptest_resolve_omitted">另有 %1$d 个 IPv4 未显示（每个域名最多 8 个）</string>
+    <string name="iptest_note_title">说明</string>
 </resources>

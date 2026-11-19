@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r263
+当前版本：2_11_46-r264
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2577,3 +2577,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 两处光标定位统一改为读取 `input.text?.length ?: 0`，文本为空时将光标位置设为 0；不改变输入内容、解析结果、填入行为或其他界面逻辑。
 - 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`CUSTOM.md`。
 - **验证：** 已从 Build Debug 日志确认失败位置和原因；修复后尚未重新运行 Android Build Debug，待 Actions 验证。
+
+### 第 75 步：修正放入测试框按钮错位、实时状态嵌套滚动，并折叠目标网址下的说明（r264）
+- **按钮错位：** “测试其他 IP”对话框里“解析域名 / 放入测试框”所在的横向 `LinearLayout` 设 `isBaselineAligned = false`，两个按钮不再按文字基线对齐，保持同高同位。
+- **实时状态滚动：** `IpTestView.logScroll` 原来按下就 `requestDisallowInterceptTouchEvent(true)`，滑到顶后整页也滑不动。现改为：手指方向上日志还能滚（`canScrollVertically`）才拦截，到顶 / 到底或内容不够长就把手势交还整页。纯事件驱动，没有定时器。
+- **可折叠说明：** `IpTestView.setInfo` 把 `sub` 的第一行（目标网址 / 参考行）留在原处，其后的说明段落（经节点 / 直连延迟说明）放进可折叠块，标题 `iptest_note_title`，默认折叠；“复制”输出仍包含完整说明。`ConfigCheckActivity` / `ConfigCheckDesign` 的 `sub` 拼接不变，已保存的结果恢复时同样拆分。
+- 改动文件：`design/.../custom/IpTestView.kt`、`IpTestDialog.kt`、design 中英文 `strings_iptest.xml`、`CUSTOM.md`；未涉及上游文件。
+- **验证：** 无法本地编译，待 Actions Build Debug 验证。
