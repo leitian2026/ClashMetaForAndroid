@@ -81,10 +81,16 @@ func TryIP(name, server string, isDomain bool) TryResult {
 	return TryResult{Delay: delay, Ph: ph}
 }
 
-// ExitCountry (CUSTOM.md #62, #57) returns the country and, when api.country.is supplies it, the public-facing IP
+// ExitCountry preserves the country-only result for existing callers.
+func ExitCountry(name, server string, isDomain bool) string {
+	country, _ := ExitCountryDetails(name, server, isDomain)
+	return country
+}
+
+// ExitCountryDetails (CUSTOM.md #62, #57) returns the country and, when api.country.is supplies it, the public-facing IP
 // seen for traffic of node `name` with its server replaced by `server`. It asks through a copy of the node, first
 // api.country.is and then ipinfo.io/country. The fallback has no IP field. CUSTOM.md #72: always asked; nothing is stored.
-func ExitCountry(name, server string, isDomain bool) (country, exitIP string) {
+func ExitCountryDetails(name, server string, isDomain bool) (country, exitIP string) {
 	lock.RLock()
 	raw := proxies[name]
 	lock.RUnlock()
