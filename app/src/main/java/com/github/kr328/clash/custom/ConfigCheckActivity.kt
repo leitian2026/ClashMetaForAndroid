@@ -431,6 +431,17 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 design.ipInfo(head, sub, warnings)
                 design.ipRows(ipRows)
 
+                if (!direct && target.isNotEmpty()) {
+                    design.ipLog(
+                        getString(
+                            R.string.iptest_log_target_protocol,
+                            row.ip,
+                            row.targetAlpn.ifEmpty { "<empty>" },
+                            row.targetHttpProto.ifEmpty { "<empty>" },
+                        ),
+                    )
+                }
+
                 if (row.ok) {
                     val open = row.ports.filter { it.ok }.joinToString(" ") { it.port.toString() }
 
