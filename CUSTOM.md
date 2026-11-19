@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r266
+当前版本：2_11_46-r267
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2600,3 +2600,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 本步只搭入口、请求字段、兼容结果结构和展示，不含实际探测逻辑；后续三项分别独立提交。没有新增定时器、轮询、网络请求或后台任务；不改 mihomo 子模块和上游文件。
 - 改动文件：`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、新增 `design/src/main/res/values/strings_iptest_ext.xml`、新增 `design/src/main/res/values-zh/strings_iptest_ext.xml`、`CUSTOM.md`。未修改上游文件总表。
 - **验证：** 完成源码级字段与调用链检查；未运行 Go / Kotlin 编译或 Android Build Debug，待用户手动触发 Actions 的 Build Debug。
+
+
+### 第 78 步：增加直连 WebSocket 握手检测（r267）
+- 仅当用户在“测试其他 IP”中勾选 WebSocket，并点击“直连测延迟”时，对每个 IP 的 `ipPort` 执行一次独立 TCP + TLS + HTTP/1.1 Upgrade；SNI 与 Host 使用页面顶部域名，ALPN 只提供 `http/1.1`。不复用普通测试协商出的 h2 连接，不发送 WebSocket 数据帧。
+- 增加可选 WebSocket 路径输入；默认留空，检测时使用 `/`；非空路径规范为以 `/` 开头的 origin-form，并通过标准 URL 解析拒绝非法请求路径。勾选 WebSocket 时才显示路径输入框，路径通过现有 prefs 记住。
+- 生成随机 16 字节 `Sec-WebSocket-Key`，校验响应的 `Sec-WebSocket-Accept`。101 且校验通过记录成功状态和总耗时；其他 HTTP 状态记录状态码、Server 与 Cf-Mitigated 响应头；连接 / TLS / 写入 / 读头错误记录原始原因及 `errlog.Classify` 分类。单次检测超时复用 3 秒 `probeTimeout`，响应只读到头部。
+- WebSocket 检测独立于普通十次 TLS 握手结果：即使普通握手失败也会单独尝试；每个 IP 最多一次。沿用现有请求上下文，`CANCEL_IPTEST` 会中断拨号、TLS 或读响应头；最多 5 个 IP 并发仍由原有逐 IP 流程控制。不增加轮询、定时器或后台任务；节点模式不会发送 WebSocket 检测请求。
+- 新增纯逻辑单元测试 `iptest_ext_ws_test.go`，用 RFC 6455 示例校验 `Sec-WebSocket-Accept` 计算；该测试不发网络请求。
+- 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_ws.go`、`iptest_ext_ws_test.go`；修改 `core/src/main/golang/native/conftest/iptest.go`（请求路径字段、扩展结果错误分类字段）、`core/src/main/golang/native/conftest/iptest_probe.go`（直连流程挂钩）、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`（扩展结果错误分类字段）、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`（路径输入和持久化）、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`（传递路径）、两份 `strings_iptest_ext.xml`、`CUSTOM.md`。未修改 mihomo 子模块、go.mod / go.sum 或上游文件。
+- **验证：** 仅完成源码级检查；尚未运行 Go 单元测试或 Android Build Debug，WebSocket 对 Cloudflare 的真实响应未在设备上实测，待 Actions Build Debug 与设备验证。

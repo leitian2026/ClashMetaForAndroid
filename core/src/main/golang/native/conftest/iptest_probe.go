@@ -577,6 +577,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 			row.Reason = lastErr.Error()
 			row.Code = errlog.Classify(row.Reason)
 		}
+		// CUSTOM.md #78: run the selected WebSocket probe independently of the ten-try TLS result.
+		if ctx.Err() == nil && ipExtEnabled(req.Ext, "ws") {
+			row.WS = probeWebSocket(ctx, row.IP, rep.Domain, req.WSPath)
+		}
 
 		rep.Rows = []IPRow{row}
 
@@ -602,6 +606,11 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 			rep.LandNode = node
 			row.Country, _ = ipdelay.ExitCountryDetails(node, row.IP, false)
 		}
+	}
+
+	// CUSTOM.md #78: the optional WebSocket check is one independent HTTP/1.1 upgrade, not another ten-try test.
+	if ctx.Err() == nil && ipExtEnabled(req.Ext, "ws") {
+		row.WS = probeWebSocket(ctx, row.IP, rep.Domain, req.WSPath)
 	}
 
 	rep.Rows = []IPRow{row}

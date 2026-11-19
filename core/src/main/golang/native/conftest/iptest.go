@@ -52,7 +52,8 @@ type IPRequest struct {
 	// CUSTOM.md #66: nodeone: the address of a site the user really uses; the tries go to it through the node ("" = the node's own test URL)
 	Target string `json:"target"`
 	// CUSTOM.md #77: optional direct-only extension probes ("ws,h3,mtu").
-	Ext string `json:"ext"`
+	Ext    string `json:"ext"`
+	WSPath string `json:"wsPath"` // CUSTOM.md #78: optional WebSocket request path
 	// parse: direct mode skips domain entries; node mode retains them.
 	Direct bool `json:"direct"`
 }
@@ -146,6 +147,7 @@ type IPRow struct {
 type IPExtResult struct {
 	Tested        bool   `json:"tested"`
 	OK            bool   `json:"ok"`
+	Code          string `json:"code"`
 	Ms            int    `json:"ms"`
 	Reason        string `json:"reason"`
 	Status        int    `json:"status"`

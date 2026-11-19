@@ -4,6 +4,8 @@
     <string name="iptest_ext_option_ws">WebSocket</string>
     <string name="iptest_ext_option_h3">HTTP/3</string>
     <string name="iptest_ext_option_mtu">MTU</string>
+    <string name="iptest_ext_ws_path_label">WebSocket path (optional)</string>
+    <string name="iptest_ext_ws_path_hint">/</string>
     <string name="iptest_ext_title">Extension diagnostics</string>
     <string name="iptest_ext_ip">IP address</string>
     <string name="iptest_ext_ws">WebSocket</string>

@@ -4,6 +4,8 @@
     <string name="iptest_ext_option_ws">WebSocket</string>
     <string name="iptest_ext_option_h3">HTTP/3</string>
     <string name="iptest_ext_option_mtu">MTU</string>
+    <string name="iptest_ext_ws_path_label">WebSocket 路径（可选）</string>
+    <string name="iptest_ext_ws_path_hint">留空默认使用 /</string>
     <string name="iptest_ext_title">扩展检测</string>
     <string name="iptest_ext_ip">IP 地址</string>
     <string name="iptest_ext_ws">WebSocket</string>

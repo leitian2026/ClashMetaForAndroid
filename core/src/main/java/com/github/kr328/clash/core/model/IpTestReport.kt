@@ -83,6 +83,7 @@ data class IpTestRow(
 data class IpTestExtResult(
     val tested: Boolean = false,
     val ok: Boolean = false,
+    val code: String = "",
     val ms: Int = 0,
     val reason: String = "",
     val status: Int = 0,

@@ -43,6 +43,7 @@ data class IpTestChoice(
     val url: String = "", // CUSTOM.md #52: the address the "下载测速" of a row downloads
     val target: String = "", // CUSTOM.md #66: a site the user really uses; through-node tries go to it ("" = the node's test URL)
     val ext: List<String> = emptyList(), // CUSTOM.md #77: direct-only extension probes selected by the user
+    val wsPath: String = "", // CUSTOM.md #78: optional WebSocket request path
 )
 
 private data class ResolvedIpEntry(val ip: String, var checked: Boolean)
@@ -499,6 +500,27 @@ object IpTestDialog {
                     addView(mtuCheck, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 }
 
+                val wsPathLabel = TextView(context).apply {
+                    setText(R.string.iptest_ext_ws_path_label)
+                    textSize = 13f
+                    alpha = 0.7f
+                    visibility = if (wsCheck.isChecked) View.VISIBLE else View.GONE
+                }
+                val wsPathInput = EditText(context).apply {
+                    setHint(R.string.iptest_ext_ws_path_hint)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+                    visibility = if (wsCheck.isChecked) View.VISIBLE else View.GONE
+                    try {
+                        setText(prefs.getString("ip_ws_path", "") ?: "")
+                    } catch (_: Exception) {
+                    }
+                }
+                wsCheck.setOnCheckedChangeListener { _, checked ->
+                    wsPathLabel.visibility = if (checked) View.VISIBLE else View.GONE
+                    wsPathInput.visibility = if (checked) View.VISIBLE else View.GONE
+                }
+
                 // CUSTOM.md #52: the ports to try; CUSTOM.md #98: separate download addresses for each mode
                 val portsLabel = TextView(context).apply {
                     setText(R.string.iptest_ports_label)
@@ -636,6 +658,8 @@ object IpTestDialog {
                 box.addView(portsInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(extLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(extOptions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(wsPathLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(wsPathInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(directUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(directUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(nodeUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -658,6 +682,7 @@ object IpTestDialog {
                     val nodeUrl = nodeUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_NODE }
                     val url = if (mode == "direct") directUrl else nodeUrl
                     val target = targetInput.text.toString().trim()
+                    val wsPath = wsPathInput.text.toString().trim()
                     val extensions = if (mode == "direct") buildList {
                         if (wsCheck.isChecked) add("ws")
                         if (h3Check.isChecked) add("h3")
@@ -675,11 +700,12 @@ object IpTestDialog {
                             .putBoolean("ip_ext_ws", wsCheck.isChecked)
                             .putBoolean("ip_ext_h3", h3Check.isChecked)
                             .putBoolean("ip_ext_mtu", mtuCheck.isChecked)
+                            .putString("ip_ws_path", wsPath)
                             .apply()
                     } catch (_: Exception) {
                     }
 
-                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target, extensions))
+                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target, extensions, wsPath))
                 }
 
                 MaterialAlertDialogBuilder(context)
