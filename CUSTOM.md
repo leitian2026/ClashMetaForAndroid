@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r257
+当前版本：2_11_46-r258
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2503,7 +2503,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **内核入口：** `RunIP` 增加 `mode=resolve`，只接受域名列表并返回每个域名的 IPv4 结果；不改变既有 `parse` / `probe` / `nodeone` 等测试路径。
 - **解析顺序：** 先按 `ipdelay.RawHosts()` 的精确键读取当前配置 `hosts:` 值；命中后只取其中的 IPv4，不再回退查询。没有精确键时调用 mihomo `resolver.LookupIPv4(ctx, domain)`，使用当前内核解析器。该接口在固定 mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的 `component/resolver/resolver.go` 中实现，`LookupIPv4WithResolver` 会先查 `DefaultHosts`，再走当前 resolver / system resolver。
 - **过滤与限制：** 只保留 IPv4，过滤默认 fake-ip 段 `198.18.0.0/15`，去重后按数值升序排列，每个域名最多返回 8 个，另报被截断数量。域名输入去重并校验；同一轮最多 4 个域名并发，整体 10 秒超时。使用现有 `beginRun` / `CancelIPTest`，关闭对话框可取消等待。
-- **新增文件：** `core/src/main/golang/native/conftest/iptest_resolve.go`、`iptest_resolve_test.go`。**改动文件：** `conftest/iptest.go`（请求与响应字段、`resolve` 分派）、`ipdelay/rawhosts.go`（补齐只读 `RawHosts` 快照函数）、`CUSTOM.md`。没有修改 mihomo 子模块或上游文件。
+- **新增文件：** `core/src/main/golang/native/conftest/iptest_resolve.go`、`iptest_resolve_test.go`。**改动文件：** `conftest/iptest.go`（请求与响应字段、`resolve` 分派）、`ipdelay/rawhosts.go`（新增 `ToStrings` hosts 值转换辅助函数；`RawHosts` 快照函数原已存在于 `nodeinfo.go`）、`CUSTOM.md`。没有修改 mihomo 子模块或上游文件。
 - **验证：** 已对照用户上传的 mihomo 固定提交源码：`component/resolver/resolver.go` 的 `LookupIPv4` / `LookupIPv4WithResolver`，以及 `component/resolver/host.go` 的 `DefaultHosts.Search`。本环境没有 Go 工具链，未运行 `gofmt`、`go test` 或 `go vet`；需由 CI 验证。
 
 
@@ -2520,3 +2520,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **文案：** 更新 IP 输入框提示和对话框说明，明确 IP 测试框只放 IP；域名先解析、勾选，再追加到测试框。解析失败原因改用资源字符串按当前语言显示，不把中文错误硬编码在 Go 响应里。
 - **改动文件：** `ConfigCheckActivity.kt`（测试前域名拦截）、`IpTestDialog.kt`（修正追加时的分隔符转义）、`iptest_resolve.go`（解析错误码与超时区分）、两份 `strings_iptest.xml`、`CUSTOM.md`（修订 #43 现行说明）。没有修改上游文件。
 - **功耗 / 验证：** 只在用户点击测试时做本地字符串检查；没有新增网络请求、定时器、轮询或后台任务。未运行 Kotlin / Go 编译或测试，需由 Actions 验证。
+
+
+### 第 69 步：修复 RawHosts 重复定义导致 Go 构建失败（r258）
+- Build Debug 在 `native/ipdelay` 包编译时报错：`RawHosts redeclared`，因为第 66 步新增的 `rawhosts.go` 重复定义了 `nodeinfo.go` 中原有的 `RawHosts()`。
+- 删除 `rawhosts.go` 中重复的 `RawHosts()` 实现，保留该文件供第 66 步解析逻辑使用的 `ToStrings()` 包装函数；继续复用 `nodeinfo.go` 中原有的只读快照实现。不改解析逻辑、UI 或其他测试路径。
+- 改动文件：删除 `core/src/main/golang/native/ipdelay/rawhosts.go` 中重复的函数定义（文件保留 `ToStrings`）、`CUSTOM.md`。
+- **验证：** 已从 Build Debug 日志确认重复定义是本次构建失败原因；修复后的 Android Build Debug 尚待重新运行。
