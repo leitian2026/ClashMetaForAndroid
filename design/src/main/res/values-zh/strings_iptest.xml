@@ -103,6 +103,7 @@
     <string name="iptest_col_tcolo">出口机房</string>
     <string name="iptest_log_target">%1$s 目标站：HTTP %2$d（%5$s），跳转 %3$s，出口机房 %4$s</string>
     <string name="iptest_log_target_none">%1$s 目标站：没有回应</string>
+    <string name="iptest_log_target_protocol">%1$s 协议原始值：NegotiatedProtocol=%2$s；resp.Proto=%3$s</string>
     <string name="iptest_soft_redirect">页面自己跳转 %1$s</string>
     <string name="iptest_soft_region">页面疑似写了地区不可用</string>
     <string name="iptest_log_soft_redirect">%1$s 目标页面自己把浏览器转走（meta refresh 或脚本），去：%2$s</string>
