@@ -41,7 +41,8 @@ const (
 // IPRequest is what the app sends (as the filter of the query, with "kind":"ip").
 type IPRequest struct {
 	Kind   string `json:"kind"`
-	Mode   string `json:"mode"`   // "nodes", "config", "asn", "parse", "probe", "nodeone", "download" or "colo"
+	Mode   string `json:"mode"`   // "nodes", "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo"
+	Domains string `json:"domains"` // resolve: domain names to look up for IPv4
 	Domain string `json:"domain"` // direct: SNI and Host
 	Node   string `json:"node"`   // node: the node to copy
 	IPs    string `json:"ips"`    // the text as typed
@@ -166,6 +167,8 @@ type IPReport struct {
 	// CUSTOM.md #69: mode "config": the addresses the profile uses for its nodes and the servers that gave none.
 	Config     []ConfigIP   `json:"config"`
 	ConfigFail []ConfigFail `json:"configFail"`
+	// CUSTOM.md step 66: IPv4 answers for the domains entered in the dialog.
+	Resolved []IPResolveResult `json:"resolved"`
 }
 
 // ipPort is the port tested in direct mode (a variable only so that a test can point it at a local server).
@@ -233,6 +236,10 @@ func RunIP(filter string) IPReport {
 		rep.At = time.Now().UnixMilli()
 
 		return rep
+	}
+
+	if req.Mode == "resolve" { // CUSTOM.md step 66: explicit domain-to-IPv4 lookup for the dialog
+		return runResolve(req, rep)
 	}
 
 	if req.Mode == "asn" {
