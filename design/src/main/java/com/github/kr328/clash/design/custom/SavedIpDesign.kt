@@ -409,7 +409,9 @@ class SavedIpDesign(
         row.addView(statusMark, LinearLayout.LayoutParams(dp(18), dp(32)))
         // CUSTOM.md #156 (r217): increase saved-IP address text by one size.
         val address = TextView(context).apply {
-            text = entry.address
+            // CUSTOM.md #156 第 43 步：显示测试时已有的 IP 归属国家旗帜，不触发额外查询。
+            val flag = CountryFlag.of(entry.countryCode)
+            text = if (flag.isEmpty()) entry.address else "$flag ${entry.address}"
             textSize = 14f
             setTextColor(colorText)
             gravity = Gravity.CENTER_VERTICAL

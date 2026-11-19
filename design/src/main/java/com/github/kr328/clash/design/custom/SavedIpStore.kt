@@ -25,6 +25,8 @@ data class SavedIpEntry(
     // Defaults keep entries written by the previous schema readable.
     val lastTestedAt: Long = 0L,
     val addedAt: Long = 0L,
+    // CUSTOM.md #156 第 43 步：IP 归属国家代码；默认空值兼容旧快照。
+    val countryCode: String = "",
     // CUSTOM.md #77: retain optional direct extension diagnostics in saved batches; defaults read old snapshots.
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),
@@ -264,7 +266,14 @@ object SavedIpStore {
             val previousInBatch = batchEntries[address]
             if (previousInBatch != null) {
                 // Duplicate rows within one result set keep their first position and latest result.
-                batchEntries[address] = previousInBatch.copy(status = status, lastTestedAt = testedAt, ws = row.ws, h3 = row.h3, mtu = row.mtu)
+                batchEntries[address] = previousInBatch.copy(
+                    status = status,
+                    lastTestedAt = testedAt,
+                    countryCode = row.geo.trim().ifBlank { previousInBatch.countryCode },
+                    ws = row.ws,
+                    h3 = row.h3,
+                    mtu = row.mtu,
+                )
                 continue
             }
 
@@ -274,6 +283,7 @@ object SavedIpStore {
                 status = status,
                 lastTestedAt = testedAt,
                 addedAt = previous?.addedAt ?: testedAt,
+                countryCode = row.geo.trim().ifBlank { previous?.countryCode.orEmpty() },
                 ws = row.ws,
                 h3 = row.h3,
                 mtu = row.mtu,

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r273
+当前版本：2_11_46-r274
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2226,6 +2226,15 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ### 详细诊断表格字号统一（r222之后，未单独编号）
 - `IpTestView.kt` 的 `diagnosticCell()` 字号从 12sp 调整为 14sp，与原有 IP 测试表格的表头和数据单元格字号一致。
 - 仅调整新增详细诊断表格（包括其中的 DNS 结果表格）单元格字号；原有 IP 测试表格及其他布局、逻辑不变。
+
+
+### 第 43 步：保存并显示已测试 IP 的归属国家旗帜（r274）
+- **数据来源：** 保存测试结果时，将 `IpTestRow.geo`（IP 注册归属国家的两位代码）写入 `SavedIpEntry.countryCode`；不使用 `IpTestRow.country`（经节点出口国家），不发起额外查询或网络请求。
+- **兼容与合并：** 新字段默认空字符串，旧 JSON 缺少字段时正常读取并显示无旗帜；同一 IP 再次保存时，新结果有国家代码则更新，没有则保留原有代码。批次内重复行也遵循相同规则。显式 `SavedIpSnapshot.serializer()` 编解码写法保持不变。
+- **保存入口：** 配置检查页现有“保存这一批 / 只保存通的 / 只保存粘贴的 IP”均继续通过 `SavedIpStore.saveRows()`；页面其他修改入口继续通过 `SavedIpStore.update()` 严格读改写，没有绕过存储层。
+- **显示：** 已保存 IP 的双列列表在地址前显示 `CountryFlag.of(countryCode)`；旧数据或无有效国家码时只显示 IP。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`CUSTOM.md`。没有新增或修改上游文件总表；`ConfigCheckDesign.kt` 的保存入口已核对，无需改动。
+- **验证：** 静态核对旧数据默认值、显式 serializer、同 IP 非空更新 / 空值保留、批次内重复合并、三种保存入口及无网络查询；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
 
 
 ## IP 测试审查修正（r220）
