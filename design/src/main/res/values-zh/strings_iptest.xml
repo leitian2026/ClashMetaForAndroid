@@ -76,10 +76,7 @@
     <string name="iptest_log_ip_ok_noports">%1$s 完成：平均经节点延迟 %2$d 毫秒，失败率 %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s 失败：%2$s（失败率 %3$d%%）</string>
     <string name="iptest_log_split_direct">%1$s 抖动（平均偏差）%2$d 毫秒；分段：TCP %3$d / TLS %4$d / 首字节 %5$d（毫秒；0 = 没测到；TCP 和 TLS 是 10 次里成功的平均，首字节只有一次 HEAD）</string>
-    <string name="iptest_log_split_node">%1$s 抖动（平均偏差）%2$d 毫秒；分段：拨号 %3$d / 握手 %4$d / 首字节 %5$d（毫秒；0 = 没测到；是成功的几次的平均）</string>
-    <string name="iptest_log_asn_ok">%1$s 归属运营商：%2$s</string>
     <string name="iptest_log_asn_none">%1$s 归属运营商：没查到（可能被限流，不影响结果）</string>
-    <string name="iptest_log_geo">%1$s 归属地：%2$s</string>
     <string name="iptest_log_land_ok">%1$s 出口国家：%2$s（经节点 %3$s，实时查的）</string>
     <string name="iptest_log_land_none">%1$s 出口国家：没查到（经节点 %2$s，实时查的）</string>
     <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，不查询出口国家（出口国家要经过节点才看得到）</string>
@@ -91,7 +88,6 @@
     <string name="iptest_http_403_note">服务器拒绝访问</string>
     <string name="iptest_log_speed_cancelled">%1$s 下载测速已取消</string>
     <string name="iptest_log_error">出错：%1$s</string>
-    <string name="iptest_log_node_colo_ok">%1$s 入口机房：%2$s（对这个 IP 额外直连一次，用节点自己的域名当 SNI 读到的；通常和节点走的一致，不保证每次相同）</string>
     <string name="iptest_log_node_colo_nosni">%1$s 入口机房：没读，这个节点没有域名可当 SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s 入口机房：没读到（额外直连一次失败：%2$s）</string>
     <string name="iptest_target_label">目标网址（用于经节点测延迟和读取出口机房，可不填；要看出口机房，请填 Cloudflare 上的站点）</string>
@@ -101,7 +97,6 @@
     <string name="iptest_target_note">延迟、失败率都是经过节点对目标网址测的；“目标站反应”是它自己的回应，“出口机房”读它回应里的 Cf-Ray，目标站要在 Cloudflare 上才有出口机房。目标网址只用于测延迟和读取出口机房，留空的现有行为不变。</string>
     <string name="iptest_col_target">目标站反应</string>
     <string name="iptest_col_tcolo">出口机房</string>
-    <string name="iptest_log_target">%1$s 目标站：HTTP %2$d（%5$s），跳转 %3$s，出口机房 %4$s</string>
     <string name="iptest_log_target_none">%1$s 目标站：没有回应</string>
     <string name="iptest_log_target_protocol">%1$s 协议原始值：NegotiatedProtocol=%2$s；resp.Proto=%3$s</string>
     <string name="iptest_soft_redirect">页面自己跳转 %1$s</string>
