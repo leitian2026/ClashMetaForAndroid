@@ -9,6 +9,7 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
@@ -303,8 +304,42 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             }
 
             copied.append(context.getString(R.string.iptest_diag_ip_title) + "\n")
+            // Keep the exported Markdown and its original values unchanged; only the on-screen target table is split
+            // and given shortened certificate text.
             appendMarkdown(headers, values)
-            addDiagnosticsTable(context.getString(R.string.iptest_diag_ip_title), headers, values)
+            if (target) {
+                val displayValues = values.mapIndexed { index, original ->
+                    val row = rows[index]
+                    val failed = !row.ok || row.targetStatus == 0
+                    val dash = context.getString(R.string.iptest_diag_dash)
+                    val missing = context.getString(R.string.iptest_diag_not_obtained)
+                    val domain = if (failed) dash else row.targetCertDnsNames.ifBlank { missing }
+                    val issuer = if (failed) dash else certificateIssuerName(row.targetCertIssuer.ifBlank { missing })
+                    val expiry = if (failed) dash else certificateDate(row.targetCertNotAfter.ifBlank { missing })
+                    original.toMutableList().apply {
+                        this[3] = context.getString(R.string.iptest_diag_cert_value, domain, issuer, expiry)
+                    }
+                }
+
+                val connectionColumns = listOf(0, 1, 2, 3, 4)
+                val responseColumns = listOf(0, 5, 6, 7, 8, 9, 10) // keep the existing page-hint column at the end
+
+                addDetailedDiagnosticsTable(
+                    context.getString(R.string.iptest_diag_connection),
+                    connectionColumns.map { headers[it] },
+                    displayValues.map { row -> connectionColumns.map { row[it] } },
+                    values.map { row -> connectionColumns.map { row[it] } },
+                )
+                addDetailedDiagnosticsTable(
+                    context.getString(R.string.iptest_diag_response),
+                    responseColumns.map { headers[it] },
+                    displayValues.map { row -> responseColumns.map { row[it] } },
+                    values.map { row -> responseColumns.map { row[it] } },
+                )
+            } else {
+                // The non-target TLS / protocol mini-table keeps its existing layout and sizing.
+                addDiagnosticsTable(context.getString(R.string.iptest_diag_ip_title), headers, values)
+            }
         }
 
         dnsReport?.let { report ->
@@ -338,6 +373,189 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             }
             diagnosticsBody.addView(empty, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+    }
+
+    // Target diagnostics: two compact tables share the same sorted rows. The first IP column is fixed;
+    // all other columns are sized from their header and longest value, capped at half the available screen width.
+    private fun addDetailedDiagnosticsTable(
+        title: String,
+        headers: List<String>,
+        values: List<List<String>>,
+        copyValues: List<List<String>>,
+    ) {
+        val heading = TextView(context).apply {
+            text = title
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(colorText)
+            setPadding(0, dp(10), 0, dp(6))
+        }
+        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val availableWidth = (diagnosticsBody.width - diagnosticsBody.paddingLeft - diagnosticsBody.paddingRight)
+            .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(48))
+        val widths = detailedColumnWidths(headers, values, availableWidth)
+        val firstWidth = widths.first()
+        val gridWidth = widths.drop(1).sum()
+
+        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        val leftHeader = detailedHeaderCell(headers.first())
+        val rightHeaders = headers.drop(1).map { detailedHeaderCell(it) }
+        val headerHeight = maxOf(
+            dp(42),
+            detailedHeight(leftHeader, firstWidth),
+            rightHeaders.mapIndexed { index, cell -> detailedHeight(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+        )
+
+        val leftHeaderBg = FrameLayout(context).apply {
+            setBackgroundColor(colorSurface)
+            addView(leftHeader, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ))
+        }
+        left.addView(leftHeaderBg, lp(firstWidth, headerHeight))
+
+        val headRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(colorSurface)
+        }
+        rightHeaders.forEachIndexed { index, cell ->
+            headRow.addView(cell, lp(widths[index + 1], headerHeight))
+        }
+        grid.addView(headRow, lp(gridWidth, headerHeight))
+
+        values.forEachIndexed { rowIndex, row ->
+            val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
+            val fullRow = copyValues.getOrNull(rowIndex).orEmpty()
+            val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true)
+            val cells = row.drop(1).mapIndexed { index, value ->
+                detailedValueCell(value, fullRow.getOrNull(index + 1).orEmpty(), false)
+            }
+            val height = maxOf(
+                dp(42),
+                detailedHeight(first, firstWidth),
+                cells.mapIndexed { index, cell -> detailedHeight(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+            )
+
+            // The stripe is painted by the row container; child cells are transparent and share this exact height.
+            val leftRow = FrameLayout(context).apply {
+                setBackgroundColor(stripe)
+                addView(first, FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ))
+            }
+            left.addView(leftRow, lp(firstWidth, height))
+
+            val rightRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(stripe)
+            }
+            cells.forEachIndexed { index, cell ->
+                rightRow.addView(cell, lp(widths[index + 1], height))
+            }
+            grid.addView(rightRow, lp(gridWidth, height))
+        }
+
+        val scroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = true
+            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        val table = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(left, lp(firstWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
+        val minWidths = IntArray(headers.size) { if (it == 0) dp(72) else dp(44) }
+        val maxWidth = (availableWidth / 2).coerceAtLeast(dp(48))
+        val widths = IntArray(headers.size) { column ->
+            val header = detailedHeaderCell(headers[column])
+            val headerWidth = detailedTextWidth(header, headers[column])
+            val valueWidth = values.maxOfOrNull { row ->
+                val cell = detailedValueCell(row.getOrNull(column).orEmpty(), "", column == 0)
+                detailedTextWidth(cell, row.getOrNull(column).orEmpty())
+            } ?: 0
+            maxOf(minWidths[column], maxOf(headerWidth, valueWidth) + dp(16)).coerceAtMost(maxWidth)
+        }
+
+        // If natural content widths exceed the viewport, compress columns toward their minimums. Text then wraps;
+        // a horizontal scroll is needed only on exceptionally narrow windows.
+        var overflow = widths.sum() - availableWidth
+        while (overflow > 0) {
+            val candidates = widths.indices.filter { widths[it] > minWidths[it] }
+            if (candidates.isEmpty()) break
+            val before = overflow
+            val share = maxOf(1, overflow / candidates.size)
+            for (index in candidates) {
+                val reduction = minOf(share, widths[index] - minWidths[index], overflow)
+                widths[index] -= reduction
+                overflow -= reduction
+                if (overflow == 0) break
+            }
+            if (overflow >= before) break
+        }
+        return widths
+    }
+
+    private fun detailedTextWidth(view: TextView, value: String): Int {
+        val longest = value.split('\n').maxOfOrNull { view.paint.measureText(it) } ?: 0f
+        return longest.toInt()
+    }
+
+    private fun detailedHeaderCell(text: String): TextView = TextView(context).apply {
+        this.text = text
+        textSize = 14f
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+        gravity = Gravity.CENTER
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(colorMuted)
+        setBackgroundColor(Color.TRANSPARENT)
+        setPadding(dp(5), dp(6), dp(5), dp(6))
+    }
+
+    private fun detailedValueCell(text: String, copyText: String, bold: Boolean): TextView = TextView(context).apply {
+        this.text = text.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
+        textSize = 14f
+        maxLines = 3
+        ellipsize = TextUtils.TruncateAt.END
+        gravity = Gravity.TOP or Gravity.START
+        setTextColor(colorText)
+        setBackgroundColor(Color.TRANSPARENT)
+        setPadding(dp(6), dp(5), dp(6), dp(5))
+        if (bold) setTypeface(typeface, Typeface.BOLD)
+        setOnClickListener { onCopy(copyText.ifBlank { this.text.toString() }) }
+    }
+
+    private fun detailedHeight(view: View, width: Int): Int {
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+        return view.measuredHeight
+    }
+
+    private fun certificateIssuerName(value: String): String {
+        val parts = value.split(',').map { it.trim() }
+        val commonName = parts.firstOrNull { it.startsWith("CN=", ignoreCase = true) }?.substringAfter('=')
+        val organization = parts.firstOrNull { it.startsWith("O=", ignoreCase = true) }?.substringAfter('=')
+        return when {
+            !commonName.isNullOrBlank() && !organization.isNullOrBlank() -> "$commonName ($organization)"
+            !commonName.isNullOrBlank() -> commonName
+            !organization.isNullOrBlank() -> organization
+            else -> value
+        }
+    }
+
+    private fun certificateDate(value: String): String {
+        return Regex("""\d{4}-\d{2}-\d{2}""").find(value)?.value ?: value
     }
 
     // The diagnostics table follows the IP table: one IP per vertical row; diagnostic fields are horizontal columns.
