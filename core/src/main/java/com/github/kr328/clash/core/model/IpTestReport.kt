@@ -143,6 +143,8 @@ data class IpTestResolveResult(
     val ips: List<String> = emptyList(),
     val omitted: Int = 0,
     val error: String = "",
+    val fromHosts: Boolean = false,
+    val cacheBypassUnsupported: Boolean = false,
 )
 
 /**

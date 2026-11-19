@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r279
+当前版本：2_11_46-r280
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2551,10 +2551,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ### 第 66 步：在“测试其他 IP”对话框增加按域名查询 IPv4 的内核接口（r255）
 - **内核入口：** `RunIP` 增加 `mode=resolve`，只接受域名列表并返回每个域名的 IPv4 结果；不改变既有 `parse` / `probe` / `nodeone` 等测试路径。
-- **解析顺序：** 先按 `ipdelay.RawHosts()` 的精确键读取当前配置 `hosts:` 值；命中后只取其中的 IPv4，不再回退查询。没有精确键时调用 mihomo `resolver.LookupIPv4(ctx, domain)`，使用当前内核解析器。该接口在固定 mihomo 提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 的 `component/resolver/resolver.go` 中实现，`LookupIPv4WithResolver` 会先查 `DefaultHosts`，再走当前 resolver / system resolver。
+- **解析顺序：** 先按 `ipdelay.RawHosts()` 的精确键读取当前配置 `hosts:` 值；命中后只取其中的 IPv4，不再回退查询，并在结果域名旁标“来自 hosts”。没有精确键时调用 mihomo `dns.LookupIPv4Fresh(ctx, domain)`，每次用户点击“解析域名”时对每个去重后的域名发起一次 A 记录查询，跳过 DNS 缓存读取；仍使用当前内核解析器及其 nameserver-policy / fallback 规则，成功答案写回原缓存。若解析器动态类型不支持强制查询，接口返回 `dns.ErrFreshUnsupported`，App 才退回原 `resolver.LookupIPv4(ctx, domain)`，并在该域名旁标“未能绕过缓存”；其他 DNS 错误不触发缓存回退。IP 字面量由 Go 侧既有逻辑处理，不传给强制查询接口。内核接口由第 83 步补丁新增。
 - **过滤与限制：** 只保留 IPv4，过滤默认 fake-ip 段 `198.18.0.0/15`，去重后按数值升序排列，每个域名最多返回 8 个，另报被截断数量。域名输入去重并校验；同一轮最多 4 个域名并发，整体 10 秒超时。使用现有 `beginRun` / `CancelIPTest`，关闭对话框可取消等待。
 - **新增文件：** `core/src/main/golang/native/conftest/iptest_resolve.go`、`iptest_resolve_test.go`。**改动文件：** `conftest/iptest.go`（请求与响应字段、`resolve` 分派）、`ipdelay/rawhosts.go`（新增 `ToStrings` hosts 值转换辅助函数；`RawHosts` 快照函数原已存在于 `nodeinfo.go`）、`CUSTOM.md`。没有修改 mihomo 子模块或上游文件。
-- **验证：** 已对照用户上传的 mihomo 固定提交源码：`component/resolver/resolver.go` 的 `LookupIPv4` / `LookupIPv4WithResolver`，以及 `component/resolver/host.go` 的 `DefaultHosts.Search`。本环境没有 Go 工具链，未运行 `gofmt`、`go test` 或 `go vet`；需由 CI 验证。
+- **验证：** 原始接口已对照用户上传的 mihomo 固定提交源码：`component/resolver/resolver.go` 的 `LookupIPv4` / `LookupIPv4WithResolver`，以及 `component/resolver/host.go` 的 `DefaultHosts.Search`。第 83 步新增的强制查询接口另对照同一固定提交的 `dns/resolver.go`（`exchangeWithoutCache`、`msgToIP`）、`hub/executor/executor.go`（`DefaultResolver = r`）和 `dns/system.go`（`SystemResolver = r`）。本环境没有 Go 工具链，未运行 `gofmt`、`go test` 或 `go vet`；需由 CI 验证。
 
 
 ### 第 67 步：在“测试其他 IP”对话框加入域名解析和勾选填入（r256）
@@ -2711,3 +2711,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 补丁依赖 `dns/resolver.go` 的 `exchangeWithoutCache`、`msgToIP`；不修改已有内核文件、`ExchangeContext`、缓存结构、TTL 或任何既有函数行为。现有 Build Debug 的 `Apply mihomo patches` 已按 `patches/mihomo/*.patch` 自动 dry-run 并应用，无需改 workflow。
 - 改动文件：新增 `patches/mihomo/0004-lookup-fresh.patch`；更新 `CUSTOM.md` 的 #20 补丁清单和依赖说明。
 - **验证：** 已对照固定子模块提交中的相关源码和类型赋值；未运行 Go 编译 / 单测，也未触发 Build Debug，需由 Actions 验证补丁应用和 Go 构建。
+
+
+### 第 84 步：测试其他 IP 的域名解析每次跳过 DNS 缓存（r280）
+- 非 `hosts:` 精确命中的域名改用第 83 步新增的 `mihomoDNS.LookupIPv4Fresh(ctx, domain)`，每次点击“解析域名”对每个去重域名只发起一次 A 记录查询；保留原有 4 个并发、整体 10 秒超时、fake-ip 段过滤、IPv4 去重和升序、每域名最多 8 个及取消逻辑。
+- `hosts:` 精确命中分支原样保留读取方式，不发 DNS 请求；Go 结果增加 `fromHosts` 标记。强制查询返回 `ErrFreshUnsupported` 时才调用原 `resolver.LookupIPv4`，结果增加 `cacheBypassUnsupported` 标记；超时、无结果等其他错误按原样返回，不回退缓存查询。
+- 对话框说明补充“解析会跳过 DNS 缓存重新查询；写在 hosts 里的域名直接读配置，不查 DNS”。结果域名旁显示“来自 hosts”或“未能绕过缓存”；快照新增两个可选布尔字段，旧快照缺少字段时默认 `false`，原有结果累加、勾选、清除和填入逻辑不变。
+- 改动文件：`core/src/main/golang/native/conftest/iptest_resolve.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、两份 `design/src/main/res/values*/strings_iptest.xml`、`CUSTOM.md`。没有改 mihomo 子模块或上游文件总表。
+- **验证：** 静态核对 Go 调用路径、fallback 条件、结果 JSON 字段默认值、快照兼容和 UI 标记；未运行 Go / Kotlin 编译或 Android Build Debug，需由 Actions 验证。

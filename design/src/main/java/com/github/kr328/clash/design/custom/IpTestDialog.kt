@@ -50,7 +50,12 @@ data class IpTestChoice(
 )
 
 private data class ResolvedIpEntry(val ip: String, var checked: Boolean)
-private data class ResolvedIpGroup(val domain: String, val ips: MutableList<ResolvedIpEntry>)
+private data class ResolvedIpGroup(
+    val domain: String,
+    val ips: MutableList<ResolvedIpEntry>,
+    val fromHosts: Boolean = false,
+    val cacheBypassUnsupported: Boolean = false,
+)
 private data class ResolvedIpSnapshot(
     val groups: List<ResolvedIpGroup> = emptyList(),
     val hints: List<String> = emptyList(),
@@ -77,7 +82,12 @@ object IpTestDialog {
                     val ip = ipJson.optString("ip")
                     if (ip.isNotBlank()) ips += ResolvedIpEntry(ip, ipJson.optBoolean("checked", true))
                 }
-                if (ips.isNotEmpty()) groups += ResolvedIpGroup(domain, ips)
+                if (ips.isNotEmpty()) groups += ResolvedIpGroup(
+                    domain,
+                    ips,
+                    groupJson.optBoolean("fromHosts", false),
+                    groupJson.optBoolean("cacheBypassUnsupported", false),
+                )
             }
             val hintsJson = json.optJSONArray("hints") ?: JSONArray()
             val hints = List(hintsJson.length()) { hintsJson.optString(it) }.filter { it.isNotBlank() }
@@ -100,7 +110,13 @@ object IpTestDialog {
                 for (entry in group.ips) {
                     ipsJson.put(JSONObject().put("ip", entry.ip).put("checked", entry.checked))
                 }
-                groupsJson.put(JSONObject().put("domain", group.domain).put("ips", ipsJson))
+                groupsJson.put(
+                    JSONObject()
+                        .put("domain", group.domain)
+                        .put("ips", ipsJson)
+                        .put("fromHosts", group.fromHosts)
+                        .put("cacheBypassUnsupported", group.cacheBypassUnsupported),
+                )
             }
             val json = JSONObject()
                 .put("groups", groupsJson)
@@ -340,7 +356,12 @@ object IpTestDialog {
                 }
                 val restoredResolved = readResolvedSnapshot(prefs)
                 val resolvedGroups = restoredResolved.groups.map { group ->
-                    ResolvedIpGroup(group.domain, group.ips.map { ResolvedIpEntry(it.ip, it.checked) }.toMutableList())
+                    ResolvedIpGroup(
+                        group.domain,
+                        group.ips.map { ResolvedIpEntry(it.ip, it.checked) }.toMutableList(),
+                        group.fromHosts,
+                        group.cacheBypassUnsupported,
+                    )
                 }.toMutableList()
                 val latestResolveHints = restoredResolved.hints.toMutableList()
                 var lastResolvedAt = restoredResolved.timestamp
@@ -373,7 +394,12 @@ object IpTestDialog {
                         for (group in resolvedGroups) {
                             if (group.ips.isEmpty()) continue
                             resolveRowsBox.addView(TextView(context).apply {
-                                text = group.domain
+                                text = buildList {
+                                    if (group.fromHosts) add(context.getString(R.string.iptest_resolve_from_hosts))
+                                    if (group.cacheBypassUnsupported) add(context.getString(R.string.iptest_resolve_cache_unsupported))
+                                }.let { labels ->
+                                    if (labels.isEmpty()) group.domain else "${group.domain} · ${labels.joinToString(" · ")}"
+                                }
                                 textSize = 14f
                                 setPadding(0, pad / 5, 0, 0)
                             })
@@ -488,6 +514,15 @@ object IpTestDialog {
                                 }
                                 val knownAddresses = resolvedGroups.flatMap { group -> group.ips.map { it.ip } }.toMutableSet()
                                 for (entry in report.resolved) {
+                                    val sourceLabels = buildList {
+                                        if (entry.fromHosts) add(context.getString(R.string.iptest_resolve_from_hosts))
+                                        if (entry.cacheBypassUnsupported) add(context.getString(R.string.iptest_resolve_cache_unsupported))
+                                    }
+                                    val displayDomain = if (sourceLabels.isEmpty()) {
+                                        entry.domain
+                                    } else {
+                                        "${entry.domain} · ${sourceLabels.joinToString(" · ")}"
+                                    }
                                     if (entry.error.isNotEmpty()) {
                                         val reason = when (entry.error) {
                                             "hosts_no_ipv4" -> context.getString(R.string.iptest_resolve_hosts_no_ipv4)
@@ -495,7 +530,7 @@ object IpTestDialog {
                                             "timeout" -> context.getString(R.string.iptest_resolve_timeout)
                                             else -> entry.error
                                         }
-                                        latestResolveHints += context.getString(R.string.iptest_resolve_failed, entry.domain, reason)
+                                        latestResolveHints += context.getString(R.string.iptest_resolve_failed, displayDomain, reason)
                                         continue
                                     }
                                     val newAddresses = entry.ips.filter { knownAddresses.add(it) }
@@ -503,7 +538,11 @@ object IpTestDialog {
                                         resolvedGroups += ResolvedIpGroup(
                                             entry.domain,
                                             newAddresses.map { ResolvedIpEntry(it, true) }.toMutableList(),
+                                            entry.fromHosts,
+                                            entry.cacheBypassUnsupported,
                                         )
+                                    } else if (sourceLabels.isNotEmpty()) {
+                                        latestResolveHints += displayDomain
                                     }
                                     if (entry.omitted > 0) {
                                         latestResolveHints += context.getString(R.string.iptest_resolve_omitted, entry.omitted)

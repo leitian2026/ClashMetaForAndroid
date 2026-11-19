@@ -15,6 +15,7 @@ import (
 	"cfa/native/ipdelay"
 
 	"github.com/metacubex/mihomo/component/resolver"
+	mihomoDNS "github.com/metacubex/mihomo/dns"
 )
 
 const (
@@ -27,10 +28,12 @@ var fakeIPPrefix = netip.MustParsePrefix("198.18.0.0/15")
 
 // IPResolveResult is one domain's IPv4 answer in mode "resolve".
 type IPResolveResult struct {
-	Domain  string   `json:"domain"`
-	IPs     []string `json:"ips"`
-	Omitted int      `json:"omitted"`
-	Error   string   `json:"error"`
+	Domain                 string   `json:"domain"`
+	IPs                    []string `json:"ips"`
+	Omitted                int      `json:"omitted"`
+	Error                  string   `json:"error"`
+	FromHosts              bool     `json:"fromHosts"`
+	CacheBypassUnsupported bool     `json:"cacheBypassUnsupported"`
 }
 
 // parseResolveDomains splits, validates, normalizes and deduplicates the user's domain list.
@@ -118,6 +121,7 @@ func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any) 
 	var addresses []netip.Addr
 
 	if raw, found := hosts[domain]; found {
+		result.FromHosts = true
 		for _, value := range ipdelay.ToStrings(raw) {
 			if address, err := netip.ParseAddr(strings.TrimSpace(value)); err == nil {
 				addresses = append(addresses, address.Unmap())
@@ -128,7 +132,11 @@ func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any) 
 			return result
 		}
 	} else {
-		resolved, err := resolver.LookupIPv4(ctx, domain)
+		resolved, err := mihomoDNS.LookupIPv4Fresh(ctx, domain)
+		if errors.Is(err, mihomoDNS.ErrFreshUnsupported) {
+			result.CacheBypassUnsupported = true
+			resolved, err = resolver.LookupIPv4(ctx, domain)
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				result.Error = "timeout"
