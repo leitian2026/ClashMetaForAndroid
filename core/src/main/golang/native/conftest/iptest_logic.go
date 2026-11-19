@@ -23,7 +23,7 @@ type target struct {
 // parseTargets reads only IP addresses separated by line breaks, commas, semicolons, spaces or tabs
 // (also the full-width ones). An IPv4 ":port" or a bracketed IPv6 ":port" suffix is discarded; the port is
 // never returned or used. Domains and all non-IP words are invalid.
-func parseTargets(text string) (list []target, invalid []string) {
+func parseTargets(text string) (list []target, invalid []string, duplicates int) {
 	// CUSTOM.md #156 step 28: an inline "#label" suffix belongs to the address on that line,
 	// not to the input tokens. Strip it before splitting so labels may contain spaces (e.g. "联通-FRA 2").
 	lines := strings.Split(text, "\n")
@@ -43,10 +43,12 @@ func parseTargets(text string) (list []target, invalid []string) {
 	})
 	seen := map[string]bool{}
 	add := func(t target) {
-		if !seen[t.Text] {
-			seen[t.Text] = true
-			list = append(list, t)
+		if seen[t.Text] {
+			duplicates++
+			return
 		}
+		seen[t.Text] = true
+		list = append(list, t)
 	}
 	for _, f := range fields {
 		ipText := f
@@ -69,7 +71,7 @@ func parseTargets(text string) (list []target, invalid []string) {
 		}
 		add(target{Text: addr.String()})
 	}
-	return list, invalid
+	return list, invalid, duplicates
 }
 
 // sortRows puts the addresses that work first, quickest first; the ones that failed keep the order they were typed.

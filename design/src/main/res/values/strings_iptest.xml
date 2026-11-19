@@ -149,6 +149,8 @@
     <string name="iptest_resolve_clear">Clear</string>
     <string name="iptest_resolve_parsed_ago">Parsed %1$d min ago</string>
     <string name="iptest_resolve_none_selected">Select at least one IP; the test box was not changed</string>
+    <string name="iptest_duplicates_removed">Removed %1$d duplicate IPs</string>
+    <string name="iptest_dedupe_error">Could not prepare the selected IPs; the test box was not changed</string>
     <string name="iptest_resolve_empty">Enter at least one domain to resolve</string>
     <string name="iptest_resolve_error">Domain lookup failed</string>
     <string name="iptest_resolve_invalid">Unrecognized domains: %1$s</string>

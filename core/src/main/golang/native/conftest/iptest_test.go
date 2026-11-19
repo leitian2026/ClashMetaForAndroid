@@ -20,26 +20,27 @@ func TestParseTargets(t *testing.T) {
 	cases := []struct {
 		in      string
 		want    []target
-		invalid []string
+		invalid    []string
+		duplicates int
 	}{
-		{"1.1.1.1\n2.2.2.2", ips("1.1.1.1", "2.2.2.2"), nil},
-		{"1.1.1.1, 2.2.2.2;3.3.3.3  4.4.4.4\t5.5.5.5", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4", "5.5.5.5"), nil},
-		{"1.1.1.1，2.2.2.2、3.3.3.3；4.4.4.4", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"), nil},
-		{"1.1.1.1:443 [2606:4700::1]:443 [2606:4700::2] 2606:4700::3", ips("1.1.1.1", "2606:4700::1", "2606:4700::2", "2606:4700::3"), nil},
-		{"162.159.237.150:443#联通-SJC\n104.29.125.21:443#联通-FRA\n162.159.160.28:443#联通-FRA 2", ips("162.159.237.150", "104.29.125.21", "162.159.160.28"), nil},
-		{"1.1.1.1:443#备注 1 2.2.2.2:8443#备注二", ips("1.1.1.1", "2.2.2.2"), nil},
-		{"1.1.1.1 1.1.1.1 ::ffff:1.1.1.1", ips("1.1.1.1"), nil},
-		{"abc 1.1.1.1 300.1.1.1 fe80::1%eth0 1.2.3", ips("1.1.1.1"), []string{"abc", "300.1.1.1", "fe80::1%eth0", "1.2.3"}},
-		{"  \n\r\n ", nil, nil},
-		{"example.com", nil, []string{"example.com"}},
-		{"Example.COM. example.com geng-xin.uf0.workers.dev", nil, []string{"Example.COM.", "example.com", "geng-xin.uf0.workers.dev"}},
-		{"example.com:8443 1.1.1.1 b.example.org", ips("1.1.1.1"), []string{"example.com:8443", "b.example.org"}},
-		{"localhost a_b.com -a.com a-.com a..com 2606:4700::zz 例子.com", nil, []string{"localhost", "a_b.com", "-a.com", "a-.com", "a..com", "2606:4700::zz", "例子.com"}},
+		{"1.1.1.1\n2.2.2.2", ips("1.1.1.1", "2.2.2.2"), nil, 0},
+		{"1.1.1.1, 2.2.2.2;3.3.3.3  4.4.4.4\t5.5.5.5", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4", "5.5.5.5"), nil, 0},
+		{"1.1.1.1，2.2.2.2、3.3.3.3；4.4.4.4", ips("1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"), nil, 0},
+		{"1.1.1.1:443 [2606:4700::1]:443 [2606:4700::2] 2606:4700::3", ips("1.1.1.1", "2606:4700::1", "2606:4700::2", "2606:4700::3"), nil, 0},
+		{"162.159.237.150:443#联通-SJC\n104.29.125.21:443#联通-FRA\n162.159.160.28:443#联通-FRA 2", ips("162.159.237.150", "104.29.125.21", "162.159.160.28"), nil, 0},
+		{"1.1.1.1:443#备注 1 2.2.2.2:8443#备注二", ips("1.1.1.1", "2.2.2.2"), nil, 0},
+		{"1.1.1.1 1.1.1.1:443 ::ffff:1.1.1.1 2606:4700::1 2606:4700:0:0:0:0:0:1", ips("1.1.1.1", "2606:4700::1"), nil, 3},
+		{"abc 1.1.1.1 300.1.1.1 fe80::1%eth0 1.2.3", ips("1.1.1.1"), []string{"abc", "300.1.1.1", "fe80::1%eth0", "1.2.3"}, 0},
+		{"  \n\r\n ", nil, nil, 0},
+		{"example.com", nil, []string{"example.com"}, 0},
+		{"Example.COM. example.com geng-xin.uf0.workers.dev", nil, []string{"Example.COM.", "example.com", "geng-xin.uf0.workers.dev"}, 0},
+		{"example.com:8443 1.1.1.1 b.example.org", ips("1.1.1.1"), []string{"example.com:8443", "b.example.org"}, 0},
+		{"localhost a_b.com -a.com a-.com a..com 2606:4700::zz 例子.com", nil, []string{"localhost", "a_b.com", "-a.com", "a-.com", "a..com", "2606:4700::zz", "例子.com"}, 0},
 	}
 	for i, c := range cases {
-		got, invalid := parseTargets(c.in)
-		if !reflect.DeepEqual(got, c.want) || !reflect.DeepEqual(invalid, c.invalid) {
-			t.Errorf("case %d: got %v %v, want %v %v", i, got, invalid, c.want, c.invalid)
+		got, invalid, duplicates := parseTargets(c.in)
+		if !reflect.DeepEqual(got, c.want) || !reflect.DeepEqual(invalid, c.invalid) || duplicates != c.duplicates {
+			t.Errorf("case %d: got %v %v duplicates=%d, want %v %v duplicates=%d", i, got, invalid, duplicates, c.want, c.invalid, c.duplicates)
 		}
 	}
 }

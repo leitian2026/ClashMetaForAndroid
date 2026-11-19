@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r276
+当前版本：2_11_46-r277
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2252,6 +2252,16 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 不改排序、分组、搜索条件、标签页、保存逻辑或测试框 / 解析结果框的分钟显示。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`CUSTOM.md`。没有新增或修改上游文件总表。
 - **验证：** 静态核对四个时间区间、资源占位符、未测试 IP 不显示时间、现有 `lastTestedAt` 未改动、窗口重新获得焦点时重绘；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
+
+
+### 第 46 步：测试 IP 自动去重（r277）
+- **统一解析：** 复用内核现有 `parseTargets()`，按解析后的 IP 地址去重，保留首次出现顺序；IPv4 与带端口写法、IPv4-mapped IPv6 与 IPv4、不同文本写法的同一 IPv6 地址均视为重复。端口不参与比较。
+- **填入测试框：** “放入测试框”和“读取配置的 IP”均调用同一解析器的 `normalize` 模式；该模式不受每轮最多测试 20 个的限制，输出规范化后的唯一 IP。只有填入时改写文本，不改用户手写内容。若去掉重复项，使用 Toast 提示“已去掉 N 个重复 IP”；没有重复不提示。
+- **开始测试：** 原有 `parse` 模式仍在解析测试框时去重，并把重复数量放入报告，在测试结果页沿用现有警告显示。无效内容继续走原有 invalid / skipped 提示，不改写测试框，也不改变域名拦截逻辑。
+- **范围：** 不改测速请求、结果表、保存逻辑；不增加网络请求、定时器、轮询或后台任务。未修改上游文件总表。
+- **改动文件：** `core/src/main/golang/native/conftest/iptest_logic.go`、`iptest_probe.go`、`iptest.go`、`iptest_test.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、两份 `strings_iptest.xml`、`CUSTOM.md`。
+- **验证：** 静态核对现有解析函数的所有调用点、端口剥离、IPv6 规范化、首次顺序、未截断的填入模式、手动输入保持原文及中英文资源占位符；未在本地运行脚本或编译，待 Actions CI 验证。
+
 
 
 ## IP 测试审查修正（r220）

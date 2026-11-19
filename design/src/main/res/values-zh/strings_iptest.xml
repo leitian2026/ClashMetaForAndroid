@@ -149,6 +149,8 @@
     <string name="iptest_resolve_clear">清除</string>
     <string name="iptest_resolve_parsed_ago">%1$d 分钟前解析</string>
     <string name="iptest_resolve_none_selected">请至少勾选一个 IP，测试框未改变</string>
+    <string name="iptest_duplicates_removed">已去掉 %1$d 个重复 IP</string>
+    <string name="iptest_dedupe_error">整理所选 IP 失败，测试框未改变</string>
     <string name="iptest_resolve_empty">请先输入要解析的域名</string>
     <string name="iptest_resolve_error">域名解析失败</string>
     <string name="iptest_resolve_invalid">无法识别的域名：%1$s</string>

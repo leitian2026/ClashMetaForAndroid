@@ -147,7 +147,7 @@ data class IpTestResolveResult(
 
 /**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
- * "nodes" (then only [nodes] is filled), "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo".
+ * "nodes" (then only [nodes] is filled), "config", "resolve", "asn", "parse", "normalize", "probe", "nodeone", "download" or "colo".
  * [error] is a short code such as "no node", "no address" or "unknown mode".
  */
 @Serializable
@@ -160,6 +160,7 @@ data class IpTestReport(
     val invalid: List<String> = emptyList(), // words that were neither an address nor a domain
     val skipped: List<String> = emptyList(), // direct mode: domains only node mode tests
     val cut: Int = 0,
+    val duplicates: Int = 0, // repeated valid IP addresses removed by the core parser
     val ref: IpTestRef? = null,
     val echSource: String = "",
     val at: Long = 0,

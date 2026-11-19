@@ -41,7 +41,7 @@ const (
 // IPRequest is what the app sends (as the filter of the query, with "kind":"ip").
 type IPRequest struct {
 	Kind    string `json:"kind"`
-	Mode    string `json:"mode"`    // "nodes", "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo"
+	Mode    string `json:"mode"`    // "nodes", "config", "resolve", "asn", "parse", "normalize", "probe", "nodeone", "download" or "colo"
 	Domains string `json:"domains"` // resolve: domain names to look up for IPv4
 	Domain  string `json:"domain"`  // direct: SNI and Host
 	Node    string `json:"node"`    // node: the node to copy
@@ -174,7 +174,8 @@ type IPReport struct {
 	Rows      []IPRow  `json:"rows"`      // quickest first, the ones that failed last
 	Invalid   []string `json:"invalid"`   // words that were neither an address nor a domain
 	Skipped   []string `json:"skipped"`   // direct mode: domains, which only node mode tests
-	Cut       int      `json:"cut"`       // addresses over the limit, not tested
+	Cut        int      `json:"cut"`       // addresses over the limit, not tested
+	Duplicates int      `json:"duplicates"` // repeated valid IP addresses removed by parseTargets
 	Ref       *IPRef   `json:"ref"`       // node mode
 	ECHSource string   `json:"echSource"` // direct mode: the server that gave the ECH config, "" when there is none
 	At        int64    `json:"at"`
@@ -273,7 +274,7 @@ func RunIP(filter string) IPReport {
 
 	// CUSTOM.md #52: one address per call (the app loops, so it can draw the table and the log after each)
 	switch req.Mode {
-	case "parse", "probe", "nodeone", "download", "colo":
+	case "parse", "normalize", "probe", "nodeone", "download", "colo":
 		return runOne(req, rep)
 	}
 
@@ -401,7 +402,7 @@ func fetchEvidenceTimed(ctx context.Context, conn *tls.Conn, domain string) (str
 // lookupOwners (mode "asn") asks who runs the address typed in `text` (one address; a domain or a second word is
 // not looked up). The row has the address and the answer; no row and Error "not found" when nothing was found.
 func lookupOwners(rep *IPReport, text string) {
-	list, _ := parseTargets(text)
+	list, _, _ := parseTargets(text)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*asnTimeout+time.Second)
 	defer cancel()

@@ -305,6 +305,15 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 } catch (_: Exception) {
                     null
                 }
+            }, normalizeIps = { ips ->
+                try {
+                    val request = JSONObject().put("kind", "ip").put("mode", "normalize").put("ips", ips).toString()
+                    IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
             }, cancelResolve = {
                 try {
                     withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
@@ -374,6 +383,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             if (parsed.skipped.isNotEmpty()) warnings += getString(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
             if (parsed.invalid.isNotEmpty()) warnings += getString(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
             if (parsed.cut > 0) warnings += getString(R.string.iptest_cut, parsed.cut)
+            if (parsed.duplicates > 0) warnings += getString(R.string.iptest_duplicates_removed, parsed.duplicates)
 
             val head = if (direct) {
                 getString(R.string.iptest_head_direct, domain)

@@ -212,7 +212,7 @@ func beginRun() (context.Context, func()) {
 
 // runOne answers the per-address modes.
 func runOne(req IPRequest, rep IPReport) IPReport {
-	if req.Mode == "parse" { // reads the list only: nothing to cancel, and a run in progress is left alone
+	if req.Mode == "parse" || req.Mode == "normalize" { // reads the list only: nothing to cancel, and a run in progress is left alone
 		parseList(req, &rep)
 
 		return rep
@@ -244,9 +244,10 @@ func runOne(req IPRequest, rep IPReport) IPReport {
 	return rep
 }
 
-// parseList (mode "parse") reads the typed IP list: accepted addresses, invalid words and the maxIPTest limit.
+// parseList reads the typed IP list. "normalize" returns every unique address for dialog fill; "parse" applies maxIPTest.
 func parseList(req IPRequest, rep *IPReport) {
-	list, invalid := parseTargets(req.IPs)
+	list, invalid, duplicates := parseTargets(req.IPs)
+	rep.Duplicates = duplicates
 
 	rep.Invalid = append(rep.Invalid, invalid...)
 
@@ -266,7 +267,7 @@ func parseList(req IPRequest, rep *IPReport) {
 		list = addrs
 	}
 
-	if len(list) > maxIPTest {
+	if req.Mode != "normalize" && len(list) > maxIPTest {
 		rep.Cut = len(list) - maxIPTest
 		list = list[:maxIPTest]
 	}
@@ -284,7 +285,7 @@ func parseList(req IPRequest, rep *IPReport) {
 
 // firstTarget is the first entry accepted by the selected route.
 func firstTarget(text string, domains bool) (target, bool) {
-	list, _ := parseTargets(text)
+	list, _, _ := parseTargets(text)
 	for _, t := range list {
 		if !t.IsDomain || domains {
 			return t, true

@@ -118,6 +118,7 @@ object IpTestDialog {
         presetIps: String? = null, // CUSTOM.md #156 step 4: one-shot prefill from selected saved IPs
         resolveDomains: (suspend (String) -> IpTestReport?)? = null, // CUSTOM.md step 67
         cancelResolve: (suspend () -> Unit)? = null, // CUSTOM.md step 67: stop the core lookup when this dialog closes
+        normalizeIps: (suspend (String) -> IpTestReport?)? = null, // CUSTOM.md #156 step 46: reuse the core IP parser
     ): IpTestChoice? {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<IpTestChoice?> { ctx ->
@@ -257,6 +258,23 @@ object IpTestDialog {
 
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+                suspend fun fillTestBox(values: List<String>) {
+                    val report = normalizeIps?.invoke(values.joinToString("\n"))
+                    if (report == null || report.error.isNotEmpty() || report.rows.isEmpty()) {
+                        android.widget.Toast.makeText(context, R.string.iptest_dedupe_error, android.widget.Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                    input.setText(report.rows.joinToString("\n") { it.ip })
+                    input.setSelection(input.text?.length ?: 0)
+                    if (report.duplicates > 0) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.iptest_duplicates_removed, report.duplicates),
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+
                 // CUSTOM.md step 67: domain lookup is separate from the existing IP-test input.
                 val resolveLabel = TextView(context).apply {
                     setText(R.string.iptest_resolve_domain_label)
@@ -336,13 +354,12 @@ object IpTestDialog {
                     isAllCaps = false
                     isEnabled = false
                     setOnClickListener {
-                        val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }.distinct()
+                        val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }
                         if (selected.isEmpty()) {
                             android.widget.Toast.makeText(context, R.string.iptest_resolve_none_selected, android.widget.Toast.LENGTH_SHORT).show()
                             return@setOnClickListener
                         }
-                        input.setText(selected.joinToString("\n"))
-                        input.setSelection(input.text?.length ?: 0)
+                        scope.launch { fillTestBox(selected) }
                     }
                 }
 
@@ -691,8 +708,7 @@ object IpTestDialog {
                                     // CUSTOM.md #71: the ticked addresses replace what the box held (they were added after it);
                                     // nothing ticked leaves the box as it was
                                     if (text.isNotEmpty()) {
-                                        input.setText(text.joinToString("\n"))
-                                        input.setSelection(input.text?.length ?: 0)
+                                        scope.launch { fillTestBox(text) }
                                     }
                                 }
                             }
