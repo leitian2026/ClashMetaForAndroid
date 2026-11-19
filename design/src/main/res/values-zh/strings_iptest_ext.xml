@@ -22,4 +22,9 @@
     <string name="iptest_ext_ok">成功</string>
     <string name="iptest_ext_failed">失败</string>
     <string name="iptest_log_mtu_step">MTU %1$s：%2$s</string>
+    <string name="iptest_ext_ws_upgraded">101 ✓</string>
+    <string name="iptest_ext_no_upgrade">%1$d 未升级</string>
+    <string name="iptest_ext_timeout">超时</string>
+    <string name="iptest_ext_tcp_short">TCP %1$d</string>
+    <string name="iptest_ext_tap_hint">点格子看详情</string>
 </resources>

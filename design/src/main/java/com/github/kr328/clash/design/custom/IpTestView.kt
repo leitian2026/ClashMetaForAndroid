@@ -444,7 +444,23 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             val title = context.getString(R.string.iptest_ext_title)
             copied.append(title).append('\n')
             appendMarkdown(headers, values)
-            addDiagnosticsTable(title, headers, values, 120, 128)
+            // CUSTOM.md #156 step 83: the shown table is a compact full-width one (one short line per cell, tap for the
+            // full text); the copied text above keeps the full values.
+            val extRows = rows.mapIndexed { index, row ->
+                ExtRow(
+                    row.ip,
+                    listOf(
+                        ExtCell(extWsSummary(row.ws), "${headers[1]} · ${row.ip}", values[index][1]),
+                        ExtCell(extH3Summary(row.h3), "${headers[2]} · ${row.ip}", values[index][2]),
+                        ExtCell(
+                            extMtuSummary(row.ip, row.mtu),
+                            "${headers[3]} · ${row.ip}",
+                            listOf(values[index][3], row.mtu.detail).filter { it.isNotBlank() }.joinToString("\n\n"),
+                        ),
+                    ),
+                )
+            }
+            addExtensionTable(title, headers, extRows)
         }
 
         dnsReport?.let { report ->
@@ -714,6 +730,142 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             addView(left, lp(firstWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
+        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    private class ExtCell(val text: CharSequence, val title: String, val detail: String)
+
+    private class ExtRow(val ip: String, val cells: List<ExtCell>)
+
+    /** A reason cut to something that fits a cell: the timeouts get a word of their own. */
+    private fun extShortReason(reason: String): String {
+        val lower = reason.lowercase()
+        if (lower.contains("deadline exceeded") || lower.contains("timeout") || lower.contains("timed out")) {
+            return context.getString(R.string.iptest_ext_timeout)
+        }
+        return if (reason.length > 16) reason.take(16) + "…" else reason
+    }
+
+    private fun extText(text: String, color: Int): CharSequence {
+        val sb = SpannableStringBuilder()
+        add(sb, text, color)
+        return sb
+    }
+
+    private fun extFailureText(result: IpTestExtResult): CharSequence {
+        val reason = result.reason.ifBlank { context.getString(R.string.iptest_ext_failed) }
+        return extText(extShortReason(reason), colorBad)
+    }
+
+    private fun extWsSummary(result: IpTestExtResult): CharSequence {
+        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
+        if (result.status == 101 || (result.ok && result.status == 0)) {
+            return extText(context.getString(R.string.iptest_ext_ws_upgraded), colorGood)
+        }
+        if (result.status in 200..399) {
+            return extText(context.getString(R.string.iptest_ext_no_upgrade, result.status), colorMuted)
+        }
+        if (result.status > 0) return extText(result.status.toString(), colorBad)
+        return extFailureText(result)
+    }
+
+    private fun extH3Summary(result: IpTestExtResult): CharSequence {
+        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
+        if (result.status > 0) {
+            val text = if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, result.status.toString(), result.ms) else result.status.toString()
+            return extText(text, if (result.status in 200..399) colorGood else colorBad)
+        }
+        return extFailureText(result)
+    }
+
+    /** Two short lines: the TCP and the UDP path MTU (the UDP probe measures the payload, so the headers are added back). */
+    private fun extMtuSummary(ip: String, result: IpTestExtResult): CharSequence {
+        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
+
+        val sb = SpannableStringBuilder()
+
+        if (result.tcpMtu > 0) {
+            add(sb, context.getString(R.string.iptest_ext_tcp_short, result.tcpMtu), colorGood)
+        } else {
+            add(sb, context.getString(R.string.iptest_ext_tcp_none), colorMuted)
+        }
+
+        sb.append('\n')
+
+        val overhead = if (ip.contains(':')) 48 else 28
+
+        when {
+            result.udpMtu > 0 -> {
+                val format = if (result.detail.contains("UDP upper bound reached")) R.string.iptest_ext_udp_mtu_at_least else R.string.iptest_ext_udp_mtu
+                add(sb, context.getString(format, result.udpMtu + overhead), colorGood)
+            }
+            result.udpNoResponse -> add(sb, context.getString(R.string.iptest_ext_udp_none), colorMuted)
+            result.reason.isNotBlank() -> add(sb, extShortReason(result.reason), colorBad)
+            else -> add(sb, context.getString(R.string.iptest_ext_udp_dash), colorMuted)
+        }
+
+        return sb
+    }
+
+    private fun addExtensionTable(title: String, headers: List<String>, rows: List<ExtRow>) {
+        val heading = TextView(context).apply {
+            val sb = SpannableStringBuilder()
+            add(sb, title, bold = true)
+            add(sb, "  " + context.getString(R.string.iptest_ext_tap_hint), colorMuted)
+            sb.setSpan(android.text.style.AbsoluteSizeSpan(12, true), title.length, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            text = sb
+            textSize = 14f
+            setTextColor(colorText)
+            setPadding(0, dp(10), 0, dp(6))
+        }
+        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val firstWidth = dp(124)
+
+        fun cell(text: CharSequence, bold: Boolean, textColor: Int, size: Float): TextView = TextView(context).apply {
+            this.text = text
+            textSize = size
+            setTextColor(textColor)
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(dp(6), dp(5), dp(6), dp(5))
+            minHeight = dp(42)
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+        }
+
+        fun row(background: Int, cells: List<TextView>): LinearLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(background)
+            cells.forEachIndexed { i, view ->
+                if (i == 0) {
+                    addView(view, LinearLayout.LayoutParams(firstWidth, ViewGroup.LayoutParams.MATCH_PARENT))
+                } else {
+                    addView(view, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+                }
+            }
+        }
+
+        val table = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        table.addView(
+            row(colorSurface, headers.map { cell(it, true, colorText, 14f) }),
+            lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+        )
+
+        rows.forEachIndexed { index, r ->
+            val stripe = if (index % 2 == 1) colorStripe else Color.TRANSPARENT
+            val views = ArrayList<TextView>()
+
+            views += cell(r.ip, true, colorText, 14f)
+
+            for (c in r.cells) {
+                views += cell(c.text, false, colorText, 13f).apply {
+                    if (c.detail.isNotBlank()) setOnClickListener { onDetail(c.title, c.detail) }
+                }
+            }
+
+            table.addView(row(stripe, views), lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
         diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
