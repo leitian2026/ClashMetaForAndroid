@@ -307,8 +307,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             }
 
             copied.append(context.getString(R.string.iptest_diag_ip_title) + "\n")
-            // Keep the exported Markdown and its original values unchanged; only the on-screen target table is split
-            // and given shortened certificate text.
+            // Export uses the original full values. Only the on-screen certificate text is shortened.
             appendMarkdown(headers, values)
             if (target) {
                 val displayValues = values.mapIndexed { index, original ->
@@ -323,21 +322,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                         this[3] = context.getString(R.string.iptest_diag_cert_value, domain, issuer, expiry)
                     }
                 }
-
-                val connectionColumns = listOf(0, 1, 2, 3, 4)
-                val responseColumns = listOf(0, 5, 6, 7, 8, 9, 10) // keep the existing page-hint column at the end
-
                 addDetailedDiagnosticsTable(
-                    context.getString(R.string.iptest_diag_connection),
-                    connectionColumns.map { headers[it] },
-                    displayValues.map { row -> connectionColumns.map { row[it] } },
-                    values.map { row -> connectionColumns.map { row[it] } },
-                )
-                addDetailedDiagnosticsTable(
-                    context.getString(R.string.iptest_diag_response),
-                    responseColumns.map { headers[it] },
-                    displayValues.map { row -> responseColumns.map { row[it] } },
-                    values.map { row -> responseColumns.map { row[it] } },
+                    context.getString(R.string.iptest_diag_ip_title),
+                    headers,
+                    displayValues,
+                    values,
                 )
             } else {
                 // The non-target TLS / protocol mini-table keeps its existing layout and sizing.
@@ -378,8 +367,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         }
     }
 
-    // Target diagnostics: two compact tables share the same sorted rows. The first IP column is fixed;
-    // all other columns are sized from their header and longest value, capped at half the available screen width.
+    // Target diagnostics use one table. The IP column is fixed at the left; the remaining ten columns
+    // scroll as one grid. Column widths follow the longest value and the longest unbroken header word.
     private fun addDetailedDiagnosticsTable(
         title: String,
         headers: List<String>,
@@ -433,9 +422,10 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         values.forEachIndexed { rowIndex, row ->
             val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
             val fullRow = copyValues.getOrNull(rowIndex).orEmpty()
-            val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true)
+            val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true, true)
             val cells = row.drop(1).mapIndexed { index, value ->
-                detailedValueCell(value, fullRow.getOrNull(index + 1).orEmpty(), false)
+                val columnIndex = index + 1
+                detailedValueCell(value, fullRow.getOrNull(columnIndex).orEmpty(), false, columnIndex == 5)
             }
             val height = maxOf(
                 dp(42),
@@ -443,7 +433,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 cells.mapIndexed { index, cell -> detailedHeight(cell, widths[index + 1]) }.maxOrNull() ?: 0,
             )
 
-            // The stripe is painted by the row container; child cells are transparent and share this exact height.
+            // Fixed and scrolling portions use the same stripe and the same measured row height.
             val leftRow = FrameLayout(context).apply {
                 setBackgroundColor(stripe)
                 addView(first, FrameLayout.LayoutParams(
@@ -465,6 +455,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val table = LinearLayout(context).apply {
@@ -476,46 +467,27 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
 
     private fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
-        // Compact minimums let the seven-column response block fit on a phone; long values wrap into up to three lines.
-        val minWidths = IntArray(headers.size) { if (it == 0) dp(64) else dp(36) }
-        val maxWidth = (availableWidth / 2).coerceAtLeast(dp(48))
-        val normalMeasure = TextView(context).apply { textSize = 14f }
-        val boldMeasure = TextView(context).apply {
+        val maxRegularWidth = (availableWidth / 2).coerceAtLeast(dp(48))
+        val normalPaint = TextView(context).apply { textSize = 14f }.paint
+        val boldPaint = TextView(context).apply {
             textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
-        }
-        val widths = IntArray(headers.size) { column ->
-            val header = detailedHeaderCell(headers[column])
-            val headerWidth = detailedTextWidth(header.paint, headers[column])
-            val valuePaint = if (column == 0) boldMeasure.paint else normalMeasure.paint
+        }.paint
+
+        return IntArray(headers.size) { column ->
+            val headerWordWidth = headers[column].split(Regex("""\s+"""))
+                .maxOfOrNull { boldPaint.measureText(it) } ?: 0f
+            val valuePaint = if (column == 0) boldPaint else normalPaint
             val valueWidth = values.maxOfOrNull { row ->
-                detailedTextWidth(valuePaint, row.getOrNull(column).orEmpty())
-            } ?: 0
-            maxOf(minWidths[column], maxOf(headerWidth, valueWidth) + dp(16)).coerceAtMost(maxWidth)
-        }
+                valuePaint.measureText(row.getOrNull(column).orEmpty().replace('\n', ' '))
+            } ?: 0f
+            val natural = maxOf(headerWordWidth, valueWidth).toInt() + dp(16)
 
-        // If natural content widths exceed the viewport, compress columns toward their minimums. Text then wraps;
-        // a horizontal scroll is needed only on exceptionally narrow windows.
-        var overflow = widths.sum() - availableWidth
-        while (overflow > 0) {
-            val candidates = widths.indices.filter { widths[it] > minWidths[it] }
-            if (candidates.isEmpty()) break
-            val before = overflow
-            val share = maxOf(1, overflow / candidates.size)
-            for (index in candidates) {
-                val reduction = minOf(share, widths[index] - minWidths[index], overflow)
-                widths[index] -= reduction
-                overflow -= reduction
-                if (overflow == 0) break
+            when (column) {
+                0, 5 -> natural.coerceAtMost(availableWidth.coerceAtLeast(dp(48)))
+                else -> natural.coerceAtLeast(dp(44)).coerceAtMost(maxRegularWidth)
             }
-            if (overflow >= before) break
         }
-        return widths
-    }
-
-    private fun detailedTextWidth(paint: Paint, value: String): Int {
-        val longest = value.split('\n').maxOfOrNull { paint.measureText(it) } ?: 0f
-        return longest.toInt()
     }
 
     private fun detailedHeaderCell(text: String): TextView = TextView(context).apply {
@@ -523,17 +495,18 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         textSize = 14f
         maxLines = 2
         ellipsize = TextUtils.TruncateAt.END
-        gravity = Gravity.CENTER
+        gravity = Gravity.CENTER_VERTICAL or Gravity.START
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(colorMuted)
         setBackgroundColor(Color.TRANSPARENT)
-        setPadding(dp(5), dp(6), dp(5), dp(6))
+        setPadding(dp(6), dp(6), dp(6), dp(6))
     }
 
-    private fun detailedValueCell(text: String, copyText: String, bold: Boolean): TextView = TextView(context).apply {
+    private fun detailedValueCell(text: String, copyText: String, bold: Boolean, noWrap: Boolean): TextView = TextView(context).apply {
         this.text = text.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
         textSize = 14f
-        maxLines = 3
+        maxLines = if (noWrap) 1 else 3
+        if (noWrap) isSingleLine = true
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.TOP or Gravity.START
         setTextColor(colorText)
