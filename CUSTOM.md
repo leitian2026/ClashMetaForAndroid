@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_44-r252
+当前版本：2_11_45-r253
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2469,7 +2469,6 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ### 第 62 步：修正经节点模式端口说明（r252）
 - 将中英文 `iptest_measure_node_note` 中“端口列显示节点配置端口、未测试”的旧说明改为：经节点模式不测端口，该列显示“-”。直连模式端口测试说明不变。
-- 同一说明中补充出口国家与出口机房的区别：出口国家对应出口 IP 所在国家；出口机房来自目标站响应中的接收机房；两者来自不同位置，不一致不一定表示错误，判断目标站可访问性以出口国家为准。
 - 仅改文案，不改端口列取值、显示逻辑或测试行为。
 - 不新增网络请求、定时器、轮询或后台任务。
 - 改动文件：`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
@@ -2490,4 +2489,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 2xx 响应不生成摘要；不扩大读取长度、不新增请求。
 - 不新增定时器、轮询或后台任务。
 - 改动文件：`core/src/main/golang/native/ipdelay/pagesniff.go`、`core/src/main/golang/native/ipdelay/pagesniff_test.go`、`core/src/main/golang/native/ipdelay/iptry_target.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**
+
+### 第 65 步：说明出口国家与出口机房的区别（r252）
+- 在中英文 `iptest_measure_node_note` 中补充：出口国家是出口 IP 所在的国家；出口机房是目标站响应中读到的接收机房，两者来自不同位置，对不上不一定是错；判断能否访问目标站时，以出口国家为准。
+- 与第 62 步共用同一处说明，不在其他弹窗重复添加；只改文案，不改国家 / 机房数据来源和判断逻辑。
+- 不新增网络请求、定时器、轮询或后台任务。
+- 改动文件：`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
 - **验证：未编译，靠 Actions 验证。**
