@@ -81,10 +81,9 @@ func TryIP(name, server string, isDomain bool) TryResult {
 	return TryResult{Delay: delay, Ph: ph}
 }
 
-// ExitCountry (CUSTOM.md #62) is the country that an outside service sees for traffic of node `name` with its server
-// replaced by `server` (an address, or a domain when isDomain), asked now through a copy of the node (api.country.is,
-// then ipinfo.io). CUSTOM.md #72: always asked, the one the proxy page knows from an earlier test is not used. A domain
-// is asked with a copy that has another name, like TryIP. "" when it cannot be found. Nothing is stored.
+// ExitCountry (CUSTOM.md #62, #57) returns the country and, when api.country.is supplies it, the public-facing IP
+// seen for traffic of node `name` with its server replaced by `server`. It asks through a copy of the node, first
+// api.country.is and then ipinfo.io/country. The fallback has no IP field. CUSTOM.md #72: always asked; nothing is stored.
 func ExitCountry(name, server string, isDomain bool) (country, exitIP string) {
 	lock.RLock()
 	raw := proxies[name]
