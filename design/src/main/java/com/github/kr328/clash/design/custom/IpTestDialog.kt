@@ -30,6 +30,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.coroutines.resume
 
 /** CUSTOM (CUSTOM.md #43): what the user chose in the dialog of "test other IPs". [mode] is "direct" or "node". */
@@ -42,9 +44,67 @@ data class IpTestChoice(
     val target: String = "", // CUSTOM.md #66: a site the user really uses; through-node tries go to it ("" = the node's test URL)
 )
 
-// CUSTOM (CUSTOM.md #43, not upstream): the dialog of "test other IPs": the addresses to test (what was typed last
-// time is put back), the node to put them into, and the two ways to test. Built in code, no layout file.
+private data class ResolvedIpEntry(val ip: String, var checked: Boolean)
+private data class ResolvedIpGroup(val domain: String, val ips: MutableList<ResolvedIpEntry>)
+private data class ResolvedIpSnapshot(
+    val groups: List<ResolvedIpGroup> = emptyList(),
+    val hints: List<String> = emptyList(),
+    val timestamp: Long = 0L,
+)
+
 object IpTestDialog {
+    private const val RESOLVED_SNAPSHOT_KEY = "ip_resolved_last"
+
+    private fun readResolvedSnapshot(prefs: SharedPreferences): ResolvedIpSnapshot {
+        return try {
+            val raw = prefs.getString(RESOLVED_SNAPSHOT_KEY, null) ?: return ResolvedIpSnapshot()
+            val json = JSONObject(raw)
+            val groupsJson = json.optJSONArray("groups") ?: JSONArray()
+            val groups = ArrayList<ResolvedIpGroup>()
+            for (i in 0 until groupsJson.length()) {
+                val groupJson = groupsJson.optJSONObject(i) ?: continue
+                val domain = groupJson.optString("domain")
+                if (domain.isBlank()) continue
+                val ipsJson = groupJson.optJSONArray("ips") ?: JSONArray()
+                val ips = ArrayList<ResolvedIpEntry>()
+                for (j in 0 until ipsJson.length()) {
+                    val ipJson = ipsJson.optJSONObject(j) ?: continue
+                    val ip = ipJson.optString("ip")
+                    if (ip.isNotBlank()) ips += ResolvedIpEntry(ip, ipJson.optBoolean("checked", true))
+                }
+                if (ips.isNotEmpty()) groups += ResolvedIpGroup(domain, ips)
+            }
+            val hintsJson = json.optJSONArray("hints") ?: JSONArray()
+            val hints = List(hintsJson.length()) { hintsJson.optString(it) }.filter { it.isNotBlank() }
+            ResolvedIpSnapshot(groups, hints, json.optLong("timestamp", 0L))
+        } catch (_: Exception) {
+            ResolvedIpSnapshot()
+        }
+    }
+
+    private fun writeResolvedSnapshot(
+        prefs: SharedPreferences,
+        groups: List<ResolvedIpGroup>,
+        hints: List<String>,
+        timestamp: Long,
+    ) {
+        try {
+            val groupsJson = JSONArray()
+            for (group in groups) {
+                val ipsJson = JSONArray()
+                for (entry in group.ips) {
+                    ipsJson.put(JSONObject().put("ip", entry.ip).put("checked", entry.checked))
+                }
+                groupsJson.put(JSONObject().put("domain", group.domain).put("ips", ipsJson))
+            }
+            val json = JSONObject()
+                .put("groups", groupsJson)
+                .put("hints", JSONArray(hints))
+                .put("timestamp", timestamp)
+            prefs.edit().putString(RESOLVED_SNAPSHOT_KEY, json.toString()).apply()
+        } catch (_: Exception) {
+        }
+    }
     suspend fun ask(
         context: Context,
         prefs: SharedPreferences,
@@ -185,6 +245,18 @@ object IpTestDialog {
                     alpha = 0.7f
                     setPadding(0, pad / 2, 0, 0)
                 }
+                val resolveTimeLabel = TextView(context).apply {
+                    textSize = 11f
+                    alpha = 0.65f
+                    visibility = View.GONE
+                    setPadding(0, 0, (8 * density).toInt(), 0)
+                }
+                val restoredResolved = readResolvedSnapshot(prefs)
+                val resolvedGroups = restoredResolved.groups.map { group ->
+                    ResolvedIpGroup(group.domain, group.ips.map { ResolvedIpEntry(it.ip, it.checked) }.toMutableList())
+                }.toMutableList()
+                val latestResolveHints = restoredResolved.hints.toMutableList()
+                var lastResolvedAt = restoredResolved.timestamp
                 val resolveChecks = ArrayList<CheckBox>()
                 var hasResolveRows = false
                 var hasResolveStatus = false
@@ -205,6 +277,62 @@ object IpTestDialog {
                     }
                 }
 
+                fun renderResolvedRows() {
+                    resolveRowsBox.removeAllViews()
+                    resolveChecks.clear()
+                    hasResolveRows = resolvedGroups.any { it.ips.isNotEmpty() }
+                    if (!hasResolveRows) {
+                        resolveRowsBox.addView(resolveResultPlaceholder)
+                    } else {
+                        for (group in resolvedGroups) {
+                            if (group.ips.isEmpty()) continue
+                            resolveRowsBox.addView(TextView(context).apply {
+                                text = group.domain
+                                textSize = 14f
+                                setPadding(0, pad / 5, 0, 0)
+                            })
+                            for (entry in group.ips) {
+                                val check = CheckBox(context).apply {
+                                    text = entry.ip
+                                    tag = entry.ip
+                                    isChecked = entry.checked
+                                    textSize = 14f
+                                    setOnCheckedChangeListener { _, checked -> entry.checked = checked }
+                                }
+                                resolveChecks += check
+                                resolveRowsBox.addView(check, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                            }
+                        }
+                    }
+                    fillResolvedButton.isEnabled = resolveChecks.any { it.isChecked }
+                }
+
+                fun renderLatestResolveHints() {
+                    resolveStatusBox.removeAllViews()
+                    latestResolveHints.forEach { message ->
+                        resolveStatusBox.addView(TextView(context).apply {
+                            text = message
+                            textSize = 13f
+                            setPadding(0, pad / 5, 0, pad / 5)
+                        })
+                    }
+                    hasResolveStatus = latestResolveHints.isNotEmpty()
+                }
+
+                fun updateResolvedTimeLabel() {
+                    if (lastResolvedAt <= 0L || !hasResolveRows) {
+                        resolveTimeLabel.visibility = View.GONE
+                    } else {
+                        val minutes = ((System.currentTimeMillis() - lastResolvedAt).coerceAtLeast(0L) / 60000L).toInt()
+                        resolveTimeLabel.text = context.getString(R.string.iptest_resolve_parsed_ago, minutes)
+                        resolveTimeLabel.visibility = View.VISIBLE
+                    }
+                }
+
+                fun persistResolvedSnapshot() {
+                    writeResolvedSnapshot(prefs, resolvedGroups, latestResolveHints, lastResolvedAt)
+                }
+
                 val clearResultsButton = TextView(context).apply {
                     setText(R.string.iptest_resolve_clear)
                     textSize = 13f
@@ -214,22 +342,28 @@ object IpTestDialog {
                     setPadding((12 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
                     setOnClickListener {
                         if (!hasResolveRows && !hasResolveStatus) return@setOnClickListener
-                        resolveStatusBox.removeAllViews()
-                        resolveRowsBox.removeAllViews()
-                        resolveRowsBox.addView(resolveResultPlaceholder)
-                        resolveChecks.clear()
-                        hasResolveRows = false
-                        hasResolveStatus = false
-                        fillResolvedButton.isEnabled = false
+                        resolvedGroups.clear()
+                        latestResolveHints.clear()
+                        lastResolvedAt = 0L
+                        renderResolvedRows()
+                        renderLatestResolveHints()
+                        updateResolvedTimeLabel()
                         isEnabled = false
+                        persistResolvedSnapshot()
                     }
                 }
                 val resolveResultHeader = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(resolveResultLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(resolveTimeLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                     addView(clearResultsButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
+
+                renderResolvedRows()
+                renderLatestResolveHints()
+                clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
+                updateResolvedTimeLabel()
 
                 val resolveButton = MaterialButton(context).apply {
                     setText(R.string.iptest_resolve_button)
@@ -247,9 +381,6 @@ object IpTestDialog {
                         }
                         isEnabled = false
                         setText(R.string.iptest_resolve_running)
-                        resolveStatusBox.removeAllViews()
-                        hasResolveStatus = false
-                        clearResultsButton.isEnabled = hasResolveRows
                         resolving = true
                         scope.launch {
                             val report = try {
@@ -262,20 +393,15 @@ object IpTestDialog {
                             resolving = false
                             isEnabled = true
                             setText(R.string.iptest_resolve_button)
+                            latestResolveHints.clear()
                             if (report == null) {
+                                latestResolveHints += context.getString(R.string.iptest_resolve_error)
                                 android.widget.Toast.makeText(context, R.string.iptest_resolve_error, android.widget.Toast.LENGTH_LONG).show()
                             } else {
-                                fun addLatestHint(view: View) {
-                                    resolveStatusBox.addView(view)
-                                    hasResolveStatus = true
-                                }
                                 if (report.invalid.isNotEmpty()) {
-                                    addLatestHint(TextView(context).apply {
-                                        text = context.getString(R.string.iptest_resolve_invalid, report.invalid.joinToString("、"))
-                                        textSize = 13f
-                                    })
+                                    latestResolveHints += context.getString(R.string.iptest_resolve_invalid, report.invalid.joinToString("、"))
                                 }
-                                val knownAddresses = resolveChecks.mapNotNull { it.tag as? String }.toMutableSet()
+                                val knownAddresses = resolvedGroups.flatMap { group -> group.ips.map { it.ip } }.toMutableSet()
                                 for (entry in report.resolved) {
                                     if (entry.error.isNotEmpty()) {
                                         val reason = when (entry.error) {
@@ -284,50 +410,34 @@ object IpTestDialog {
                                             "timeout" -> context.getString(R.string.iptest_resolve_timeout)
                                             else -> entry.error
                                         }
-                                        addLatestHint(TextView(context).apply {
-                                            text = context.getString(R.string.iptest_resolve_failed, entry.domain, reason)
-                                            textSize = 14f
-                                            setPadding(0, pad / 5, 0, pad / 5)
-                                        })
+                                        latestResolveHints += context.getString(R.string.iptest_resolve_failed, entry.domain, reason)
                                         continue
                                     }
                                     val newAddresses = entry.ips.filter { knownAddresses.add(it) }
                                     if (newAddresses.isNotEmpty()) {
-                                        if (!hasResolveRows) resolveRowsBox.removeView(resolveResultPlaceholder)
-                                        resolveRowsBox.addView(TextView(context).apply {
-                                            text = entry.domain
-                                            textSize = 14f
-                                            setPadding(0, pad / 5, 0, 0)
-                                        })
-                                        for (address in newAddresses) {
-                                            val check = CheckBox(context).apply {
-                                                text = address
-                                                tag = address
-                                                isChecked = true
-                                                textSize = 14f
-                                            }
-                                            resolveChecks += check
-                                            resolveRowsBox.addView(check, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                                        }
-                                        hasResolveRows = true
+                                        resolvedGroups += ResolvedIpGroup(
+                                            entry.domain,
+                                            newAddresses.map { ResolvedIpEntry(it, true) }.toMutableList(),
+                                        )
                                     }
                                     if (entry.omitted > 0) {
-                                        addLatestHint(TextView(context).apply {
-                                            text = context.getString(R.string.iptest_resolve_omitted, entry.omitted)
-                                            textSize = 12f
-                                            alpha = 0.7f
-                                        })
+                                        latestResolveHints += context.getString(R.string.iptest_resolve_omitted, entry.omitted)
                                     }
                                 }
                                 if (report.error.isNotEmpty() && report.resolved.isEmpty()) {
-                                    addLatestHint(TextView(context).apply {
-                                        text = if (report.error == "no valid domains") context.getString(R.string.iptest_resolve_no_valid_domains) else report.error
-                                        textSize = 13f
-                                    })
+                                    latestResolveHints += if (report.error == "no valid domains") {
+                                        context.getString(R.string.iptest_resolve_no_valid_domains)
+                                    } else {
+                                        report.error
+                                    }
                                 }
-                                fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
                             }
+                            lastResolvedAt = System.currentTimeMillis()
+                            renderResolvedRows()
+                            renderLatestResolveHints()
                             clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
+                            updateResolvedTimeLabel()
+                            persistResolvedSnapshot()
                         }
                     }
                 }
@@ -543,6 +653,7 @@ object IpTestDialog {
                             prefs.edit().putString("ip_resolve_domains", resolveInput.text.toString()).apply()
                         } catch (_: Exception) {
                         }
+                        persistResolvedSnapshot()
                         val shouldCancelResolve = resolving
                         val cancel = cancelResolve
                         scope.cancel()

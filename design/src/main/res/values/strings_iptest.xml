@@ -147,6 +147,7 @@
     <string name="iptest_resolve_running">Resolving…</string>
     <string name="iptest_resolve_fill">Put in test box</string>
     <string name="iptest_resolve_clear">Clear</string>
+    <string name="iptest_resolve_parsed_ago">Parsed %1$d min ago</string>
     <string name="iptest_resolve_none_selected">Select at least one IP; the test box was not changed</string>
     <string name="iptest_resolve_empty">Enter at least one domain to resolve</string>
     <string name="iptest_resolve_error">Domain lookup failed</string>
