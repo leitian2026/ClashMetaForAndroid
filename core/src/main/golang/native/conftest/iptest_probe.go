@@ -600,7 +600,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	if ctx.Err() == nil {
 		if node := nodeOfDomain(rep.Domain); node != "" {
 			rep.LandNode = node
-			row.Country = ipdelay.ExitCountry(node, row.IP, false)
+			row.Country, _ = ipdelay.ExitCountry(node, row.IP, false)
 		}
 	}
 
@@ -833,12 +833,18 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 				row.TargetCfMitigated = detail.CfMitigated
 			}
 
-			// the exit country is asked through the node as before (the target address is not asked for it)
-			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
+			// The exit country and public-facing IP come from the same existing geo-service response.
+			row.Country, row.ExitIP = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
+			if row.ExitIP != "" {
+				row.ExitASN = lookupExitOwner(ctx, row.ExitIP)
+			}
 		} else if ctx.Err() == nil {
 			// CUSTOM.md #72: once per address, now (it was asked on every try, and the proxy page's memory was used first)
 			if !t.IsDomain {
-				row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
+				row.Country, row.ExitIP = ipdelay.ExitCountry(rep.Node, t.Text, false)
+				if row.ExitIP != "" {
+					row.ExitASN = lookupExitOwner(ctx, row.ExitIP)
+				}
 			}
 		}
 
@@ -967,4 +973,30 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 	}
 
 	rep.Rows = []IPRow{row}
+}
+
+
+// lookupExitOwner reuses the existing owner lookup and its successful-result cache. This additional
+// per-exit-IP cache also remembers misses, so the same public-facing IP is never queried twice.
+func lookupExitOwner(ctx context.Context, ip string) string {
+	ip = strings.TrimSpace(ip)
+	if ip == "" || ctx.Err() != nil {
+		return ""
+	}
+
+	exitOwnerCache.Lock()
+	defer exitOwnerCache.Unlock()
+
+	if asn, ok := exitOwnerCache.byIP[ip]; ok {
+		return asn
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*asnTimeout+time.Second)
+	asn, _ := lookupOwner(lookupCtx, ip)
+	cancel()
+
+	if ctx.Err() == nil {
+		exitOwnerCache.byIP[ip] = asn
+	}
+	return asn
 }
