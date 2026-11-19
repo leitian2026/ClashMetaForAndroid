@@ -3,6 +3,10 @@
 <resources>
     <string name="iptest_button">测试其他 IP</string>
     <string name="iptest_dialog_title">测试其他 IP</string>
+    <string name="iptest_dialog_help">说明</string>
+    <string name="iptest_test_box_label">测试框（开始测试时只测这里的 IP）</string>
+    <string name="iptest_resolve_results_title">解析结果</string>
+    <string name="iptest_resolve_not_yet">还没解析</string>
     <string name="iptest_ips_hint">例如 104.18.2.5</string>
     <string name="iptest_node_label">节点（经节点测延迟用）</string>
     <string name="iptest_no_nodes">配置里没有可选的节点（经节点测延迟不可用）</string>

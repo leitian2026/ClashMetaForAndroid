@@ -3,6 +3,10 @@
 <resources>
     <string name="iptest_button">Test other IPs</string>
     <string name="iptest_dialog_title">Test other IPs</string>
+    <string name="iptest_dialog_help">Help</string>
+    <string name="iptest_test_box_label">Test box (only IPs here are tested)</string>
+    <string name="iptest_resolve_results_title">Resolved IPs</string>
+    <string name="iptest_resolve_not_yet">Not resolved yet</string>
     <string name="iptest_ips_hint">e.g. 104.18.2.5</string>
     <string name="iptest_node_label">Node (for via-node latency test)</string>
     <string name="iptest_no_nodes">No node to choose in the config (via-node latency test unavailable)</string>

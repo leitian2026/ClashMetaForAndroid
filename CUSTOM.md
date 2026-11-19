@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r258
+当前版本：2_11_46-r259
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2527,3 +2527,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 删除 `rawhosts.go` 中重复的 `RawHosts()` 实现，保留该文件供第 66 步解析逻辑使用的 `ToStrings()` 包装函数；继续复用 `nodeinfo.go` 中原有的只读快照实现。不改解析逻辑、UI 或其他测试路径。
 - 改动文件：删除 `core/src/main/golang/native/ipdelay/rawhosts.go` 中重复的函数定义（文件保留 `ToStrings`）、`CUSTOM.md`。
 - **验证：** 已从 Build Debug 日志确认重复定义是本次构建失败原因；修复后的 Android Build Debug 尚待重新运行。
+
+
+### 第 70 步：调整“测试其他 IP”对话框布局并折叠说明（r259）
+- 对话框标题改为自定义单行标题：左侧“测试其他 IP”，右侧“说明”；每次打开默认折叠，点击“说明”只切换原说明 TextView 的可见性，不保存展开状态、不做动画。
+- 控件顺序调整为：说明文字（默认隐藏）、测试框标题、测试框、紧接测试框的“读取配置的 IP”按钮、固定高度可滚动的解析结果区（初始显示“还没解析”）、域名标题和输入框、“解析域名 / 放入测试框”按钮行；节点、目标网址、端口和两个下载地址仍位于后面，内容与顺序不变。
+- 本步只改布局、标题和说明可见性；不改解析结果生成、勾选状态、放入测试框的追加行为、读取配置 IP 行为或测试流程。
+- 新增中英文资源：说明按钮、测试框标题、解析结果标题和初始占位文案。
+- 不新增定时器、轮询、后台任务或动画；没有修改上游文件。
+- 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**

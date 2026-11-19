@@ -64,6 +64,40 @@ object IpTestDialog {
                     setText(R.string.iptest_dialog_hint)
                     textSize = 13f
                     alpha = 0.7f
+                    visibility = View.GONE
+                }
+
+                val titleRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                val titleText = TextView(context).apply {
+                    setText(R.string.iptest_dialog_title)
+                    textSize = 20f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+                var hintExpanded = false
+                val helpButton = TextView(context).apply {
+                    setText(R.string.iptest_dialog_help)
+                    textSize = 14f
+                    isClickable = true
+                    isFocusable = true
+                    setPadding((12 * density).toInt(), (8 * density).toInt(), 0, (8 * density).toInt())
+                    setOnClickListener {
+                        hintExpanded = !hintExpanded
+                        hint.visibility = if (hintExpanded) View.VISIBLE else View.GONE
+                    }
+                }
+                titleRow.addView(titleText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                titleRow.addView(helpButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+                val inputLabel = TextView(context).apply {
+                    setText(R.string.iptest_test_box_label)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
                 }
 
                 val input = EditText(context).apply {
@@ -108,8 +142,24 @@ object IpTestDialog {
 
                 val resolveResultBox = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
-                    visibility = View.GONE
                     setPadding(0, pad / 3, 0, 0)
+                }
+                val resolveResultPlaceholder = TextView(context).apply {
+                    setText(R.string.iptest_resolve_not_yet)
+                    textSize = 13f
+                    alpha = 0.7f
+                }
+                resolveResultBox.addView(resolveResultPlaceholder)
+                val resolveResultScroll = ScrollView(context).apply {
+                    isFillViewport = true
+                    addView(resolveResultBox, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                val resolveResultScrollHeight = (160 * density).toInt()
+                val resolveResultLabel = TextView(context).apply {
+                    setText(R.string.iptest_resolve_results_title)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
                 }
                 val resolveChecks = ArrayList<CheckBox>()
                 var resolving = false
@@ -149,7 +199,7 @@ object IpTestDialog {
                         isEnabled = false
                         setText(R.string.iptest_resolve_running)
                         fillResolvedButton.isEnabled = false
-                        resolveResultBox.visibility = View.GONE
+                        resolveResultScroll.visibility = View.GONE
                         resolving = true
                         scope.launch {
                             val report = try {
@@ -217,7 +267,7 @@ object IpTestDialog {
                                         textSize = 13f
                                     })
                                 }
-                                resolveResultBox.visibility = View.VISIBLE
+                                resolveResultScroll.visibility = View.VISIBLE
                                 fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
                             }
                         }
@@ -365,14 +415,16 @@ object IpTestDialog {
                 }
 
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(inputLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveActions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveResultBox, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
+                box.addView(resolveResultLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveResultScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, resolveResultScrollHeight))
+                box.addView(resolveLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveActions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 box.addView(nodeLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
@@ -422,7 +474,7 @@ object IpTestDialog {
                 }
 
                 MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.iptest_dialog_title)
+                    .setCustomTitle(titleRow)
                     .setView(scroll)
                     .setPositiveButton(R.string.iptest_btn_node) { _, _ -> done("node") }
                     .setNeutralButton(R.string.iptest_btn_direct) { _, _ -> done("direct") }
