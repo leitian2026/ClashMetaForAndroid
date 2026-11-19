@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r264
+当前版本：2_11_46-r265
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2583,4 +2583,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **实时状态滚动：** `IpTestView.logScroll` 原来按下就 `requestDisallowInterceptTouchEvent(true)`，滑到顶后整页也滑不动。现改为：手指方向上日志还能滚（`canScrollVertically`）才拦截，到顶 / 到底或内容不够长就把手势交还整页。纯事件驱动，没有定时器。
 - **可折叠说明：** `IpTestView.setInfo` 把 `sub` 的第一行（目标网址 / 参考行）留在原处，其后的说明段落（经节点 / 直连延迟说明）放进可折叠块，标题 `iptest_note_title`，默认折叠；“复制”输出仍包含完整说明。`ConfigCheckActivity` / `ConfigCheckDesign` 的 `sub` 拼接不变，已保存的结果恢复时同样拆分。
 - 改动文件：`design/.../custom/IpTestView.kt`、`IpTestDialog.kt`、design 中英文 `strings_iptest.xml`、`CUSTOM.md`；未涉及上游文件。
+- **验证：** 无法本地编译，待 Actions Build Debug 验证。
+
+### 第 76 步：收紧“说明”按钮与目标网址的行距，并让表格下方提示段落一起折叠（r265）
+- `IpTestView.setInfo` 去掉文字末尾多出的空行，有说明块时 `info` 底部内边距改为 0，“说明”按钮上下内边距缩小，与“目标网址”行、表格的间距变紧。
+- 表格下方、“详细诊断”上方的灰色提示段落（`hint`）改为跟“说明”按钮同步折叠 / 展开（默认折叠）；没有说明块（还没测试）时提示照常显示。
+- 复制输出的拼接随之补一个换行，内容不变。
+- 改动文件：`design/.../custom/IpTestView.kt`、`CUSTOM.md`；未涉及上游文件。
 - **验证：** 无法本地编译，待 Actions Build Debug 验证。

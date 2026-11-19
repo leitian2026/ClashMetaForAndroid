@@ -112,7 +112,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(colorText)
-        setPadding(0, 0, 0, dp(8))
+        setPadding(0, dp(2), 0, dp(6))
         visibility = View.GONE
         setOnClickListener {
             noteExpanded = !noteExpanded
@@ -122,6 +122,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private fun applyNoteState() {
         noteBody.visibility = if (noteExpanded) View.VISIBLE else View.GONE
+        // the grey paragraph above "详细诊断" folds with the same button
+        hint.visibility = if (noteExpanded) View.VISIBLE else View.GONE
         noteToggle.text = "${context.getString(R.string.iptest_note_title)}  ${if (noteExpanded) "▴" else "▾"}"
     }
 
@@ -249,12 +251,21 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         for (w in warnings) add(sb, w + "\n", colorWarn)
 
+        // no trailing blank line: it made the gap above the note button too big
+        while (sb.isNotEmpty() && sb[sb.length - 1] == '\n') sb.delete(sb.length - 1, sb.length)
+
         infoText = sb
         info.text = sb
+        info.setPadding(0, 0, 0, if (note.isEmpty()) dp(8) else 0)
 
         noteBody.text = note
         noteToggle.visibility = if (note.isEmpty()) View.GONE else View.VISIBLE
-        if (note.isEmpty()) noteBody.visibility = View.GONE else applyNoteState()
+        if (note.isEmpty()) {
+            noteBody.visibility = View.GONE
+            hint.visibility = View.VISIBLE
+        } else {
+            applyNoteState()
+        }
     }
 
     fun setColos(map: Map<String, String>, countries: Map<String, String>) {
@@ -742,7 +753,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     fun plain(): String {
         val sb = StringBuilder()
 
-        sb.append(infoText).append(if (noteBody.text.isNotEmpty()) noteBody.text.toString() + "\n" else "").append("\n\n")
+        sb.append(infoText).append("\n").append(if (noteBody.text.isNotEmpty()) noteBody.text.toString() + "\n" else "").append("\n\n")
         sb.append("| ").append(markdownCell(context.getString(R.string.iptest_col_ip)))
         for (k in keys) sb.append(" | ").append(markdownCell(title(k)))
         sb.append(" |\n")
