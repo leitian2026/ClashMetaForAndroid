@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r269
+当前版本：2_11_46-r270
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2632,3 +2632,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 新增纯逻辑测试：QUIC 探测包长度和保留版本、Version Negotiation 回包及 CID 校验、IPv4 / IPv6 搜索边界、二分查找最大可回应尺寸和无回应判断。测试可脱离完整 mihomo 模块单独运行。
 - 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_mtu.go`、`iptest_ext_mtu_logic.go`、`iptest_ext_mtu_logic_test.go`；修改 `core/src/main/golang/native/conftest/iptest_ext_h3.go`（明确选择 udp4 / udp6）、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/golang/go.mod`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest_ext.xml`、`design/src/main/res/values-zh/strings_iptest_ext.xml`、`CUSTOM.md`。依赖沿用现有版本，`go.sum` 无需变更；未修改 mihomo 子模块。
 - **验证：** 纯逻辑 Go 测试已通过；新增 Go 源文件已执行 `gofmt`。完整 `conftest` 包测试、Android Build Debug 和真实 Android 设备上的 DF / UDP 回包行为尚未验证。未触发 GitHub Actions，待用户手动运行 Build Debug。
+
+
+### 第 81 步：恢复 go.mod 的 CUSTOM 标记（r270）
+- **原因：** #79 / #80 调整 `core/src/main/golang/go.mod` 的直接依赖时，遗漏了该文件原有的 `CUSTOM` 标记，导致 `scripts/check-custom.sh` 报告“no CUSTOM marker any more: the hook was lost”。
+- **修复：** 在项目锁定版本的 `github.com/metacubex/quic-go` 直接依赖行补回 `CUSTOM` 标记；不改变任何依赖版本、依赖关系或代码行为。
+- **改动文件：** `core/src/main/golang/go.mod`、`CUSTOM.md`。

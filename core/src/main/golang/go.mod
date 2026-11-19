@@ -6,7 +6,7 @@ require (
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/metacubex/http v0.1.8
 	github.com/metacubex/mihomo v1.7.0
-	github.com/metacubex/quic-go v0.61.1-0.20260727080200-2548683b76f4
+	github.com/metacubex/quic-go v0.61.1-0.20260727080200-2548683b76f4 // CUSTOM: direct dependency for the direct HTTP/3 probe
 	github.com/metacubex/tls v0.1.9
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
