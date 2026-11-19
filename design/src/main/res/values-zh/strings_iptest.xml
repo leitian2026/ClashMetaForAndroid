@@ -50,6 +50,7 @@
     <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\n首字节 %3$s</string>
     <string name="iptest_phase_cell_node">拨号 %1$s\n握手 %2$s\n首字节 %3$s</string>
     <string name="iptest_col_exit">出口国家</string>
+    <string name="iptest_col_exit_ip">出口 IP</string>
     <string name="iptest_col_faster">比对照快</string>
     <string name="iptest_col_test">下载测速</string>
     <string name="iptest_col_speed">速度</string>
@@ -58,7 +59,7 @@
     <string name="iptest_faster_cell">快 %1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">失败</string>
-    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。</string>
+    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。经节点测试的出口 IP 是目标站看到的来访地址，和“归属运营商”（入口 IP 的）不是同一个。</string>
     <string name="iptest_log_title">实时状态</string>
     <string name="iptest_log_progress">（共 %1$d 个 IP，已测 %2$d 个）</string>
     <string name="iptest_port_title">端口结果：%1$s</string>
@@ -77,6 +78,7 @@
     <string name="iptest_log_ip_fail">%1$s 失败：%2$s（失败率 %3$d%%）</string>
     <string name="iptest_log_split_direct">%1$s 抖动（平均偏差）%2$d 毫秒；分段：TCP %3$d / TLS %4$d / 首字节 %5$d（毫秒；0 = 没测到；TCP 和 TLS 是 10 次里成功的平均，首字节只有一次 HEAD）</string>
     <string name="iptest_log_asn_none">%1$s 归属运营商：没查到（可能被限流，不影响结果）</string>
+    <string name="iptest_log_exit_asn_none">出口 IP %1$s 的运营商：没查到（可能被限流，不影响延迟结果）</string>
     <string name="iptest_log_land_ok">%1$s 出口国家：%2$s（经节点 %3$s，实时查的）</string>
     <string name="iptest_log_land_none">%1$s 出口国家：没查到（经节点 %2$s，实时查的）</string>
     <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，不查询出口国家（出口国家要经过节点才看得到）</string>
