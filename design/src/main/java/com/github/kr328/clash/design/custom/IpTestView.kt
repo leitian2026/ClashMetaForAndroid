@@ -179,6 +179,9 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         tableBox.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
             if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) tableBox.post { redraw() }
         }
+        diagnosticsBody.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
+            if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) diagnosticsBody.post { updateDiagnostics() }
+        }
 
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -473,14 +476,20 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
 
     private fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
-        val minWidths = IntArray(headers.size) { if (it == 0) dp(72) else dp(44) }
+        // Compact minimums let the seven-column response block fit on a phone; long values wrap into up to three lines.
+        val minWidths = IntArray(headers.size) { if (it == 0) dp(64) else dp(36) }
         val maxWidth = (availableWidth / 2).coerceAtLeast(dp(48))
+        val normalMeasure = TextView(context).apply { textSize = 14f }
+        val boldMeasure = TextView(context).apply {
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+        }
         val widths = IntArray(headers.size) { column ->
             val header = detailedHeaderCell(headers[column])
-            val headerWidth = detailedTextWidth(header, headers[column])
+            val headerWidth = detailedTextWidth(header.paint, headers[column])
+            val valuePaint = if (column == 0) boldMeasure.paint else normalMeasure.paint
             val valueWidth = values.maxOfOrNull { row ->
-                val cell = detailedValueCell(row.getOrNull(column).orEmpty(), "", column == 0)
-                detailedTextWidth(cell, row.getOrNull(column).orEmpty())
+                detailedTextWidth(valuePaint, row.getOrNull(column).orEmpty())
             } ?: 0
             maxOf(minWidths[column], maxOf(headerWidth, valueWidth) + dp(16)).coerceAtMost(maxWidth)
         }
@@ -504,8 +513,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         return widths
     }
 
-    private fun detailedTextWidth(view: TextView, value: String): Int {
-        val longest = value.split('\n').maxOfOrNull { view.paint.measureText(it) } ?: 0f
+    private fun detailedTextWidth(paint: Paint, value: String): Int {
+        val longest = value.split('\n').maxOfOrNull { paint.measureText(it) } ?: 0f
         return longest.toInt()
     }
 
