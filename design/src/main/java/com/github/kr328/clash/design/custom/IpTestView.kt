@@ -48,17 +48,17 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
 
     private val keys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
         // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
         // 比对照快 is dropped (the reference was measured against another address)
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.TARGET, Key.TCOLO, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.EXIT_IP, Key.TARGET, Key.TCOLO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else {
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.EXIT_IP, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -629,7 +629,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         // how the spare width is shared: the columns with the longest text get the most
         fun weightOf(i: Int): Double {
             val factor = if (i == 0) 1.0 else when (keys[i - 1]) {
-                Key.COLO, Key.TCOLO, Key.ASN, Key.PORTS -> 1.8
+                Key.COLO, Key.TCOLO, Key.ASN, Key.EXIT_IP, Key.PORTS -> 1.8
                 Key.GEO, Key.LAND -> 1.3
                 else -> 1.0
             }
@@ -714,6 +714,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.ASN -> R.string.iptest_col_asn
                 Key.GEO -> R.string.iptest_col_geo
                 Key.LAND, Key.EXIT -> R.string.iptest_col_exit
+                Key.EXIT_IP -> R.string.iptest_col_exit_ip
                 Key.PORTS, Key.PORT -> R.string.iptest_col_port
                 Key.LOSS -> R.string.iptest_col_loss
                 Key.MIN -> R.string.iptest_col_min
@@ -743,6 +744,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 Key.JITTER -> 54
                 Key.PHASE -> 84
                 Key.EXIT -> 76
+                Key.EXIT_IP -> 116
                 Key.FASTER -> 70
                 Key.TARGET -> 84
                 Key.TCOLO -> 84
@@ -855,6 +857,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             Key.JITTER -> if (tested) context.getString(R.string.iptest_ms_short, r.jitter) else "-"
             Key.PHASE -> phaseText(r)
             Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
+            Key.EXIT_IP -> if (tested && r.exitIp.isNotEmpty()) r.exitIp + "\n" + r.exitAsn.ifEmpty { "-" } else "-"
             Key.FASTER -> if (r.faster > 0) context.getString(R.string.iptest_faster_cell, r.faster) else "-"
             Key.TARGET -> targetText(r)
             Key.TCOLO -> coloLabel(r.targetColo)
