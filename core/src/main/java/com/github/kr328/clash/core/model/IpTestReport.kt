@@ -50,7 +50,7 @@ data class IpTestRow(
     val targetContentType: String = "",
     val targetRetryAfter: String = "",
     val targetCfMitigated: String = "",
-    val targetPageHint: String = "", // CUSTOM.md #65: title + newline + first 80 characters of an unrecognized non-2xx page
+    val targetPageHint: String = "", // CUSTOM.md #64: title + newline + first 80 characters of an unrecognized non-2xx page
     val targetSoft: String = "", // CUSTOM.md #67: "refresh" / "script" / "region" / "" (a guess from the page's first 64 KB)
     val targetSoftNote: String = "",
     val geo: String = "", // CUSTOM.md #62: the country the address is registered in (归属地), "US"; "" when not found

@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_45-r253
+当前版本：2_11_46-r254
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2484,7 +2484,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ### 第 64 步：补充非 2xx 目标页面标题与正文摘要（r252）
 - 同一次目标站 GET 已读取的正文（仍限制在既有 `sniffMax` 范围）中，`SniffPage` 没有识别出跳转 / 地区提示且 HTTP 状态非 2xx 时，提取页面标题与正文开头最多 80 个字符；去除脚本、样式和 HTML 标签，压缩连续空白，忽略无效 UTF-8 / 二进制内容。
-- 新增 Go `IPRow.TargetPageHint` 与 Kotlin `IpTestRow.targetPageHint`，JSON 名均为 `targetPageHint`。内部值以换行分隔标题和正文，界面按当前语言组合显示。
+- 新增 Go `IPRow.TargetPageHint` 与 Kotlin `IpTestRow.targetPageHint`，JSON 名均为 `targetPageHint`。内部值以换行分隔标题和正文，界面按当前语言组合显示；Go / Kotlin 字段注释均引用本条（第 64 步）。
 - 详细诊断表“页面提示”列优先保留原有 `SniffPage` 提示；没有原提示时使用新摘要；两者都没有显示“无”，失败行仍显示“-”。单元格沿用三行省略和点击复制完整提示的规则。
 - 2xx 响应不生成摘要；不扩大读取长度、不新增请求。
 - 不新增定时器、轮询或后台任务。
