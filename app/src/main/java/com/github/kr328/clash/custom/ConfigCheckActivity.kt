@@ -494,14 +494,13 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         }
                     }
 
-                    if (!direct && !row.isDomain) {
-                        design.ipLog(
-                            when {
-                                row.colo.isNotEmpty() -> null // Success is already shown in the IP table.
-                                row.coloErr == "nosni" -> getString(R.string.iptest_log_node_colo_nosni, row.ip)
-                                else -> getString(R.string.iptest_log_node_colo_fail, row.ip, row.coloErr.ifEmpty { "-" })
-                            }?.let { design.ipLog(it) },
-                        )
+                    if (!direct && !row.isDomain && row.colo.isEmpty()) {
+                        val message = if (row.coloErr == "nosni") {
+                            getString(R.string.iptest_log_node_colo_nosni, row.ip)
+                        } else {
+                            getString(R.string.iptest_log_node_colo_fail, row.ip, row.coloErr.ifEmpty { "-" })
+                        }
+                        design.ipLog(message)
                     }
 
                     // CUSTOM.md #52 / #72: automatically query the operator and registered country after each
