@@ -1,7 +1,7 @@
 diff -ruN a/dns/fresh.go b/dns/fresh.go
 --- /dev/null
 +++ b/dns/fresh.go
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,55 @@
 +package dns
 +
 +// CUSTOM (ClashMetaForAndroid CUSTOM.md step 83): resolve an IPv4 domain without reading
@@ -57,4 +57,3 @@ diff -ruN a/dns/fresh.go b/dns/fresh.go
 +		return nil, false
 +	}
 +}
-+
