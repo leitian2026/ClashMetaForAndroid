@@ -1,25 +1,12 @@
-package conftest
-
-// CUSTOM (CUSTOM.md #43, not upstream): "test other IPs" on the config check page. The user types addresses that
-// are not necessarily in the config; one run tests each of them once, one after the other with a random 1 to 3
-// second pause between two:
+// CUSTOM (CUSTOM.md #43, not part of upstream): IP testing on the config check page. The dialog lets the user test
+// pasted IP addresses directly (with the chosen domain as SNI) or through a selected node. The app sends one IP per
+// probe call and waits 1 to 3 seconds between addresses so it can update the table and log each result immediately.
 //
-//   - mode "direct" (A): a TLS connection straight to the address (the socket does not go through the VPN), with the
-//     domain of the page as SNI and Host. Shows the time to connect and handshake, the TLS version, the ALPN, whether
-//     the server accepted ECH (the ECH config is fetched once for the domain) and, when the answer of the server
-//     shows Cloudflare (`Cf-Ray` header or `Server: cloudflare`), that and the data centre read from `Cf-Ray`. The
-//     operator (AS) of an address is not asked on its own: only when the user taps "look up" on a row (mode "asn");
+// Core modes: "nodes" and "config" read profile information; "parse" validates the pasted IP list; "probe" tests one IP
+// directly; "nodeone" tests one IP through a node; "download" measures one selected row; "colo" reads Cloudflare's
+// data-centre list; and "asn" looks up registration ownership only after the user taps the ASN cell.
 //
-//   - mode "node" (B): the chosen node copied with its `server` replaced by the address, like the per-address test
-//     of #1 (ipdelay.TryIP). Shows the delay, the exit country, and how it compares with the quickest address the
-//     last speed test found in the node's `hosts:` entry. A domain in the list is tested the same way, as the node's
-//     `server`; the core resolves it when it dials. In mode "direct" a domain is not tested (it is reported in
-//     `skipped`), only addresses are.
-//   - mode "nodes": nothing is tested, the names of the nodes to choose from come back.
-//   - mode "asn": the operator of the one address in `ips` is asked from public services (ipinfo.io, ipwho.is).
-//
-// Power: nothing runs on its own; one call is one run, and CancelIPTest stops it.
-
+// Power: nothing runs on its own; one call is one IP, and CancelIPTest stops the running probe.
 import (
 	"context"
 	"crypto/tls"
@@ -374,10 +361,6 @@ func lookupOwners(rep *IPReport, text string) {
 	defer cancel()
 
 	for _, t := range list {
-		if t.IsDomain {
-			continue
-		}
-
 		asn, geo := lookupOwner(ctx, t.Text)
 		if asn != "" || geo != "" {
 			rep.Rows = append(rep.Rows, IPRow{IP: t.Text, ASN: asn, Geo: geo})

@@ -11,8 +11,8 @@ import kotlinx.serialization.json.Json
  */
 @Serializable
 data class IpTestRow(
-    val ip: String = "", // the address, or the domain when [isDomain]
-    val isDomain: Boolean = false,
+    val ip: String = "",
+    val isDomain: Boolean = false, // retained for saved-result compatibility; current test input is IP-only
     val ok: Boolean = false,
     val ms: Int = 0,
     val code: String = "",

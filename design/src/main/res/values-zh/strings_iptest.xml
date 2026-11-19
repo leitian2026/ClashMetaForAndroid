@@ -9,8 +9,6 @@
     <string name="iptest_btn_node">经节点测延迟</string>
     <string name="iptest_btn_direct">直连测延迟</string>
     <string name="iptest_need_ips">没有填 IP 或域名，或者填的都看不懂</string>
-    <string name="iptest_domain_node_only">直连测延迟只测 IP 地址，域名要用“经节点测延迟”</string>
-    <string name="iptest_skipped">域名只能用经节点测延迟，这里没测：%1$s</string>
     <string name="iptest_need_domain">直连测延迟要先在上面的输入框里填一个域名，用作 SNI 和 Host</string>
     <string name="iptest_need_node">没有选节点，经节点测延迟用不了</string>
     <string name="iptest_head_direct">■ 直连延迟测试（域名 %1$s，SNI 和 Host 都用它）</string>
@@ -129,8 +127,6 @@
     <string name="iptest_cfg_fail_loop">hosts 别名太深或绕成了圈</string>
     <string name="iptest_cfg_fail_timeout">没在时限内得到回应</string>
     <string name="iptest_cfg_fail_zone">带 zone id 的链路本地地址测不了</string>
-    <string name="iptest_cfg_omitted">解析出来的域名每个最多取 8 个地址，另有 %1$d 个没列出。</string>
-    <string name="iptest_cfg_family">有 %1$d 个地址因节点的 ip-version 是另一种而没列出。</string>
     <string name="iptest_col_colo_node">入口机房*</string>
     <string name="iptest_speed_timeout">超时</string>
     <string name="iptest_speed_no_data">无数据</string>

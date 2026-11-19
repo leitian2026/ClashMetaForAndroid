@@ -9,8 +9,6 @@
     <string name="iptest_btn_node">Via node — test latency</string>
     <string name="iptest_btn_direct">Direct — test latency</string>
     <string name="iptest_need_ips">No IP or domain was entered, or none of the entries is understood</string>
-    <string name="iptest_domain_node_only">Direct latency tests IP addresses only; use the via-node latency test for domains</string>
-    <string name="iptest_skipped">Domains require the via-node latency test; not tested here: %1$s</string>
     <string name="iptest_need_domain">The direct latency test needs a domain in the field above, used as SNI and Host</string>
     <string name="iptest_need_node">No node chosen; the via-node latency test is unavailable</string>
     <string name="iptest_head_direct">■ Direct latency test (domain %1$s, used as SNI and Host)</string>
@@ -129,8 +127,6 @@
     <string name="iptest_cfg_fail_loop">hosts aliases go too deep or in a circle</string>
     <string name="iptest_cfg_fail_timeout">not answered in time</string>
     <string name="iptest_cfg_fail_zone">a link-local address with a zone id cannot be tested</string>
-    <string name="iptest_cfg_omitted">A resolved domain gives at most 8 addresses; %1$d more were left out.</string>
-    <string name="iptest_cfg_family">%1$d addresses were left out because the node ip-version is the other family.</string>
     <string name="iptest_col_colo_node">Ingress DC*</string>
     <string name="iptest_speed_timeout">timeout</string>
     <string name="iptest_speed_no_data">no data</string>

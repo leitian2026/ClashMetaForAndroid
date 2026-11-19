@@ -1,20 +1,13 @@
-package conftest
-
-// CUSTOM (CUSTOM.md #52, not upstream): "test other IPs", one address per call. The app loops over the typed list
-// (waiting the random 1 to 3 seconds between two itself), so it can draw the table and write a log line after each
-// address. Modes, all of RunIP:
+// CUSTOM (CUSTOM.md #52, not part of upstream): per-IP work used by the config check page. The app supplies only IP
+// addresses; domain names are invalid entries. The dialog's direct/node choice selects the route, while the core modes
+// remain "probe" and "nodeone". The app waits 1 to 3 seconds between addresses.
 //
-//   - "probe" (direct, one address): ten tries (up to five at once, each at most 3 seconds) -> loss, min, max, average;
-//     on the first one that works, the TLS version, ALPN, ECH, `Cf-Ray` data centre and "is Cloudflare"; then, for an
-//     address that works, the ports of the list (handshake only, in parallel, 3 seconds each).
-//     Operator / registered-country data is queried only after the user taps "look up" (mode "asn");
-//   - "nodeone" (through a node, one address or domain): the same ten tries with ipdelay.TryIP;
-//   - "download" (one address, only when the user taps "测速" on its row): at most 10 MB or 5 seconds, the first
-//     second left out, straight to the address (SNI and Host from the URL) or, with a node, through it;
-//   - "colo": the data centre list of Cloudflare, code -> city, fetched online (the app keeps it in memory).
+// "probe" (direct): ten TLS attempts, one HEAD on the kept connection, then configured port checks.
+// "nodeone" (through a node): ten attempts through the selected node; an optional target URL is requested in those
+// attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. "asn" is a separate,
+// explicit lookup reached only when the user taps the ASN cell.
 //
-// Power: nothing runs on its own, one call is one address, CancelIPTest stops the one running.
-
+// Power: nothing runs on its own; one call is one IP, CancelIPTest stops the running probe.
 import (
 	"context"
 	"crypto/tls"
@@ -266,21 +259,17 @@ func parseList(req IPRequest, rep *IPReport) {
 	}
 
 	for _, t := range list {
-		rep.Rows = append(rep.Rows, IPRow{IP: t.Text, IsDomain: t.IsDomain})
+		rep.Rows = append(rep.Rows, IPRow{IP: t.Text})
 	}
 }
 
-// firstTarget is the first entry of the typed text (an address; a domain only when `domains`).
-func firstTarget(text string, domains bool) (target, bool) {
+// firstTarget is the first valid IP address in the typed text.
+func firstTarget(text string) (target, bool) {
 	list, _ := parseTargets(text)
-
-	for _, t := range list {
-		if !t.IsDomain || domains {
-			return t, true
-		}
+	if len(list) == 0 {
+		return target{}, false
 	}
-
-	return target{}, false
+	return list[0], true
 }
 
 var coloCache struct {
@@ -500,7 +489,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	t, ok := firstTarget(req.IPs, false)
+	t, ok := firstTarget(req.IPs)
 	if !ok {
 		rep.Error = "no address"
 
@@ -673,7 +662,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	t, ok := firstTarget(req.IPs, true)
+	t, ok := firstTarget(req.IPs)
 	if !ok {
 		rep.Error = "no address"
 
@@ -713,7 +702,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
 		if req.Target != "" { // CUSTOM.md #66: the tries go to the target address; any answer counts as reached
-			res := ipdelay.TryTarget(rep.Node, t.Text, t.IsDomain, req.Target)
+			res := ipdelay.TryTarget(rep.Node, t.Text, false, req.Target)
 
 			mu.Lock()
 			defer mu.Unlock()
@@ -747,7 +736,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			return
 		}
 
-		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
+		res := ipdelay.TryIP(rep.Node, t.Text, false)
 
 		mu.Lock()
 		defer mu.Unlock()
@@ -765,7 +754,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 	})
 
-	row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text]}
+	row := IPRow{IP: t.Text, InHosts: hosts[t.Text]}
 
 	if raw := ipdelay.RawProxies()[rep.Node]; raw != nil {
 		if p := raw["port"]; p != nil {
@@ -822,12 +811,10 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			}
 
 			// the exit country is asked through the node as before (the target address is not asked for it)
-			if !t.IsDomain {
-				row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
-			}
+			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
 		} else if ctx.Err() == nil {
 			// CUSTOM.md #72: once per address, now (it was asked on every try, and the proxy page's memory was used first)
-			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
+			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
 		}
 
 		if rep.Ref != nil && st.Avg < rep.Ref.Ms {
@@ -835,9 +822,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 
 		// CUSTOM.md #63: the data centre, the operator and the registered country of an address that works
-		if !t.IsDomain {
-			nodeOwner(ctx, &row, rep.Node)
-		}
+		nodeOwner(ctx, &row, rep.Node)
 	} else {
 		row.Reason = lastErr
 		row.Code = errlog.Classify(lastErr)
@@ -900,7 +885,7 @@ func nodeOwner(ctx context.Context, row *IPRow, node string) {
 }
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
-	t, ok := firstTarget(req.IPs, rep.Node != "")
+	t, ok := firstTarget(req.IPs)
 	if !ok {
 		rep.Error = "no address"
 
@@ -919,12 +904,12 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	row := IPRow{IP: t.Text, IsDomain: t.IsDomain}
+	row := IPRow{IP: t.Text}
 
 	var res ipdelay.DownloadResult
 
 	if rep.Node != "" {
-		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, t.IsDomain, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
+		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, false, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
 	} else {
 		port := u.Port()
 		if port == "" {
