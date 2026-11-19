@@ -19,6 +19,8 @@
     <string name="iptest_diag_retry_after">Retry delay</string>
     <string name="iptest_diag_cf_mitigated">Cloudflare mitigation status</string>
     <string name="iptest_diag_not_obtained">Not obtained</string>
+    <string name="iptest_diag_none">None</string>
+    <string name="iptest_diag_dash">-</string>
     <string name="iptest_diag_cert_skipped">Not verified (certificate verification skipped)</string>
     <string name="iptest_diag_empty">No detailed diagnostic data</string>
     <string name="iptest_diag_dns_title">DNS check (independent result: %1$s)</string>
