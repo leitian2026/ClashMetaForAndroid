@@ -2,17 +2,19 @@
 <resources>
     <string name="iptest_diag_title">详细诊断</string>
     <string name="iptest_diag_ip_title">IP 详细诊断</string>
+    <string name="iptest_diag_connection">连接</string>
+    <string name="iptest_diag_response">响应</string>
     <string name="iptest_diag_ip">IP 地址</string>
     <string name="iptest_diag_tls">TLS 版本</string>
     <string name="iptest_diag_alpn">协商协议</string>
     <string name="iptest_diag_cert">证书</string>
     <string name="iptest_diag_cert_value">域名：%1$s\n颁发者：%2$s\n到期：%3$s</string>
     <string name="iptest_diag_cert_ip">证书 IP 地址</string>
-    <string name="iptest_diag_cf_ray">Cloudflare 请求编号</string>
+    <string name="iptest_diag_cf_ray">请求编号</string>
     <string name="iptest_diag_content_type">响应内容类型</string>
     <string name="iptest_diag_location">重定向地址</string>
-    <string name="iptest_diag_retry_after">重试等待时间</string>
-    <string name="iptest_diag_cf_mitigated">Cloudflare 防护状态</string>
+    <string name="iptest_diag_retry_after">重试等待</string>
+    <string name="iptest_diag_cf_mitigated">防护状态</string>
     <string name="iptest_diag_page_hint">页面提示</string>
     <string name="iptest_diag_not_obtained">未取到</string>
     <string name="iptest_diag_none">无</string>
