@@ -209,8 +209,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         intent.removeExtra(SavedIpActivity.EXTRA_PRESET_IPS)
         intent.removeExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
         if (pendingSavedIpPreset != null) {
-            ownerLookupJob?.cancel()
-            configPage?.request(ConfigCheckDesign.Request.IpTest)
+            launch {
+                val lookup = ownerLookupJob
+                lookup?.cancel()
+                lookup?.join()
+                configPage?.request(ConfigCheckDesign.Request.IpTest)
+            }
         }
     }
 
