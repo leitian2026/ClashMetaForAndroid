@@ -76,8 +76,6 @@
     <string name="iptest_log_ip_ok_noports">%1$s done: average via-node latency %2$d ms, failure rate %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s failed: %2$s (failure rate %3$d%%)</string>
     <string name="iptest_log_split_direct">%1$s jitter (mean deviation) %2$d ms; split: TCP %3$d / TLS %4$d / first byte %5$d (ms; 0 = not measured; TCP and TLS are averages of the tries that worked, the first byte is one HEAD)</string>
-    <string name="iptest_log_split_node">%1$s jitter (mean deviation) %2$d ms; split: dial %3$d / handshake %4$d / first byte %5$d (ms; 0 = not measured; averages of the tries that worked)</string>
-    <string name="iptest_log_asn_ok">%1$s operator: %2$s</string>
     <string name="iptest_log_asn_none">%1$s operator: not found (maybe rate limited; the result is not affected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>
     <string name="iptest_log_done">All done, %1$d tested</string>
@@ -87,11 +85,9 @@
     <string name="iptest_http_403_note">The server refused the request</string>
     <string name="iptest_log_speed_cancelled">%1$s download test cancelled</string>
     <string name="iptest_log_error">Error: %1$s</string>
-    <string name="iptest_log_geo">%1$s registered in: %2$s</string>
     <string name="iptest_log_land_ok">%1$s exit country: %2$s (through node %3$s, asked now)</string>
     <string name="iptest_log_land_none">%1$s exit country: not found (through node %2$s, asked now)</string>
     <string name="iptest_log_land_no_node">No config node uses %1$s as its server, so the exit country is not queried (it can only be seen through a node)</string>
-    <string name="iptest_log_node_colo_ok">%1$s ingress data centre: %2$s (one extra direct connection to this IP with the node\'s own domain as SNI; usually the same as the node\'s, not guaranteed)</string>
     <string name="iptest_log_node_colo_nosni">%1$s ingress data centre: not read, the node has no domain to use as SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s ingress data centre: not read (the extra direct connection failed: %2$s)</string>
     <string name="iptest_target_label">Target URL (used for via-node latency and exit data centre; optional. To see the exit data centre, use a Cloudflare-hosted site)</string>
@@ -101,7 +97,6 @@
     <string name="iptest_target_note">Latency and failure rate are measured by requesting the target URL through the node. Site reaction is its response; Exit data centre is read from its Cf-Ray header. The target must be hosted on Cloudflare to provide an exit data centre. The target URL is used for latency and exit data-centre checks; leaving it blank keeps the existing behavior.</string>
     <string name="iptest_col_target">Site reaction</string>
     <string name="iptest_col_tcolo">Exit data centre</string>
-    <string name="iptest_log_target">%1$s target site: HTTP %2$d (%5$s), redirect %3$s, exit data centre %4$s</string>
     <string name="iptest_log_target_none">%1$s target site: no answer</string>
     <string name="iptest_log_target_protocol">%1$s protocol details: NegotiatedProtocol=%2$s; resp.Proto=%3$s</string>
     <string name="iptest_soft_redirect">The page moves to %1$s</string>
