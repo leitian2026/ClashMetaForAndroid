@@ -249,33 +249,54 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             }
 
             val values = rows.map { row ->
+                val failed = !row.ok || (target && row.targetStatus == 0)
+                val dash = context.getString(R.string.iptest_diag_dash)
+                val none = context.getString(R.string.iptest_diag_none)
+                val missing = context.getString(R.string.iptest_diag_not_obtained)
+
+                fun required(value: String): String = when {
+                    failed -> dash
+                    value.isNotBlank() -> value
+                    else -> missing
+                }
+                fun optional(value: String): String = when {
+                    failed -> dash
+                    value.isNotBlank() -> value
+                    else -> none
+                }
+
                 if (target) {
                     listOf(
                         row.ip,
-                        row.targetTls.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetAlpn.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertSubject.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertIssuer.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertNotBefore.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertNotAfter.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertDnsNames.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCertIpAddresses.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        when (row.targetCertVerification) {
-                            "skipped" -> context.getString(R.string.iptest_diag_cert_skipped)
-                            else -> row.targetCertVerification.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
-                        },
-                        row.targetServer.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCfRay.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetContentType.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetNote.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetRetryAfter.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetCfMitigated.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        required(row.targetTls),
+                        required(
+                            row.targetNegotiatedProtocol.ifBlank {
+                                when (row.targetHttpProtoMajor) {
+                                    2 -> "h2"
+                                    1 -> "http/1.1"
+                                    else -> ""
+                                }
+                            },
+                        ),
+                        required(row.targetCertSubject),
+                        required(row.targetCertIssuer),
+                        required(row.targetCertNotBefore),
+                        required(row.targetCertNotAfter),
+                        required(row.targetCertDnsNames),
+                        optional(row.targetCertIpAddresses),
+                        if (failed) dash else context.getString(R.string.iptest_diag_cert_skipped),
+                        required(row.targetServer),
+                        required(row.targetCfRay),
+                        required(row.targetContentType),
+                        optional(row.targetNote),
+                        optional(row.targetRetryAfter),
+                        optional(row.targetCfMitigated),
                     )
                 } else {
                     listOf(
                         row.ip,
-                        row.tls.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.alpn.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        required(row.tls),
+                        required(row.alpn),
                     )
                 }
             }
