@@ -11,6 +11,7 @@
 |---|---|---|---|
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
+| `gradle.properties` | #85 | 低 | 重加末尾的 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m`（#85：`IpTestDialog.ask` 是很大的 suspend 函数，Kotlin 2.1.0 协程转换器在默认栈上会 StackOverflowError） |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 #37 #147 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37）；#147 追加 `reachReason` / `reachAt` 两个 JSON 字段 |
 | `core/src/main/golang/native/connections.go` | #8 #15 #101 | 低 | 重加 `queryCustomConnections` 的自定义分派和 `closeCustomConnection` 的自定义关闭分支；#101 在 `CANCEL_IPTEST` 前加 `CANCEL_CHECK` 分支，调用 `conftest.CancelCheck()` |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 #55 | 低 | 重加 `IPDelays` 字段和填充行 |
@@ -2719,3 +2720,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 对话框说明补充“解析会跳过 DNS 缓存重新查询；写在 hosts 里的域名直接读配置，不查 DNS”。结果域名旁显示“来自 hosts”或“未能绕过缓存”；快照新增两个可选布尔字段，旧快照缺少字段时默认 `false`，原有结果累加、勾选、清除和填入逻辑不变。
 - 改动文件：`core/src/main/golang/native/conftest/iptest_resolve.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、两份 `design/src/main/res/values*/strings_iptest.xml`、`CUSTOM.md`。没有改 mihomo 子模块或上游文件总表。
 - **验证：** 静态核对 Go 调用路径、fallback 条件、结果 JSON 字段默认值、快照兼容和 UI 标记；未运行 Go / Kotlin 编译或 Android Build Debug，需由 Actions 验证。
+
+
+### 第 85 步：修复构建失败（补丁行数、Kotlin 编译栈溢出）
+- **补丁：** `patches/mihomo/0004-lookup-fresh.patch` 的 hunk 头写的是 `+1,48`，实际正文 55 行（另有一个多余的末尾空 `+` 行），导致 `dns/fresh.go` 被截断成 48 行，Go 报 `unexpected EOF`。hunk 头改为 `+1,55`，删掉多余的空行。
+- **Kotlin：** 编译 `IpTestDialog.kt` 时 Kotlin 2.1.0 的 `CoroutineTransformerMethodVisitor` 因 `ask` 过大发生 `StackOverflowError`。在 `gradle.properties` 加 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m` 加大编译器线程栈；只影响构建，不改生成的代码、运行时行为或功耗。已登记到上游文件总表。
+- **改动文件：** `patches/mihomo/0004-lookup-fresh.patch`、`gradle.properties`、`CUSTOM.md`。
+- **验证：** 本地用 `patch` 应用补丁得到完整 55 行并通过 `gofmt -e`；未运行 Kotlin 编译，需由 Actions 验证。
