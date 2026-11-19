@@ -622,6 +622,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         if (phaseAt > 0) min[phaseAt] = maxOf(min[phaseAt], phaseNeed())
 
+        // Keep the public-facing IP and operator on their own two lines, without wrapping either value.
+        val exitIpAt = keys.indexOf(Key.EXIT_IP) + 1
+
+        if (exitIpAt > 0) min[exitIpAt] = maxOf(min[exitIpAt], exitIpNeed())
+
         val avail = tableBox.width
         val sum = min.sum()
         val speedAt = keys.indexOf(Key.SPEED) + 1 // 0 when there is no such column
@@ -693,6 +698,14 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         val longest = rows.maxOfOrNull { r -> phaseText(r).split('\n').maxOf { paint.measureText(it) } } ?: 0f
 
         return (longest.toInt() + dp(10)).coerceAtMost(dp(120))
+    }
+
+    // Keep the public-facing IP and its operator on separate, unwrapped lines.
+    private fun exitIpNeed(): Int {
+        val paint = TextView(context).apply { textSize = 14f }.paint
+        val longest = rows.maxOfOrNull { r -> maxOf(paint.measureText(r.exitIp), paint.measureText(r.exitAsn)) } ?: 0f
+
+        return (longest.toInt() + dp(16)).coerceAtLeast(dp(116))
     }
 
     // the longest IP in the 15 sp bold of the cell, so it is never cut
