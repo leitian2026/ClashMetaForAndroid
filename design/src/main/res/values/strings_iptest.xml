@@ -4,7 +4,7 @@
     <string name="iptest_button">Test other IPs</string>
     <string name="iptest_dialog_title">Test other IPs</string>
     <string name="iptest_dialog_help">Help</string>
-    <string name="iptest_test_box_label">Test box (only IPs here are tested)</string>
+    <string name="iptest_test_box_label">Test box (one IP per line; grows with new lines)</string>
     <string name="iptest_resolve_results_title">Resolved IPs</string>
     <string name="iptest_resolve_not_yet">Not resolved yet</string>
     <string name="iptest_ips_hint">e.g. 104.18.2.5</string>
@@ -141,7 +141,7 @@
     <string name="iptest_page_hint_no_title">Start: %1$s</string>
 
     <!-- CUSTOM.md step 67: resolve domains to IPv4 for the test-IP input -->
-    <string name="iptest_resolve_domain_label">Resolve domains (IPv4 only; results from multiple lookups accumulate in the list)</string>
+    <string name="iptest_resolve_domain_label">Domain box (one domain per line; grows with new lines)</string>
     <string name="iptest_resolve_domain_hint">e.g. example.com, one per line or separated by commas / spaces</string>
     <string name="iptest_resolve_button">Resolve domains</string>
     <string name="iptest_resolve_running">Resolving…</string>

@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.text.InputType
 import android.view.Gravity
+import android.view.LayoutInflater
+import androidx.core.widget.TextViewCompat
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -17,6 +19,8 @@ import com.github.kr328.clash.core.model.IpTestConfigIp
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.R
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -70,13 +74,16 @@ object IpTestDialog {
                 val titleRow = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
+                    setPadding(pad, 0, pad, 0)
                 }
                 val titleText = TextView(context).apply {
                     setText(R.string.iptest_dialog_title)
-                    textSize = 20f
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    TextViewCompat.setTextAppearance(this, com.google.android.material.R.style.TextAppearance_MaterialComponents_Headline6)
                     isSingleLine = true
                     ellipsize = android.text.TextUtils.TruncateAt.END
+                    val dialogWidth = minOf(context.resources.displayMetrics.widthPixels, (560 * density).toInt()) -
+                        (2 * pad) - (60 * density).toInt()
+                    maxWidth = dialogWidth.coerceAtLeast((80 * density).toInt())
                 }
                 var hintExpanded = false
                 val helpButton = TextView(context).apply {
@@ -84,13 +91,13 @@ object IpTestDialog {
                     textSize = 14f
                     isClickable = true
                     isFocusable = true
-                    setPadding((12 * density).toInt(), (8 * density).toInt(), 0, (8 * density).toInt())
+                    setPadding((8 * density).toInt(), (8 * density).toInt(), 0, (8 * density).toInt())
                     setOnClickListener {
                         hintExpanded = !hintExpanded
                         hint.visibility = if (hintExpanded) View.VISIBLE else View.GONE
                     }
                 }
-                titleRow.addView(titleText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                titleRow.addView(titleText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 titleRow.addView(helpButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 val inputLabel = TextView(context).apply {
@@ -100,14 +107,17 @@ object IpTestDialog {
                     setPadding(0, pad / 2, 0, 0)
                 }
 
-                val input = EditText(context).apply {
+                val inputField = LayoutInflater.from(context)
+                    .inflate(R.layout.dialog_iptest_outlined_field, null, false) as TextInputLayout
+                val input = inputField.findViewById<TextInputEditText>(R.id.iptest_outlined_input).apply {
                     setHint(R.string.iptest_ips_hint)
-                    minLines = 4
-                    maxLines = 8
+                    minLines = 1
+                    maxLines = 12
                     gravity = Gravity.TOP or Gravity.START
                     inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                         InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                     isVerticalScrollBarEnabled = true
+                    setHorizontallyScrolling(false)
 
                     try {
                         // CUSTOM.md #156 step 4: a supplied preset wins for this dialog only; otherwise keep the manual history.
@@ -126,14 +136,17 @@ object IpTestDialog {
                     setPadding(0, pad / 2, 0, 0)
                 }
 
-                val resolveInput = EditText(context).apply {
+                val resolveInputField = LayoutInflater.from(context)
+                    .inflate(R.layout.dialog_iptest_outlined_field, null, false) as TextInputLayout
+                val resolveInput = resolveInputField.findViewById<TextInputEditText>(R.id.iptest_outlined_input).apply {
                     setHint(R.string.iptest_resolve_domain_hint)
-                    minLines = 2
-                    maxLines = 4
+                    minLines = 1
+                    maxLines = 12
                     gravity = Gravity.TOP or Gravity.START
                     inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                         InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                     isVerticalScrollBarEnabled = true
+                    setHorizontallyScrolling(false)
                     try {
                         setText(prefs.getString("ip_resolve_domains", "") ?: "")
                     } catch (_: Exception) {
@@ -142,7 +155,7 @@ object IpTestDialog {
 
                 val resolveResultBox = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(0, pad / 3, 0, 0)
+                    setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
                 }
                 val resolveStatusBox = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
@@ -158,11 +171,14 @@ object IpTestDialog {
                 resolveRowsBox.addView(resolveResultPlaceholder)
                 resolveResultBox.addView(resolveStatusBox)
                 resolveResultBox.addView(resolveRowsBox)
-                val resolveResultScroll = ScrollView(context).apply {
-                    isFillViewport = true
-                    addView(resolveResultBox, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                }
-                val resolveResultScrollHeight = (160 * density).toInt()
+                val resolveResultOutlineTemplate = LayoutInflater.from(context)
+                    .inflate(R.layout.dialog_iptest_outlined_field, null, false) as TextInputLayout
+                val resultOutlineBackground = resolveResultOutlineTemplate
+                    .findViewById<TextInputEditText>(R.id.iptest_outlined_input)
+                    .background ?: throw IllegalStateException("Outlined field background is missing")
+                resolveResultBox.background = resultOutlineBackground.constantState?.newDrawable()?.mutate()
+                    ?: resultOutlineBackground.mutate()
+                val resolveResultField = resolveResultBox
                 val resolveResultLabel = TextView(context).apply {
                     setText(R.string.iptest_resolve_results_title)
                     textSize = 13f
@@ -312,7 +328,6 @@ object IpTestDialog {
                                 fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
                             }
                             clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
-                            resolveResultScroll.visibility = View.VISIBLE
                         }
                     }
                 }
@@ -459,14 +474,14 @@ object IpTestDialog {
 
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(inputLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(inputField, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
                 box.addView(resolveResultHeader, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveResultScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, resolveResultScrollHeight))
+                box.addView(resolveResultField, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(resolveLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(resolveInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveInputField, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(resolveActions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 box.addView(nodeLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))

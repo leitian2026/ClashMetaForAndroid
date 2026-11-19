@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r260
+当前版本：2_11_46-r261
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -1285,7 +1285,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **保留：** `IpTestChoice.url` 字段及 `ConfigCheckActivity` 的保存 / 行内测速调用不变；不改测速请求、测速算法、Go 核心、其他弹窗控件或配置 IP 读取逻辑。
 - **功耗 / 网络：** 仅在打开弹窗时读取偏好设置、点击直连 / 套入节点按钮时写入；不新增定时器、轮询、监听、网络请求或后台任务。
 - **字符串：** 在 `strings_iptest.xml` 中新增中英文两组模式标签，删除不再使用的 `iptest_url_label`。
-- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml` 和本登记文件；没有修改上游文件总表。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/layout/dialog_iptest_outlined_field.xml`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml` 和本登记文件；没有修改上游文件总表。
 - **验证：** 已完成源码级差异与引用检查；未运行 Android 编译或真机验证。需手动触发 Build Debug，并分别检查两个默认地址、独立记忆、空值回退及两种模式传入的 URL；不会自动触发构建。
 
 ## 99. 测 IP 页面术语统一及下载测速从首字节计时（r115）
@@ -2531,7 +2531,7 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ### 第 70 步：调整“测试其他 IP”对话框布局并折叠说明（r259）
 - 对话框标题改为自定义单行标题：左侧“测试其他 IP”，右侧“说明”；每次打开默认折叠，点击“说明”只切换原说明 TextView 的可见性，不保存展开状态、不做动画。
-- 控件顺序调整为：说明文字（默认隐藏）、测试框标题、测试框、紧接测试框的“读取配置的 IP”按钮、固定高度可滚动的解析结果区（初始显示“还没解析”）、域名标题和输入框、“解析域名 / 放入测试框”按钮行；节点、目标网址、端口和两个下载地址仍位于后面，内容与顺序不变。
+- 控件顺序调整为：说明文字（默认隐藏）、测试框标题、测试框、紧接测试框的“读取配置的 IP”按钮、解析结果标题和结果框（初始显示“还没解析”）、域名标题和输入框、“解析域名 / 放入测试框”按钮行；节点、目标网址、端口和两个下载地址仍位于后面，内容与顺序不变。解析结果区的高度和内部滚动规则后由第 72 步修订。
 - 本步只改布局、标题和说明可见性；不改解析结果生成、勾选状态、放入测试框的追加行为、读取配置 IP 行为或测试流程。
 - 新增中英文资源：说明按钮、测试框标题、解析结果标题和初始占位文案。
 - 不新增定时器、轮询、后台任务或动画；没有修改上游文件。
@@ -2546,5 +2546,16 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **勾选：** 不显示“已在测试框”标记；所有新加入的 IP 默认勾选。列表只存在于当前对话框内存，关闭后清空，不持久化。
 - **说明：** 对话框说明改为明确告知多次解析结果会累加在列表中，放入测试框会覆盖测试框原有内容。
 - 不改 Go 内核解析接口、开始测试前的域名拦截、读取配置 IP 行为或其他测试路径；不新增网络请求、定时器、轮询、后台任务或确认弹窗。没有修改上游文件。
+- 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**
+
+
+### 第 72 步：调整“测试其他 IP”对话框输入框样式和动态高度（r261）
+- **闭合边框：** 测试框、域名框和解析结果列表均使用 Material Components 的 `TextInputLayout.OutlinedBox`；标题仍放在框外，不使用浮动提示。解析结果“还没解析”、域名分组、IP 勾选项和最近一次提示均放在结果框内。
+- **动态高度：** 测试框、域名框最少 1 行，最多显示 12 行；内容换行时随行数增高，超过 12 行后由输入框自身滚动。解析结果框不设固定高度、不嵌套滚动容器，随内容增长；过长时由对话框外层滚动容器滚动。
+- **标题说明：** 测试框与域名框标题均明确写出“每行一个，换行会自动撑高”，中英文均在独立字符串资源中。
+- **标题边距：** 自定义标题行左右内边距与下方内容对齐；“说明”按钮紧跟标题文字，间距约 8dp。标题使用 Material Components 默认对话框标题的 Headline6 样式，窄屏时标题文字缩略，按钮保持完整。
+- **保留：** 说明折叠行为、读取配置 IP 按钮位置、解析累加 / 覆盖填入 / 清除行为、节点 / 目标网址 / 端口 / 两个下载地址的样式和行为不变。
+- 不新增定时器、轮询、后台任务或动画；没有修改上游文件。
 - 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
 - **验证：未编译，靠 Actions 验证。**

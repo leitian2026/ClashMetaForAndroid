@@ -4,7 +4,7 @@
     <string name="iptest_button">测试其他 IP</string>
     <string name="iptest_dialog_title">测试其他 IP</string>
     <string name="iptest_dialog_help">说明</string>
-    <string name="iptest_test_box_label">测试框（开始测试时只测这里的 IP）</string>
+    <string name="iptest_test_box_label">测试框（每行一个，换行会自动撑高）</string>
     <string name="iptest_resolve_results_title">解析结果</string>
     <string name="iptest_resolve_not_yet">还没解析</string>
     <string name="iptest_ips_hint">例如 104.18.2.5</string>
@@ -141,7 +141,7 @@
     <string name="iptest_page_hint_no_title">开头：%1$s</string>
 
     <!-- CUSTOM.md step 67: resolve domains to IPv4 for the test-IP input -->
-    <string name="iptest_resolve_domain_label">解析域名（只查 IPv4；多次解析的结果会累加在列表里）</string>
+    <string name="iptest_resolve_domain_label">域名框（每行一个，换行会自动撑高）</string>
     <string name="iptest_resolve_domain_hint">例如 example.com，每行一个，也可用逗号或空格分隔</string>
     <string name="iptest_resolve_button">解析域名</string>
     <string name="iptest_resolve_running">解析中…</string>
