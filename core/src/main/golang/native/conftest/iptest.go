@@ -605,14 +605,6 @@ func lookupOwners(rep *IPReport, text string) {
 	}
 }
 
-// lookupASN asks a public service who runs the address (only when the user taps "look up"). "" when it cannot be
-// found (the answer is kept for the next run when it is found).
-func lookupASN(ctx context.Context, ip string) string {
-	asn, _ := lookupOwner(ctx, ip)
-
-	return asn
-}
-
 func validCC(code string) bool {
 	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
 }

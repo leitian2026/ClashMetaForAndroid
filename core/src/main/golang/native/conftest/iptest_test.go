@@ -1,6 +1,7 @@
 package conftest
 
 import (
+	"context"
 	"net/netip"
 	"reflect"
 	"testing"
