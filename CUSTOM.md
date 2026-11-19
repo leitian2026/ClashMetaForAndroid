@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r268
+当前版本：2_11_46-r269
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -34,7 +34,7 @@
 | `design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt` | #47 | 低 | `Request` 加 `EditConfig(profile)`；创建 `ProfileAdapter` 时多传一个 lambda（`requests.trySend(Request.EditConfig(it))`） |
 | `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 #50 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
-| `core/src/main/golang/go.mod` | #79 | **中**（HTTP/3 客户端依赖由间接依赖提升为直接依赖） | 以上游版本的依赖选择为准，将 `github.com/metacubex/http`、`github.com/metacubex/quic-go`、`github.com/metacubex/tls` 从间接依赖提升到直接 `require`；保持已核对的版本（`http v0.1.8`、项目锁定的 `quic-go`、`tls v0.1.9`），不擅自升级。若上游更新这些依赖，先重新核对 `http3` API 和模块版本，再同步调整 `go.sum`。 |
+| `core/src/main/golang/go.mod` | #79 #80 | **中**（HTTP/3 / MTU 依赖由间接依赖提升为直接依赖） | 以上游版本的依赖选择为准，将 `github.com/metacubex/http`、`github.com/metacubex/quic-go`、`github.com/metacubex/tls` 和 `golang.org/x/sys` 从间接依赖提升到直接 `require`；保持已核对的版本（`http v0.1.8`、项目锁定的 `quic-go`、`tls v0.1.9`、`x/sys v0.30.0`），不擅自升级。若上游更新这些依赖，先重新核对 `http3` API 和模块版本，再同步调整 `go.sum`。 |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
@@ -2621,3 +2621,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 扩展诊断表与复制文本显示 HTTP 状态、耗时和响应头细节。新增纯逻辑测试覆盖 IPv4 / IPv6 UDP 目标地址构造及非法输入，不发网络请求。
 - 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_h3.go`、`iptest_ext_h3_test.go`；修改 `core/src/main/golang/native/conftest/iptest_probe.go`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`core/src/main/golang/go.mod`、`CUSTOM.md`。依赖版本沿用现有 go.mod / go.sum 锁定版本，没有升级依赖；未修改 mihomo 子模块；`go.mod` 直接依赖调整已登记在上游文件总表。
 - **验证：** 新增 Go 文件已执行 `gofmt`；尚未运行完整 Go 单元测试、Go 编译或 Android Build Debug（本环境没有完整 Go 模块缓存）。未触发 GitHub Actions，待用户手动运行 Build Debug。
+
+
+### 第 80 步：增加直连 MTU 检测（r269）
+- TCP：仅在直连 TLS 握手成功时，从原有 TCP 连接读取 `TCP_MAXSEG`，不新建 TCP 连接、不额外发送探测包；记录 MSS，并换算 MTU（IPv4：MSS + 40；IPv6：MSS + 60）。读取失败只显示 `TCP -`，不把它当作整个 MTU 检测失败。
+- UDP：使用 mihomo `dialer.ListenPacket` 创建直连 UDP socket（按目标地址明确选择 udp4 / udp6，避免双栈默认行为差异）；IPv4 设置 `IP_MTU_DISCOVER = IP_PMTUDISC_DO`，IPv6 设置 `IPV6_MTU_DISCOVER = IPV6_PMTUDISC_DO`；设置后通过 `getsockopt` 回读确认 DF 选项确实为 `*_PMTUDISC_DO`，不支持或回读不一致就停止 UDP 探测。不使用 ICMP、不需要 root、不解析域名。
+- 每个候选大小构造 QUIC 长头包，使用保留版本 `0x0a0a0a0a`、随机 8 字节 DCID / SCID，并填充到指定 UDP 数据报大小；只接受来源 IP / 端口匹配且连接 ID 正确交换的 Version Negotiation 回包。IPv4 搜索 1200–1472 字节，IPv6 搜索 1200–1452 字节；二分最多 9 / 8 个大小检查，每个大小发送 2 次，等待回包最多 2 秒。到达搜索上限时显示 `UDP ≥值`。
+- `UDP 无回应` 只在确实发送过数据报、完整搜索后仍未收到有效 Version Negotiation 回包时标记。DF 设置失败、所有数据报都因本机 `EMSGSIZE` 无法发送、其他 socket 错误分别记录原因，不误报成远端无回应。
+- TCP MSS / MTU 与 UDP 每一步候选大小、发送次数、回包 / 超时 / 本机 DF 限制都记录在扩展结果中；每个 IP 的报告返回后，逐行写入现有“实时状态”日志。UDP 阻塞读取期间使用一个仅在本次探测生命周期内存在的取消唤醒器，父上下文取消时立即设置读截止时间，探测结束即退出；没有常驻任务或轮询。
+- 新增纯逻辑测试：QUIC 探测包长度和保留版本、Version Negotiation 回包及 CID 校验、IPv4 / IPv6 搜索边界、二分查找最大可回应尺寸和无回应判断。测试可脱离完整 mihomo 模块单独运行。
+- 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_mtu.go`、`iptest_ext_mtu_logic.go`、`iptest_ext_mtu_logic_test.go`；修改 `core/src/main/golang/native/conftest/iptest_ext_h3.go`（明确选择 udp4 / udp6）、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/golang/go.mod`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest_ext.xml`、`design/src/main/res/values-zh/strings_iptest_ext.xml`、`CUSTOM.md`。依赖沿用现有版本，`go.sum` 无需变更；未修改 mihomo 子模块。
+- **验证：** 纯逻辑 Go 测试已通过；新增 Go 源文件已执行 `gofmt`。完整 `conftest` 包测试、Android Build Debug 和真实 Android 设备上的 DF / UDP 回包行为尚未验证。未触发 GitHub Actions，待用户手动运行 Build Debug。

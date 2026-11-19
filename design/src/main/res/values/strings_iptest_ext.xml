@@ -13,9 +13,13 @@
     <string name="iptest_ext_mtu">MTU</string>
     <string name="iptest_ext_ms">%1$d ms</string>
     <string name="iptest_ext_status_ms">%1$s · %2$d ms</string>
-    <string name="iptest_ext_tcp_mtu">TCP %1$d</string>
+    <string name="iptest_ext_tcp_mtu">TCP MSS %1$d (MTU %2$d)</string>
+    <string name="iptest_ext_tcp_none">TCP -</string>
     <string name="iptest_ext_udp_mtu">UDP %1$d</string>
+    <string name="iptest_ext_udp_mtu_at_least">UDP ≥%1$d</string>
+    <string name="iptest_ext_udp_dash">UDP -</string>
     <string name="iptest_ext_udp_none">UDP no response</string>
     <string name="iptest_ext_ok">OK</string>
     <string name="iptest_ext_failed">Failed</string>
+    <string name="iptest_log_mtu_step">MTU %1$s: %2$s</string>
 </resources>

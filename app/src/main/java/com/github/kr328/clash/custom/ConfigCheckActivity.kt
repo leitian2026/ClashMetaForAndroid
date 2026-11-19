@@ -445,6 +445,13 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
                 ipRows.add(row)
 
+                // CUSTOM.md #80: show each UDP MTU candidate and its response in the existing status log.
+                if (direct && row.mtu.tested) {
+                    row.mtu.detail.lineSequence().filter { it.isNotBlank() }.forEach { step ->
+                        design.ipLog(getString(R.string.iptest_log_mtu_step, row.ip, step))
+                    }
+                }
+
                 // Reference comparison is intentionally limited to node mode with no custom target.
                 val contextSub = if (direct) {
                     if (report.echSource.isNotEmpty()) {

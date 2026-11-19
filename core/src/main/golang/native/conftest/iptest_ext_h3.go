@@ -59,7 +59,11 @@ func probeHTTP3(parent context.Context, ip, domain string) IPExtResult {
 
 	// ListenPacket applies mihomo's socket hook, so the QUIC socket follows the same direct
 	// (outside-the-VPN) route as the existing TCP IP probes.
-	packetConn, err := dialer.ListenPacket(ctx, "udp", "", remoteAddrPort)
+	network := "udp4"
+	if remoteAddrPort.Addr().Is6() {
+		network = "udp6"
+	}
+	packetConn, err := dialer.ListenPacket(ctx, network, "", remoteAddrPort)
 	if err != nil {
 		return http3Failure(result, elapsed(), err)
 	}

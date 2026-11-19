@@ -585,6 +585,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		if ctx.Err() == nil && ipExtEnabled(req.Ext, "h3") {
 			row.H3 = probeHTTP3(ctx, row.IP, rep.Domain)
 		}
+		// CUSTOM.md #80: MTU's UDP probe is independent of the failed TCP/TLS handshake.
+		if ctx.Err() == nil && ipExtEnabled(req.Ext, "mtu") {
+			probeMTUUDP(ctx, row.IP, &row.MTU)
+		}
 
 		rep.Rows = []IPRow{row}
 
@@ -597,6 +601,17 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	state := keep.ConnectionState()
 	row.TLS = ipdelay.TLSVersionName(state.Version)
 	row.ALPN = state.NegotiatedProtocol
+	// CUSTOM.md #80: read MSS from the already-established TCP socket before fetchEvidenceTimed closes it.
+	if ipExtEnabled(req.Ext, "mtu") {
+		row.MTU = IPExtResult{Tested: true}
+		row.MTU.TCPMSS, row.MTU.TCPMTU = readTCPMSS(keep, row.IP)
+		if row.MTU.TCPMSS > 0 {
+			row.MTU.OK = true
+			appendMTUDetail(&row.MTU, fmt.Sprintf("TCP MSS %d, calculated MTU %d", row.MTU.TCPMSS, row.MTU.TCPMTU))
+		} else {
+			appendMTUDetail(&row.MTU, "TCP MSS unavailable")
+		}
+	}
 	row.Colo, row.CF, row.First = fetchEvidenceTimed(ctx, keep, rep.Domain) // closes the connection; CUSTOM.md #68: one HEAD, one sample
 	row.Dial, row.Shake = meanOf(tcpMs), meanOf(tlsMs)
 	row.InHosts = configHosts()[row.IP]
@@ -619,6 +634,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	// CUSTOM.md #79: one independent HTTP/3 request to the tested IP.
 	if ctx.Err() == nil && ipExtEnabled(req.Ext, "h3") {
 		row.H3 = probeHTTP3(ctx, row.IP, rep.Domain)
+	}
+	// CUSTOM.md #80: run UDP MTU after the existing direct checks.
+	if ctx.Err() == nil && ipExtEnabled(req.Ext, "mtu") {
+		probeMTUUDP(ctx, row.IP, &row.MTU)
 	}
 
 	rep.Rows = []IPRow{row}

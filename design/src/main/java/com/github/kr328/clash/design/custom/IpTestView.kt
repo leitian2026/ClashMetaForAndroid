@@ -406,14 +406,29 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             )
             fun resultText(result: IpTestExtResult, mtu: Boolean = false): String {
                 if (!result.tested) return context.getString(R.string.iptest_diag_dash)
-                if (result.reason.isNotBlank()) return result.reason
                 if (mtu) {
                     val parts = ArrayList<String>()
-                    if (result.tcpMtu > 0) parts += context.getString(R.string.iptest_ext_tcp_mtu, result.tcpMtu)
-                    if (result.udpMtu > 0) parts += context.getString(R.string.iptest_ext_udp_mtu, result.udpMtu)
-                    else if (result.udpNoResponse) parts += context.getString(R.string.iptest_ext_udp_none)
-                    return parts.joinToString(" · ").ifBlank { result.detail.ifBlank { context.getString(R.string.iptest_ext_failed) } }
+                    if (result.tcpMss > 0 && result.tcpMtu > 0) {
+                        parts += context.getString(R.string.iptest_ext_tcp_mtu, result.tcpMss, result.tcpMtu)
+                    } else {
+                        parts += context.getString(R.string.iptest_ext_tcp_none)
+                    }
+                    if (result.udpMtu > 0) {
+                        val format = if (result.detail.contains("UDP upper bound reached")) {
+                            R.string.iptest_ext_udp_mtu_at_least
+                        } else {
+                            R.string.iptest_ext_udp_mtu
+                        }
+                        parts += context.getString(format, result.udpMtu)
+                    } else if (result.udpNoResponse) {
+                        parts += context.getString(R.string.iptest_ext_udp_none)
+                    } else {
+                        parts += context.getString(R.string.iptest_ext_udp_dash)
+                    }
+                    if (result.reason.isNotBlank()) parts += result.reason
+                    return parts.joinToString(" · ").ifBlank { context.getString(R.string.iptest_ext_failed) }
                 }
+                if (result.reason.isNotBlank()) return result.reason
                 if (result.status > 0) {
                     val status = result.status.toString()
                     val statusText = if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, status, result.ms) else status
