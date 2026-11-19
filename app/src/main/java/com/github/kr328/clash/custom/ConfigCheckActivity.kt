@@ -609,7 +609,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             when {
                 report.cancelled -> design.ipLog(getString(R.string.iptest_log_speed_cancelled, ip))
                 report.error.isNotEmpty() || row == null -> {
-                    val error = report.error.ifEmpty { "下载测速没有返回结果" }
+                    val error = report.error.ifEmpty { getString(R.string.iptest_diag_download_no_result) }
                     setSpeedError(design, ip, error)
                     design.ipLog(getString(R.string.iptest_log_speed_fail, ip, error))
                 }

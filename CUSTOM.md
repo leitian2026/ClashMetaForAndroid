@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r237
+当前版本：2_11_36-r238
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2337,3 +2337,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `core/src/main/golang/native/conftest/iptest_net_test.go`、`CUSTOM.md`。
 - **未做：** 不改现有 `beginRun()` 实现；不改变 asn 查询模式的取消行为；不改 mihomo 子模块或补丁。
 - **验证：** 仅静态核对测试顺序和代号保护逻辑；未运行 Go 测试、未编译、未触发 Build Debug。
+
+
+### 第 47 步：详细诊断中文统一移入独立资源文件（r238）
+- **调整：** 将详细诊断区域的标题、IP 诊断表头、未获取 / 证书验证状态、空数据提示、DNS 表标题与表头、核心解析 / 内核 DNS 等文字改为资源引用；诊断复制文本也使用同一组资源。将下载测速缺少返回结果时的提示改为资源引用。
+- **资源文件：** 新增 `design/src/main/res/values/strings_iptest_diag.xml` 英文资源和 `design/src/main/res/values-zh/strings_iptest_diag.xml` 中文资源；中文显示文字保持原文。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、上述两个资源文件、`CUSTOM.md`。
+- **未做：** 第 46 项 Go 清理中仍被当前域名测试、ASN 自动查询和已保存 IP 流程使用的分支 / 字段没有删除；不改变域名支持、自动归属地查询、表格或检测逻辑。
+- **验证：** 静态核对代码引用与资源名称；未运行 Kotlin 编译、未编译、未触发 Build Debug，也未做真机验证。

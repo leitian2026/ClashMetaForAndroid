@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="iptest_diag_title">Detailed diagnostics</string>
+    <string name="iptest_diag_ip_title">IP detailed diagnostics</string>
+    <string name="iptest_diag_ip">IP address</string>
+    <string name="iptest_diag_tls">TLS version</string>
+    <string name="iptest_diag_alpn">Negotiated protocol</string>
+    <string name="iptest_diag_cert_subject">Certificate subject</string>
+    <string name="iptest_diag_cert_issuer">Certificate issuer</string>
+    <string name="iptest_diag_cert_not_before">Certificate valid from</string>
+    <string name="iptest_diag_cert_not_after">Certificate expiry</string>
+    <string name="iptest_diag_cert_dns">Certificate domains</string>
+    <string name="iptest_diag_cert_ip">Certificate IP addresses</string>
+    <string name="iptest_diag_cert_verify">Certificate verification</string>
+    <string name="iptest_diag_server">Server identifier</string>
+    <string name="iptest_diag_cf_ray">Cloudflare request ID</string>
+    <string name="iptest_diag_content_type">Response content type</string>
+    <string name="iptest_diag_location">Redirect address</string>
+    <string name="iptest_diag_retry_after">Retry delay</string>
+    <string name="iptest_diag_cf_mitigated">Cloudflare mitigation status</string>
+    <string name="iptest_diag_not_obtained">Not obtained</string>
+    <string name="iptest_diag_cert_skipped">Not verified (certificate verification skipped)</string>
+    <string name="iptest_diag_empty">No detailed diagnostic data</string>
+    <string name="iptest_diag_dns_title">DNS check (independent result: %1$s)</string>
+    <string name="iptest_diag_dns_item">DNS item</string>
+    <string name="iptest_diag_dns_time">Query time</string>
+    <string name="iptest_diag_core_dns">Core resolution</string>
+    <string name="iptest_diag_kernel_dns">Core DNS</string>
+    <string name="iptest_diag_no_results">No displayable results</string>
+    <string name="iptest_diag_download_no_result">Download test returned no result</string>
+</resources>

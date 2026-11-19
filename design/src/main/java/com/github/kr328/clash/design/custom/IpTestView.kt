@@ -115,11 +115,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(colorText)
         setPadding(0, dp(8), 0, dp(6))
-        text = "详细诊断  ▴"
+        text = "${context.getString(R.string.iptest_diag_title)}  ▴"
         setOnClickListener {
             diagnosticsExpanded = !diagnosticsExpanded
             diagnosticsBody.visibility = if (diagnosticsExpanded) View.VISIBLE else View.GONE
-            text = if (diagnosticsExpanded) "详细诊断  ▴" else "详细诊断  ▾"
+            text = "${context.getString(R.string.iptest_diag_title)}  ${if (diagnosticsExpanded) "▴" else "▾"}"
         }
     }
     private val diagnosticsBox = LinearLayout(context).apply {
@@ -237,12 +237,12 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             // IP is retained solely as the row identifier for matching each diagnostic record.
             val headers = if (target) {
                 listOf(
-                    "IP 地址", "TLS 版本", "协商协议",
-                    "证书主题", "证书颁发者", "证书生效时间", "证书到期时间",
-                    "证书域名", "证书 IP 地址", "证书验证状态",
-                    "服务器标识", "Cloudflare 请求编号",
-                    "响应内容类型", "重定向地址",
-                    "重试等待时间", "Cloudflare 防护状态",
+                    context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn),
+                    context.getString(R.string.iptest_diag_cert_subject), context.getString(R.string.iptest_diag_cert_issuer), context.getString(R.string.iptest_diag_cert_not_before), context.getString(R.string.iptest_diag_cert_not_after),
+                    context.getString(R.string.iptest_diag_cert_dns), context.getString(R.string.iptest_diag_cert_ip), context.getString(R.string.iptest_diag_cert_verify),
+                    context.getString(R.string.iptest_diag_server), context.getString(R.string.iptest_diag_cf_ray),
+                    context.getString(R.string.iptest_diag_content_type), context.getString(R.string.iptest_diag_location),
+                    context.getString(R.string.iptest_diag_retry_after), context.getString(R.string.iptest_diag_cf_mitigated),
                 )
             } else {
                 listOf("IP 地址", "TLS 版本", "协商协议")
@@ -252,7 +252,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 if (target) {
                     listOf(
                         row.ip,
-                        row.targetTls.ifBlank { "未获取" },
+                        row.targetTls.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
                         row.targetAlpn.ifBlank { "未获取" },
                         row.targetCertSubject.ifBlank { "未获取" },
                         row.targetCertIssuer.ifBlank { "未获取" },
@@ -261,7 +261,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                         row.targetCertDnsNames.ifBlank { "未获取" },
                         row.targetCertIpAddresses.ifBlank { "未获取" },
                         when (row.targetCertVerification) {
-                            "skipped" -> "未验证（跳过证书验证）"
+                            "skipped" -> context.getString(R.string.iptest_diag_cert_skipped)
                             else -> row.targetCertVerification.ifBlank { "未获取" }
                         },
                         row.targetServer.ifBlank { "未获取" },
@@ -280,9 +280,9 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 }
             }
 
-            copied.append("IP 详细诊断\n")
+            copied.append(context.getString(R.string.iptest_diag_ip_title) + "\n")
             appendMarkdown(headers, values)
-            addDiagnosticsTable("IP 详细诊断", headers, values)
+            addDiagnosticsTable(context.getString(R.string.iptest_diag_ip_title), headers, values)
         }
 
         dnsReport?.let { report ->
@@ -294,23 +294,23 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 )
             }
             if (report.core.asked) {
-                dnsRows += listOf("核心解析", if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取")
+                dnsRows += listOf(context.getString(R.string.iptest_diag_core_dns), if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取")
             }
             report.kernel?.let { kernel ->
-                dnsRows += listOf("内核 DNS", if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
+                dnsRows += listOf(context.getString(R.string.iptest_diag_kernel_dns), if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
             }
-            if (dnsRows.isEmpty()) dnsRows += listOf("无可显示结果", "未获取")
+            if (dnsRows.isEmpty()) dnsRows += listOf(context.getString(R.string.iptest_diag_no_results), "未获取")
 
-            val dnsTitle = "DNS 检查（独立结果：${report.domain}）"
+            val dnsTitle = context.getString(R.string.iptest_diag_dns_title, report.domain)
             copied.append(dnsTitle).append('\n')
-            appendMarkdown(listOf("DNS 项目", "查询耗时"), dnsRows)
+            appendMarkdown(listOf(context.getString(R.string.iptest_diag_dns_item), context.getString(R.string.iptest_diag_dns_time)), dnsRows)
             addDiagnosticsTable(dnsTitle, listOf("DNS 项目", "查询耗时"), dnsRows, 150, 110)
         }
 
         diagnosticsPlain = copied.toString().trim()
         if (diagnosticsBody.childCount == 0) {
             val empty = TextView(context).apply {
-                text = "暂无详细诊断数据"
+                text = context.getString(R.string.iptest_diag_empty)
                 textSize = 13f
                 setTextColor(colorMuted)
             }
@@ -384,7 +384,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
         return TextView(context).apply {
-            this.text = text.ifBlank { "未获取" }
+            this.text = text.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
             textSize = 14f
             setTextColor(colorText)
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
@@ -492,7 +492,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
         if (diagnosticsPlain.isNotEmpty()) {
-            sb.append("\n\n详细诊断\n").append(diagnosticsPlain)
+            sb.append("\n\n").append(context.getString(R.string.iptest_diag_title)).append("\n").append(diagnosticsPlain)
         }
 
         sb.append('\n').append(logLines.joinToString("\n"))
