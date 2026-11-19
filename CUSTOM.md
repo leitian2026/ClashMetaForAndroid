@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r235
+当前版本：2_11_36-r236
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2320,3 +2320,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 更新 Go、Kotlin 注释及 #45 / #52 / #72 文档，明确自动查询发生在用户主动启动的 IP 测试流程内，不是后台轮询或独立定时任务。
 - r223–r232 将查询改为仅用户点击的行为与 #52 / #72 约定不符；本次予以纠正。
 - 验证：静态核对成功 IP 自动触发、域名 / 失败 IP 跳过、查询缓存、表格更新和取消传播；未运行 Go 测试、Kotlin 编译或 Android Build Debug。
+
+
+### 第 43 步：修复带 dialer-proxy 的节点经节点测速失败（r236）
+- **修复：** `ipdelay.newVariant` 调用 `adapter.ParseProxy` 时传入 `adapter.WithTunnelForAPI(tunnel.Tunnel)`，使临时节点解析时也能取得当前 mihomo tunnel；避免 by-name dialer 因 tunnel 为 nil 而报 `tunnel is invalid`。
+- **内核依据：** 对照 mihomo `config/config.go:903` 的 `adapter.ParseProxy(mapping, adapter.WithTunnelForAPI(T.Tunnel))`，以及 `component/proxydialer/byname.go:22-33` 的 tunnel 类型断言和代理查找。
+- **测试：** 新增 `ipdelay_proxy_test.go`，通过带不存在父节点名称的 `dialer-proxy` 配置调用临时节点拨号，断言错误来自父节点查找而不是 `tunnel is invalid`。
+- **改动文件：** `core/src/main/golang/native/ipdelay/ipdelay.go`、`core/src/main/golang/native/ipdelay/ipdelay_proxy_test.go`、`CUSTOM.md`。
+- **未做：** 不修改 mihomo 子模块或补丁；不改其他节点测试路径，不增加网络请求、定时器或后台任务。
+- **验证：** 仅完成源码静态核对；未运行 Go 测试、未编译、未触发 Build Debug。

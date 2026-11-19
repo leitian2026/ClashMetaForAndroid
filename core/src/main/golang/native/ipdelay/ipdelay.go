@@ -1167,7 +1167,9 @@ func newVariant(raw map[string]any, ip string) C.Proxy {
 
 	m["server"] = ip
 
-	px, err := adapter.ParseProxy(m)
+	// Pass the active tunnel just as mihomo does in config/config.go:903. The by-name
+	// dialer requires the proxydialer.Tunnel interface (component/proxydialer/byname.go:22-33).
+	px, err := adapter.ParseProxy(m, adapter.WithTunnelForAPI(tunnel.Tunnel))
 	if err != nil {
 		log.Warnln("IP delay %s: %s", ip, err.Error())
 
