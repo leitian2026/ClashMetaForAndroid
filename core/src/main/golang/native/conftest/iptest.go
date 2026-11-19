@@ -66,6 +66,8 @@ type IPRow struct {
 
 	// node mode
 	Country string `json:"country"` // the exit country (落地); direct mode (CUSTOM.md #62): only when a node of the config has the typed domain as its server
+	ExitIP  string `json:"exitIp"` // CUSTOM.md #57: the address the target site sees after traffic leaves the node
+	ExitASN string `json:"exitAsn"` // CUSTOM.md #57: operator of ExitIP, separate from the entry IP's ASN
 	Faster  int    `json:"faster"`  // milliseconds quicker than the reference address, 0 when not quicker
 
 	// direct mode
@@ -177,6 +179,12 @@ var (
 		sync.Mutex
 		byIP map[string][2]string
 	}{byIP: make(map[string][2]string)}
+
+	// CUSTOM.md #57: cache exit-IP owner lookups by IP, including misses, without changing entry-IP ownerCache behavior.
+	exitOwnerCache = struct {
+		sync.Mutex
+		byIP map[string]string
+	}{byIP: make(map[string]string)}
 
 	// Public owner lookup is called only by the explicit "look up" action.
 	ownerSource = askOwner
