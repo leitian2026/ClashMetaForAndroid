@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_39-r247
+当前版本：2_11_40-r248
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2424,4 +2424,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 所有查询只发生在用户主动点击“经节点测延迟”触发的逐 IP 测试中；串行执行，不新增定时器、轮询或后台任务。没有修改直连模式、入口 IP 归属查询、出口国家查询顺序或下载测试。
 - **待真机确认返回里带 ip**：尚未实测 `api.country.is` 在当前网络环境下是否稳定返回 `ip` 字段。
 - 改动文件：`core/src/main/golang/native/ipdelay/ipdelay.go`、`core/src/main/golang/native/ipdelay/iptry.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`。
+- **验证：未编译，靠 Actions 验证。**
+
+
+### 第 58 步：经节点模式主表按链路顺序排列（r248）
+- 仅调整经节点模式的列顺序。固定在左侧的 IP 地址列之后，依次为：端口、入口机房、归属运营商、归属地、失败率、最小延迟、最大延迟、平均延迟、抖动、出口国家、出口 IP、出口机房、目标站反应、分段耗时、下载测速、速度。
+- 未填写目标网址的经节点模式没有“出口机房 / 目标站反应”两项，保留该模式原有字段集合；其余列按同一链路顺序排列，原有“比对照快”列放在分段耗时之后、下载测速之前。直连模式列顺序完全不变。
+- 表格表头、行单元格、复制导出文本均继续由同一份 Key 列表驱动；列宽中的分段耗时、出口 IP、速度位置继续按 Key 查找。列宽分配余数改为按当前模式的首个列 Key 定位，避免依赖固定下标。下载测速按钮仍由 TEST 列生成，速度仍由 SPEED 列定位；失败行、表头灰底和行点击行为不改。
+- 所有列的取值、显示内容、计算、点击动作均不改；中英文表头资源不改。现有说明中的“速度在最右侧”仍成立，无需改动说明文案。
+- 不新增网络请求、定时器、轮询或后台任务。
+- 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`CUSTOM.md`。
 - **验证：未编译，靠 Actions 验证。**

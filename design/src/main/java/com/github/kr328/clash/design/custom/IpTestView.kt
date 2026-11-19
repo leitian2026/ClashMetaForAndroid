@@ -40,7 +40,7 @@ import java.util.Locale
 // 下载测速 | 速度. The data centre has its country's flag, its code and, in brackets, the Chinese name and the English city;
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
-// r85 (CUSTOM.md #68): 抖动 and 分段耗时 (three lines: TCP / TLS / 首字节 in direct mode, 拨号 / 握手 / 首字节 through a node) follow 平均延迟.
+// r85 (CUSTOM.md #68): direct mode keeps 抖动 / 分段耗时 after 平均延迟. Via-node mode puts link metrics first, then exit / target details, then 分段耗时.
 class IpTestView(private val context: Context, private val direct: Boolean, private val target: Boolean = false) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
@@ -55,10 +55,12 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     } else if (target) {
         // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
         // 比对照快 is dropped (the reference was measured against another address)
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.EXIT_IP, Key.TARGET, Key.TCOLO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
+        // r248: keep the node path in order: ingress endpoint and metadata, link metrics, then egress and target.
+        listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.TEST, Key.SPEED)
     } else {
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.EXIT_IP, Key.PORT, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
+        // The no-target variant has no target-response / target-colo fields; keep its existing comparison column after phase timings.
+        listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -664,7 +666,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 val extra = avail - sumNoSpeed
                 val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
 
-                out[1] += avail - sumNoSpeed - (0 until min.size).filter { it != speedAt }.sumOf { out[it] - min[it] }
+                val firstColumnAt = keys.indexOf(if (direct) Key.COLO else Key.PORT) + 1
+                out[firstColumnAt] += avail - sumNoSpeed - (0 until min.size).filter { it != speedAt }.sumOf { out[it] - min[it] }
 
                 return out
             }
