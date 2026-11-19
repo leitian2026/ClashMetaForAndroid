@@ -18,7 +18,9 @@
     <string name="iptest_diag_location">重定向地址</string>
     <string name="iptest_diag_retry_after">重试等待时间</string>
     <string name="iptest_diag_cf_mitigated">Cloudflare 防护状态</string>
-    <string name="iptest_diag_not_obtained">未获取</string>
+    <string name="iptest_diag_not_obtained">未取到</string>
+    <string name="iptest_diag_none">无</string>
+    <string name="iptest_diag_dash">-</string>
     <string name="iptest_diag_cert_skipped">未验证（跳过证书验证）</string>
     <string name="iptest_diag_empty">暂无详细诊断数据</string>
     <string name="iptest_diag_dns_title">DNS 检查（独立结果：%1$s）</string>
