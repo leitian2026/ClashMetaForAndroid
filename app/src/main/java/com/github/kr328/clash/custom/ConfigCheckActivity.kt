@@ -13,7 +13,6 @@ import com.github.kr328.clash.design.custom.ErrorsText
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
 import com.github.kr328.clash.design.custom.CountryName
-import com.github.kr328.clash.design.custom.TargetStatusText
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
