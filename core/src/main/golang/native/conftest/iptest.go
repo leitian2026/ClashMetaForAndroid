@@ -88,6 +88,8 @@ type IPRow struct {
 	// CUSTOM.md #156 step 41: TLS / certificate / response headers from the same target GET (no extra request).
 	TargetTLS              string `json:"targetTls"`
 	TargetALPN             string `json:"targetAlpn"`
+	TargetHTTPProto        string `json:"targetHttpProto"`
+	TargetHTTPProtoMajor   int    `json:"targetHttpProtoMajor"`
 	TargetCertSubject      string `json:"targetCertSubject"`
 	TargetCertIssuer       string `json:"targetCertIssuer"`
 	TargetCertNotBefore    string `json:"targetCertNotBefore"`
