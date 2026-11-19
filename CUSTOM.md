@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r280
+当前版本：2_11_46-r281
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2722,8 +2722,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **验证：** 静态核对 Go 调用路径、fallback 条件、结果 JSON 字段默认值、快照兼容和 UI 标记；未运行 Go / Kotlin 编译或 Android Build Debug，需由 Actions 验证。
 
 
-### 第 85 步：修复构建失败（补丁行数、Kotlin 编译栈溢出）
+### 第 85 步：修复构建失败（补丁行数、Kotlin 编译栈溢出）（r281）
 - **补丁：** `patches/mihomo/0004-lookup-fresh.patch` 的 hunk 头写的是 `+1,48`，实际正文 55 行（另有一个多余的末尾空 `+` 行），导致 `dns/fresh.go` 被截断成 48 行，Go 报 `unexpected EOF`。hunk 头改为 `+1,55`，删掉多余的空行。
 - **Kotlin：** 编译 `IpTestDialog.kt` 时 Kotlin 2.1.0 的 `CoroutineTransformerMethodVisitor` 因 `ask` 过大发生 `StackOverflowError`。在 `gradle.properties` 加 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m` 加大编译器线程栈；只影响构建，不改生成的代码、运行时行为或功耗。已登记到上游文件总表。
 - **改动文件：** `patches/mihomo/0004-lookup-fresh.patch`、`gradle.properties`、`CUSTOM.md`。
 - **验证：** 本地用 `patch` 应用补丁得到完整 55 行并通过 `gofmt -e`；未运行 Kotlin 编译，需由 Actions 验证。
+- **后续提醒：** `IpTestDialog.ask` 以后继续加功能前要先拆小，规则写在 `AGENTS.md` 的“构建事实”里。

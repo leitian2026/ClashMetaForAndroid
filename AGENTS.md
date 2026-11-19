@@ -33,6 +33,10 @@
 ## 构建事实（别误判）
 - 日常构建用 `build-debug.yaml`，实际跑的是 `app:assembleAlphaRelease`（**R8 已开**），只构建 arm64-v8a，固定签名。只能手动触发（`workflow_dispatch`）。
 - `build-release.yaml`、`update-dependencies.yaml` 没有改动。
+- **`IpTestDialog.ask`（`design/.../custom/IpTestDialog.kt`）已接近 Kotlin 2.1.0 编译器的栈上限。** 它是一个很大的 suspend 函数，里面嵌了很多回调、`try/catch` 和协程；编译器的协程转换器（`CoroutineTransformerMethodVisitor.collectSuspensionPoints`）按方法长度递归，默认栈会 `StackOverflowError`。现在靠 `gradle.properties` 的 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m` 才编得过（`CUSTOM.md` 第 85 步）。
+  - 构建日志里出现 `StackOverflowError` 且栈里有 `collectSuspensionPoints`，就是这个问题。
+  - **往 `ask` 里加功能之前，先把它拆小，不要继续往里堆。** 拆的时候只做原样搬家、不改逻辑，一次拆一块并构建验证；回调之间共用的局部变量（如 `hintExpanded`、`resolveChecks`、`selected`、`input`、`scope`）收进一个小状态类，不要零散传参；注意协程的取消和作用域（`cancelResolve`、`CancellationException`）仍在同一套里。运行时没有副作用，风险只在改的过程里，而且这类错误编译不一定报，要实测。
+  - 这个栈设置只影响构建，不影响 App 运行、体积和功耗。
 
 ## 交付约定（给用户发文件时）
 - 压缩包文件名必须带版本号，格式 `ClashMetaForAndroid-custom-<上游版本>-r<数字>.zip`，每次交付 r 数字加 1。**同时把 `CUSTOM.md` 开头的 `当前版本：` 改成这次的 `<上游版本>-r<数字>`**（Actions 的构建产物名从这一行读，见 CUSTOM.md #40；App 里的版本号末尾的 `-r<数字>` 也从这一行读，见 #44）。
