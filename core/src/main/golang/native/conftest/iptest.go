@@ -3,7 +3,7 @@
 // node mode can also test a domain by replacing the node's server with that domain. The app sends one address per call,
 // then waits 1 to 3 seconds before the next one so it can update the table and log each result.
 //
-// Core modes: "nodes" and "config" read profile information; "parse" validates the typed list; "probe" tests one entry
+// Core modes: "nodes" and "config" read profile information; "resolve" looks up IPv4 for explicitly entered domains; "parse" validates the typed list; "probe" tests one entry
 // directly; "nodeone" tests one entry through a node; "download" measures one selected row; "colo" reads Cloudflare's
 // data-centre list; and "asn" looks up registration ownership for each successful IP (the app invokes it automatically).
 //
@@ -40,12 +40,12 @@ const (
 
 // IPRequest is what the app sends (as the filter of the query, with "kind":"ip").
 type IPRequest struct {
-	Kind   string `json:"kind"`
-	Mode   string `json:"mode"`   // "nodes", "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo"
+	Kind    string `json:"kind"`
+	Mode    string `json:"mode"`    // "nodes", "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo"
 	Domains string `json:"domains"` // resolve: domain names to look up for IPv4
-	Domain string `json:"domain"` // direct: SNI and Host
-	Node   string `json:"node"`   // node: the node to copy
-	IPs    string `json:"ips"`    // the text as typed
+	Domain  string `json:"domain"`  // direct: SNI and Host
+	Node    string `json:"node"`    // node: the node to copy
+	IPs     string `json:"ips"`     // the text as typed
 	// CUSTOM.md #52: the per-address modes "probe", "nodeone", "download", "colo" (iptest_probe.go)
 	Ports string `json:"ports"` // probe: the ports to try, as typed ("" = the default list)
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
@@ -194,7 +194,7 @@ var (
 	ownerSource = askOwner
 )
 
-// CancelIPTest stops the running IP test (the rows done so far are still returned by RunIP).
+// CancelIPTest stops the running IP test or domain lookup.
 func CancelIPTest() bool {
 	ipRunLock.Lock()
 	defer ipRunLock.Unlock()

@@ -3,12 +3,12 @@
 <resources>
     <string name="iptest_button">测试其他 IP</string>
     <string name="iptest_dialog_title">测试其他 IP</string>
-    <string name="iptest_ips_hint">例如 104.18.2.5 或 example.com</string>
+    <string name="iptest_ips_hint">例如 104.18.2.5</string>
     <string name="iptest_node_label">节点（经节点测延迟用）</string>
     <string name="iptest_no_nodes">配置里没有可选的节点（经节点测延迟不可用）</string>
     <string name="iptest_btn_node">经节点测延迟</string>
     <string name="iptest_btn_direct">直连测延迟</string>
-    <string name="iptest_need_ips">没有填 IP 或域名，或者填的都看不懂</string>
+    <string name="iptest_need_ips">没有填 IP 地址，或者填的内容无法识别</string>
     <string name="iptest_need_domain">直连测延迟要先在上面的输入框里填一个域名，用作 SNI 和 Host</string>
     <string name="iptest_need_node">没有选节点，经节点测延迟用不了</string>
     <string name="iptest_head_direct">■ 直连延迟测试（域名 %1$s，SNI 和 Host 都用它）</string>
@@ -18,8 +18,8 @@
     <string name="iptest_ref">对照：配置里最快的 %1$s　%2$d 毫秒（%3$s测的）</string>
     <string name="iptest_ref_none">对照：这个节点 hosts 里的地址还没测过（到代理页点一次测速）</string>
     <string name="iptest_cancelled">已取消，下面是取消前测完的</string>
-    <string name="iptest_domain_node_only">直连延迟测试只测 IP 地址，域名要用“经节点延迟测试”</string>
-    <string name="iptest_skipped">域名只能用经节点延迟测试，这里没测：%1$s</string>
+    <string name="iptest_domain_node_only">测试框里不能直接填域名，请先在独立的域名输入框解析成 IPv4</string>
+    <string name="iptest_skipped">测试框不能直接测试域名，请先解析成 IPv4：%1$s</string>
     <string name="iptest_invalid">没看懂：%1$s</string>
     <string name="iptest_cut">超过 20 个的上限，还有 %1$d 个没测</string>
     <string name="iptest_in_hosts">已在 hosts</string>
@@ -31,7 +31,7 @@
     <string name="iptest_colo">入口机房 %1$s</string>
     <string name="iptest_cf">确认是 Cloudflare</string>
     <string name="iptest_running">测试中……每个 IP 之间随机隔 1 到 3 秒，再点一次按钮可以取消</string>
-    <string name="iptest_dialog_hint">填不在配置里的 IP 或域名，每行一个，也可以用逗号、空格分隔，最多 20 个。直连测延迟只测 IP 地址，用上面输入框里的域名当 SNI 和 Host；经节点测延迟会把所选节点的 server 临时替换成这个 IP 或域名，再经该节点测试（域名由内核解析）。测试时同时读取入口机房、归属运营商和归属地等信息；直连还会测端口和 ECH。两个下载地址只在测完后点击某一行的“下载测速”时使用，上面的两个延迟测试按钮不会用到。每个 IP 测 10 次（最多 5 个同时，每次最多 3 秒）。</string>
+    <string name="iptest_dialog_hint">填不在配置里的 IP 地址，每行一个，也可以用逗号、空格分隔，最多 20 个。域名请在下面独立的域名输入框解析为 IPv4，勾选后再放入测试框；不要把域名直接填进 IP 测试框。直连测延迟仍使用页面顶部输入框里的域名作为 SNI 和 Host；经节点测延迟只把所选节点的 server 临时替换成测试框里的 IP。测试时同时读取入口机房、归属运营商和归属地等信息；直连还会测端口和 ECH。两个下载地址只在测完后点击某一行的“下载测速”时使用，上面的两个延迟测试按钮不会用到。每个 IP 测 10 次（最多 5 个同时，每次最多 3 秒）。</string>
     <string name="iptest_ports_label">端口（直连延迟测试时，通了的 IP 逐个握手试这些端口，用空格或逗号分隔）</string>
     <string name="iptest_url_direct_label">直连下载测速地址（下载测速用，直连，必须填 Cloudflare 上的地址）</string>
     <string name="iptest_url_node_label">经节点下载测速地址（下载测速用，经节点，建议填不在 Cloudflare 上的地址；Worker 访问 CF 站较慢，容易超时）</string>
@@ -146,5 +146,11 @@
     <string name="iptest_resolve_error">域名解析失败</string>
     <string name="iptest_resolve_invalid">无法识别的域名：%1$s</string>
     <string name="iptest_resolve_failed">%1$s：%2$s</string>
+    <string name="iptest_resolve_before_test">测试框里还有域名，请先用上方独立输入框解析成 IPv4，再放入测试框：%1$s</string>
+    <string name="iptest_resolve_hosts_no_ipv4">hosts 精确键里没有 IPv4</string>
+    <string name="iptest_resolve_no_ipv4">没有可用的 IPv4（可能只返回了被过滤的 fake-ip）</string>
+    <string name="iptest_resolve_timeout">解析超时</string>
+    <string name="iptest_resolve_no_valid_domains">没有有效域名</string>
+    <string name="iptest_resolve_wait">域名还在解析，请等完成或关闭对话框取消</string>
     <string name="iptest_resolve_omitted">另有 %1$d 个 IPv4 未显示（每个域名最多 8 个）</string>
 </resources>

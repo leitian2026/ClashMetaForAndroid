@@ -124,13 +124,17 @@ func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any) 
 			}
 		}
 		if len(addresses) == 0 {
-			result.Error = "hosts 中没有 IPv4"
+			result.Error = "hosts_no_ipv4"
 			return result
 		}
 	} else {
 		resolved, err := resolver.LookupIPv4(ctx, domain)
 		if err != nil {
-			result.Error = err.Error()
+			if ctx.Err() != nil {
+				result.Error = "timeout"
+			} else {
+				result.Error = err.Error()
+			}
 			return result
 		}
 		addresses = resolved
@@ -138,7 +142,7 @@ func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any) 
 
 	result.IPs, result.Omitted = normalizeResolvedIPs(addresses)
 	if len(result.IPs) == 0 {
-		result.Error = "没有可用的 IPv4"
+		result.Error = "no_ipv4"
 	}
 	return result
 }

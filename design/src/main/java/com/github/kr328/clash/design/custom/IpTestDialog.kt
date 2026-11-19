@@ -83,7 +83,6 @@ object IpTestDialog {
                 }
 
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-                lateinit var fillResolvedButton: MaterialButton
 
                 // CUSTOM.md step 67: domain lookup is separate from the existing IP-test input.
                 val resolveLabel = TextView(context).apply {
@@ -115,6 +114,24 @@ object IpTestDialog {
                 val resolveChecks = ArrayList<CheckBox>()
                 var resolving = false
 
+                val fillResolvedButton = MaterialButton(context).apply {
+                    setText(R.string.iptest_resolve_fill)
+                    isAllCaps = false
+                    isEnabled = false
+                    setOnClickListener {
+                        val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }.distinct()
+                        if (selected.isEmpty()) return@setOnClickListener
+                        val old = input.text.toString()
+                        val existing = old.split(Regex("[\\s,;，；、]+")).filter { it.isNotBlank() }.toSet()
+                        val append = selected.filterNot { existing.contains(it) }
+                        if (append.isNotEmpty()) {
+                            val prefix = old.trimEnd()
+                            input.setText(if (prefix.isEmpty()) append.joinToString("\n") else prefix + "\n" + append.joinToString("\n"))
+                            input.setSelection(input.text.length)
+                        }
+                    }
+                }
+
                 val resolveButton = MaterialButton(context).apply {
                     setText(R.string.iptest_resolve_button)
                     isAllCaps = false
@@ -131,6 +148,8 @@ object IpTestDialog {
                         }
                         isEnabled = false
                         setText(R.string.iptest_resolve_running)
+                        fillResolvedButton.isEnabled = false
+                        resolveResultBox.visibility = View.GONE
                         resolving = true
                         scope.launch {
                             val report = try {
@@ -156,8 +175,14 @@ object IpTestDialog {
                                 }
                                 for (entry in report.resolved) {
                                     if (entry.error.isNotEmpty()) {
+                                        val reason = when (entry.error) {
+                                            "hosts_no_ipv4" -> context.getString(R.string.iptest_resolve_hosts_no_ipv4)
+                                            "no_ipv4" -> context.getString(R.string.iptest_resolve_no_ipv4)
+                                            "timeout" -> context.getString(R.string.iptest_resolve_timeout)
+                                            else -> entry.error
+                                        }
                                         resolveResultBox.addView(TextView(context).apply {
-                                            text = context.getString(R.string.iptest_resolve_failed, entry.domain, entry.error)
+                                            text = context.getString(R.string.iptest_resolve_failed, entry.domain, reason)
                                             textSize = 14f
                                             setPadding(0, pad / 5, 0, pad / 5)
                                         })
@@ -188,31 +213,13 @@ object IpTestDialog {
                                 }
                                 if (report.error.isNotEmpty() && report.resolved.isEmpty()) {
                                     resolveResultBox.addView(TextView(context).apply {
-                                        text = report.error
+                                        text = if (report.error == "no valid domains") context.getString(R.string.iptest_resolve_no_valid_domains) else report.error
                                         textSize = 13f
                                     })
                                 }
                                 resolveResultBox.visibility = View.VISIBLE
                                 fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
                             }
-                        }
-                    }
-                }
-
-                fillResolvedButton = MaterialButton(context).apply {
-                    setText(R.string.iptest_resolve_fill)
-                    isAllCaps = false
-                    isEnabled = false
-                    setOnClickListener {
-                        val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }.distinct()
-                        if (selected.isEmpty()) return@setOnClickListener
-                        val old = input.text.toString()
-                        val existing = old.split(Regex("[\\\\s,;，；、]+")).filter { it.isNotBlank() }.toSet()
-                        val append = selected.filterNot { existing.contains(it) }
-                        if (append.isNotEmpty()) {
-                            val prefix = old.trimEnd()
-                            input.setText(if (prefix.isEmpty()) append.joinToString("\\n") else prefix + "\\n" + append.joinToString("\\n"))
-                            input.setSelection(input.text.length)
                         }
                     }
                 }
@@ -387,6 +394,10 @@ object IpTestDialog {
                 }
 
                 fun done(mode: String) {
+                    if (resolving) {
+                        android.widget.Toast.makeText(context, R.string.iptest_resolve_wait, android.widget.Toast.LENGTH_SHORT).show()
+                        return
+                    }
                     val text = input.text.toString()
                     val node = if (nodes.isEmpty()) "" else (spinner.selectedItem as? String ?: "")
 
@@ -400,6 +411,7 @@ object IpTestDialog {
                         val edit = prefs.edit()
                         // CUSTOM.md #156 step 4: one-shot saved-IP prefill must not replace the next manual dialog's history.
                         if (presetIps == null) edit.putString("ip_text", text)
+                        edit.putString("ip_resolve_domains", resolveInput.text.toString())
                         edit.putString("ip_node", node).putString("ip_ports", ports)
                             .putString("ip_url_direct", directUrl).putString("ip_url_node", nodeUrl)
                             .putString("ip_target", target).apply()
@@ -417,15 +429,21 @@ object IpTestDialog {
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
                     .setOnDismissListener {
+                        try {
+                            prefs.edit().putString("ip_resolve_domains", resolveInput.text.toString()).apply()
+                        } catch (_: Exception) {
+                        }
                         val shouldCancelResolve = resolving
                         val cancel = cancelResolve
                         scope.cancel()
                         if (shouldCancelResolve && cancel != null) {
                             CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
                                 try { cancel() } catch (_: Exception) { }
+                                if (!ctx.isCompleted) ctx.resume(null)
                             }
+                        } else if (!ctx.isCompleted) {
+                            ctx.resume(null)
                         }
-                        if (!ctx.isCompleted) ctx.resume(null)
                     }
             }
         }

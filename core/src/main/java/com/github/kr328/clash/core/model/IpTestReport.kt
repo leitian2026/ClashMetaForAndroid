@@ -127,7 +127,7 @@ data class IpTestResolveResult(
 
 /**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
- * "nodes" (then only [nodes] is filled), "config", "asn", "parse", "probe", "nodeone", "download" or "colo".
+ * "nodes" (then only [nodes] is filled), "config", "resolve", "asn", "parse", "probe", "nodeone", "download" or "colo".
  * [error] is a short code such as "no node", "no address" or "unknown mode".
  */
 @Serializable

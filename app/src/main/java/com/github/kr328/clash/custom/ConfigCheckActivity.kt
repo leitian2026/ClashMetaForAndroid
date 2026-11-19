@@ -248,6 +248,19 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     // time, the app waiting the random 1 to 3 seconds between two (no timer: the wait is a suspended coroutine), and
     // the table and the live status get what each one found. Runs only when tapped; the core stops when the button is
     // tapped again.
+    // CUSTOM.md step 68: domains are resolved in the dialog's separate field; the test box accepts IPs only.
+    private fun isResidualDomainToken(raw: String): Boolean {
+        var value = raw.trim()
+        if (value.count { it == ':' } == 1) value = value.substringBeforeLast(':')
+        value = value.trimEnd('.')
+        val labels = value.split('.')
+        if (labels.size < 2 || labels.any { it.isEmpty() || it.length > 63 || it.first() == '-' || it.last() == '-' }) return false
+        if (labels.last().none { it in 'a'..'z' || it in 'A'..'Z' }) return false
+        return labels.all { label ->
+            label.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }
+        }
+    }
+
     private suspend fun runIpTest(design: ConfigCheckDesign, presetIps: String? = null, preferredOperatorId: String? = null) {
         if (!clashRunning) {
             design.showText(getString(R.string.connections_not_running))
@@ -303,6 +316,13 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
             if (choice.ips.isBlank()) {
                 design.showText(getString(R.string.iptest_need_ips))
+                return
+            }
+            // Do not pass a domain left over from an older dialog session into the existing test path.
+            // The core's legacy domain-capable route is intentionally unchanged.
+            val residualDomains = choice.ips.split(Regex("[\\s,;，；、]+" )).filter { isResidualDomainToken(it) }.distinct()
+            if (residualDomains.isNotEmpty()) {
+                design.showText(getString(R.string.iptest_resolve_before_test, residualDomains.joinToString("、")))
                 return
             }
 
