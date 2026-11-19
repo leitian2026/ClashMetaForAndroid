@@ -2,8 +2,10 @@ package conftest
 
 import (
 	"encoding/binary"
+	"net"
 	"net/netip"
 	"testing"
+	"time"
 )
 
 func TestBuildMTUProbe(t *testing.T) {
@@ -90,5 +92,78 @@ func TestSearchMaxPacketSizeNoResponse(t *testing.T) {
 	}
 	if got != 0 {
 		t.Fatalf("max response size = %d, want 0", got)
+	}
+}
+
+
+// These wrappers mirror the unexported tcpConn / udpConn wrappers added by
+// patches/mihomo/0001-conn-count.patch: embedding preserves the socket methods,
+// but changes the concrete dynamic type returned by the dialer.
+type mtuTestTCPWrapper struct {
+	*net.TCPConn
+}
+
+type mtuTestUDPWrapper struct {
+	*net.UDPConn
+}
+
+func assertMTUSyscallFD(t *testing.T, conn mtuSyscallConn) {
+	t.Helper()
+	rawConn, err := conn.SyscallConn()
+	if err != nil {
+		t.Fatalf("SyscallConn: %v", err)
+	}
+	var fd uintptr
+	if err := rawConn.Control(func(value uintptr) {
+		fd = value
+	}); err != nil {
+		t.Fatalf("RawConn.Control: %v", err)
+	}
+	if fd == 0 {
+		t.Fatal("SyscallConn returned an invalid file descriptor")
+	}
+}
+
+func TestMTUSocketInterfacesAcceptEmbeddedDialerWrappers(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	tcpClient, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tcpClient.Close()
+	tcpServer, err := listener.AcceptTCP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tcpServer.Close()
+
+	wrappedTCP := &mtuTestTCPWrapper{TCPConn: tcpClient}
+	var tcpSyscall mtuSyscallConn = wrappedTCP
+	assertMTUSyscallFD(t, tcpSyscall)
+
+	udpSocket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer udpSocket.Close()
+
+	wrappedUDP := &mtuTestUDPWrapper{UDPConn: udpSocket}
+	var udpMTU mtuUDPConn = wrappedUDP
+	assertMTUSyscallFD(t, udpMTU)
+
+	if err := udpMTU.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline: %v", err)
+	}
+	if _, err := udpMTU.WriteToUDP([]byte("probe"), &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: udpSocket.LocalAddr().(*net.UDPAddr).Port}); err != nil {
+		t.Fatalf("WriteToUDP: %v", err)
+	}
+	buffer := make([]byte, 16)
+	if _, _, err := udpMTU.ReadFromUDP(buffer); err != nil {
+		t.Fatalf("ReadFromUDP: %v", err)
 	}
 }

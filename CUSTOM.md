@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r270
+当前版本：2_11_46-r271
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2633,6 +2633,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_mtu.go`、`iptest_ext_mtu_logic.go`、`iptest_ext_mtu_logic_test.go`；修改 `core/src/main/golang/native/conftest/iptest_ext_h3.go`（明确选择 udp4 / udp6）、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/golang/go.mod`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest_ext.xml`、`design/src/main/res/values-zh/strings_iptest_ext.xml`、`CUSTOM.md`。依赖沿用现有版本，`go.sum` 无需变更；未修改 mihomo 子模块。
 - **验证：** 纯逻辑 Go 测试已通过；新增 Go 源文件已执行 `gofmt`。完整 `conftest` 包测试、Android Build Debug 和真实 Android 设备上的 DF / UDP 回包行为尚未验证。未触发 GitHub Actions，待用户手动运行 Build Debug。
 
+
+
+**r271：修复 MTU 检测的连接类型转换**
+- 原因：`patches/mihomo/0001-conn-count.patch` 会将 `dialer.DialContext` 返回的 TCP 连接包装为私有 `tcpConn`，将 `dialer.ListenPacket` 返回的 UDP 连接包装为私有 `udpConn`。包装类型嵌入 `*net.TCPConn` / `*net.UDPConn` 并保留其方法，但动态类型不再是具体标准库连接，因此原来的类型断言失败。
+- 修复：TCP MSS 读取改为断言只要求 `SyscallConn()` 的接口；UDP 定义本文件内的 `mtuUDPConn` 接口（`SyscallConn`、`ReadFromUDP`、`WriteToUDP`、`SetReadDeadline`、`Close`），用于 socket 断言和相关函数参数。断言失败时错误信息包含实际动态类型 `%T`。不绕过 mihomo dialer，不改补丁，不改变取消逻辑，不增加定时器 / 轮询，不升级依赖。
+- 测试：新增本机回环 TCP / UDP socket 测试，分别嵌入到模拟 dialer 包装结构中，验证接口转换和 `SyscallConn().Control` 可读取文件描述符，并验证 UDP 读写方法可用。
+- 改动文件：`core/src/main/golang/native/conftest/iptest_ext_mtu.go`、`core/src/main/golang/native/conftest/iptest_ext_mtu_logic_test.go`、`CUSTOM.md`。没有修改上游文件或 mihomo 补丁，总表不变。
+- 验证：待本地 Go 测试与 Actions Build Debug 验证。
 
 ### 第 81 步：恢复 go.mod 的 CUSTOM 标记（r270）
 - **原因：** #79 / #80 调整 `core/src/main/golang/go.mod` 的直接依赖时，遗漏了该文件原有的 `CUSTOM` 标记，导致 `scripts/check-custom.sh` 报告“no CUSTOM marker any more: the hook was lost”。

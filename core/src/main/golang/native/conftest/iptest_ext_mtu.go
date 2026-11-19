@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"syscall"
 	"time"
 
 	"cfa/native/errlog"
@@ -17,11 +18,23 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type mtuSyscallConn interface {
+	SyscallConn() (syscall.RawConn, error)
+}
+
+type mtuUDPConn interface {
+	mtuSyscallConn
+	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
+	WriteToUDP([]byte, *net.UDPAddr) (int, error)
+	SetReadDeadline(time.Time) error
+	Close() error
+}
+
 func readTCPMSS(conn *tls.Conn, ip string) (int, int) {
 	if conn == nil {
 		return 0, 0
 	}
-	tcp, ok := conn.NetConn().(*net.TCPConn)
+	tcp, ok := conn.NetConn().(mtuSyscallConn)
 	if !ok {
 		return 0, 0
 	}
@@ -68,7 +81,7 @@ func setMTUFailure(result *IPExtResult, err error) {
 	result.Code = errlog.Classify(result.Reason)
 }
 
-func setMTUDontFragment(conn *net.UDPConn, ipv6 bool) error {
+func setMTUDontFragment(conn mtuUDPConn, ipv6 bool) error {
 	rawConn, err := conn.SyscallConn()
 	if err != nil {
 		return err
@@ -123,9 +136,9 @@ func probeMTUUDP(ctx context.Context, ip string, result *IPExtResult) {
 		return
 	}
 	defer packetConn.Close()
-	udpConn, ok := packetConn.(*net.UDPConn)
+	udpConn, ok := packetConn.(mtuUDPConn)
 	if !ok {
-		err := fmt.Errorf("UDP socket is not a *net.UDPConn")
+		err := fmt.Errorf("UDP socket %T does not implement MTU UDP connection interface", packetConn)
 		setMTUFailure(result, err)
 		appendMTUDetail(result, err.Error())
 		return
@@ -206,7 +219,7 @@ func probeMTUUDP(ctx context.Context, ip string, result *IPExtResult) {
 	}
 }
 
-func probeUDPPacketSize(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, size int) (ok bool, sent int, localTooLarge bool, err error) {
+func probeUDPPacketSize(ctx context.Context, conn mtuUDPConn, remote *net.UDPAddr, size int) (ok bool, sent int, localTooLarge bool, err error) {
 	dcid := make([]byte, 8)
 	scid := make([]byte, 8)
 	if _, err := rand.Read(dcid); err != nil {
