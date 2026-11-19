@@ -26,6 +26,7 @@ import android.widget.TextView
 import com.google.android.material.button.MaterialButton
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.IpTestRow
+import com.github.kr328.clash.core.model.IpTestExtResult
 import com.github.kr328.clash.design.R
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -393,6 +394,40 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 // The non-target TLS / protocol mini-table keeps its existing layout and sizing.
                 addDiagnosticsTable(context.getString(R.string.iptest_diag_ip_title), headers, values)
             }
+        }
+
+        // CUSTOM.md #77: extension diagnostics stay below the existing IP table; never add more main-table columns.
+        if (direct && rows.any { it.ws.tested || it.h3.tested || it.mtu.tested }) {
+            val headers = listOf(
+                context.getString(R.string.iptest_ext_ip),
+                context.getString(R.string.iptest_ext_ws),
+                context.getString(R.string.iptest_ext_h3),
+                context.getString(R.string.iptest_ext_mtu),
+            )
+            fun resultText(result: IpTestExtResult, mtu: Boolean = false): String {
+                if (!result.tested) return context.getString(R.string.iptest_diag_dash)
+                if (result.reason.isNotBlank()) return result.reason
+                if (mtu) {
+                    val parts = ArrayList<String>()
+                    if (result.tcpMtu > 0) parts += context.getString(R.string.iptest_ext_tcp_mtu, result.tcpMtu)
+                    if (result.udpMtu > 0) parts += context.getString(R.string.iptest_ext_udp_mtu, result.udpMtu)
+                    else if (result.udpNoResponse) parts += context.getString(R.string.iptest_ext_udp_none)
+                    return parts.joinToString(" · ").ifBlank { result.detail.ifBlank { context.getString(R.string.iptest_ext_failed) } }
+                }
+                if (result.status > 0) {
+                    val status = result.status.toString()
+                    return if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, status, result.ms) else status
+                }
+                if (result.ms > 0) return context.getString(R.string.iptest_ext_ms, result.ms)
+                return result.detail.ifBlank { context.getString(if (result.ok) R.string.iptest_ext_ok else R.string.iptest_ext_failed) }
+            }
+            val values = rows.map { row ->
+                listOf(row.ip, resultText(row.ws), resultText(row.h3), resultText(row.mtu, mtu = true))
+            }
+            val title = context.getString(R.string.iptest_ext_title)
+            copied.append(title).append('\n')
+            appendMarkdown(headers, values)
+            addDiagnosticsTable(title, headers, values, 120, 128)
         }
 
         dnsReport?.let { report ->

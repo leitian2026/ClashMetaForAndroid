@@ -72,6 +72,25 @@ data class IpTestRow(
     val speedBytes: Long = 0,
     val speedMs: Int = 0,
     val speedErr: String = "",
+    // CUSTOM.md #77: optional direct-only extension diagnostics; defaults keep old saved batches readable.
+    val ws: IpTestExtResult = IpTestExtResult(),
+    val h3: IpTestExtResult = IpTestExtResult(),
+    val mtu: IpTestExtResult = IpTestExtResult(),
+)
+
+/** CUSTOM.md #77: one optional extension diagnostic; absent fields in old saved JSON use these defaults. */
+@Serializable
+data class IpTestExtResult(
+    val tested: Boolean = false,
+    val ok: Boolean = false,
+    val ms: Int = 0,
+    val reason: String = "",
+    val status: Int = 0,
+    val detail: String = "",
+    val tcpMss: Int = 0,
+    val tcpMtu: Int = 0,
+    val udpMtu: Int = 0,
+    val udpNoResponse: Boolean = false,
 )
 
 /** CUSTOM.md #52: the handshake to one port of an address. [code] is an error code of the errors page. */

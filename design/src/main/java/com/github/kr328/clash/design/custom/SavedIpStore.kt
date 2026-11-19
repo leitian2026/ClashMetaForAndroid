@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import android.content.Context
 import android.util.Log
 import com.github.kr328.clash.core.model.IpTestRow
+import com.github.kr328.clash.core.model.IpTestExtResult
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -24,6 +25,10 @@ data class SavedIpEntry(
     // Defaults keep entries written by the previous schema readable.
     val lastTestedAt: Long = 0L,
     val addedAt: Long = 0L,
+    // CUSTOM.md #77: retain optional direct extension diagnostics in saved batches; defaults read old snapshots.
+    val ws: IpTestExtResult = IpTestExtResult(),
+    val h3: IpTestExtResult = IpTestExtResult(),
+    val mtu: IpTestExtResult = IpTestExtResult(),
 )
 
 /**
@@ -259,7 +264,7 @@ object SavedIpStore {
             val previousInBatch = batchEntries[address]
             if (previousInBatch != null) {
                 // Duplicate rows within one result set keep their first position and latest result.
-                batchEntries[address] = previousInBatch.copy(status = status, lastTestedAt = testedAt)
+                batchEntries[address] = previousInBatch.copy(status = status, lastTestedAt = testedAt, ws = row.ws, h3 = row.h3, mtu = row.mtu)
                 continue
             }
 
@@ -269,6 +274,9 @@ object SavedIpStore {
                 status = status,
                 lastTestedAt = testedAt,
                 addedAt = previous?.addedAt ?: testedAt,
+                ws = row.ws,
+                h3 = row.h3,
+                mtu = row.mtu,
             )
             if (previous == null) added++ else updated++
         }

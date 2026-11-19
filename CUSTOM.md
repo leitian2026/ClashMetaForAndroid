@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r265
+当前版本：2_11_46-r266
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2591,3 +2591,12 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 复制输出的拼接随之补一个换行，内容不变。
 - 改动文件：`design/.../custom/IpTestView.kt`、`CUSTOM.md`；未涉及上游文件。
 - **验证：** 无法本地编译，待 Actions Build Debug 验证。
+
+
+### 第 77 步：为直连 IP 检测搭建 WebSocket / HTTP/3 / MTU 公共入口（r266）
+- “测试其他 IP”对话框增加 WebSocket、HTTP/3、MTU 三个复选框，默认均不勾选；选择分别记入现有 `custom_config_check` SharedPreferences，重新打开对话框时恢复。选择只随“直连测延迟”请求发送；经节点请求始终发送空扩展项，不改变节点检测。
+- 请求结构 `IPRequest` 增加 `ext` 字段（逗号分隔的 `ws,h3,mtu`），沿用现有 JSON 通道；Go 结果 `IPRow` 和 Kotlin `IpTestRow` 增加 `ws`、`h3`、`mtu` 三个默认空结果结构，包含是否检测、成功状态、耗时、原因、HTTP 状态 / 细节和 MTU 数值字段。Kotlin 字段均有默认值，旧的 `ip_test_last` 和已保存批次缺少字段时按未检测读取。
+- 详细诊断新增独立“扩展检测”表（IP / WebSocket / HTTP/3 / MTU），不向主表格加列；未检测显示“-”，其余按结果结构显示状态、耗时、原因或 MTU 数值。诊断表文本进入现有复制输出；配置检查页的 `ip_test_last` 继续序列化完整 `IpTestRow`；保存 IP 列表的 `SavedIpEntry` 同时保存 `ws`、`h3`、`mtu` 三项结果，三个字段均有默认值，旧的 `SavedIpSnapshot` 可正常读取。
+- 本步只搭入口、请求字段、兼容结果结构和展示，不含实际探测逻辑；后续三项分别独立提交。没有新增定时器、轮询、网络请求或后台任务；不改 mihomo 子模块和上游文件。
+- 改动文件：`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、新增 `design/src/main/res/values/strings_iptest_ext.xml`、新增 `design/src/main/res/values-zh/strings_iptest_ext.xml`、`CUSTOM.md`。未修改上游文件总表。
+- **验证：** 完成源码级字段与调用链检查；未运行 Go / Kotlin 编译或 Android Build Debug，待用户手动触发 Actions 的 Build Debug。

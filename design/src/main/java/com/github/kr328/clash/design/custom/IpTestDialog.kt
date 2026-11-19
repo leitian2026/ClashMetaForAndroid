@@ -42,6 +42,7 @@ data class IpTestChoice(
     val ports: String = "", // CUSTOM.md #52: the ports to try on an address that works (direct)
     val url: String = "", // CUSTOM.md #52: the address the "下载测速" of a row downloads
     val target: String = "", // CUSTOM.md #66: a site the user really uses; through-node tries go to it ("" = the node's test URL)
+    val ext: List<String> = emptyList(), // CUSTOM.md #77: direct-only extension probes selected by the user
 )
 
 private data class ResolvedIpEntry(val ip: String, var checked: Boolean)
@@ -471,6 +472,33 @@ object IpTestDialog {
                     if (index >= 0) setSelection(index)
                 }
 
+                // CUSTOM.md #77: optional direct-only extension probes; choices are remembered and default off.
+                val extLabel = TextView(context).apply {
+                    setText(R.string.iptest_ext_options_title)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
+                }
+                val wsCheck = CheckBox(context).apply {
+                    setText(R.string.iptest_ext_option_ws)
+                    isChecked = prefs.getBoolean("ip_ext_ws", false)
+                }
+                val h3Check = CheckBox(context).apply {
+                    setText(R.string.iptest_ext_option_h3)
+                    isChecked = prefs.getBoolean("ip_ext_h3", false)
+                }
+                val mtuCheck = CheckBox(context).apply {
+                    setText(R.string.iptest_ext_option_mtu)
+                    isChecked = prefs.getBoolean("ip_ext_mtu", false)
+                }
+                val extOptions = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    isBaselineAligned = false
+                    addView(wsCheck, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(h3Check, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(mtuCheck, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                }
+
                 // CUSTOM.md #52: the ports to try; CUSTOM.md #98: separate download addresses for each mode
                 val portsLabel = TextView(context).apply {
                     setText(R.string.iptest_ports_label)
@@ -606,6 +634,8 @@ object IpTestDialog {
                 box.addView(targetInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(portsInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(extLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(extOptions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(directUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(directUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(nodeUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -628,6 +658,11 @@ object IpTestDialog {
                     val nodeUrl = nodeUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_NODE }
                     val url = if (mode == "direct") directUrl else nodeUrl
                     val target = targetInput.text.toString().trim()
+                    val extensions = if (mode == "direct") buildList {
+                        if (wsCheck.isChecked) add("ws")
+                        if (h3Check.isChecked) add("h3")
+                        if (mtuCheck.isChecked) add("mtu")
+                    } else emptyList()
 
                     try {
                         val edit = prefs.edit()
@@ -636,11 +671,15 @@ object IpTestDialog {
                         edit.putString("ip_resolve_domains", resolveInput.text.toString())
                         edit.putString("ip_node", node).putString("ip_ports", ports)
                             .putString("ip_url_direct", directUrl).putString("ip_url_node", nodeUrl)
-                            .putString("ip_target", target).apply()
+                            .putString("ip_target", target)
+                            .putBoolean("ip_ext_ws", wsCheck.isChecked)
+                            .putBoolean("ip_ext_h3", h3Check.isChecked)
+                            .putBoolean("ip_ext_mtu", mtuCheck.isChecked)
+                            .apply()
                     } catch (_: Exception) {
                     }
 
-                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target))
+                    if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target, extensions))
                 }
 
                 MaterialAlertDialogBuilder(context)

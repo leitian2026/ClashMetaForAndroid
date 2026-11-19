@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="iptest_ext_options_title">附加直连检测</string>
+    <string name="iptest_ext_option_ws">WebSocket</string>
+    <string name="iptest_ext_option_h3">HTTP/3</string>
+    <string name="iptest_ext_option_mtu">MTU</string>
+    <string name="iptest_ext_title">扩展检测</string>
+    <string name="iptest_ext_ip">IP 地址</string>
+    <string name="iptest_ext_ws">WebSocket</string>
+    <string name="iptest_ext_h3">HTTP/3</string>
+    <string name="iptest_ext_mtu">MTU</string>
+    <string name="iptest_ext_ms">%1$d ms</string>
+    <string name="iptest_ext_status_ms">%1$s · %2$d ms</string>
+    <string name="iptest_ext_tcp_mtu">TCP %1$d</string>
+    <string name="iptest_ext_udp_mtu">UDP %1$d</string>
+    <string name="iptest_ext_udp_none">UDP 无回应</string>
+    <string name="iptest_ext_ok">成功</string>
+    <string name="iptest_ext_failed">失败</string>
+</resources>

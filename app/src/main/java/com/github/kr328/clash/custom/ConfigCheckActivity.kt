@@ -425,6 +425,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     .put("target", target)
                     .put("ips", t.ip)
                     .put("ports", choice.ports)
+                    .put("ext", if (direct) choice.ext.joinToString(",") else "") // CUSTOM.md #77: node mode never runs extension probes
                     .toString()
 
                 val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })

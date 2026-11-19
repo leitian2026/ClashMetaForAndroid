@@ -51,6 +51,8 @@ type IPRequest struct {
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
 	// CUSTOM.md #66: nodeone: the address of a site the user really uses; the tries go to it through the node ("" = the node's own test URL)
 	Target string `json:"target"`
+	// CUSTOM.md #77: optional direct-only extension probes ("ws,h3,mtu").
+	Ext string `json:"ext"`
 	// parse: direct mode skips domain entries; node mode retains them.
 	Direct bool `json:"direct"`
 }
@@ -133,6 +135,25 @@ type IPRow struct {
 	Dial   int `json:"dial"`
 	Shake  int `json:"shake"`
 	First  int `json:"first"`
+
+	// CUSTOM.md #77: optional direct-only extension probe results; zero values mean not tested.
+	WS  IPExtResult `json:"ws"`
+	H3  IPExtResult `json:"h3"`
+	MTU IPExtResult `json:"mtu"`
+}
+
+// IPExtResult is shared by the WebSocket, HTTP/3 and MTU diagnostic results.
+type IPExtResult struct {
+	Tested        bool   `json:"tested"`
+	OK            bool   `json:"ok"`
+	Ms            int    `json:"ms"`
+	Reason        string `json:"reason"`
+	Status        int    `json:"status"`
+	Detail        string `json:"detail"`
+	TCPMSS        int    `json:"tcpMss"`
+	TCPMTU        int    `json:"tcpMtu"`
+	UDPMTU        int    `json:"udpMtu"`
+	UDPNoResponse bool   `json:"udpNoResponse"`
 }
 
 // IPRef is the quickest address of the node's `hosts:` entry in its last speed test.
