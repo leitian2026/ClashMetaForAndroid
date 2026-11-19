@@ -416,7 +416,9 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 }
                 if (result.status > 0) {
                     val status = result.status.toString()
-                    return if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, status, result.ms) else status
+                    val statusText = if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, status, result.ms) else status
+                    val detail = result.detail.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+                    return statusText + detail
                 }
                 if (result.ms > 0) return context.getString(R.string.iptest_ext_ms, result.ms)
                 return result.detail.ifBlank { context.getString(if (result.ok) R.string.iptest_ext_ok else R.string.iptest_ext_failed) }

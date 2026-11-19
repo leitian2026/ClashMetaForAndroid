@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r267
+当前版本：2_11_46-r268
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -34,6 +34,7 @@
 | `design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt` | #47 | 低 | `Request` 加 `EditConfig(profile)`；创建 `ProfileAdapter` 时多传一个 lambda（`requests.trySend(Request.EditConfig(it))`） |
 | `app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt` | #47 #50 | 低 | `when` 里加 `EditConfig` 分支：`startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/config.yaml", "config.yaml", uuid, name))`（注意 select 里 `this` 不是 Activity）；加 import |
 | `core/src/main/cpp/CMakeLists.txt` | #7 | 低 | `add_library` 源文件末尾加 `custom_bridge.c` |
+| `core/src/main/golang/go.mod` | #79 | **中**（HTTP/3 客户端依赖由间接依赖提升为直接依赖） | 以上游版本的依赖选择为准，将 `github.com/metacubex/http`、`github.com/metacubex/quic-go`、`github.com/metacubex/tls` 从间接依赖提升到直接 `require`；保持已核对的版本（`http v0.1.8`、项目锁定的 `quic-go`、`tls v0.1.9`），不擅自升级。若上游更新这些依赖，先重新核对 `http3` API 和模块版本，再同步调整 `go.sum`。 |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
 | `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
@@ -46,7 +47,7 @@
 | `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt` | #57 | 低 | `subtext` 的 setter 里，`binding.subtextView.text = value` 改成 `binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)`（首页代理卡片的 ✓ 绿 / ✗ 红） |
 | `design/build.gradle.kts` | #87 | 低 | 增加 `libs.kotlin.serialization.json` 依赖，供配置检查页将最近一轮 `IpTestReport` 编码 / 解码为本地 JSON；不改插件、构建任务或其他依赖 |
 
-共 36 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
+共 37 个上游文件（含 `FilesActivity.kt`、`build.gradle.kts`、`design_about.xml`、 `ClashManager.kt`、`IClashManager.kt`、`AndroidManifest.xml`、`CMakeLists.txt`、`MainApplication.kt`、`AppSettingsDesign.kt`、`ProfileProcessor.kt`）。同步后可运行 `bash scripts/check-custom.sh`（#19）自动检查。同步后 `grep -rn CUSTOM` 应在这些文件（加 `custom/` 下新文件）里全部找到。
 
 ## 构建事实
 - `build-debug.yaml` 实际执行 `app:assembleAlphaRelease`，**R8 已开**，不是"没混淆的 debug"。
@@ -2610,3 +2611,13 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 新增纯逻辑单元测试 `iptest_ext_ws_test.go`，用 RFC 6455 示例校验 `Sec-WebSocket-Accept` 计算；该测试不发网络请求。
 - 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_ws.go`、`iptest_ext_ws_test.go`；修改 `core/src/main/golang/native/conftest/iptest.go`（请求路径字段、扩展结果错误分类字段）、`core/src/main/golang/native/conftest/iptest_probe.go`（直连流程挂钩）、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`（扩展结果错误分类字段）、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`（路径输入和持久化）、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`（传递路径）、两份 `strings_iptest_ext.xml`、`CUSTOM.md`。未修改 mihomo 子模块、go.mod / go.sum 或上游文件。
 - **验证：** 仅完成源码级检查；尚未运行 Go 单元测试或 Android Build Debug，WebSocket 对 Cloudflare 的真实响应未在设备上实测，待 Actions Build Debug 与设备验证。
+
+
+### 第 79 步：增加直连 HTTP/3（QUIC）检测（r268）
+- 仅当用户勾选 HTTP/3，并执行“直连测延迟”时，对每个待测 IP 的 `ipPort` 发起一次独立 UDP + QUIC + HTTP/3 GET 请求；目标 UDP 地址由待测 IP 和端口直接构造，不通过域名 DNS 解析；TLS SNI 与 HTTP Host 使用页面顶部域名，ALPN 只提供 `h3`，请求带 `User-Agent: curl/8.5.0`。
+- 使用项目当前锁定的 `github.com/metacubex/quic-go v0.61.1-0.20260727080200-2548683b76f4` 的 `quic.Dial` 和 `http3.NewClientConn` API。UDP socket 通过 mihomo `dialer.ListenPacket` 创建，沿用现有 socket hook 的直连路由；不创建独立后台任务或轮询。
+- 收到任何合法 HTTP/3 响应都表示 HTTP/3 协议检测成功；即使状态码为 4xx / 5xx，也保留状态码，不误判为 QUIC / HTTP/3 不支持。记录 QUIC 握手耗时、HTTP 状态码，并确认响应协议为 HTTP/3；同时记录 Server、Cf-Mitigated 和 Cf-Ray；连接、QUIC 握手或 HTTP/3 请求错误记录原始原因及 `errlog.Classify` 分类。
+- 单次检测复用现有 3 秒 `probeTimeout`，沿用父请求上下文；`CANCEL_IPTEST` 可中断 UDP / QUIC 握手和 HTTP/3 请求。检测独立于普通十次 TCP/TLS 测试：普通握手失败时仍单独尝试；每个 IP 最多一次。节点模式不发送 HTTP/3 请求。
+- 扩展诊断表与复制文本显示 HTTP 状态、耗时和响应头细节。新增纯逻辑测试覆盖 IPv4 / IPv6 UDP 目标地址构造及非法输入，不发网络请求。
+- 改动文件：新增 `core/src/main/golang/native/conftest/iptest_ext_h3.go`、`iptest_ext_h3_test.go`；修改 `core/src/main/golang/native/conftest/iptest_probe.go`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`core/src/main/golang/go.mod`、`CUSTOM.md`。依赖版本沿用现有 go.mod / go.sum 锁定版本，没有升级依赖；未修改 mihomo 子模块；`go.mod` 直接依赖调整已登记在上游文件总表。
+- **验证：** 新增 Go 文件已执行 `gofmt`；尚未运行完整 Go 单元测试、Go 编译或 Android Build Debug（本环境没有完整 Go 模块缓存）。未触发 GitHub Actions，待用户手动运行 Build Debug。

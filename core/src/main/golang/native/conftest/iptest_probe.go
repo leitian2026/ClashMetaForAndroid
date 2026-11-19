@@ -581,6 +581,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		if ctx.Err() == nil && ipExtEnabled(req.Ext, "ws") {
 			row.WS = probeWebSocket(ctx, row.IP, rep.Domain, req.WSPath)
 		}
+		// CUSTOM.md #79: HTTP/3 is an independent UDP/QUIC probe, even when TCP/TLS failed.
+		if ctx.Err() == nil && ipExtEnabled(req.Ext, "h3") {
+			row.H3 = probeHTTP3(ctx, row.IP, rep.Domain)
+		}
 
 		rep.Rows = []IPRow{row}
 
@@ -611,6 +615,10 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	// CUSTOM.md #78: the optional WebSocket check is one independent HTTP/1.1 upgrade, not another ten-try test.
 	if ctx.Err() == nil && ipExtEnabled(req.Ext, "ws") {
 		row.WS = probeWebSocket(ctx, row.IP, rep.Domain, req.WSPath)
+	}
+	// CUSTOM.md #79: one independent HTTP/3 request to the tested IP.
+	if ctx.Err() == nil && ipExtEnabled(req.Ext, "h3") {
+		row.H3 = probeHTTP3(ctx, row.IP, rep.Domain)
 	}
 
 	rep.Rows = []IPRow{row}
