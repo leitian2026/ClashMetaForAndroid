@@ -46,7 +46,6 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
-    var onLookupOwner: (String) -> Unit = {} // a tap on the ASN cell
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
@@ -824,7 +823,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         return when (k) {
             Key.COLO -> coloLabel(r.colo)
-            Key.ASN -> r.asn.ifEmpty { if (!r.isDomain) "查询归属地" else "-" }
+            Key.ASN -> r.asn.ifEmpty { "-" }
             Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
             Key.LAND -> if (tested) CountryName.label(r.country) else "-"
             Key.PORTS -> portsPlain(r)
@@ -847,16 +846,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private fun ownerCell(r: IpTestRow): View {
         val value = when {
             r.asn.isNotEmpty() -> r.asn
-            r.isDomain -> "-"
+            r.isDomain || !r.ok -> "-"
             ownerLookupIp == r.ip -> "查询中…"
-            else -> "查询归属地"
+            else -> "-"
         }
-        val color = if (!r.isDomain && r.asn.isEmpty()) colorLink else colorText
-        return textCell(value, color).apply {
-            if (!r.isDomain && r.asn.isEmpty() && ownerLookupIp == null && !testing) {
-                setOnClickListener { onLookupOwner(r.ip) }
-            }
-        }
+        return textCell(value, colorText)
     }
     private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
         return when (k) {

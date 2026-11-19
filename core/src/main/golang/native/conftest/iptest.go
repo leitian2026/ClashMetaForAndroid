@@ -5,7 +5,7 @@
 //
 // Core modes: "nodes" and "config" read profile information; "parse" validates the typed list; "probe" tests one entry
 // directly; "nodeone" tests one entry through a node; "download" measures one selected row; "colo" reads Cloudflare's
-// data-centre list; and "asn" looks up registration ownership only after the user taps an IP's ASN cell.
+// data-centre list; and "asn" looks up registration ownership for each successful IP (the app invokes it automatically).
 //
 // Power: nothing runs on its own; one call is one entry, and CancelIPTest stops the running probe.
 import (
@@ -384,8 +384,8 @@ func validCC(code string) bool {
 	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
 }
 
-// lookupOwner is reached only by the explicit lookup action. Successful or partial results are reused in this
-// process; failed results are not cached, so background probing never retries these services.
+// lookupOwner is called by the app after each successful IP probe. Successful or partial results are reused in this
+// process; failed results are not cached. Domain rows and failed probes are not sent to these registration services.
 func lookupOwner(ctx context.Context, ip string) (asn, geo string) {
 	if ctx.Err() != nil {
 		return "", ""

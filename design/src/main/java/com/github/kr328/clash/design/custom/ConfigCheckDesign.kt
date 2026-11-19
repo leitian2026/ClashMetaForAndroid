@@ -188,7 +188,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // A tap on "测速" of a row (onSpeedTest) or on its "取消" (onSpeedCancel) goes to the activity.
     var onSpeedTest: ((String) -> Unit)? = null
     var onSpeedCancel: (() -> Unit)? = null
-    var onLookupOwner: ((String) -> Unit)? = null
     var onSaveIpBatch: (() -> Unit)? = null // CUSTOM.md #156 step 2
     var onOpenSavedIps: (() -> Unit)? = null // CUSTOM.md #156 step 3
 
@@ -306,7 +305,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         view.onSpeed = { ip -> onSpeedTest?.invoke(ip) }
         view.onSpeedCancel = { onSpeedCancel?.invoke() }
-        view.onLookupOwner = { ip -> onLookupOwner?.invoke(ip) }
 
         view.onDetail = { title, text ->
             MaterialAlertDialogBuilder(context)

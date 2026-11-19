@@ -4,8 +4,9 @@
 //
 // "probe" (direct): ten TLS attempts, one HEAD on the kept connection, then configured port checks.
 // "nodeone" (through a node): ten attempts through the selected node; an optional target URL is requested in those
-// attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. "asn" is a separate,
-// explicit lookup reached only when the user taps the ASN cell of an IP.
+// attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. After each successful
+// IP probe, the app automatically calls "asn" to obtain the registered operator and country; domains and failed probes
+// are skipped. The lookup is serial with the per-IP test loop and successful results are cached in memory.
 //
 // Power: nothing runs on its own; one call is one entry, CancelIPTest stops the running probe.
 import (
@@ -877,8 +878,8 @@ func nodeSNI(node string) string {
 }
 
 // nodeOwner reads the entry data centre of an address tested through a node. The address is connected once more
-// directly, with the node's own domain as SNI, and its `Cf-Ray` is read. This does not query IP registration ownership;
-// that is done only by the explicit lookup action.
+// directly, with the node's own domain as SNI, and its `Cf-Ray` is read. IP registration ownership is queried
+// separately by the app's automatic "asn" lookup after a successful IP probe.
 func nodeOwner(ctx context.Context, row *IPRow, node string) {
 	if ctx.Err() != nil {
 		return
