@@ -20,6 +20,8 @@ type TargetResult struct {
 	Server           string
 	TLS              string
 	ALPN             string
+	HTTPProto        string
+	HTTPProtoMajor   int
 	CertSubject      string
 	CertIssuer       string
 	CertNotBefore    string
@@ -75,6 +77,8 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		Server:           strings.TrimSpace(result.Header.Get("Server")),
 		TLS:              result.Ph.TLS,
 		ALPN:             result.Ph.ALPN,
+		HTTPProto:        result.Proto,
+		HTTPProtoMajor:   result.ProtoMajor,
 		CertVerification: "skipped",
 		ContentType:      strings.TrimSpace(result.Header.Get("Content-Type")),
 		RetryAfter:       strings.TrimSpace(result.Header.Get("Retry-After")),
