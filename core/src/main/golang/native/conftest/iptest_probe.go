@@ -600,7 +600,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	if ctx.Err() == nil {
 		if node := nodeOfDomain(rep.Domain); node != "" {
 			rep.LandNode = node
-			row.Country, _ = ipdelay.ExitCountry(node, row.IP, false)
+			row.Country, _ = ipdelay.ExitCountryDetails(node, row.IP, false)
 		}
 	}
 
@@ -834,14 +834,14 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			}
 
 			// The exit country and public-facing IP come from the same existing geo-service response.
-			row.Country, row.ExitIP = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
+			row.Country, row.ExitIP = ipdelay.ExitCountryDetails(rep.Node, t.Text, t.IsDomain)
 			if row.ExitIP != "" {
 				row.ExitASN = lookupExitOwner(ctx, row.ExitIP)
 			}
 		} else if ctx.Err() == nil {
 			// CUSTOM.md #72: once per address, now (it was asked on every try, and the proxy page's memory was used first)
 			if !t.IsDomain {
-				row.Country, row.ExitIP = ipdelay.ExitCountry(rep.Node, t.Text, false)
+				row.Country, row.ExitIP = ipdelay.ExitCountryDetails(rep.Node, t.Text, false)
 				if row.ExitIP != "" {
 					row.ExitASN = lookupExitOwner(ctx, row.ExitIP)
 				}
