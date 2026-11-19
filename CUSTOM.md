@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r224
+当前版本：2_11_36-r225
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2254,3 +2254,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 
 ## r224 清理最后一处 ECH 包装残留
 - `probeIP` 已统一调用 `handshakeECHSplit` 后，删除不再有调用方的私有包装函数 `handshakeTo`；保留仍被端口检测使用的 `handshakeWithin`。
+
+
+## r225 合并经节点 HTTP 探测骨架
+- 新增 `iptry_request.go`，将 `TryIP` 与 `TryTarget` 共用同一套节点拨号、HTTP Transport、TLS 握手回调、HTTP/2、重定向处理和耗时采集；两种模式只保留各自需要的响应字段读取，避免两份实现逐渐不一致。
+- `phaseClock` 的 TLS 握手状态改为互斥锁保护，回调写入与请求完成后的读取使用同一同步方式；统一从握手状态生成 TLS 版本和 ALPN。
+- `ExitCountry` 复用 `copyNodeForDomain`，不再保留第二份节点 map 复制实现。
+- 修正 `TestProbeDirectLocal`：自动探测不得触发 ASN / 注册国家查询；测试改为断言 `ownerSource` 调用次数为 0、`ASN/Geo` 为空，避免旧断言与“仅用户主动查询”的规则冲突。
+- 验证：静态核对共用请求路径与字段映射；未运行 Go 测试或 Android 构建。

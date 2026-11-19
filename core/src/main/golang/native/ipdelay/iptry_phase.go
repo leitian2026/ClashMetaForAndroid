@@ -6,13 +6,10 @@ package ipdelay
 // request that was made anyway (net/http/httptrace).
 
 import (
-	"context"
 	"crypto/tls"
-	"net"
 	"net/http"
 	"net/http/httptrace"
-	"net/url"
-	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,6 +32,7 @@ type Phases struct {
 // goroutines than the one that reads them, so they are stored and loaded atomically.
 type phaseClock struct {
 	tlsStart, tlsDone, wrote, first int64
+	tlsMu    sync.RWMutex
 	tlsState tls.ConnectionState // read after the request completes
 }
 
@@ -57,7 +55,9 @@ func (p *phaseClock) trace() *httptrace.ClientTrace {
 	return &httptrace.ClientTrace{
 		TLSHandshakeStart: func() { atomic.StoreInt64(&p.tlsStart, time.Now().UnixNano()) },
 		TLSHandshakeDone:  func(state tls.ConnectionState, _ error) {
+			p.tlsMu.Lock()
 			p.tlsState = state
+			p.tlsMu.Unlock()
 			atomic.StoreInt64(&p.tlsDone, time.Now().UnixNano())
 		},
 		WroteRequest:      func(httptrace.WroteRequestInfo) { atomic.StoreInt64(&p.wrote, time.Now().UnixNano()) },
@@ -79,7 +79,17 @@ func (p *phaseClock) phases(dial time.Duration) Phases {
 		ph.First = phaseMs(f - w)
 	}
 
+	state := p.connectionState()
+	ph.TLS = TLSVersionName(state.Version)
+	ph.ALPN = state.NegotiatedProtocol
+
 	return ph
+}
+
+func (p *phaseClock) connectionState() tls.ConnectionState {
+	p.tlsMu.RLock()
+	defer p.tlsMu.RUnlock()
+	return p.tlsState
 }
 
 // phaseMs rounds nanoseconds to milliseconds, at least 1 (a part that was measured is never shown as "not measured").
@@ -92,83 +102,11 @@ func phaseMs(ns int64) int {
 	return v
 }
 
-// requestPhased is `requestVia` without the body and with the three parts: GET rawURL through px, the redirects not
-// followed. The elapsed time is from the start of the dial to the response headers, like `requestVia`.
+// requestPhased keeps the existing TryIP result shape while sharing the HTTP/TLS request path with TryTarget.
 func requestPhased(px C.Proxy, rawURL string, timeout time.Duration) (int, time.Duration, Phases, error) {
-	u, err := url.Parse(rawURL)
+	result, err := requestSnapshotVia(px, rawURL, timeout, 0)
 	if err != nil {
 		return 0, 0, Phases{}, err
 	}
-
-	port := u.Port()
-	if port == "" {
-		if u.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, 0, Phases{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	start := time.Now()
-
-	conn, err := px.DialContext(ctx, &C.Metadata{
-		Host:    u.Hostname(),
-		DstPort: uint16(portNum),
-	})
-	if err != nil {
-		return 0, 0, Phases{}, err
-	}
-	defer conn.Close()
-
-	dialed := time.Since(start)
-
-	transport := &http.Transport{
-		DialContext: func(context.Context, string, string) (net.Conn, error) {
-			return conn, nil
-		},
-		DisableKeepAlives: true,
-		// Latency probe only: nothing secret is sent, and the system CA store is not available inside the core on Android.
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
-		ForceAttemptHTTP2: true,
-	}
-	defer transport.CloseIdleConnections()
-
-	client := &http.Client{
-		Transport: transport,
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return 0, 0, Phases{}, err
-	}
-
-	var clock phaseClock
-
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), clock.trace()))
-	req.Header.Set("User-Agent", "curl/8.5.0")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, 0, Phases{}, err
-	}
-	defer resp.Body.Close()
-
-	elapsed := time.Since(start)
-	ph := clock.phases(dialed)
-	state := clock.tlsState
-	ph.TLS = TLSVersionName(state.Version)
-	ph.ALPN = state.NegotiatedProtocol
-
-	return resp.StatusCode, elapsed, ph, nil
+	return result.Status, result.Elapsed, result.Ph, nil
 }

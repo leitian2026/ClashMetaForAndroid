@@ -95,13 +95,7 @@ func ExitCountry(name, server string, isDomain bool) string {
 	}
 
 	if isDomain {
-		cp := make(map[string]any, len(raw))
-		for k, v := range raw {
-			cp[k] = v
-		}
-
-		cp["name"] = name + " (test)"
-		raw = cp
+		raw = copyNodeForDomain(raw, name)
 	}
 
 	atomic.AddInt32(&selfDialing, 1) // our own sockets are not real traffic

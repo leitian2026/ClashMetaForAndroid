@@ -6,83 +6,49 @@ package ipdelay
 // `Server`), so the page can show the reaction of the site itself. Nothing here runs on its own; one call is one request.
 
 import (
-	"context"
-	"crypto/tls"
-	"io"
-	"net"
-	"net/http"
-	"net/http/httptrace"
-	"net/url"
-	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
-
-	C "github.com/metacubex/mihomo/constant"
 )
 
 // TargetResult is the outcome of TryTarget. Err is "" when the site answered at all (whatever the status).
 type TargetResult struct {
-	Delay    int    // milliseconds from dialing until the response headers came
-	Status   int    // the HTTP status
-	Location string // the `Location` header of a redirect, "" otherwise
-	CfRay    string // `Cf-Ray` of the answer, "" when it has none (the site is not behind Cloudflare)
-	Server   string // `Server` of the answer
-	TLS      string // TLS version of the same connection
-	ALPN     string // negotiated protocol of the same connection
-	CertSubject      string // leaf certificate subject
-	CertIssuer       string // leaf certificate issuer
-	CertNotBefore    string // RFC3339 UTC
-	CertNotAfter     string // RFC3339 UTC
-	CertDNSNames     string // leaf certificate DNS SANs
-	CertIPAddresses  string // leaf certificate IP SANs
-	CertVerification string // "skipped": TLSClientConfig intentionally skips verification
-	ContentType      string // Content-Type of the same response
-	RetryAfter       string // Retry-After of the same response
-	CfMitigated      string // CF-Mitigated of the same response
-	// CUSTOM.md #67: what the first part of the page says (SniffPage): SniffRefresh / SniffScript / SniffRegion, "" when nothing
-	Soft     string
-	SoftNote string // the address, or the words that gave it away
-	Err      string // the failure in the core's own words
-	Ph       Phases // CUSTOM.md #68: where the delay went (0 = not measured)
+	Delay            int
+	Status           int
+	Location         string
+	CfRay            string
+	Server           string
+	TLS              string
+	ALPN             string
+	CertSubject      string
+	CertIssuer       string
+	CertNotBefore    string
+	CertNotAfter     string
+	CertDNSNames     string
+	CertIPAddresses  string
+	CertVerification string
+	ContentType      string
+	RetryAfter       string
+	CfMitigated      string
+	Soft             string
+	SoftNote         string
+	Err              string
+	Ph               Phases
 }
 
-// TryTarget does `GET rawURL` through node `name` with its server replaced by `server` (an address, or a domain when
-// isDomain, tested with a copy under another name like TryIP). Redirects are not followed: the first answer is the
-// reaction. TLS is not verified (the system CA store is not available inside the core), nothing secret is sent.
+// TryTarget does one GET through the selected node. Redirects are not followed. TLS verification is skipped because
+// the Android system CA store is not available inside the core; no secret is sent.
 func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	lock.RLock()
 	raw := proxies[name]
 	lock.RUnlock()
-
 	if raw == nil {
 		return TargetResult{Err: "node not found"}
 	}
-
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return TargetResult{Err: "bad url"}
-	}
-
-	port := u.Port()
-	if port == "" {
-		if u.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return TargetResult{Err: "bad url"}
-	}
-
 	if isDomain {
 		raw = copyNodeForDomain(raw, name)
 	}
 
-	atomic.AddInt32(&selfDialing, 1) // our own sockets are not real traffic
+	atomic.AddInt32(&selfDialing, 1)
 	defer atomic.AddInt32(&selfDialing, -1)
 
 	px := newVariant(raw, server)
@@ -91,74 +57,31 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 	defer closeProxy(px)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	start := time.Now()
-
-	conn, err := px.DialContext(ctx, &C.Metadata{Host: u.Hostname(), DstPort: uint16(portNum)})
-	if err != nil {
-		return TargetResult{Err: err.Error()}
-	}
-	defer conn.Close()
-
-	dialed := time.Since(start) // CUSTOM.md #68
-
-	tr := &http.Transport{
-		DialContext: func(context.Context, string, string) (net.Conn, error) {
-			return conn, nil
-		},
-		DisableKeepAlives: true,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
-		ForceAttemptHTTP2: true,
-	}
-	defer tr.CloseIdleConnections()
-
-	client := &http.Client{
-		Transport:     tr,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	result, err := requestSnapshotVia(px, rawURL, testTimeout, sniffMax)
 	if err != nil {
 		return TargetResult{Err: err.Error()}
 	}
 
-	var clock phaseClock // CUSTOM.md #68
-
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), clock.trace()))
-	req.Header.Set("User-Agent", "curl/8.5.0")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return TargetResult{Err: err.Error()}
-	}
-	defer resp.Body.Close()
-
-	delay := int(time.Since(start).Milliseconds())
+	delay := int(result.Elapsed.Milliseconds())
 	if delay <= 0 {
 		delay = 1
 	}
-
-	state := clock.tlsState
-	tlsName := TLSVersionName(state.Version)
-
 	res := TargetResult{
 		Delay:            delay,
-		Status:           resp.StatusCode,
-		Location:         strings.TrimSpace(resp.Header.Get("Location")),
-		CfRay:            strings.TrimSpace(resp.Header.Get("Cf-Ray")),
-		Server:           strings.TrimSpace(resp.Header.Get("Server")),
-		TLS:              tlsName,
-		ALPN:             state.NegotiatedProtocol,
+		Status:           result.Status,
+		Location:         strings.TrimSpace(result.Header.Get("Location")),
+		CfRay:            strings.TrimSpace(result.Header.Get("Cf-Ray")),
+		Server:           strings.TrimSpace(result.Header.Get("Server")),
+		TLS:              result.Ph.TLS,
+		ALPN:             result.Ph.ALPN,
 		CertVerification: "skipped",
-		ContentType:      strings.TrimSpace(resp.Header.Get("Content-Type")),
-		RetryAfter:       strings.TrimSpace(resp.Header.Get("Retry-After")),
-		CfMitigated:      strings.TrimSpace(resp.Header.Get("CF-Mitigated")),
-		Ph:               clock.phases(dialed),
+		ContentType:      strings.TrimSpace(result.Header.Get("Content-Type")),
+		RetryAfter:       strings.TrimSpace(result.Header.Get("Retry-After")),
+		CfMitigated:      strings.TrimSpace(result.Header.Get("CF-Mitigated")),
+		Ph:               result.Ph,
 	}
-	if len(state.PeerCertificates) > 0 {
-		cert := state.PeerCertificates[0]
+	if len(result.State.PeerCertificates) > 0 {
+		cert := result.State.PeerCertificates[0]
 		res.CertSubject = cert.Subject.String()
 		res.CertIssuer = cert.Issuer.String()
 		res.CertNotBefore = cert.NotBefore.UTC().Format(time.RFC3339)
@@ -170,11 +93,8 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 		}
 		res.CertIPAddresses = strings.Join(ips, ", ")
 	}
-
-	// CUSTOM.md #67: the first part of the page (a failed or cut read just means less text; the delay above is already taken)
-	if body, _ := io.ReadAll(io.LimitReader(resp.Body, sniffMax)); len(body) > 0 {
-		res.Soft, res.SoftNote = SniffPage(body)
+	if len(result.Body) > 0 {
+		res.Soft, res.SoftNote = SniffPage(result.Body)
 	}
-
 	return res
 }

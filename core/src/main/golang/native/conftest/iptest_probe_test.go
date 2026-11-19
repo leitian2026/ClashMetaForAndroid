@@ -74,7 +74,11 @@ func TestParseColoCountries(t *testing.T) {
 func TestProbeDirectLocal(t *testing.T) {
 	ip, port := serveLocalTLS(t, true)
 	ipPort = port
-	ownerSource = func(context.Context, string) (string, string) { return "AS1 Test", "" } // CUSTOM.md #72: no memory, so the answer comes from here
+	ownerCalls := 0
+	ownerSource = func(context.Context, string) (string, string) {
+		ownerCalls++
+		return "AS1 Test", "US"
+	}
 	t.Cleanup(func() { ipPort = "443"; ownerSource = askOwner })
 
 	rep := RunIP(`{"kind":"ip","mode":"probe","domain":"example.com","ips":"` + ip.String() + `","ports":"` + port + ` 1"}`)
@@ -85,7 +89,7 @@ func TestProbeDirectLocal(t *testing.T) {
 
 	r := rep.Rows[0]
 	if !r.OK || r.Sent != 10 || r.Loss != 0 || r.Min <= 0 && r.Max < r.Min || r.Avg < r.Min || r.Avg > r.Max ||
-		r.Colo != "HKG" || !r.CF || r.ALPN != "h2" || r.ASN != "AS1 Test" {
+		r.Colo != "HKG" || !r.CF || r.ALPN != "h2" || r.ASN != "" || r.Geo != "" || ownerCalls != 0 {
 		t.Errorf("%+v", r)
 	}
 
