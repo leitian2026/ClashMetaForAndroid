@@ -270,7 +270,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                         row.ip,
                         required(row.targetTls),
                         required(
-                            row.targetNegotiatedProtocol.ifBlank {
+                            row.targetAlpn.ifBlank {
                                 when (row.targetHttpProtoMajor) {
                                     2 -> "h2"
                                     1 -> "http/1.1"
