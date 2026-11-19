@@ -4,9 +4,9 @@
 //
 // "probe" (direct): ten TLS attempts, one HEAD on the kept connection, then configured port checks.
 // "nodeone" (through a node): ten attempts through the selected node; an optional target URL is requested in those
-// attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. After each successful
-// IP probe, the app automatically calls "asn" to obtain the registered operator and country; domains and failed probes
-// are skipped. The lookup is serial with the per-IP test loop and successful results are cached in memory.
+// attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. In node mode, the exit
+// IP owner is looked up inline after the existing country request; the app separately looks up the tested entry IP.
+// Both lookups are serial with the per-IP test loop and cached in memory.
 //
 // Power: nothing runs on its own; one call is one entry, CancelIPTest stops the running probe.
 package conftest
@@ -888,8 +888,8 @@ func nodeSNI(node string) string {
 }
 
 // nodeOwner reads the entry data centre of an address tested through a node. The address is connected once more
-// directly, with the node's own domain as SNI, and its `Cf-Ray` is read. IP registration ownership is queried
-// separately by the app's automatic "asn" lookup after a successful IP probe.
+// directly, with the node's own domain as SNI, and its `Cf-Ray` is read. Entry-IP registration ownership is queried
+// separately by the app's automatic "asn" lookup; the exit-IP owner lookup is performed inline after ExitCountry.
 func nodeOwner(ctx context.Context, row *IPRow, node string) {
 	if ctx.Err() != nil {
 		return
