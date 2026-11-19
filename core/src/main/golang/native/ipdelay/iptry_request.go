@@ -6,6 +6,7 @@ package ipdelay
 
 import (
 	"context"
+	"errors"
 	"crypto/tls"
 	"io"
 	"net"
@@ -17,6 +18,8 @@ import (
 
 	C "github.com/metacubex/mihomo/constant"
 )
+
+var errBadTargetURL = errors.New("bad url")
 
 type requestSnapshot struct {
 	Status  int

@@ -7,6 +7,7 @@ package ipdelay
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
