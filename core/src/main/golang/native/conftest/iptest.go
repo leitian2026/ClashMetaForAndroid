@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"cfa/native/errlog"
 	"cfa/native/ipdelay"
 
 	"github.com/metacubex/mihomo/component/dialer"

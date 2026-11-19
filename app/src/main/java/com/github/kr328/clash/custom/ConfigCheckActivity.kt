@@ -69,7 +69,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         // CUSTOM.md #52: a tap on "下载测速" / "取消" of a row of the IP test
         design.onSpeedTest = { ip ->
-            if (job?.isActive != true && speedJob?.isActive != true) {
+            if (job?.isActive != true && speedJob?.isActive != true && ownerLookupJob?.isActive != true) {
                 speedJob = launch {
                     design.setSaveBatchBusy(true)
                     try {
@@ -89,13 +89,13 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
         // CUSTOM.md #156 step 2: saving is local-only and is unavailable while another test or download runs.
         design.onSaveIpBatch = {
-            if (job?.isActive != true && speedJob?.isActive != true && !ipTesting && !checkTesting) {
+            if (job?.isActive != true && speedJob?.isActive != true && ownerLookupJob?.isActive != true && !ipTesting && !checkTesting) {
                 design.showSaveIpBatch(ipRows.toList(), saveOperatorIdForCurrentRound)
             }
         }
         // CUSTOM.md #156 step 3/4: list management is always available; only its re-test action is gated.
         design.onOpenSavedIps = {
-            val busy = job?.isActive == true || speedJob?.isActive == true || ipTesting || checkTesting
+            val busy = job?.isActive == true || speedJob?.isActive == true || ownerLookupJob?.isActive == true || ipTesting || checkTesting
             // CUSTOM.md #156 step 24: bring the existing saved-IP page forward instead of stacking another copy.
             startActivity(
                 Intent(this, SavedIpActivity::class.java)
@@ -126,7 +126,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         } // CUSTOM.md #26 #156 step 10
                         ConfigCheckDesign.Request.Effective -> {
                             // CUSTOM.md #30: ignored while a test is running (its button is the "cancel" one)
-                            if (job?.isActive != true) job = launch {
+                            if (job?.isActive != true && ownerLookupJob?.isActive != true) job = launch {
                                 design.setSaveBatchBusy(true)
                                 try {
                                     runEffective(design)
@@ -140,7 +140,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         ConfigCheckDesign.Request.IpTest -> {
                             // CUSTOM.md #43: while a test runs its button is the "cancel" one
                             // (CUSTOM.md #52: ignored while a row downloads, that has its own "取消")
-                            if (speedJob?.isActive == true) {
+                            if (speedJob?.isActive == true || ownerLookupJob?.isActive == true) {
                                 Unit
                             } else if (job?.isActive == true) {
                                 cancelRunning(design)
@@ -164,7 +164,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         ConfigCheckDesign.Request.Toggle, ConfigCheckDesign.Request.Dns -> {
                             val running = job?.isActive == true
 
-                            if (running) {
+                            if (ownerLookupJob?.isActive == true) {
+                                Unit
+                            } else if (running) {
                                 cancelRunning(design)
                             } else if (it == ConfigCheckDesign.Request.Dns) {
                                 job = launch {
@@ -206,7 +208,10 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
         intent.removeExtra(SavedIpActivity.EXTRA_PRESET_IPS)
         intent.removeExtra(SavedIpActivity.EXTRA_OPERATOR_ID)
-        if (pendingSavedIpPreset != null) configPage?.request(ConfigCheckDesign.Request.IpTest)
+        if (pendingSavedIpPreset != null) {
+            ownerLookupJob?.cancel()
+            configPage?.request(ConfigCheckDesign.Request.IpTest)
+        }
     }
 
     private suspend fun cancelRunning(design: ConfigCheckDesign) {
@@ -485,7 +490,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         }
                     }
 
-                    if (!direct && !row.isDomain) {
+                    if (!direct) {
                         design.ipLog(
                             when {
                                 row.colo.isNotEmpty() -> getString(R.string.iptest_log_node_colo_ok, row.ip, row.colo)
