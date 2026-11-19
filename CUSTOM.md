@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r242
+当前版本：2_11_36-r243
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2372,3 +2372,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **修复：** 在 `core/src/main/golang/native/conftest/iptest.go` 的文件注释后补上 `package conftest`，使该文件具备合法的 Go 包声明，修复构建时报错 `expected 'package', found 'import'`。
 - **范围：** 仅补充 package 声明；不修改 IP 测试逻辑、导入项或其他业务代码。
 - **验证：** 静态核对 package 声明位置及文件改动；未运行 Go 测试或 Android Build Debug，需以新构建结果确认。
+
+
+### 第 52 步：修复 IP 测试探测文件缺少 package 声明（r243）
+- **修复：** 在 `core/src/main/golang/native/conftest/iptest_probe.go` 的文件头注释后补上 `package conftest`，修复 Go 编译报错 `expected 'package', found 'import'`。
+- **目录检查：** 检查 `conftest` 目录下全部 20 个 `.go` 文件；除本文件外，其余 19 个文件均已有 `package conftest` 声明。
+- **范围：** 仅修改该文件的 package 声明和本登记；不改导入项、测试逻辑或其他业务代码。
+- **验证：** 静态检查全部 20 个 `.go` 文件的 package 声明；未运行 Go 测试或 Android Build Debug，需以新构建结果确认。
