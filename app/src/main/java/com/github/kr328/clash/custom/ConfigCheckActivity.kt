@@ -283,7 +283,23 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 } catch (_: Exception) {
                     null
                 }
-            }, presetIps = presetIps) ?: return
+            }, presetIps = presetIps, resolveDomains = { domains ->
+                try {
+                    val request = JSONObject().put("kind", "ip").put("mode", "resolve").put("domains", domains).toString()
+                    IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
+            }, cancelResolve = {
+                try {
+                    withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }) ?: return
 
             if (choice.ips.isBlank()) {
                 design.showText(getString(R.string.iptest_need_ips))

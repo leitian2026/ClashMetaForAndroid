@@ -2505,3 +2505,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **过滤与限制：** 只保留 IPv4，过滤默认 fake-ip 段 `198.18.0.0/15`，去重后按数值升序排列，每个域名最多返回 8 个，另报被截断数量。域名输入去重并校验；同一轮最多 4 个域名并发，整体 10 秒超时。使用现有 `beginRun` / `CancelIPTest`，关闭对话框可取消等待。
 - **新增文件：** `core/src/main/golang/native/conftest/iptest_resolve.go`、`iptest_resolve_test.go`。**改动文件：** `conftest/iptest.go`（请求与响应字段、`resolve` 分派）、`ipdelay/rawhosts.go`（补齐只读 `RawHosts` 快照函数）、`CUSTOM.md`。没有修改 mihomo 子模块或上游文件。
 - **验证：** 已对照用户上传的 mihomo 固定提交源码：`component/resolver/resolver.go` 的 `LookupIPv4` / `LookupIPv4WithResolver`，以及 `component/resolver/host.go` 的 `DefaultHosts.Search`。本环境没有 Go 工具链，未运行 `gofmt`、`go test` 或 `go vet`；需由 CI 验证。
+
+
+### 第 67 步：在“测试其他 IP”对话框加入域名解析和勾选填入（r256）
+- **界面：** 在对话框现有 IP 输入框下方增加独立的域名输入框、“解析域名”按钮、解析结果勾选列表和“放入测试框”按钮。域名输入单独记入页面 SharedPreferences；解析结果只保存在当前对话框内存中，不持久化。
+- **操作：** 只有点击“解析域名”才调用内核 mode=resolve。结果默认勾选；用户勾选后点击“放入测试框”，所选 IPv4 追加到原 IP 输入框，不覆盖原内容，也不重复加入已存在的地址。解析结果不会自动开始 IP 测试。
+- **取消：** 解析过程中关闭对话框，取消界面协程并调用现有 CANCEL_IPTEST，终止内核等待；未关闭时解析最多 10 秒。没有定时器、轮询或后台解析。
+- **改动文件：** `IpTestReport.kt`（增加 `IpTestResolveResult` / `resolved`）、`IpTestDialog.kt`（域名输入、解析按钮、结果勾选与填入）、`ConfigCheckDesign.kt`（传递解析与取消回调）、`ConfigCheckActivity.kt`（调用 mode=resolve 和 CANCEL_IPTEST）、两份 `strings_iptest.xml`、`CUSTOM.md`。没有修改上游文件。
+- **验证：** 仅完成源码级检查；未运行 Kotlin 编译或 Android Build Debug。需由 Actions 的 Build Debug 验证。

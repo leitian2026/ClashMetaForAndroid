@@ -135,4 +135,16 @@
     <string name="iptest_handshake_failed">Handshake failed: </string>
     <string name="iptest_page_hint">Title: %1$s; Start: %2$s</string>
     <string name="iptest_page_hint_no_title">Start: %1$s</string>
+
+    <!-- CUSTOM.md step 67: resolve domains to IPv4 for the test-IP input -->
+    <string name="iptest_resolve_domain_label">Resolve domains (IPv4 only; results are not added automatically)</string>
+    <string name="iptest_resolve_domain_hint">e.g. example.com, one per line or separated by commas / spaces</string>
+    <string name="iptest_resolve_button">Resolve domains</string>
+    <string name="iptest_resolve_running">Resolving…</string>
+    <string name="iptest_resolve_fill">Put in test box</string>
+    <string name="iptest_resolve_empty">Enter at least one domain to resolve</string>
+    <string name="iptest_resolve_error">Domain lookup failed</string>
+    <string name="iptest_resolve_invalid">Unrecognized domains: %1$s</string>
+    <string name="iptest_resolve_failed">%1$s: %2$s</string>
+    <string name="iptest_resolve_omitted">%1$d more IPv4 addresses omitted (up to 8 per domain)</string>
 </resources>

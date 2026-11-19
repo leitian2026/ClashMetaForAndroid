@@ -135,4 +135,16 @@
     <string name="iptest_handshake_failed">握手失败：</string>
     <string name="iptest_page_hint">标题：%1$s；开头：%2$s</string>
     <string name="iptest_page_hint_no_title">开头：%1$s</string>
+
+    <!-- CUSTOM.md step 67: resolve domains to IPv4 for the test-IP input -->
+    <string name="iptest_resolve_domain_label">解析域名（只查 IPv4，不会自动加入测试框）</string>
+    <string name="iptest_resolve_domain_hint">例如 example.com，每行一个，也可用逗号或空格分隔</string>
+    <string name="iptest_resolve_button">解析域名</string>
+    <string name="iptest_resolve_running">解析中…</string>
+    <string name="iptest_resolve_fill">放入测试框</string>
+    <string name="iptest_resolve_empty">请先输入要解析的域名</string>
+    <string name="iptest_resolve_error">域名解析失败</string>
+    <string name="iptest_resolve_invalid">无法识别的域名：%1$s</string>
+    <string name="iptest_resolve_failed">%1$s：%2$s</string>
+    <string name="iptest_resolve_omitted">另有 %1$d 个 IPv4 未显示（每个域名最多 8 个）</string>
 </resources>

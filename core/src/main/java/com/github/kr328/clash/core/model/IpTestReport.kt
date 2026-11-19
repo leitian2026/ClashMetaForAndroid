@@ -116,6 +116,15 @@ data class IpTestConfigFail(
     val detail: String = "",
 )
 
+/** CUSTOM.md step 67: one domain and the IPv4 answers returned by mode "resolve". */
+@Serializable
+data class IpTestResolveResult(
+    val domain: String = "",
+    val ips: List<String> = emptyList(),
+    val omitted: Int = 0,
+    val error: String = "",
+)
+
 /**
  * CUSTOM (CUSTOM.md #43): the answer of the core to a query with sort mode SORT_CHECK and `"kind":"ip"`. [mode] is
  * "nodes" (then only [nodes] is filled), "config", "asn", "parse", "probe", "nodeone", "download" or "colo".
@@ -143,6 +152,7 @@ data class IpTestReport(
     // domain over the limit, the ones left out by a node's ip-version
     val config: List<IpTestConfigIp> = emptyList(),
     val configFail: List<IpTestConfigFail> = emptyList(),
+    val resolved: List<IpTestResolveResult> = emptyList(), // CUSTOM.md step 67: explicit domain resolution results
 ) {
     companion object {
         private val json = Json {

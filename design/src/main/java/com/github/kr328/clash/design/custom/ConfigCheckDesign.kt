@@ -179,8 +179,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         nodes: List<String>,
         readConfig: (suspend () -> IpTestReport?)? = null,
         presetIps: String? = null,
+        resolveDomains: (suspend (String) -> IpTestReport?)? = null, // CUSTOM.md step 67
+        cancelResolve: (suspend () -> Unit)? = null, // CUSTOM.md step 67
     ): IpTestChoice? {
-        return IpTestDialog.ask(context, prefs, nodes, readConfig, presetIps) // CUSTOM.md #69, #156
+        return IpTestDialog.ask(context, prefs, nodes, readConfig, presetIps, resolveDomains, cancelResolve) // CUSTOM.md #69, #156; step 67
     }
 
     // CUSTOM (CUSTOM.md #52): the IP test page is a table (IpTestView) with the live status under it. The activity

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
@@ -46,6 +47,8 @@ object IpTestDialog {
         nodes: List<String>,
         readConfig: (suspend () -> IpTestReport?)? = null, // CUSTOM.md #69: null = no "read the IPs of the config" button
         presetIps: String? = null, // CUSTOM.md #156 step 4: one-shot prefill from selected saved IPs
+        resolveDomains: (suspend (String) -> IpTestReport?)? = null, // CUSTOM.md step 67
+        cancelResolve: (suspend () -> Unit)? = null, // CUSTOM.md step 67: stop the core lookup when this dialog closes
     ): IpTestChoice? {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<IpTestChoice?> { ctx ->
@@ -77,6 +80,147 @@ object IpTestDialog {
                         setText(presetIps ?: (prefs.getString("ip_text", "") ?: ""))
                     } catch (_: Exception) {
                     }
+                }
+
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+                lateinit var fillResolvedButton: MaterialButton
+
+                // CUSTOM.md step 67: domain lookup is separate from the existing IP-test input.
+                val resolveLabel = TextView(context).apply {
+                    setText(R.string.iptest_resolve_domain_label)
+                    textSize = 13f
+                    alpha = 0.7f
+                    setPadding(0, pad / 2, 0, 0)
+                }
+
+                val resolveInput = EditText(context).apply {
+                    setHint(R.string.iptest_resolve_domain_hint)
+                    minLines = 2
+                    maxLines = 4
+                    gravity = Gravity.TOP or Gravity.START
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    isVerticalScrollBarEnabled = true
+                    try {
+                        setText(prefs.getString("ip_resolve_domains", "") ?: "")
+                    } catch (_: Exception) {
+                    }
+                }
+
+                val resolveResultBox = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    visibility = View.GONE
+                    setPadding(0, pad / 3, 0, 0)
+                }
+                val resolveChecks = ArrayList<CheckBox>()
+                var resolving = false
+
+                val resolveButton = MaterialButton(context).apply {
+                    setText(R.string.iptest_resolve_button)
+                    isAllCaps = false
+                    setOnClickListener {
+                        val callback = resolveDomains ?: return@setOnClickListener
+                        val domains = resolveInput.text.toString().trim()
+                        if (domains.isEmpty()) {
+                            android.widget.Toast.makeText(context, R.string.iptest_resolve_empty, android.widget.Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+                        try {
+                            prefs.edit().putString("ip_resolve_domains", domains).apply()
+                        } catch (_: Exception) {
+                        }
+                        isEnabled = false
+                        setText(R.string.iptest_resolve_running)
+                        resolving = true
+                        scope.launch {
+                            val report = try {
+                                callback(domains)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                null
+                            }
+                            resolving = false
+                            isEnabled = true
+                            setText(R.string.iptest_resolve_button)
+                            resolveResultBox.removeAllViews()
+                            resolveChecks.clear()
+                            if (report == null) {
+                                android.widget.Toast.makeText(context, R.string.iptest_resolve_error, android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                if (report.invalid.isNotEmpty()) {
+                                    resolveResultBox.addView(TextView(context).apply {
+                                        text = context.getString(R.string.iptest_resolve_invalid, report.invalid.joinToString("、"))
+                                        textSize = 13f
+                                    })
+                                }
+                                for (entry in report.resolved) {
+                                    if (entry.error.isNotEmpty()) {
+                                        resolveResultBox.addView(TextView(context).apply {
+                                            text = context.getString(R.string.iptest_resolve_failed, entry.domain, entry.error)
+                                            textSize = 14f
+                                            setPadding(0, pad / 5, 0, pad / 5)
+                                        })
+                                        continue
+                                    }
+                                    resolveResultBox.addView(TextView(context).apply {
+                                        text = entry.domain
+                                        textSize = 14f
+                                        setPadding(0, pad / 5, 0, 0)
+                                    })
+                                    for (address in entry.ips) {
+                                        val check = CheckBox(context).apply {
+                                            text = address
+                                            tag = address
+                                            isChecked = true
+                                            textSize = 14f
+                                        }
+                                        resolveChecks += check
+                                        resolveResultBox.addView(check, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                    }
+                                    if (entry.omitted > 0) {
+                                        resolveResultBox.addView(TextView(context).apply {
+                                            text = context.getString(R.string.iptest_resolve_omitted, entry.omitted)
+                                            textSize = 12f
+                                            alpha = 0.7f
+                                        })
+                                    }
+                                }
+                                if (report.error.isNotEmpty() && report.resolved.isEmpty()) {
+                                    resolveResultBox.addView(TextView(context).apply {
+                                        text = report.error
+                                        textSize = 13f
+                                    })
+                                }
+                                resolveResultBox.visibility = View.VISIBLE
+                                fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
+                            }
+                        }
+                    }
+                }
+
+                fillResolvedButton = MaterialButton(context).apply {
+                    setText(R.string.iptest_resolve_fill)
+                    isAllCaps = false
+                    isEnabled = false
+                    setOnClickListener {
+                        val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }.distinct()
+                        if (selected.isEmpty()) return@setOnClickListener
+                        val old = input.text.toString()
+                        val existing = old.split(Regex("[\\\\s,;，；、]+")).filter { it.isNotBlank() }.toSet()
+                        val append = selected.filterNot { existing.contains(it) }
+                        if (append.isNotEmpty()) {
+                            val prefix = old.trimEnd()
+                            input.setText(if (prefix.isEmpty()) append.joinToString("\\n") else prefix + "\\n" + append.joinToString("\\n"))
+                            input.setSelection(input.text.length)
+                        }
+                    }
+                }
+
+                val resolveActions = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(resolveButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(fillResolvedButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 }
 
                 val nodeLabel = TextView(context).apply {
@@ -175,10 +319,6 @@ object IpTestDialog {
                     }
                 }
 
-                // CUSTOM.md #69: reads the addresses of the profile (one tap, nothing runs by itself); the scope is
-                // cancelled when the dialog goes away, so a late answer does not open a second dialog
-                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
                 val readButton = MaterialButton(context).apply {
                     setText(R.string.iptest_cfg_button)
                     isAllCaps = false
@@ -219,6 +359,10 @@ object IpTestDialog {
 
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveActions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveResultBox, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
@@ -273,8 +417,14 @@ object IpTestDialog {
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
                     .setOnDismissListener {
+                        val shouldCancelResolve = resolving
+                        val cancel = cancelResolve
                         scope.cancel()
-
+                        if (shouldCancelResolve && cancel != null) {
+                            CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+                                try { cancel() } catch (_: Exception) { }
+                            }
+                        }
                         if (!ctx.isCompleted) ctx.resume(null)
                     }
             }
