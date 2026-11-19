@@ -19,6 +19,8 @@ data class IpTestRow(
     val reason: String = "",
     val inHosts: Boolean = false,
     val country: String = "",
+    val exitIp: String = "", // CUSTOM.md #57: public-facing IP seen by the target site after leaving the node
+    val exitAsn: String = "", // CUSTOM.md #57: operator of exitIp, not the entry IP's registered operator
     val faster: Int = 0,
     val tls: String = "",
     val alpn: String = "",
