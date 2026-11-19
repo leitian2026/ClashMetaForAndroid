@@ -35,7 +35,7 @@
     <string name="iptest_colo">ingress data centre %1$s</string>
     <string name="iptest_cf">Cloudflare confirmed</string>
     <string name="iptest_running">Testing… a random 1 to 3 seconds between two IPs; tap the button again to cancel</string>
-    <string name="iptest_dialog_hint">Enter IP addresses that are not in the config, one per line (commas and spaces work too), at most 20. Resolve domains to IPv4 in the separate domain field below, select the results, and put them in this box; do not enter domains directly here. Direct latency testing still uses the domain in the page-top field as SNI and Host. Via-node latency testing temporarily replaces the selected node server with the IP in this box. The test also reads the ingress data centre, registered operator and registered location; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds).</string>
+    <string name="iptest_dialog_hint">Enter IP addresses that are not in the config, one per line (commas and spaces work too), at most 20. Resolve domains to IPv4 in the separate domain field below, select the results; putting them in this box replaces its existing contents; do not enter domains directly here. Direct latency testing still uses the domain in the page-top field as SNI and Host. Via-node latency testing temporarily replaces the selected node server with the IP in this box. The test also reads the ingress data centre, registered operator and registered location; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds).</string>
     <string name="iptest_ports_label">Ports (direct latency test: each working IP gets a handshake on these ports, separated by spaces or commas)</string>
     <string name="iptest_url_direct_label">Direct download-test URL (for download testing only; direct; must be hosted on Cloudflare)</string>
     <string name="iptest_url_node_label">Via-node download-test URL (for download testing only; through the node; preferably not hosted on Cloudflare — Workers can be slow to access CF sites and may time out)</string>
@@ -141,11 +141,13 @@
     <string name="iptest_page_hint_no_title">Start: %1$s</string>
 
     <!-- CUSTOM.md step 67: resolve domains to IPv4 for the test-IP input -->
-    <string name="iptest_resolve_domain_label">Resolve domains (IPv4 only; results are not added automatically)</string>
+    <string name="iptest_resolve_domain_label">Resolve domains (IPv4 only; results from multiple lookups accumulate in the list)</string>
     <string name="iptest_resolve_domain_hint">e.g. example.com, one per line or separated by commas / spaces</string>
     <string name="iptest_resolve_button">Resolve domains</string>
     <string name="iptest_resolve_running">Resolving…</string>
     <string name="iptest_resolve_fill">Put in test box</string>
+    <string name="iptest_resolve_clear">Clear</string>
+    <string name="iptest_resolve_none_selected">Select at least one IP; the test box was not changed</string>
     <string name="iptest_resolve_empty">Enter at least one domain to resolve</string>
     <string name="iptest_resolve_error">Domain lookup failed</string>
     <string name="iptest_resolve_invalid">Unrecognized domains: %1$s</string>

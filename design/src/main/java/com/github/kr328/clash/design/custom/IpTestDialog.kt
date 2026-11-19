@@ -144,12 +144,20 @@ object IpTestDialog {
                     orientation = LinearLayout.VERTICAL
                     setPadding(0, pad / 3, 0, 0)
                 }
+                val resolveStatusBox = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                val resolveRowsBox = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
                 val resolveResultPlaceholder = TextView(context).apply {
                     setText(R.string.iptest_resolve_not_yet)
                     textSize = 13f
                     alpha = 0.7f
                 }
-                resolveResultBox.addView(resolveResultPlaceholder)
+                resolveRowsBox.addView(resolveResultPlaceholder)
+                resolveResultBox.addView(resolveStatusBox)
+                resolveResultBox.addView(resolveRowsBox)
                 val resolveResultScroll = ScrollView(context).apply {
                     isFillViewport = true
                     addView(resolveResultBox, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -162,6 +170,8 @@ object IpTestDialog {
                     setPadding(0, pad / 2, 0, 0)
                 }
                 val resolveChecks = ArrayList<CheckBox>()
+                var hasResolveRows = false
+                var hasResolveStatus = false
                 var resolving = false
 
                 val fillResolvedButton = MaterialButton(context).apply {
@@ -170,16 +180,39 @@ object IpTestDialog {
                     isEnabled = false
                     setOnClickListener {
                         val selected = resolveChecks.filter { it.isChecked }.mapNotNull { it.tag as? String }.distinct()
-                        if (selected.isEmpty()) return@setOnClickListener
-                        val old = input.text.toString()
-                        val existing = old.split(Regex("[\\s,;，；、]+")).filter { it.isNotBlank() }.toSet()
-                        val append = selected.filterNot { existing.contains(it) }
-                        if (append.isNotEmpty()) {
-                            val prefix = old.trimEnd()
-                            input.setText(if (prefix.isEmpty()) append.joinToString("\n") else prefix + "\n" + append.joinToString("\n"))
-                            input.setSelection(input.text.length)
+                        if (selected.isEmpty()) {
+                            android.widget.Toast.makeText(context, R.string.iptest_resolve_none_selected, android.widget.Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
                         }
+                        input.setText(selected.joinToString("\n"))
+                        input.setSelection(input.text.length)
                     }
+                }
+
+                val clearResultsButton = TextView(context).apply {
+                    setText(R.string.iptest_resolve_clear)
+                    textSize = 13f
+                    isClickable = true
+                    isFocusable = true
+                    isEnabled = false
+                    setPadding((12 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
+                    setOnClickListener {
+                        if (!hasResolveRows && !hasResolveStatus) return@setOnClickListener
+                        resolveStatusBox.removeAllViews()
+                        resolveRowsBox.removeAllViews()
+                        resolveRowsBox.addView(resolveResultPlaceholder)
+                        resolveChecks.clear()
+                        hasResolveRows = false
+                        hasResolveStatus = false
+                        fillResolvedButton.isEnabled = false
+                        isEnabled = false
+                    }
+                }
+                val resolveResultHeader = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(resolveResultLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(clearResultsButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
 
                 val resolveButton = MaterialButton(context).apply {
@@ -198,8 +231,9 @@ object IpTestDialog {
                         }
                         isEnabled = false
                         setText(R.string.iptest_resolve_running)
-                        fillResolvedButton.isEnabled = false
-                        resolveResultScroll.visibility = View.GONE
+                        resolveStatusBox.removeAllViews()
+                        hasResolveStatus = false
+                        clearResultsButton.isEnabled = hasResolveRows
                         resolving = true
                         scope.launch {
                             val report = try {
@@ -212,17 +246,20 @@ object IpTestDialog {
                             resolving = false
                             isEnabled = true
                             setText(R.string.iptest_resolve_button)
-                            resolveResultBox.removeAllViews()
-                            resolveChecks.clear()
                             if (report == null) {
                                 android.widget.Toast.makeText(context, R.string.iptest_resolve_error, android.widget.Toast.LENGTH_LONG).show()
                             } else {
+                                fun addLatestHint(view: View) {
+                                    resolveStatusBox.addView(view)
+                                    hasResolveStatus = true
+                                }
                                 if (report.invalid.isNotEmpty()) {
-                                    resolveResultBox.addView(TextView(context).apply {
+                                    addLatestHint(TextView(context).apply {
                                         text = context.getString(R.string.iptest_resolve_invalid, report.invalid.joinToString("、"))
                                         textSize = 13f
                                     })
                                 }
+                                val knownAddresses = resolveChecks.mapNotNull { it.tag as? String }.toMutableSet()
                                 for (entry in report.resolved) {
                                     if (entry.error.isNotEmpty()) {
                                         val reason = when (entry.error) {
@@ -231,30 +268,35 @@ object IpTestDialog {
                                             "timeout" -> context.getString(R.string.iptest_resolve_timeout)
                                             else -> entry.error
                                         }
-                                        resolveResultBox.addView(TextView(context).apply {
+                                        addLatestHint(TextView(context).apply {
                                             text = context.getString(R.string.iptest_resolve_failed, entry.domain, reason)
                                             textSize = 14f
                                             setPadding(0, pad / 5, 0, pad / 5)
                                         })
                                         continue
                                     }
-                                    resolveResultBox.addView(TextView(context).apply {
-                                        text = entry.domain
-                                        textSize = 14f
-                                        setPadding(0, pad / 5, 0, 0)
-                                    })
-                                    for (address in entry.ips) {
-                                        val check = CheckBox(context).apply {
-                                            text = address
-                                            tag = address
-                                            isChecked = true
+                                    val newAddresses = entry.ips.filter { knownAddresses.add(it) }
+                                    if (newAddresses.isNotEmpty()) {
+                                        if (!hasResolveRows) resolveRowsBox.removeView(resolveResultPlaceholder)
+                                        resolveRowsBox.addView(TextView(context).apply {
+                                            text = entry.domain
                                             textSize = 14f
+                                            setPadding(0, pad / 5, 0, 0)
+                                        })
+                                        for (address in newAddresses) {
+                                            val check = CheckBox(context).apply {
+                                                text = address
+                                                tag = address
+                                                isChecked = true
+                                                textSize = 14f
+                                            }
+                                            resolveChecks += check
+                                            resolveRowsBox.addView(check, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                                         }
-                                        resolveChecks += check
-                                        resolveResultBox.addView(check, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                        hasResolveRows = true
                                     }
                                     if (entry.omitted > 0) {
-                                        resolveResultBox.addView(TextView(context).apply {
+                                        addLatestHint(TextView(context).apply {
                                             text = context.getString(R.string.iptest_resolve_omitted, entry.omitted)
                                             textSize = 12f
                                             alpha = 0.7f
@@ -262,14 +304,15 @@ object IpTestDialog {
                                     }
                                 }
                                 if (report.error.isNotEmpty() && report.resolved.isEmpty()) {
-                                    resolveResultBox.addView(TextView(context).apply {
+                                    addLatestHint(TextView(context).apply {
                                         text = if (report.error == "no valid domains") context.getString(R.string.iptest_resolve_no_valid_domains) else report.error
                                         textSize = 13f
                                     })
                                 }
-                                resolveResultScroll.visibility = View.VISIBLE
                                 fillResolvedButton.isEnabled = resolveChecks.isNotEmpty()
                             }
+                            clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
+                            resolveResultScroll.visibility = View.VISIBLE
                         }
                     }
                 }
@@ -420,7 +463,7 @@ object IpTestDialog {
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
-                box.addView(resolveResultLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(resolveResultHeader, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(resolveResultScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, resolveResultScrollHeight))
                 box.addView(resolveLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(resolveInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
