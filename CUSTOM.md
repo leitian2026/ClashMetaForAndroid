@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r262
+当前版本：2_11_46-r263
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2570,3 +2570,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 不新增定时器、轮询或后台任务；没有修改上游文件。
 - 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
 - **验证：未编译，靠 Actions 验证。**
+
+
+### 第 74 步：修复“测试其他 IP”输入框光标定位的空安全编译错误（r263）
+- Build Debug（run 44473410067）在 `IpTestDialog.kt` 第 276、577 行失败：`input.text` 的类型为可空 `Editable?`，直接读取 `length` 不符合 Kotlin 空安全规则。
+- 两处光标定位统一改为读取 `input.text?.length ?: 0`，文本为空时将光标位置设为 0；不改变输入内容、解析结果、填入行为或其他界面逻辑。
+- 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`CUSTOM.md`。
+- **验证：** 已从 Build Debug 日志确认失败位置和原因；修复后尚未重新运行 Android Build Debug，待 Actions 验证。

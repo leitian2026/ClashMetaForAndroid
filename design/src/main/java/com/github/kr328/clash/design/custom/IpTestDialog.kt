@@ -273,7 +273,7 @@ object IpTestDialog {
                             return@setOnClickListener
                         }
                         input.setText(selected.joinToString("\n"))
-                        input.setSelection(input.text.length)
+                        input.setSelection(input.text?.length ?: 0)
                     }
                 }
 
@@ -574,7 +574,7 @@ object IpTestDialog {
                                     // nothing ticked leaves the box as it was
                                     if (text.isNotEmpty()) {
                                         input.setText(text.joinToString("\n"))
-                                        input.setSelection(input.text.length)
+                                        input.setSelection(input.text?.length ?: 0)
                                     }
                                 }
                             }
