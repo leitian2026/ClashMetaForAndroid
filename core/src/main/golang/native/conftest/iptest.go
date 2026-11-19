@@ -8,6 +8,8 @@
 // data-centre list; and "asn" looks up registration ownership for each successful IP (the app invokes it automatically).
 //
 // Power: nothing runs on its own; one call is one entry, and CancelIPTest stops the running probe.
+package conftest
+
 import (
 	"context"
 	"crypto/tls"
