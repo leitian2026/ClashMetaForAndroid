@@ -2454,3 +2454,6 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 不新增网络请求、定时器、轮询或后台任务。
 - 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest_diag.xml`、`design/src/main/res/values-zh/strings_iptest_diag.xml`、`CUSTOM.md`。
 - **验证：未编译，靠 Actions 验证。**
+
+
+- r250 补充：详细诊断表在可用宽度变化时按新视口重新计算列宽；测量列宽复用少量 TextView Paint，不为每个数据格额外创建测量视图。响应表优先压缩至适合窄屏的最小列宽，再由三行省略规则处理长内容。
