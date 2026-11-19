@@ -34,6 +34,8 @@ data class IpTestRow(
     // CUSTOM.md #156 step 41: details from the same through-node target GET; empty means not obtained.
     val targetTls: String = "",
     val targetAlpn: String = "",
+    val targetHttpProto: String = "",
+    val targetHttpProtoMajor: Int = 0,
     val targetCertSubject: String = "",
     val targetCertIssuer: String = "",
     val targetCertNotBefore: String = "",
