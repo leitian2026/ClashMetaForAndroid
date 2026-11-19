@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r271
+当前版本：2_11_46-r273
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2646,3 +2646,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **原因：** #79 / #80 调整 `core/src/main/golang/go.mod` 的直接依赖时，遗漏了该文件原有的 `CUSTOM` 标记，导致 `scripts/check-custom.sh` 报告“no CUSTOM marker any more: the hook was lost”。
 - **修复：** 在项目锁定版本的 `github.com/metacubex/quic-go` 直接依赖行补回 `CUSTOM` 标记；不改变任何依赖版本、依赖关系或代码行为。
 - **改动文件：** `core/src/main/golang/go.mod`、`CUSTOM.md`。
+
+
+### 第 82 步：测试框标题行增加最后修改时间和清除（r273）
+- **标题行：** “测试框”右侧显示最后一次内容变化距今的分钟数，并提供“清除”文字按钮；测试框为空时，时间和清除按钮均隐藏。
+- **时间记录：** 手动编辑、读取配置 IP、从解析结果放入测试框等内容变化均通过同一 TextWatcher 更新 Unix 毫秒时间戳，并用 SharedPreferences 持久化；重新打开对话框时按已保存时间显示，回到前台时重新计算一次。复用解析结果区的分钟差计算，不增加定时器或轮询。
+- **清除：** 点击后清空测试框、时间戳并持久化。已保存 IP 重测的一次性预填使用独立键，不覆盖原有手动输入历史。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`CUSTOM.md`。没有新增或修改上游文件总表。
+- **验证：** 静态核对初始化、手动输入、读取配置、放入测试框、清除、重开恢复及窗口重新获得焦点的更新路径；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。

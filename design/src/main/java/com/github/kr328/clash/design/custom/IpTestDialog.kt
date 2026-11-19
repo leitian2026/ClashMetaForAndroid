@@ -2,12 +2,15 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import androidx.core.widget.TextViewCompat
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.EditText
@@ -188,6 +191,70 @@ object IpTestDialog {
                     }
                 }
 
+                // CUSTOM.md #43 第 82 步：测试框修改时间与清除；预填重测使用独立历史，不覆盖手动输入历史。
+                val inputTimeLabel = TextView(context).apply {
+                    textSize = 11f
+                    alpha = 0.65f
+                    visibility = View.GONE
+                    setPadding(0, 0, (8 * density).toInt(), 0)
+                }
+                val clearInputButton = TextView(context).apply {
+                    setText(R.string.iptest_resolve_clear)
+                    textSize = 13f
+                    isClickable = true
+                    isFocusable = true
+                    visibility = View.GONE
+                    setPadding((12 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
+                }
+                val inputTextKey = if (presetIps == null) "ip_text" else "ip_test_preset_text"
+                val inputTimestampKey = if (presetIps == null) "ip_text_changed_at" else "ip_test_preset_changed_at"
+                var lastInputChangedAt = try {
+                    if (prefs.getString(inputTextKey, null) == input.text.toString()) prefs.getLong(inputTimestampKey, 0L) else 0L
+                } catch (_: Exception) {
+                    0L
+                }
+                fun elapsedMinutes(at: Long): Int =
+                    ((System.currentTimeMillis() - at).coerceAtLeast(0L) / 60000L).toInt()
+
+                fun updateInputHeader() {
+                    val hasText = !input.text.isNullOrEmpty()
+                    clearInputButton.visibility = if (hasText) View.VISIBLE else View.GONE
+                    if (!hasText || lastInputChangedAt <= 0L) {
+                        inputTimeLabel.visibility = View.GONE
+                    } else {
+                        inputTimeLabel.text = context.getString(R.string.reach_age_minutes, elapsedMinutes(lastInputChangedAt))
+                        inputTimeLabel.visibility = View.VISIBLE
+                    }
+                }
+
+                input.addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                    override fun afterTextChanged(s: Editable?) {
+                        val value = s?.toString().orEmpty()
+                        lastInputChangedAt = if (value.isEmpty()) 0L else System.currentTimeMillis()
+                        try {
+                            prefs.edit()
+                                .putString(inputTextKey, value)
+                                .putLong(inputTimestampKey, lastInputChangedAt)
+                                .apply()
+                        } catch (_: Exception) {
+                        }
+                        updateInputHeader()
+                    }
+                })
+                clearInputButton.setOnClickListener {
+                    if (!input.text.isNullOrEmpty()) input.setText("")
+                }
+                val inputHeader = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(inputLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(inputTimeLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    addView(clearInputButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                updateInputHeader()
+
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
                 // CUSTOM.md step 67: domain lookup is separate from the existing IP-test input.
@@ -325,8 +392,7 @@ object IpTestDialog {
                     if (lastResolvedAt <= 0L || !hasResolveRows) {
                         resolveTimeLabel.visibility = View.GONE
                     } else {
-                        val minutes = ((System.currentTimeMillis() - lastResolvedAt).coerceAtLeast(0L) / 60000L).toInt()
-                        resolveTimeLabel.text = context.getString(R.string.iptest_resolve_parsed_ago, minutes)
+                        resolveTimeLabel.text = context.getString(R.string.iptest_resolve_parsed_ago, elapsedMinutes(lastResolvedAt))
                         resolveTimeLabel.visibility = View.VISIBLE
                     }
                 }
@@ -635,7 +701,7 @@ object IpTestDialog {
                 }
 
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(inputLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(inputHeader, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(inputField, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -708,14 +774,22 @@ object IpTestDialog {
                     if (!ctx.isCompleted) ctx.resume(IpTestChoice(mode, text, node, ports, url, target, extensions, wsPath))
                 }
 
-                MaterialAlertDialogBuilder(context)
+                val dialog = MaterialAlertDialogBuilder(context)
                     .setCustomTitle(titleRow)
                     .setView(scroll)
                     .setPositiveButton(R.string.iptest_btn_node) { _, _ -> done("node") }
                     .setNeutralButton(R.string.iptest_btn_direct) { _, _ -> done("direct") }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
-                    .setOnDismissListener {
+                val dialogDecor = dialog.window?.decorView
+                val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                    if (hasFocus) updateInputHeader()
+                }
+                dialogDecor?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
+                dialog.setOnDismissListener {
+                    dialogDecor?.viewTreeObserver?.let { observer ->
+                        if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
+                    }
                         try {
                             prefs.edit().putString("ip_resolve_domains", resolveInput.text.toString()).apply()
                         } catch (_: Exception) {
