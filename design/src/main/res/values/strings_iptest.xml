@@ -131,5 +131,8 @@
     <string name="iptest_speed_timeout">timeout</string>
     <string name="iptest_speed_no_data">no data</string>
     <string name="iptest_measure_direct_note">Handshake latency = TCP connection + TLS handshake. Jitter is the mean deviation of successful results from their average.</string>
-    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node\'s built-in test URL is used. Ingress DC* is read using one extra direct connection; the port column shows the node\'s configured port and is not tested. Jitter is the mean deviation of successful results from their average.</string>
+    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node\'s built-in test URL is used. Ingress DC* is read using one extra direct connection; via-node mode does not test ports, so the port column shows “-”. Exit country is the country of the exit IP; exit data centre is the receiving data centre read from the target site’s response. They come from different locations and need not match. Use exit country when judging whether the target site is reachable. Jitter is the mean deviation of successful results from their average.</string>
+    <string name="iptest_handshake_failed">Handshake failed: </string>
+    <string name="iptest_page_hint">Title: %1$s; Start: %2$s</string>
+    <string name="iptest_page_hint_no_title">Start: %1$s</string>
 </resources>

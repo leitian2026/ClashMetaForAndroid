@@ -34,6 +34,7 @@ type TargetResult struct {
 	CfMitigated      string
 	Soft             string
 	SoftNote         string
+	PageHint         string // title + newline + first 80 characters of body, only for unrecognized non-2xx pages
 	Err              string
 	Ph               Phases
 }
@@ -100,6 +101,9 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 	if len(result.Body) > 0 {
 		res.Soft, res.SoftNote = SniffPage(result.Body)
+		if res.Soft == "" && (result.Status < 200 || result.Status >= 300) {
+			res.PageHint = SniffPageHint(result.Body)
+		}
 	}
 	return res
 }

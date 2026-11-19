@@ -131,5 +131,8 @@
     <string name="iptest_speed_timeout">超时</string>
     <string name="iptest_speed_no_data">无数据</string>
     <string name="iptest_measure_direct_note">握手延迟 = TCP 建连 + TLS 握手；抖动是成功结果相对平均值的平均偏差。</string>
-    <string name="iptest_measure_node_note">经节点延迟 = 经节点请求目标网址的总时间；未填目标网址时使用节点自带测试地址。入口机房*为另连一次读取；端口列显示节点配置里的端口，未测试。抖动是成功结果相对平均值的平均偏差。</string>
+    <string name="iptest_measure_node_note">经节点延迟 = 经节点请求目标网址的总时间；未填目标网址时使用节点自带测试地址。入口机房*为另连一次读取；经节点模式不测端口，端口列显示“-”。出口国家是出口 IP 所在的国家；出口机房是目标站响应里读到的接收机房，两者来自不同位置，对不上不一定是错。判断能否访问目标站时，以出口国家为准。抖动是成功结果相对平均值的平均偏差。</string>
+    <string name="iptest_handshake_failed">握手失败：</string>
+    <string name="iptest_page_hint">标题：%1$s；开头：%2$s</string>
+    <string name="iptest_page_hint_no_title">开头：%1$s</string>
 </resources>

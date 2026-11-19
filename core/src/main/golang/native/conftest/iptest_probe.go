@@ -831,6 +831,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 				row.TargetContentType = detail.ContentType
 				row.TargetRetryAfter = detail.RetryAfter
 				row.TargetCfMitigated = detail.CfMitigated
+				row.TargetPageHint = detail.PageHint
 			}
 
 			// The exit country and public-facing IP come from the same existing geo-service response.

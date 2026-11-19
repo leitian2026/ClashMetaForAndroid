@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_43-r251
+当前版本：2_11_44-r252
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2464,3 +2464,30 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 不新增网络请求、定时器、轮询或后台任务。
 - 改动文件：`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`CUSTOM.md`。
 - **验证：未编译，待 Build Debug / Actions 验证。**
+
+
+
+### 第 62 步：修正经节点模式端口说明（r252）
+- 将中英文 `iptest_measure_node_note` 中“端口列显示节点配置端口、未测试”的旧说明改为：经节点模式不测端口，该列显示“-”。直连模式端口测试说明不变。
+- 同一说明中补充出口国家与出口机房的区别：出口国家对应出口 IP 所在国家；出口机房来自目标站响应中的接收机房；两者来自不同位置，不一致不一定表示错误，判断目标站可访问性以出口国家为准。
+- 仅改文案，不改端口列取值、显示逻辑或测试行为。
+- 不新增网络请求、定时器、轮询或后台任务。
+- 改动文件：`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**
+
+### 第 63 步：配置检查页 IP 失败原因显示内核原文（r252）
+- 配置检查页 IP 失败日志、IP 行详情和目标网址模式主表“目标站反应”失败格改为显示内核返回的原始错误文本，前缀为“握手失败：”；主表目标站反应格显示错误原文前 40 个字符，点击复制完整原文。
+- 详细诊断表失败行继续按原规则显示“-”；端口失败说明及其他错误页面的共用解释不变。
+- **没有改 `errors_code_tls`，只改配置检查页**；新增中英文前缀资源，不再把跳过证书验证的 TLS 失败解释为证书无效。
+- 不新增网络请求、定时器、轮询或后台任务。
+- 改动文件：`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**
+
+### 第 64 步：补充非 2xx 目标页面标题与正文摘要（r252）
+- 同一次目标站 GET 已读取的正文（仍限制在既有 `sniffMax` 范围）中，`SniffPage` 没有识别出跳转 / 地区提示且 HTTP 状态非 2xx 时，提取页面标题与正文开头最多 80 个字符；去除脚本、样式和 HTML 标签，压缩连续空白，忽略无效 UTF-8 / 二进制内容。
+- 新增 Go `IPRow.TargetPageHint` 与 Kotlin `IpTestRow.targetPageHint`，JSON 名均为 `targetPageHint`。内部值以换行分隔标题和正文，界面按当前语言组合显示。
+- 详细诊断表“页面提示”列优先保留原有 `SniffPage` 提示；没有原提示时使用新摘要；两者都没有显示“无”，失败行仍显示“-”。单元格沿用三行省略和点击复制完整提示的规则。
+- 2xx 响应不生成摘要；不扩大读取长度、不新增请求。
+- 不新增定时器、轮询或后台任务。
+- 改动文件：`core/src/main/golang/native/ipdelay/pagesniff.go`、`core/src/main/golang/native/ipdelay/pagesniff_test.go`、`core/src/main/golang/native/ipdelay/iptry_target.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`、`CUSTOM.md`。
+- **验证：未编译，靠 Actions 验证。**

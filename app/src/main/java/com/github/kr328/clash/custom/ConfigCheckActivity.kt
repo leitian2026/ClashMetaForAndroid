@@ -510,7 +510,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     // successful IP test. The call is serial with this loop; domain rows are not queried.
                     if (!row.isDomain) runAutomaticOwnerLookup(design, row.ip)
                 } else {
-                    design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, ErrorsText.explain(this, row.code), row.loss))
+                    val rawReason = row.reason.ifBlank { row.code.ifBlank { "-" } }
+                    design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, getString(R.string.iptest_handshake_failed) + rawReason, row.loss))
                 }
             }
 

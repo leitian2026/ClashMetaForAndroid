@@ -104,6 +104,7 @@ type IPRow struct {
 	TargetContentType      string `json:"targetContentType"`
 	TargetRetryAfter       string `json:"targetRetryAfter"`
 	TargetCfMitigated      string `json:"targetCfMitigated"`
+	TargetPageHint         string `json:"targetPageHint"` // CUSTOM.md #65: title + newline + first 80 characters of an unrecognized non-2xx page
 	// CUSTOM.md #67: what the page says about being moved or refused ("refresh", "script", "region", "" when nothing) and
 	// the address or the words that gave it away; a guess from the first 64 KB of the page
 	TargetSoft     string `json:"targetSoft"`

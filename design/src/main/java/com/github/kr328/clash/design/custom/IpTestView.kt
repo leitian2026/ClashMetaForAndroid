@@ -295,7 +295,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                         optional(row.targetNote),
                         optional(row.targetRetryAfter),
                         optional(row.targetCfMitigated),
-                        optional(row.targetSoftNote.ifBlank { row.targetSoft }),
+                        optional(pageHintText(row)),
                     )
                 } else {
                     listOf(
@@ -1098,6 +1098,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             Key.TCOLO -> coloCell(r, w, r.targetColo)
             Key.TEST -> testCell(r)
             Key.ASN -> ownerCell(r)
+            Key.TARGET -> targetCell(r)
             else -> {
                 val color = when (k) {
                     Key.LOSS -> lossColor(r.loss)
@@ -1119,7 +1120,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     // (never cut in the middle of the code)
     // CUSTOM.md #66: what the target site answered: "200", "403", "302 → host"; "-" when it gave no answer
     private fun targetText(r: IpTestRow): String {
-        if (!r.ok || r.targetStatus == 0) return "-"
+        if (!r.ok) return handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } })
+        if (r.targetStatus == 0) return "-"
 
         val note = if (r.targetNote.isEmpty()) "" else " → " + hostOf(r.targetNote)
 
@@ -1127,6 +1129,35 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         val word = TargetStatusText.of(context, r.targetStatus).let { if (it.isEmpty()) "" else " " + it }
 
         return r.targetStatus.toString() + word + note + softLine(r)
+    }
+
+    private fun targetCell(r: IpTestRow): View {
+        val full = targetText(r)
+        val display = if (!r.ok && r.reason.length > 40) {
+            handshakeFailureText(r.reason.take(40)) + "…"
+        } else full
+        return textCell(display, targetColor(r)).apply {
+            if (!r.ok) setOnClickListener {
+                onCopy(handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } }))
+            }
+        }
+    }
+
+    private fun handshakeFailureText(reason: String): String =
+        context.getString(R.string.iptest_handshake_failed) + reason
+
+    private fun pageHintText(row: IpTestRow): String {
+        val existing = row.targetSoftNote.ifBlank { row.targetSoft }
+        if (existing.isNotBlank()) return existing
+        if (row.targetPageHint.isBlank()) return ""
+
+        val title = row.targetPageHint.substringBefore('\n')
+        val body = row.targetPageHint.substringAfter('\n', "").ifBlank { "-" }
+        return if (title.isNotBlank()) {
+            context.getString(R.string.iptest_page_hint, title, body)
+        } else {
+            context.getString(R.string.iptest_page_hint_no_title, body)
+        }
     }
 
     // CUSTOM.md #67: the second line: what the page itself says (moved by the page, or says the region is refused)
@@ -1147,7 +1178,8 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     }
 
     private fun targetColor(r: IpTestRow): Int = when {
-        !r.ok || r.targetStatus == 0 -> colorMuted
+        !r.ok -> colorBad
+        r.targetStatus == 0 -> colorMuted
         r.targetSoft == "region" -> colorBad
         r.targetSoft == "refresh" || r.targetSoft == "script" -> colorWarn
         r.targetStatus in 200..299 -> colorGood
@@ -1321,7 +1353,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     private fun ipDetails(r: IpTestRow): String {
         if (!r.ok) {
-            return if (r.sent > 0 || r.reason.isNotEmpty()) explain(r.code, r.reason) else ""
+            return if (r.sent > 0 || r.reason.isNotEmpty()) handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } }) else ""
         }
 
         val parts = ArrayList<String>()

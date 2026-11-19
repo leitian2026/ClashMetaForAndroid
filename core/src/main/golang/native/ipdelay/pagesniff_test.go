@@ -32,3 +32,24 @@ func TestSniffPage(t *testing.T) {
 		}
 	}
 }
+
+
+func TestSniffPageHint(t *testing.T) {
+	got := SniffPageHint([]byte(`<!doctype html><html><head><title>  Blocked &amp; denied </title><style>.x{display:none}</style><script>secret()</script></head><body>
+		<h1>  Access   denied </h1><script>hidden text</script><p>Try again later</p></body></html>`))
+	if got != "Blocked & denied\nAccess denied Try again later" {
+		t.Fatalf("got %q", got)
+	}
+
+	long := SniffPageHint([]byte("<html><body>" + strings.Repeat("a", 100) + "</body></html>"))
+	if got := len([]rune(long[strings.IndexByte(long, '\n')+1:])); got != 80 {
+		t.Fatalf("body length = %d, want 80", got)
+	}
+
+	if got := SniffPageHint([]byte("<html><body>plain text without title</body></html>")); got != "\nplain text without title" {
+		t.Fatalf("body without title = %q", got)
+	}
+	if got := SniffPageHint([]byte{0, 1, 2}); got != "" {
+		t.Fatalf("binary body = %q", got)
+	}
+}

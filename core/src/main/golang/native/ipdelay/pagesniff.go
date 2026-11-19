@@ -8,8 +8,12 @@ package ipdelay
 // nothing here, and a word list cannot know every site's wording.
 
 import (
+	"bytes"
+	"html"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // sniffMax is how much of the page the caller reads.
@@ -88,4 +92,58 @@ func SniffPage(body []byte) (kind, note string) {
 	}
 
 	return "", ""
+}
+
+
+// page text extraction is deliberately limited to the response body already read by requestSnapshotVia.
+var (
+	pageTitleTag   = regexp.MustCompile(`(?is)<title\b[^>]*>(.*?)</title\s*>`)
+	pageBodyTag    = regexp.MustCompile(`(?is)<body\b[^>]*>(.*?)</body\s*>`)
+	pageScriptTag  = regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script\s*>`)
+	pageStyleTag   = regexp.MustCompile(`(?is)<style\b[^>]*>.*?</style\s*>`)
+	pageCommentTag = regexp.MustCompile(`(?s)<!--.*?-->`)
+	pageHTMLTag    = regexp.MustCompile(`(?s)<[^>]*>`)
+)
+
+// SniffPageHint returns the title and the first 80 characters of readable page text, separated by one newline.
+// The first line may be empty when the page has no title. Binary or invalid UTF-8 bodies are ignored.
+func SniffPageHint(body []byte) string {
+	if len(body) == 0 || bytes.IndexByte(body, 0) >= 0 || !utf8.Valid(body) {
+		return ""
+	}
+
+	source := string(body)
+	title := ""
+	if match := pageTitleTag.FindStringSubmatch(source); len(match) > 1 {
+		title = cleanPageText(match[1])
+	}
+
+	content := pageScriptTag.ReplaceAllString(source, " ")
+	content = pageStyleTag.ReplaceAllString(content, " ")
+	content = pageCommentTag.ReplaceAllString(content, " ")
+	content = pageTitleTag.ReplaceAllString(content, " ")
+	if match := pageBodyTag.FindStringSubmatch(content); len(match) > 1 {
+		content = match[1]
+	}
+	content = cleanPageText(content)
+	if title == "" && content == "" {
+		return ""
+	}
+
+	runes := []rune(content)
+	if len(runes) > 80 {
+		content = string(runes[:80])
+	}
+	return title + "\n" + content
+}
+
+func cleanPageText(source string) string {
+	source = pageHTMLTag.ReplaceAllString(source, " ")
+	source = html.UnescapeString(source)
+	for _, r := range source {
+		if unicode.IsControl(r) && !unicode.IsSpace(r) {
+			return ""
+		}
+	}
+	return strings.Join(strings.Fields(source), " ")
 }
