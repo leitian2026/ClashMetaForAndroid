@@ -2423,4 +2423,5 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 新增网络请求：每个首次出现且由 `api.country.is` 返回的出口 IP，最多额外执行一次现有归属查询流程；已缓存的出口 IP 不再查询。该流程复用 `lookupOwner` 的现有数据源和成功缓存，失败也由出口 IP 专用缓存记住。
 - 所有查询只发生在用户主动点击“经节点测延迟”触发的逐 IP 测试中；串行执行，不新增定时器、轮询或后台任务。没有修改直连模式、入口 IP 归属查询、出口国家查询顺序或下载测试。
 - **待真机确认返回里带 ip**：尚未实测 `api.country.is` 在当前网络环境下是否稳定返回 `ip` 字段。
+- 改动文件：`core/src/main/golang/native/ipdelay/ipdelay.go`、`core/src/main/golang/native/ipdelay/iptry.go`、`core/src/main/golang/native/conftest/iptest.go`、`core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、`design/src/main/res/values/strings_iptest.xml`、`design/src/main/res/values-zh/strings_iptest.xml`。
 - **验证：未编译，靠 Actions 验证。**
