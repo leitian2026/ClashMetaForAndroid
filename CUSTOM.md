@@ -2386,3 +2386,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - 表格现有说明补充“- / 无 / 未取到”的含义及证书验证跳过原因；英文、中文资源同步。
 - 不修改原有 IP 主表、数据计算、请求逻辑、下载测速或网络请求；不新增定时器、轮询或后台任务。
 - **验证：未编译，靠 Actions 验证。**
+
+
+### 第 54 步：记录目标网址请求实际 HTTP 协议并辅助判断 ALPN（r244）
+- `requestSnapshotVia` 在同一次目标请求中保存 `resp.Proto` 和 `resp.ProtoMajor`；经节点目标请求结果向上携带实际 HTTP 版本，写入 `IPRow` / `IpTestRow`。
+- 目标网址诊断表的协商协议优先显示 TLS `NegotiatedProtocol` 原始值；原始值为空时，按实际响应版本回显：HTTP/2 显示 `h2`，HTTP/1.x 显示 `http/1.1`。
+- 每个目标网址 IP 的实时日志增加一行，原样记录 `NegotiatedProtocol` 与 `resp.Proto`；空值明确显示 `<empty>`，用于下一轮实测定位数据来源。
+- **原因未查清：** 这只是增加诊断信息和显示兜底，不代表 ALPN 取值问题已修复。未改变 `ForceAttemptHTTP2`、TLS 配置、拨号、请求或响应处理逻辑；不增加请求、定时器、轮询或后台任务。
+- **验证：未编译，靠 Actions 验证。**
