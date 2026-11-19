@@ -50,6 +50,7 @@
     <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\nFirst byte %3$s</string>
     <string name="iptest_phase_cell_node">Dial %1$s\nHandshake %2$s\nFirst byte %3$s</string>
     <string name="iptest_col_exit">Exit country</string>
+    <string name="iptest_col_exit_ip">Exit IP</string>
     <string name="iptest_col_faster">vs reference</string>
     <string name="iptest_col_test">Download</string>
     <string name="iptest_col_speed">Speed</string>
@@ -58,7 +59,7 @@
     <string name="iptest_faster_cell">%1$d ms faster</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">failed</string>
-    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android's system certificate store.</string>
+    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android's system certificate store.In via-node tests, Exit IP is the address seen by the target site; it is different from the registered operator of the entry IP.</string>
     <string name="iptest_log_title">Live status</string>
     <string name="iptest_log_progress">(%2$d of %1$d IPs tested)</string>
     <string name="iptest_port_title">Ports: %1$s</string>
@@ -77,6 +78,7 @@
     <string name="iptest_log_ip_fail">%1$s failed: %2$s (failure rate %3$d%%)</string>
     <string name="iptest_log_split_direct">%1$s jitter (mean deviation) %2$d ms; split: TCP %3$d / TLS %4$d / first byte %5$d (ms; 0 = not measured; TCP and TLS are averages of the tries that worked, the first byte is one HEAD)</string>
     <string name="iptest_log_asn_none">%1$s operator: not found (maybe rate limited; the result is not affected)</string>
+    <string name="iptest_log_exit_asn_none">Exit IP %1$s operator: not found (possibly rate limited; latency is unaffected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>
     <string name="iptest_log_done">All done, %1$d tested</string>
     <string name="iptest_log_speed_start">%1$s download test started (up to 10 MB or 5 seconds from the first byte; the first second is also counted from the first byte)</string>
