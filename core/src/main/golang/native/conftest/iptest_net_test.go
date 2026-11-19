@@ -26,34 +26,6 @@ func serveLocalTLS(t *testing.T, h2 bool) (netip.Addr, string) {
 	return netip.MustParseAddr(host), port
 }
 
-func TestProbeLocal(t *testing.T) {
-	for _, h2 := range []bool{true, false} {
-		ip, port := serveLocalTLS(t, h2)
-		ipPort = port
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		row := probeIP(ctx, ip, "example.com", nil)
-		cancel()
-		want := "http/1.1"
-		if h2 {
-			want = "h2"
-		}
-		if !row.OK || row.ALPN != want || row.TLS != "1.3" || row.Colo != "HKG" || !row.CF || row.ECH != "none" || row.Ms < 0 {
-			t.Errorf("h2=%v: %+v", h2, row)
-		}
-		t.Logf("%+v", row)
-	}
-}
-
-func TestProbeDead(t *testing.T) {
-	ipPort = "1" // nothing listens
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	row := probeIP(ctx, netip.MustParseAddr("127.0.0.1"), "example.com", nil)
-	if row.OK || row.Reason == "" {
-		t.Errorf("%+v", row)
-	}
-}
-
 func TestRunIPModes(t *testing.T) {
 	rep := RunIP(`{"kind":"ip","mode":"nodes"}`)
 	if rep.Mode != "nodes" || rep.Nodes == nil {

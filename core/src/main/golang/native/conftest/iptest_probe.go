@@ -9,8 +9,8 @@
 // are skipped. The lookup is serial with the per-IP test loop and successful results are cached in memory.
 //
 // Power: nothing runs on its own; one call is one entry, CancelIPTest stops the running probe.
-
 package conftest
+
 import (
 	"context"
 	"crypto/tls"

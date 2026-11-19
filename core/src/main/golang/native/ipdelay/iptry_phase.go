@@ -7,7 +7,6 @@ package ipdelay
 
 import (
 	"crypto/tls"
-	"net/http"
 	"net/http/httptrace"
 	"sync"
 	"sync/atomic"

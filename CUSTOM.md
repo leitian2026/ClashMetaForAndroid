@@ -2373,9 +2373,8 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 仅补充 package 声明；不修改 IP 测试逻辑、导入项或其他业务代码。
 - **验证：** 静态核对 package 声明位置及文件改动；未运行 Go 测试或 Android Build Debug，需以新构建结果确认。
 
-
-### 第 52 步：修复 IP 测试探测文件缺少 package 声明（r243）
-- **修复：** 在 `core/src/main/golang/native/conftest/iptest_probe.go` 的文件头注释后补上 `package conftest`，修复 Go 编译报错 `expected 'package', found 'import'`。
-- **目录检查：** 检查 `conftest` 目录下全部 20 个 `.go` 文件；除本文件外，其余 19 个文件均已有 `package conftest` 声明。
-- **范围：** 仅修改该文件的 package 声明和本登记；不改导入项、测试逻辑或其他业务代码。
-- **验证：** 静态检查全部 20 个 `.go` 文件的 package 声明；未运行 Go 测试或 Android Build Debug，需以新构建结果确认。
+### 第 52 步：全面排查 Go 编译问题（r243）
+- **真正的原因：** r242 的构建仍报 `iptest_probe.go:12:1: expected 'package', found 'import'`。缺 `package conftest` 的是 `conftest/iptest_probe.go`（`iptest.go` 本来就有）。已在 `iptest_probe.go` 的文件注释后补上 `package conftest`。
+- **同时修的另外两处：** `ipdelay/iptry_phase.go` 导入了没用的 `net/http`（Go 里未使用的导入是编译错误，会在上一个错误修完后接着报）；`conftest/iptest_net_test.go` 里的 `TestProbeLocal`、`TestProbeDead` 调用已不存在的 `probeIP`，两个测试已删除（同样的场景由 `iptest_probe_test.go` 的 `TestProbeDirectLocal`、`TestProbeDirectDead` 覆盖）。
+- **改动文件：** `core/src/main/golang/native/conftest/iptest_probe.go`、`core/src/main/golang/native/ipdelay/iptry_phase.go`、`core/src/main/golang/native/conftest/iptest_net_test.go`、`CUSTOM.md`。没有改上游文件。
+- **验证：** 对 `native/` 下所有 Go 包做了语法检查、重复定义检查、未使用导入检查，`conftest` 包（含测试）做了类型检查（内核和 `errlog` 等外部包用桩代替）；没有真正编译，未运行 Go 测试，Kotlin 部分未编译，未触发 Build Debug。
