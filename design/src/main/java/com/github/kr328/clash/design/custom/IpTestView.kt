@@ -245,7 +245,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                     context.getString(R.string.iptest_diag_retry_after), context.getString(R.string.iptest_diag_cf_mitigated),
                 )
             } else {
-                listOf("IP 地址", "TLS 版本", "协商协议")
+                listOf(context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn))
             }
 
             val values = rows.map { row ->
@@ -253,29 +253,29 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                     listOf(
                         row.ip,
                         row.targetTls.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                        row.targetAlpn.ifBlank { "未获取" },
-                        row.targetCertSubject.ifBlank { "未获取" },
-                        row.targetCertIssuer.ifBlank { "未获取" },
-                        row.targetCertNotBefore.ifBlank { "未获取" },
-                        row.targetCertNotAfter.ifBlank { "未获取" },
-                        row.targetCertDnsNames.ifBlank { "未获取" },
-                        row.targetCertIpAddresses.ifBlank { "未获取" },
+                        row.targetAlpn.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertSubject.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertIssuer.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertNotBefore.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertNotAfter.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertDnsNames.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCertIpAddresses.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
                         when (row.targetCertVerification) {
                             "skipped" -> context.getString(R.string.iptest_diag_cert_skipped)
-                            else -> row.targetCertVerification.ifBlank { "未获取" }
+                            else -> row.targetCertVerification.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
                         },
-                        row.targetServer.ifBlank { "未获取" },
-                        row.targetCfRay.ifBlank { "未获取" },
-                        row.targetContentType.ifBlank { "未获取" },
-                        row.targetNote.ifBlank { "未获取" },
-                        row.targetRetryAfter.ifBlank { "未获取" },
-                        row.targetCfMitigated.ifBlank { "未获取" },
+                        row.targetServer.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCfRay.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetContentType.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetNote.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetRetryAfter.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.targetCfMitigated.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
                     )
                 } else {
                     listOf(
                         row.ip,
-                        row.tls.ifBlank { "未获取" },
-                        row.alpn.ifBlank { "未获取" },
+                        row.tls.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                        row.alpn.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
                     )
                 }
             }
@@ -289,22 +289,22 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             val dnsRows = ArrayList<List<String>>()
             for (server in report.servers) {
                 dnsRows += listOf(
-                    server.address.ifBlank { "未获取" },
-                    if (server.ok && server.ms > 0) "${server.ms} ms" else "未获取",
+                    server.address.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
+                    if (server.ok && server.ms > 0) "${server.ms} ms" else context.getString(R.string.iptest_diag_not_obtained),
                 )
             }
             if (report.core.asked) {
-                dnsRows += listOf(context.getString(R.string.iptest_diag_core_dns), if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else "未获取")
+                dnsRows += listOf(context.getString(R.string.iptest_diag_core_dns), if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else context.getString(R.string.iptest_diag_not_obtained))
             }
             report.kernel?.let { kernel ->
-                dnsRows += listOf(context.getString(R.string.iptest_diag_kernel_dns), if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else "未获取")
+                dnsRows += listOf(context.getString(R.string.iptest_diag_kernel_dns), if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else context.getString(R.string.iptest_diag_not_obtained))
             }
-            if (dnsRows.isEmpty()) dnsRows += listOf(context.getString(R.string.iptest_diag_no_results), "未获取")
+            if (dnsRows.isEmpty()) dnsRows += listOf(context.getString(R.string.iptest_diag_no_results), context.getString(R.string.iptest_diag_not_obtained))
 
             val dnsTitle = context.getString(R.string.iptest_diag_dns_title, report.domain)
             copied.append(dnsTitle).append('\n')
             appendMarkdown(listOf(context.getString(R.string.iptest_diag_dns_item), context.getString(R.string.iptest_diag_dns_time)), dnsRows)
-            addDiagnosticsTable(dnsTitle, listOf("DNS 项目", "查询耗时"), dnsRows, 150, 110)
+            addDiagnosticsTable(dnsTitle, listOf(context.getString(R.string.iptest_diag_dns_item), context.getString(R.string.iptest_diag_dns_time)), dnsRows, 150, 110)
         }
 
         diagnosticsPlain = copied.toString().trim()
