@@ -458,7 +458,7 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 	row.OK = true
 
 	state := conn.ConnectionState()
-	row.TLS = tlsVersion(state.Version)
+	row.TLS = ipdelay.TLSVersionName(state.Version)
 	row.ALPN = state.NegotiatedProtocol
 
 	// the answer of the server (is it Cloudflare, and the data centre): not needed for the address to count as
@@ -467,21 +467,6 @@ func probeIP(ctx context.Context, ip netip.Addr, domain string, echList []byte) 
 	row.Colo, row.CF = fetchEvidence(ctx, conn, domain)
 
 	return row
-}
-
-func tlsVersion(v uint16) string {
-	switch v {
-	case tls.VersionTLS13:
-		return "1.3"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS10:
-		return "1.0"
-	}
-
-	return ""
 }
 
 // handshakeTo connects to addr and does the TLS handshake. The time is from dialing to the end of the handshake.

@@ -132,3 +132,29 @@ func TestBeginRunOldDoneKeepsNewCancel(t *testing.T) {
 		t.Fatal("new run context was not cancelled")
 	}
 }
+
+func TestLookupOwnerCache(t *testing.T) {
+	ownerCache.Lock()
+	oldCache := ownerCache.byIP
+	ownerCache.byIP = make(map[string][2]string)
+	ownerCache.Unlock()
+	oldSource := ownerSource
+	calls := 0
+	ownerSource = func(context.Context, string) (string, string) {
+		calls++
+		return "AS13335 Cloudflare, Inc.", "US"
+	}
+	t.Cleanup(func() {
+		ownerSource = oldSource
+		ownerCache.Lock()
+		ownerCache.byIP = oldCache
+		ownerCache.Unlock()
+	})
+
+	firstASN, firstGeo := lookupOwner(context.Background(), "1.1.1.1")
+	secondASN, secondGeo := lookupOwner(context.Background(), "1.1.1.1")
+	if firstASN != "AS13335 Cloudflare, Inc." || firstGeo != "US" ||
+		secondASN != firstASN || secondGeo != firstGeo || calls != 1 {
+		t.Fatalf("first=(%q,%q) second=(%q,%q) calls=%d", firstASN, firstGeo, secondASN, secondGeo, calls)
+	}
+}

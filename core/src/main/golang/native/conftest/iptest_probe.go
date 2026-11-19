@@ -598,7 +598,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 	row.ECH = keepECH
 
 	state := keep.ConnectionState()
-	row.TLS = tlsVersion(state.Version)
+	row.TLS = ipdelay.TLSVersionName(state.Version)
 	row.ALPN = state.NegotiatedProtocol
 	row.Colo, row.CF, row.First = fetchEvidenceTimed(ctx, keep, rep.Domain) // closes the connection; CUSTOM.md #68: one HEAD, one sample
 	row.Dial, row.Shake = meanOf(tcpMs), meanOf(tlsMs)
@@ -890,12 +890,9 @@ func nodeSNI(node string) string {
 	return ""
 }
 
-// nodeOwner (CUSTOM.md #63) fills the data centre, the operator and the registered country of an address tested through
-// a node. The data centre cannot be seen through the node (the last hop is the Worker going out to the target), so the
-// address is connected once more directly, with the node's own domain as SNI, and its `Cf-Ray` is read: the same
-// address and the same network as the node uses, but not guaranteed to land on the same data centre every time. The
-// port is the node's own when it has one. The operator and the country come from the same public service as in direct
-// mode (from memory when asked before). A failure only leaves the cell empty (ColoErr tells why).
+// nodeOwner reads the entry data centre of an address tested through a node. The address is connected once more
+// directly, with the node's own domain as SNI, and its `Cf-Ray` is read. This does not query IP registration ownership;
+// that is done only by the explicit lookup action.
 func nodeOwner(ctx context.Context, row *IPRow, node string) {
 	if ctx.Err() != nil {
 		return
@@ -921,8 +918,7 @@ func nodeOwner(ctx context.Context, row *IPRow, node string) {
 			}
 		}
 	}
-
-
+}
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 	t, ok := firstTarget(req.IPs, rep.Node != "")
