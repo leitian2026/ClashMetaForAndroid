@@ -30,9 +30,12 @@ type requestSnapshot struct {
 	Body    []byte
 }
 
-func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLimit int64) (requestSnapshot, error) {
+func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLimit int64, forceHTTP2 bool) (requestSnapshot, error) {
 	u, err := url.Parse(rawURL)
-	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") {
+	if err != nil {
+		return requestSnapshot{}, err
+	}
+	if u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return requestSnapshot{}, errBadTargetURL
 	}
 
@@ -46,7 +49,7 @@ func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLi
 	}
 	portNum, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return requestSnapshot{}, errBadTargetURL
+		return requestSnapshot{}, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -66,7 +69,7 @@ func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLi
 		},
 		DisableKeepAlives:  true,
 		TLSClientConfig:    &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
-		ForceAttemptHTTP2: true,
+		ForceAttemptHTTP2: forceHTTP2,
 	}
 	defer transport.CloseIdleConnections()
 

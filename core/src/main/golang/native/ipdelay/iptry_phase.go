@@ -104,7 +104,7 @@ func phaseMs(ns int64) int {
 
 // requestPhased keeps the existing TryIP result shape while sharing the HTTP/TLS request path with TryTarget.
 func requestPhased(px C.Proxy, rawURL string, timeout time.Duration) (int, time.Duration, Phases, error) {
-	result, err := requestSnapshotVia(px, rawURL, timeout, 0)
+	result, err := requestSnapshotVia(px, rawURL, timeout, 0, true)
 	if err != nil {
 		return 0, 0, Phases{}, err
 	}

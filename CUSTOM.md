@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r232
+当前版本：2_11_36-r233
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2299,3 +2299,11 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ## r232 允许失败 IP 主动查询归属地
 - 归属运营商/注册国家与连通性无关；ASN 列现在对所有非域名 IP 行提供“查询归属地”，不再要求该 IP 的连通性测试成功。域名行仍不提供该入口。
 - 验证：静态检查 ASN 单元格的显示、颜色和点击条件；未运行 Android 构建。
+
+
+
+## r233 合并 ipdelay 的 HTTP/TLS 请求实现
+- 将 ipdelay 原有 requestVia（出口国家 / 可达性请求）也改为调用 requestSnapshotVia，统一节点拨号、Transport、TLS 配置、User-Agent、重定向和响应读取路径。
+- 通过 forceHTTP2 参数保留原有行为：TryIP / TryTarget 强制尝试 HTTP/2；国家 / 可达性 requestVia 仍保持原先不强制 HTTP/2；requestVia 仍只在需要时读取最多 4096 字节正文。
+- 保留 requestVia 原有“拨号开始到响应头”的耗时口径；共享 helper 在读取正文前记录 elapsed，不把正文读取时间计入延迟。
+- 验证：静态对照旧 requestVia 的超时、TLS、请求头、重定向、正文上限和耗时口径；未运行 Go 测试或 Android 构建。

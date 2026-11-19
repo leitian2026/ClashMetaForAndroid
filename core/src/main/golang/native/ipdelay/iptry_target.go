@@ -58,7 +58,7 @@ func TryTarget(name, server string, isDomain bool, rawURL string) TargetResult {
 	}
 	defer closeProxy(px)
 
-	result, err := requestSnapshotVia(px, rawURL, testTimeout, sniffMax)
+	result, err := requestSnapshotVia(px, rawURL, testTimeout, sniffMax, true)
 	if err != nil {
 		return TargetResult{Err: err.Error()}
 	}

@@ -1259,82 +1259,18 @@ func validCountry(code string) bool {
 	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
 }
 
-// requestVia sends a GET to rawURL through the proxy and returns the status, optionally the
-// (size limited) body, and the time from dialing until the response headers arrived.
+// requestVia keeps the country / reachability caller's result shape. The actual HTTP/TLS transport is shared
+// with TryIP and TryTarget; these service requests retain HTTP/1.1 behavior and the 4096-byte body limit.
 func requestVia(px C.Proxy, rawURL string, timeout time.Duration, wantBody bool) (int, []byte, time.Duration, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-
-	port := u.Port()
-	if port == "" {
-		if u.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	start := time.Now()
-
-	conn, err := px.DialContext(ctx, &C.Metadata{
-		Host:    u.Hostname(),
-		DstPort: uint16(portNum),
-	})
-	if err != nil {
-		return 0, nil, 0, err
-	}
-	defer conn.Close()
-
-	transport := &http.Transport{
-		DialContext: func(context.Context, string, string) (net.Conn, error) {
-			return conn, nil
-		},
-		DisableKeepAlives: true,
-		// Latency / country probe only: nothing secret is sent, and the system CA store is
-		// not available inside the core on Android.
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, ServerName: u.Hostname()},
-	}
-	defer transport.CloseIdleConnections()
-
-	client := &http.Client{
-		Transport: transport,
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-
-	req.Header.Set("User-Agent", "curl/8.5.0")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-	defer resp.Body.Close()
-
-	elapsed := time.Since(start)
-
-	var body []byte
-
+	bodyLimit := int64(0)
 	if wantBody {
-		body, _ = io.ReadAll(io.LimitReader(resp.Body, 4096))
+		bodyLimit = 4096
 	}
-
-	return resp.StatusCode, body, elapsed, nil
+	result, err := requestSnapshotVia(px, rawURL, timeout, bodyLimit, false)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+	return result.Status, result.Body, result.Elapsed, nil
 }
 
 // normalize converts whatever the yaml decoder produced into plain
