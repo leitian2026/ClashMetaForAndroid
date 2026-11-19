@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r239
+当前版本：2_11_36-r240
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2352,3 +2352,9 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt`、`CUSTOM.md`。
 - **未做：** 不改原有 IP 测试表格、测试数据、诊断字段或网络请求；不删除仍在使用的域名 / ASN / 已保存 IP 逻辑。
 - **验证：** 静态搜索确认诊断代码中不再出现硬编码的“IP 地址”“未获取”“DNS 项目”“查询耗时”；未运行 Kotlin 编译、未编译、未触发 Build Debug。
+
+
+### 第 49 步：修正详细诊断英文资源术语（r240）
+- **修正：** 将“内核 DNS”对应的英文资源从 “Core DNS” 改为 “Kernel DNS”，与“核心解析”（Core resolution）区分。
+- **改动文件：** `design/src/main/res/values/strings_iptest_diag.xml`、`CUSTOM.md`。
+- **验证：** 静态核对资源键值；未运行 Kotlin 编译、未编译、未触发 Build Debug。

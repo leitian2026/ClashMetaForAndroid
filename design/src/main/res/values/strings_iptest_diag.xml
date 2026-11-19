@@ -25,7 +25,7 @@
     <string name="iptest_diag_dns_item">DNS item</string>
     <string name="iptest_diag_dns_time">Query time</string>
     <string name="iptest_diag_core_dns">Core resolution</string>
-    <string name="iptest_diag_kernel_dns">Core DNS</string>
+    <string name="iptest_diag_kernel_dns">Kernel DNS</string>
     <string name="iptest_diag_no_results">No displayable results</string>
     <string name="iptest_diag_download_no_result">Download test returned no result</string>
 </resources>
