@@ -427,8 +427,18 @@ class SavedIpDesign(
                 true
             }
         }
-        row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (selectedOperatorId == null) {
+        val showDelete = selectedOperatorId == null
+        val selectionWidth = if (selectedOperatorId == operator.id) dp(30) else 0
+        val deleteWidth = if (showDelete) dp(56) else 0
+        fun updateAddressMaxWidth() {
+            address.maxWidth = (row.width - dp(18 + 4) - selectionWidth - deleteWidth).coerceAtLeast(dp(24))
+        }
+        val fallbackRowWidth = (context.resources.displayMetrics.widthPixels - dp(32)) / 2 - dp(8)
+        address.maxWidth = (fallbackRowWidth - dp(18 + 4) - selectionWidth - deleteWidth).coerceAtLeast(dp(24))
+        row.addView(address, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // CUSTOM.md #156 第 44 步：测量双列单元格后限制 IP 文本宽度，删除按钮紧跟文字，不占用行尾空白。
+        row.post { updateAddressMaxWidth() }
+        if (showDelete) {
             row.addView(TextView(context).apply {
                 text = "×"
                 textSize = 20f
@@ -436,11 +446,12 @@ class SavedIpDesign(
                 setTextColor(colorLink)
                 contentDescription = context.getString(R.string.saved_ip_delete)
                 background = selectableBackground()
-                setPadding(dp(5), dp(2), dp(5), dp(2))
+                minWidth = dp(48)
+                minHeight = dp(48)
+                setPadding(0, 0, 0, 0)
                 setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }, LinearLayout.LayoutParams(dp(28), dp(32)).apply {
-                // CUSTOM.md #156 step 26: move the delete icon inward toward its own IP card.
-                marginEnd = dp(8)
+            }, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+                marginStart = dp(8)
             })
         }
         item.addView(row, fullWidth())

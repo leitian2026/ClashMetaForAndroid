@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r274
+当前版本：2_11_46-r275
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2235,6 +2235,14 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **显示：** 已保存 IP 的双列列表在地址前显示 `CountryFlag.of(countryCode)`；旧数据或无有效国家码时只显示 IP。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpStore.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`CUSTOM.md`。没有新增或修改上游文件总表；`ConfigCheckDesign.kt` 的保存入口已核对，无需改动。
 - **验证：** 静态核对旧数据默认值、显式 serializer、同 IP 非空更新 / 空值保留、批次内重复合并、三种保存入口及无网络查询；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
+
+
+### 第 44 步：已保存 IP 删除按钮紧跟所属地址（r275）
+- **位置：** 双列 IP 卡片中，删除叉号紧跟本卡片的国旗和 IP 文字，文字与叉号间距约 8dp；地址不再使用权重占满整行，避免叉号被推到单元格最右侧、靠近隔壁 IP。
+- **长地址：** 根据双列单元格实际测量宽度限制地址 TextView 的最大宽度，IPv6 等长地址继续单行中间省略；不改变两列、分组、搜索、筛选、标签页及多选逻辑。
+- **点击区域：** 删除按钮点击区域调整为至少 48dp × 48dp，图标保持原有 20sp，不覆盖相邻单元格。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`CUSTOM.md`。没有新增或修改上游文件总表。
+- **验证：** 静态核对地址改为 wrap_content、按单元格宽度设置 maxWidth、删除按钮 48dp 点击区域及 8dp 前间距；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
 
 
 ## IP 测试审查修正（r220）
