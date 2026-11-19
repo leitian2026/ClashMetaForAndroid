@@ -18,6 +18,8 @@
     <string name="iptest_ref">对照：配置里最快的 %1$s　%2$d 毫秒（%3$s测的）</string>
     <string name="iptest_ref_none">对照：这个节点 hosts 里的地址还没测过（到代理页点一次测速）</string>
     <string name="iptest_cancelled">已取消，下面是取消前测完的</string>
+    <string name="iptest_domain_node_only">直连延迟测试只测 IP 地址，域名要用“经节点延迟测试”</string>
+    <string name="iptest_skipped">域名只能用经节点延迟测试，这里没测：%1$s</string>
     <string name="iptest_invalid">没看懂：%1$s</string>
     <string name="iptest_cut">超过 20 个的上限，还有 %1$d 个没测</string>
     <string name="iptest_in_hosts">已在 hosts</string>

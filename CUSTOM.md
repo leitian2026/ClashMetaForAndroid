@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_36-r230
+当前版本：2_11_36-r231
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2288,3 +2288,10 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 ## r230 修正已保存 IP 预设与查询取消的先后顺序
 - 从已保存 IP 页面收到重测预设时，先取消并等待归属地查询任务结束，再向现有配置检查页面发送 IP 测试请求；避免查询任务尚未退出时，新一轮请求被任务互斥条件忽略。
 - 验证：静态检查 onNewIntent 的取消、join、request 顺序；未运行 Kotlin 编译或 Android 构建。
+
+## r231 恢复原有的直连/经节点域名处理
+- 依据现有 iptest_test.go / parseTargets 测试及 CUSTOM.md #43 原始设计，恢复域名支持：直连解析时域名进入 skipped 并提示改用经节点测试；经节点模式保留域名，交由节点拨号解析。恢复 IPRequest.Direct、IPReport.Skipped、firstTarget 的 domains 参数，以及 TryIP / TryTarget / DownloadVia 的 isDomain 传递。
+- ASN 查询仍只接受 IP；ASN 列对域名行不显示查询入口。SavedIpStore 仍跳过域名行，不改变其保存规则。
+- r227–r228 的“输入仅 IP / 删除域名分支”结论撤销；此前对域名分支的删除属于误判。r227 中删除的旧批量 direct/node 核心模式仍保留删除状态，界面继续使用逐条 probe/nodeone。
+- 修正 TestParseList，重新覆盖直连跳过域名、经节点保留域名、直连仅有域名时提示三种行为。
+- 验证：静态核对 parser、两种模式的分流和 UI 字段；未运行 Go 测试或 Android 构建。

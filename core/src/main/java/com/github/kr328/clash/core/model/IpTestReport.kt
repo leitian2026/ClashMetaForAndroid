@@ -12,7 +12,7 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class IpTestRow(
     val ip: String = "",
-    val isDomain: Boolean = false, // retained for saved-result compatibility; current test input is IP-only
+    val isDomain: Boolean = false, // a domain accepted by node mode
     val ok: Boolean = false,
     val ms: Int = 0,
     val code: String = "",
@@ -124,6 +124,7 @@ data class IpTestReport(
     val nodes: List<String> = emptyList(),
     val rows: List<IpTestRow> = emptyList(),
     val invalid: List<String> = emptyList(), // words that were neither an address nor a domain
+    val skipped: List<String> = emptyList(), // direct mode: domains only node mode tests
     val cut: Int = 0,
     val ref: IpTestRef? = null,
     val echSource: String = "",

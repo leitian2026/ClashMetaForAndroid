@@ -326,12 +326,12 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 return
             }
 
-            // the list as the core reads it (IP addresses, invalid words, and the limit of 20)
+            // the list as the core reads it (addresses, domains, invalid words, and the limit of 20)
             val parsed = IpTestReport.parse(
                 withClash {
                     queryCustomConnections(
                         CustomConnections.SORT_CHECK,
-                        JSONObject().put("kind", "ip").put("mode", "parse")
+                        JSONObject().put("kind", "ip").put("mode", "parse").put("direct", direct)
                             .put("ips", choice.ips).toString(),
                     )
                 },
@@ -342,10 +342,15 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                     design.showText(getString(R.string.iptest_need_ips))
                     return
                 }
+                "domain only node" -> {
+                    design.showText(getString(R.string.iptest_domain_node_only))
+                    return
+                }
             }
 
             val warnings = ArrayList<String>()
 
+            if (parsed.skipped.isNotEmpty()) warnings += getString(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
             if (parsed.invalid.isNotEmpty()) warnings += getString(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
             if (parsed.cut > 0) warnings += getString(R.string.iptest_cut, parsed.cut)
 
@@ -494,7 +499,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         }
                     }
 
-                    if (!direct) {
+                    if (!direct && !row.isDomain) {
                         design.ipLog(
                             when {
                                 row.colo.isNotEmpty() -> getString(R.string.iptest_log_node_colo_ok, row.ip, row.colo)

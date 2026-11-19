@@ -212,17 +212,17 @@ func TestDownloadDead(t *testing.T) {
 }
 
 func TestParseList(t *testing.T) {
-	rep := RunIP(`{"kind":"ip","mode":"parse","ips":"1.1.1.1 example.com bad! 1.0.0.1:443"}`)
-	if rep.Error != "" || len(rep.Rows) != 2 || rep.Rows[1].IP != "1.0.0.1" || len(rep.Invalid) != 2 {
+	rep := RunIP(`{"kind":"ip","mode":"parse","direct":true,"ips":"1.1.1.1 example.com bad! 1.0.0.1:443"}`)
+	if rep.Error != "" || len(rep.Rows) != 2 || rep.Rows[1].IP != "1.0.0.1" || len(rep.Skipped) != 1 || len(rep.Invalid) != 1 {
 		t.Errorf("%+v", rep)
 	}
 
-	rep = RunIP(`{"kind":"ip","mode":"parse","ips":"1.1.1.1 example.com"}`)
-	if len(rep.Rows) != 1 || rep.Rows[0].IP != "1.1.1.1" || len(rep.Invalid) != 1 {
+	rep = RunIP(`{"kind":"ip","mode":"parse","direct":false,"ips":"1.1.1.1 example.com"}`)
+	if len(rep.Rows) != 2 || !rep.Rows[1].IsDomain {
 		t.Errorf("%+v", rep)
 	}
 
-	if rep = RunIP(`{"kind":"ip","mode":"parse","ips":"example.com"}`); rep.Error != "no address" || len(rep.Invalid) != 1 {
+	if rep = RunIP(`{"kind":"ip","mode":"parse","direct":true,"ips":"example.com"}`); rep.Error != "domain only node" {
 		t.Errorf("%+v", rep)
 	}
 

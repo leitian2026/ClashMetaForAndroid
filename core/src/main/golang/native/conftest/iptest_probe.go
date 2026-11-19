@@ -1,13 +1,13 @@
-// CUSTOM (CUSTOM.md #52, not part of upstream): per-IP work used by the config check page. The app supplies only IP
-// addresses; domain names are invalid entries. The dialog's direct/node choice selects the route, while the core modes
-// remain "probe" and "nodeone". The app waits 1 to 3 seconds between addresses.
+// CUSTOM (CUSTOM.md #52, not part of upstream): per-address work used by the config check page. The app sends one
+// entry per call and waits 1 to 3 seconds between entries. Direct probing accepts IPs only; through-node probing can
+// also accept a domain, which the core resolves while dialing.
 //
 // "probe" (direct): ten TLS attempts, one HEAD on the kept connection, then configured port checks.
 // "nodeone" (through a node): ten attempts through the selected node; an optional target URL is requested in those
 // attempts. "download" measures one selected row; "colo" reads Cloudflare's data-centre list. "asn" is a separate,
-// explicit lookup reached only when the user taps the ASN cell.
+// explicit lookup reached only when the user taps the ASN cell of an IP.
 //
-// Power: nothing runs on its own; one call is one IP, CancelIPTest stops the running probe.
+// Power: nothing runs on its own; one call is one entry, CancelIPTest stops the running probe.
 import (
 	"context"
 	"crypto/tls"
@@ -247,6 +247,22 @@ func parseList(req IPRequest, rep *IPReport) {
 
 	rep.Invalid = append(rep.Invalid, invalid...)
 
+	if req.Direct {
+		var addrs []target
+		for _, t := range list {
+			if t.IsDomain {
+				rep.Skipped = append(rep.Skipped, t.Text)
+			} else {
+				addrs = append(addrs, t)
+			}
+		}
+		if len(addrs) == 0 && len(rep.Skipped) > 0 {
+			rep.Error = "domain only node"
+			return
+		}
+		list = addrs
+	}
+
 	if len(list) > maxIPTest {
 		rep.Cut = len(list) - maxIPTest
 		list = list[:maxIPTest]
@@ -259,17 +275,19 @@ func parseList(req IPRequest, rep *IPReport) {
 	}
 
 	for _, t := range list {
-		rep.Rows = append(rep.Rows, IPRow{IP: t.Text})
+		rep.Rows = append(rep.Rows, IPRow{IP: t.Text, IsDomain: t.IsDomain})
 	}
 }
 
-// firstTarget is the first valid IP address in the typed text.
-func firstTarget(text string) (target, bool) {
+// firstTarget is the first entry accepted by the selected route.
+func firstTarget(text string, domains bool) (target, bool) {
 	list, _ := parseTargets(text)
-	if len(list) == 0 {
-		return target{}, false
+	for _, t := range list {
+		if !t.IsDomain || domains {
+			return t, true
+		}
 	}
-	return list[0], true
+	return target{}, false
 }
 
 var coloCache struct {
@@ -489,7 +507,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	t, ok := firstTarget(req.IPs)
+	t, ok := firstTarget(req.IPs, false)
 	if !ok {
 		rep.Error = "no address"
 
@@ -662,7 +680,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	t, ok := firstTarget(req.IPs)
+	t, ok := firstTarget(req.IPs, true)
 	if !ok {
 		rep.Error = "no address"
 
@@ -702,7 +720,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 
 	forEachTry(ctx, probeTries, probeParallel, func(int) {
 		if req.Target != "" { // CUSTOM.md #66: the tries go to the target address; any answer counts as reached
-			res := ipdelay.TryTarget(rep.Node, t.Text, false, req.Target)
+			res := ipdelay.TryTarget(rep.Node, t.Text, t.IsDomain, req.Target)
 
 			mu.Lock()
 			defer mu.Unlock()
@@ -736,7 +754,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			return
 		}
 
-		res := ipdelay.TryIP(rep.Node, t.Text, false)
+		res := ipdelay.TryIP(rep.Node, t.Text, t.IsDomain)
 
 		mu.Lock()
 		defer mu.Unlock()
@@ -754,7 +772,7 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 	})
 
-	row := IPRow{IP: t.Text, InHosts: hosts[t.Text]}
+	row := IPRow{IP: t.Text, IsDomain: t.IsDomain, InHosts: !t.IsDomain && hosts[t.Text]}
 
 	if raw := ipdelay.RawProxies()[rep.Node]; raw != nil {
 		if p := raw["port"]; p != nil {
@@ -811,10 +829,12 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 			}
 
 			// the exit country is asked through the node as before (the target address is not asked for it)
-			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
+			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, t.IsDomain)
 		} else if ctx.Err() == nil {
 			// CUSTOM.md #72: once per address, now (it was asked on every try, and the proxy page's memory was used first)
-			row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
+			if !t.IsDomain {
+				row.Country = ipdelay.ExitCountry(rep.Node, t.Text, false)
+			}
 		}
 
 		if rep.Ref != nil && st.Avg < rep.Ref.Ms {
@@ -822,7 +842,9 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		}
 
 		// CUSTOM.md #63: the data centre, the operator and the registered country of an address that works
-		nodeOwner(ctx, &row, rep.Node)
+		if !t.IsDomain {
+			nodeOwner(ctx, &row, rep.Node)
+		}
 	} else {
 		row.Reason = lastErr
 		row.Code = errlog.Classify(lastErr)
@@ -885,7 +907,7 @@ func nodeOwner(ctx context.Context, row *IPRow, node string) {
 }
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
-	t, ok := firstTarget(req.IPs)
+	t, ok := firstTarget(req.IPs, rep.Node != "")
 	if !ok {
 		rep.Error = "no address"
 
@@ -904,12 +926,12 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	row := IPRow{IP: t.Text}
+	row := IPRow{IP: t.Text, IsDomain: t.IsDomain}
 
 	var res ipdelay.DownloadResult
 
 	if rep.Node != "" {
-		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, false, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
+		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, t.IsDomain, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
 	} else {
 		port := u.Port()
 		if port == "" {

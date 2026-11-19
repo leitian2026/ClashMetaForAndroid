@@ -1,12 +1,13 @@
-// CUSTOM (CUSTOM.md #43, not part of upstream): IP testing on the config check page. The dialog lets the user test
-// pasted IP addresses directly (with the chosen domain as SNI) or through a selected node. The app sends one IP per
-// probe call and waits 1 to 3 seconds between addresses so it can update the table and log each result immediately.
+// CUSTOM (CUSTOM.md #43, not part of upstream): "test other IPs" on the config check page. The dialog offers two
+// routes: direct TLS to an IP (the selected domain is SNI/Host), or through a selected node. Direct mode tests IPs only;
+// node mode can also test a domain by replacing the node's server with that domain. The app sends one address per call,
+// then waits 1 to 3 seconds before the next one so it can update the table and log each result.
 //
-// Core modes: "nodes" and "config" read profile information; "parse" validates the pasted IP list; "probe" tests one IP
-// directly; "nodeone" tests one IP through a node; "download" measures one selected row; "colo" reads Cloudflare's
-// data-centre list; and "asn" looks up registration ownership only after the user taps the ASN cell.
+// Core modes: "nodes" and "config" read profile information; "parse" validates the typed list; "probe" tests one entry
+// directly; "nodeone" tests one entry through a node; "download" measures one selected row; "colo" reads Cloudflare's
+// data-centre list; and "asn" looks up registration ownership only after the user taps an IP's ASN cell.
 //
-// Power: nothing runs on its own; one call is one IP, and CancelIPTest stops the running probe.
+// Power: nothing runs on its own; one call is one entry, and CancelIPTest stops the running probe.
 import (
 	"context"
 	"crypto/tls"
@@ -47,11 +48,13 @@ type IPRequest struct {
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
 	// CUSTOM.md #66: nodeone: the address of a site the user really uses; the tries go to it through the node ("" = the node's own test URL)
 	Target string `json:"target"`
+	// parse: direct mode skips domain entries; node mode retains them.
+	Direct bool `json:"direct"`
 }
 
 // IPRow is the result for one address.
 type IPRow struct {
-	IP       string `json:"ip"` // the address; IsDomain is retained for saved-result schema compatibility
+	IP       string `json:"ip"` // the address, or the domain when IsDomain is true
 	IsDomain bool   `json:"isDomain"`
 	OK       bool   `json:"ok"`
 	Ms       int    `json:"ms"`
@@ -138,7 +141,8 @@ type IPReport struct {
 	Node      string   `json:"node"`
 	Nodes     []string `json:"nodes"`     // mode "nodes"
 	Rows      []IPRow  `json:"rows"`      // quickest first, the ones that failed last
-	Invalid   []string `json:"invalid"`   // words that were not IP addresses
+	Invalid   []string `json:"invalid"`   // words that were neither an address nor a domain
+	Skipped   []string `json:"skipped"`   // direct mode: domains, which only node mode tests
 	Cut       int      `json:"cut"`       // addresses over the limit, not tested
 	Ref       *IPRef   `json:"ref"`       // node mode
 	ECHSource string   `json:"echSource"` // direct mode: the server that gave the ECH config, "" when there is none
@@ -194,7 +198,7 @@ func RunIP(filter string) IPReport {
 	_ = json.Unmarshal([]byte(filter), &req)
 
 	req.Domain = strings.TrimSpace(req.Domain)
-	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Nodes: []string{}, Config: []ConfigIP{}, ConfigFail: []ConfigFail{}}
+	rep := IPReport{Mode: req.Mode, Domain: req.Domain, Node: req.Node, Rows: []IPRow{}, Invalid: []string{}, Skipped: []string{}, Nodes: []string{}, Config: []ConfigIP{}, ConfigFail: []ConfigFail{}}
 
 	if req.Mode == "nodes" {
 		for name, raw := range ipdelay.RawProxies() {
@@ -360,6 +364,9 @@ func lookupOwners(rep *IPReport, text string) {
 	defer cancel()
 
 	for _, t := range list {
+		if t.IsDomain {
+			continue
+		}
 		asn, geo := lookupOwner(ctx, t.Text)
 		if asn != "" || geo != "" {
 			rep.Rows = append(rep.Rows, IPRow{IP: t.Text, ASN: asn, Geo: geo})

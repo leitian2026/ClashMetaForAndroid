@@ -188,7 +188,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         redraw()
     }
 
-    /** The lines above the table: [head] bold, [sub] grey, [warnings] orange (invalid words and cut entries). */
+    /** The lines above the table: [head] bold, [sub] grey, [warnings] orange (invalid words, skipped domains and cut entries). */
     fun setInfo(head: String, sub: String, warnings: List<String>) {
         val sb = SpannableStringBuilder()
 
@@ -824,7 +824,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
         return when (k) {
             Key.COLO -> coloLabel(r.colo)
-            Key.ASN -> r.asn.ifEmpty { if (r.ok) "查询归属地" else "-" }
+            Key.ASN -> r.asn.ifEmpty { if (r.ok && !r.isDomain) "查询归属地" else "-" }
             Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
             Key.LAND -> if (tested) CountryName.label(r.country) else "-"
             Key.PORTS -> portsPlain(r)
@@ -847,13 +847,13 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private fun ownerCell(r: IpTestRow): View {
         val value = when {
             r.asn.isNotEmpty() -> r.asn
-            !r.ok -> "-"
+            !r.ok || r.isDomain -> "-"
             ownerLookupIp == r.ip -> "查询中…"
             else -> "查询归属地"
         }
-        val color = if (r.ok && r.asn.isEmpty()) colorLink else colorText
+        val color = if (r.ok && !r.isDomain && r.asn.isEmpty()) colorLink else colorText
         return textCell(value, color).apply {
-            if (r.ok && r.asn.isEmpty() && ownerLookupIp == null && !testing) {
+            if (r.ok && !r.isDomain && r.asn.isEmpty() && ownerLookupIp == null && !testing) {
                 setOnClickListener { onLookupOwner(r.ip) }
             }
         }

@@ -18,6 +18,8 @@
     <string name="iptest_ref">For comparison: the quickest address in the config, %1$s, %2$d ms (tested %3$s)</string>
     <string name="iptest_ref_none">For comparison: the addresses in this node\'s hosts were not tested yet (run a speed test on the proxy page)</string>
     <string name="iptest_cancelled">Cancelled, these are the ones done before</string>
+    <string name="iptest_domain_node_only">Direct latency tests IP addresses only; use the via-node latency test for domains</string>
+    <string name="iptest_skipped">Domains require the via-node latency test; not tested here: %1$s</string>
     <string name="iptest_invalid">Not understood: %1$s</string>
     <string name="iptest_cut">Over the limit of 20, %1$d not tested</string>
     <string name="iptest_in_hosts">already in hosts</string>
