@@ -474,6 +474,11 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_time_compact_minutes">%1$dm</string>
     <string name="saved_ip_time_compact_hours">%1$dh</string>
     <string name="saved_ip_time_compact_days">%1$dd</string>
+    <string name="saved_ip_elapsed_seconds">%1$d sec</string>
+    <string name="saved_ip_elapsed_minutes_seconds">%1$d min %2$d sec</string>
+    <string name="saved_ip_elapsed_hours_minutes">%1$d h %2$d min</string>
+    <string name="saved_ip_elapsed_days_hours">%1$d d %2$d h</string>
+
     <string name="saved_ip_select_unreachable">Select unreachable</string>
     <string name="saved_ip_select_oldest_20">Select 20 oldest</string>
     <string name="saved_ip_select_unreachable_overflow">%1$d unreachable; selected the 20 least recently tested.</string>

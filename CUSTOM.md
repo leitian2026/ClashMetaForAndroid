@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r275
+当前版本：2_11_46-r276
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2243,6 +2243,15 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **点击区域：** 删除按钮点击区域调整为至少 48dp × 48dp，图标保持原有 20sp，不覆盖相邻单元格。
 - **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`CUSTOM.md`。没有新增或修改上游文件总表。
 - **验证：** 静态核对地址改为 wrap_content、按单元格宽度设置 maxWidth、删除按钮 48dp 点击区域及 8dp 前间距；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
+
+
+### 第 45 步：已保存 IP 测试时间精确到秒（r276）
+- **显示规则：** 不足 1 分钟显示“N秒”；1 分钟至不足 1 小时显示“M分S秒”；1 小时至不足 1 天显示“H小时M分”；1 天及以上显示“D天H小时”。只替换已保存 IP 行里的时间文字，通 / 不通状态文字、颜色、位置不变；未测试 IP 仍不显示时间。
+- **时间来源：** 直接使用现有 `lastTestedAt`，不修改 `SavedIpStore` 数据结构或批次保存时间戳；同批 IP 仍保留原有相同时间。
+- **计算与刷新：** 使用独立的 `savedIpElapsedTime()` 函数，四种格式均从中英文 `strings_custom.xml` 资源读取，不在 Kotlin 代码里拼接文案。只在行绑定 / 列表重绘、搜索、筛选切换、页面刷新，以及页面重新获得窗口焦点时计算一次；不加定时器、轮询或后台任务，静止页面的秒数不自动跳动。
+- **范围：** 不改排序、分组、搜索条件、标签页、保存逻辑或测试框 / 解析结果框的分钟显示。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、`design/src/main/res/values/strings_custom.xml`、`design/src/main/res/values-zh/strings_custom.xml`、`CUSTOM.md`。没有新增或修改上游文件总表。
+- **验证：** 静态核对四个时间区间、资源占位符、未测试 IP 不显示时间、现有 `lastTestedAt` 未改动、窗口重新获得焦点时重绘；未运行 `scripts/check-custom.sh`、Kotlin 编译、Android Build Debug 或真机验证（当前仅通过 GitHub 文件接口修改，无法执行仓库脚本）。
 
 
 ## IP 测试审查修正（r220）

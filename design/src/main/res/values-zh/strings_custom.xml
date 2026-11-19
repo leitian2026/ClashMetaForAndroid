@@ -474,6 +474,11 @@
     <string name="saved_ip_time_compact_minutes">%1$d分</string>
     <string name="saved_ip_time_compact_hours">%1$d小时</string>
     <string name="saved_ip_time_compact_days">%1$d天</string>
+    <string name="saved_ip_elapsed_seconds">%1$d秒</string>
+    <string name="saved_ip_elapsed_minutes_seconds">%1$d分%2$d秒</string>
+    <string name="saved_ip_elapsed_hours_minutes">%1$d小时%2$d分</string>
+    <string name="saved_ip_elapsed_days_hours">%1$d天%2$d小时</string>
+
     <string name="saved_ip_select_unreachable">选不通的</string>
     <string name="saved_ip_select_oldest_20">选最久没测的 20 个</string>
     <string name="saved_ip_select_unreachable_overflow">不通的有 %1$d 个，已选最久没测的 20 个。</string>

@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.widget.PopupMenu
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -211,6 +212,21 @@ class SavedIpDesign(
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(operatorList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            private val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                if (hasFocus) renderRows()
+            }
+
+            override fun onViewAttachedToWindow(view: View) {
+                view.viewTreeObserver.addOnWindowFocusChangeListener(focusListener)
+            }
+
+            override fun onViewDetachedFromWindow(view: View) {
+                view.viewTreeObserver.let { observer ->
+                    if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
+                }
+            }
+        })
         refresh()
     }
 
@@ -479,7 +495,7 @@ class SavedIpDesign(
             val label = savedIpTimeLabel(entry.lastTestedAt)
             detail.addView(View(context), LinearLayout.LayoutParams(dp(4), 1))
             detail.addView(TextView(context).apply {
-                text = label.compact
+                text = savedIpElapsedTime(entry.lastTestedAt)
                 textSize = 11f
                 setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
                 setSingleLine(true)
@@ -700,6 +716,29 @@ class SavedIpDesign(
             }
             item.addView(detail, fullWidth())
             operatorList.addView(item, fullWidth())
+        }
+    }
+
+    // CUSTOM.md #156 第 45 步：精确到秒的已保存 IP 相对测试时间；仅在列表行绑定时计算。
+    private fun savedIpElapsedTime(at: Long): String {
+        val seconds = ((System.currentTimeMillis() - at) / 1000L).coerceAtLeast(0L)
+        return when {
+            seconds < 60L -> context.getString(R.string.saved_ip_elapsed_seconds, seconds.toInt())
+            seconds < 3600L -> context.getString(
+                R.string.saved_ip_elapsed_minutes_seconds,
+                (seconds / 60L).toInt(),
+                (seconds % 60L).toInt(),
+            )
+            seconds < 86400L -> context.getString(
+                R.string.saved_ip_elapsed_hours_minutes,
+                (seconds / 3600L).toInt(),
+                ((seconds % 3600L) / 60L).toInt(),
+            )
+            else -> context.getString(
+                R.string.saved_ip_elapsed_days_hours,
+                (seconds / 86400L).toInt(),
+                ((seconds % 86400L) / 3600L).toInt(),
+            )
         }
     }
 
