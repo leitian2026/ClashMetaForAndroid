@@ -1,7 +1,7 @@
 # CUSTOM.md — 自定义功能登记表
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r277
+当前版本：2_11_46-r278
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`。每次改动都要同步更新本文件（含下面的总表）。
@@ -2261,6 +2261,17 @@ r80 加的 `iptest_log_node_colo_ok`（英文）里有两个没转义的撇号�
 - **范围：** 不改测速请求、结果表、保存逻辑；不增加网络请求、定时器、轮询或后台任务。未修改上游文件总表。
 - **改动文件：** `core/src/main/golang/native/conftest/iptest_logic.go`、`iptest_probe.go`、`iptest.go`、`iptest_test.go`、`core/src/main/java/com/github/kr328/clash/core/model/IpTestReport.kt`、`design/src/main/java/com/github/kr328/clash/design/custom/IpTestDialog.kt`、`ConfigCheckDesign.kt`、`app/src/main/java/com/github/kr328/clash/custom/ConfigCheckActivity.kt`、两份 `strings_iptest.xml`、`CUSTOM.md`。
 - **验证：** 静态核对现有解析函数的所有调用点、端口剥离、IPv6 规范化、首次顺序、未截断的填入模式、手动输入保持原文及中英文资源占位符；未在本地运行脚本或编译，待 Actions CI 验证。
+
+
+
+### 第 47 步：已保存 IP 分组批量清理与选择（r278）
+- **分组菜单：** 每个运营商分组标题右侧的 ⋮ 菜单增加“删除超过 N 天未测的”和“选中未测或久未测的”；“删除所有不通的”始终显示，分组不通数量为 0 时置灰。
+- **删除超过 N 天未测的：** 先选择 1 / 3 / 7 / 30 天，再显示确认框及本分组待删除数量。只按 `lastTestedAt > 0` 且早于本次计算的截止时间判断；从未测试的 IP 不计入、不删除。截止时间只在选择天数时计算一次，确认和实际删除共用该值。
+- **选中未测或久未测的：** 提供“未测试 / 超过 1 小时 / 超过 6 小时 / 超过 24 小时”选项；按整个分组的 IP 判断，不受当前标签筛选和搜索影响。符合条件的地址进入现有多选状态，不自动测试；沿用现有最多选 20 个的限制，超出时优先选最久未测的 20 个并提示匹配总数。多选期间显示整个所选分组，确保选中的行可见。
+- **删除安全：** 所有删除继续经现有 `writeSnapshot()` 调用 `SavedIpStore.update()`，由存储层严格读—改—写；读取失败或 JSON 损坏时拒绝覆盖。删除后保留空分组，调用现有 `refresh()` 更新列表、分组数量和顶部统计，并提示实际删除数量。
+- 不新增测试流程、定时器、轮询或后台任务；未修改 `SavedIpStore`（现有 `update()` 已满足读改写保护），未修改上游文件总表。
+- **改动文件：** `design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt`、两份 `design/src/main/res/values/strings_custom.xml`、`CUSTOM.md`。
+- **验证：** 静态核对菜单零数量置灰、四个天数选项、固定截止时间、从未测试不删除、整组选择忽略筛选/搜索、最多 20 个、删除走 `SavedIpStore.update()`、空分组保留及中英文资源；未在本地运行脚本或编译，待 Actions CI 验证。
 
 
 

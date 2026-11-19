@@ -486,6 +486,23 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_delete_unreachable_title">Delete all unreachable IPs?</string>
     <string name="saved_ip_delete_unreachable_message">Delete %2$d unreachable IPs from %1$s? This cannot be undone.</string>
     <string name="saved_ip_delete_unreachable_done">Deleted %1$d IPs.</string>
+    <string name="saved_ip_delete_older">Delete IPs not tested for more than…</string>
+    <string name="saved_ip_delete_older_title">Choose how long since the last test</string>
+    <string name="saved_ip_days_1">1 day</string>
+    <string name="saved_ip_days_3">3 days</string>
+    <string name="saved_ip_days_7">7 days</string>
+    <string name="saved_ip_days_30">30 days</string>
+    <string name="saved_ip_delete_older_confirm_title">Confirm deletion</string>
+    <string name="saved_ip_delete_older_message">%1$s: delete %2$d IPs not tested for more than %3$d days? This cannot be undone.</string>
+    <string name="saved_ip_delete_older_done">Deleted %1$d IPs.</string>
+    <string name="saved_ip_select_age">Select untested or stale IPs</string>
+    <string name="saved_ip_select_age_title">Choose which IPs to select</string>
+    <string name="saved_ip_select_untested">Untested</string>
+    <string name="saved_ip_select_over_1_hour">More than 1 hour</string>
+    <string name="saved_ip_select_over_6_hours">More than 6 hours</string>
+    <string name="saved_ip_select_over_24_hours">More than 24 hours</string>
+    <string name="saved_ip_select_age_none">No IPs match this condition.</string>
+    <string name="saved_ip_select_age_overflow">%1$d IPs match; selected the 20 oldest.</string>
     <string name="saved_ip_time_date_same_year_compact">M/d</string>
     <string name="saved_ip_time_date_other_year_compact">M/d/yy</string>
     <!-- CUSTOM (CUSTOM.md #20, r211): underlying connections page, grouped layout -->

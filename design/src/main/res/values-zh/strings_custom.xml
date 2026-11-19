@@ -486,6 +486,23 @@
     <string name="saved_ip_delete_unreachable_title">删除所有不通的 IP？</string>
     <string name="saved_ip_delete_unreachable_message">确定删除运营商“%1$s”的 %2$d 个不通 IP？删除后不能恢复。</string>
     <string name="saved_ip_delete_unreachable_done">已删除 %1$d 个。</string>
+    <string name="saved_ip_delete_older">删除超过 N 天未测的</string>
+    <string name="saved_ip_delete_older_title">选择未测试的天数</string>
+    <string name="saved_ip_days_1">1 天</string>
+    <string name="saved_ip_days_3">3 天</string>
+    <string name="saved_ip_days_7">7 天</string>
+    <string name="saved_ip_days_30">30 天</string>
+    <string name="saved_ip_delete_older_confirm_title">确认删除</string>
+    <string name="saved_ip_delete_older_message">将删除本分组“%1$s”中 %2$d 个超过 %3$d 天未测的 IP，删除后不能恢复。</string>
+    <string name="saved_ip_delete_older_done">已删除 %1$d 个。</string>
+    <string name="saved_ip_select_age">选中未测或久未测的</string>
+    <string name="saved_ip_select_age_title">选择要选中的 IP</string>
+    <string name="saved_ip_select_untested">未测试</string>
+    <string name="saved_ip_select_over_1_hour">超过 1 小时</string>
+    <string name="saved_ip_select_over_6_hours">超过 6 小时</string>
+    <string name="saved_ip_select_over_24_hours">超过 24 小时</string>
+    <string name="saved_ip_select_age_none">没有符合条件的 IP</string>
+    <string name="saved_ip_select_age_overflow">%1$d 个符合条件，已选最久未测的 20 个。</string>
     <string name="saved_ip_time_date_same_year_compact">M/d</string>
     <string name="saved_ip_time_date_other_year_compact">yy/M/d</string>
     <!-- CUSTOM (CUSTOM.md #20, r211): underlying connections page, grouped layout -->

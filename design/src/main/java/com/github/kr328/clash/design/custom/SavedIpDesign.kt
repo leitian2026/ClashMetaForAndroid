@@ -260,7 +260,12 @@ class SavedIpDesign(
         val query = searchInput.text?.toString()?.trim().orEmpty()
         val rows = ArrayList<SavedIpListRow>()
         for (operator in snapshotCache.operators) {
-            val entries = visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
+            // While selecting a group, show that whole group regardless of the active filter or search text.
+            val entries = if (selectedOperatorId == operator.id) {
+                SavedIpStore.sortEntries(operator.ips)
+            } else {
+                visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
+            }
             if (entries.isEmpty()) continue
             val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
             rows += SavedIpListRow.Operator(operator, entries, expanded)
@@ -363,16 +368,20 @@ class SavedIpDesign(
             background = selectableBackground()
             setOnClickListener { anchor ->
                 PopupMenu(context, anchor).apply {
-                    if (unreachable > 0) menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable)
+                    menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable).isEnabled = unreachable > 0
+                    menu.add(0, 4, 1, R.string.saved_ip_delete_older)
+                    menu.add(0, 5, 2, R.string.saved_ip_select_age)
                     if (operator.id !in SavedIpStore.builtInOperatorIds) {
-                        menu.add(0, 2, 1, R.string.saved_ip_rename)
-                        menu.add(0, 3, 2, R.string.saved_ip_delete)
+                        menu.add(0, 2, 3, R.string.saved_ip_rename)
+                        menu.add(0, 3, 4, R.string.saved_ip_delete)
                     }
                     setOnMenuItemClickListener { item ->
                         when (item.itemId) {
                             1 -> confirmDeleteUnreachable(operator)
                             2 -> editOperator(operator)
                             3 -> confirmDeleteOperator(operator)
+                            4 -> chooseDeleteOlder(operator)
+                            5 -> chooseSelectAge(operator)
                         }
                         true
                     }
@@ -968,6 +977,106 @@ class SavedIpDesign(
                 refresh()
             }
             .show()
+    }
+
+    private fun chooseDeleteOlder(operator: SavedIpOperator) {
+        val days = intArrayOf(1, 3, 7, 30)
+        val labels = arrayOf(
+            context.getString(R.string.saved_ip_days_1),
+            context.getString(R.string.saved_ip_days_3),
+            context.getString(R.string.saved_ip_days_7),
+            context.getString(R.string.saved_ip_days_30),
+        )
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_delete_older_title)
+            .setItems(labels) { _, which ->
+                if (which in days.indices) {
+                    val cutoff = System.currentTimeMillis() - days[which].toLong() * 24L * 60L * 60L * 1000L
+                    confirmDeleteOlder(operator, days[which], cutoff)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmDeleteOlder(operator: SavedIpOperator, days: Int, cutoff: Long) {
+        val current = snapshotCache.operators.firstOrNull { it.id == operator.id } ?: operator
+        val count = current.ips.count { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_delete_older_confirm_title)
+            .setMessage(context.getString(R.string.saved_ip_delete_older_message, displayName(operator), count, days))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
+                var deleted = 0
+                if (!writeSnapshot { snapshot ->
+                    snapshot.copy(operators = snapshot.operators.map { saved ->
+                        if (saved.id == operator.id) {
+                            val remaining = saved.ips.filterNot { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
+                            deleted = saved.ips.size - remaining.size
+                            saved.copy(ips = remaining)
+                        } else saved
+                    })
+                }) return@setPositiveButton
+                if (selectedOperatorId == operator.id) clearSelectionState()
+                refresh()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.saved_ip_delete_older_done, deleted),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            .show()
+    }
+
+    private fun chooseSelectAge(operator: SavedIpOperator) {
+        val labels = arrayOf(
+            context.getString(R.string.saved_ip_select_untested),
+            context.getString(R.string.saved_ip_select_over_1_hour),
+            context.getString(R.string.saved_ip_select_over_6_hours),
+            context.getString(R.string.saved_ip_select_over_24_hours),
+        )
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_select_age_title)
+            .setItems(labels) { _, which ->
+                val now = System.currentTimeMillis()
+                val matching = when (which) {
+                    0 -> operator.ips.filter { it.status == SavedIpStatus.UNTESTED || it.lastTestedAt <= 0L }
+                        .sortedBy { it.addedAt }
+                    1, 2, 3 -> {
+                        val hours = when (which) {
+                            1 -> 1L
+                            2 -> 6L
+                            else -> 24L
+                        }
+                        val cutoff = now - hours * 60L * 60L * 1000L
+                        operator.ips.filter { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
+                            .sortedBy { it.lastTestedAt }
+                    }
+                    else -> emptyList()
+                }
+                selectGroupMatches(operator, matching)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun selectGroupMatches(operator: SavedIpOperator, matching: List<SavedIpEntry>) {
+        if (matching.isEmpty()) {
+            Toast.makeText(context, R.string.saved_ip_select_age_none, Toast.LENGTH_SHORT).show()
+            return
+        }
+        selectedOperatorId = operator.id
+        selectedAddresses.clear()
+        val selected = matching.take(20)
+        selectedAddresses.addAll(selected.map { it.address })
+        refresh()
+        if (matching.size > 20) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.saved_ip_select_age_overflow, matching.size),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     private fun confirmDeleteUnreachable(operator: SavedIpOperator) {
