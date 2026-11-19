@@ -22,12 +22,14 @@ import (
 var errBadTargetURL = errors.New("bad url")
 
 type requestSnapshot struct {
-	Status  int
-	Elapsed time.Duration
-	Header  http.Header
-	State   tls.ConnectionState
-	Ph      Phases
-	Body    []byte
+	Status     int
+	Proto      string
+	ProtoMajor int
+	Elapsed    time.Duration
+	Header     http.Header
+	State      tls.ConnectionState
+	Ph         Phases
+	Body       []byte
 }
 
 func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLimit int64, forceHTTP2 bool) (requestSnapshot, error) {
@@ -95,8 +97,10 @@ func requestSnapshotVia(px C.Proxy, rawURL string, timeout time.Duration, bodyLi
 	defer resp.Body.Close()
 
 	result := requestSnapshot{
-		Status:  resp.StatusCode,
-		Elapsed: time.Since(start),
+		Status:     resp.StatusCode,
+		Proto:      resp.Proto,
+		ProtoMajor: resp.ProtoMajor,
+		Elapsed:    time.Since(start),
 		Header:  resp.Header.Clone(),
 		State:   clock.connectionState(),
 		Ph:      clock.phases(dialed),
