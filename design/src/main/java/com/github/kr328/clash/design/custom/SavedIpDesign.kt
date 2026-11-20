@@ -24,10 +24,6 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 import android.widget.Toast
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
@@ -137,12 +133,6 @@ class SavedIpDesign(
     private val selectedAddresses = LinkedHashSet<String>()
     private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
     private var savedTableScrollX = 0
-
-    private data class SavedIpTimeLabel(
-        val full: String,
-        val compact: String,
-        val isDate: Boolean,
-    )
 
     // CUSTOM (CUSTOM.md #164): the former filter toolbar is removed; search moves into the title row.
     private val selectionActions = LinearLayout(context).apply {
@@ -633,64 +623,6 @@ class SavedIpDesign(
             return true
         }
         return false
-    }
-
-    // CUSTOM.md #156 第 45 步：精确到秒的已保存 IP 相对测试时间；仅在列表行绑定时计算。
-    private fun savedIpElapsedTime(at: Long): String {
-        val seconds = ((System.currentTimeMillis() - at) / 1000L).coerceAtLeast(0L)
-        return when {
-            seconds < 60L -> context.getString(R.string.saved_ip_elapsed_seconds, seconds.toInt())
-            seconds < 3600L -> context.getString(
-                R.string.saved_ip_elapsed_minutes_seconds,
-                (seconds / 60L).toInt(),
-                (seconds % 60L).toInt(),
-            )
-            seconds < 86400L -> context.getString(
-                R.string.saved_ip_elapsed_hours_minutes,
-                (seconds / 3600L).toInt(),
-                ((seconds % 3600L) / 60L).toInt(),
-            )
-            else -> context.getString(
-                R.string.saved_ip_elapsed_days_hours,
-                (seconds / 86400L).toInt(),
-                ((seconds % 86400L) / 3600L).toInt(),
-            )
-        }
-    }
-
-    private fun savedIpTimeLabel(at: Long): SavedIpTimeLabel {
-        val now = System.currentTimeMillis()
-        if (at > now) {
-            return SavedIpTimeLabel(
-                AgeText.reachAgo(context, at, now),
-                AgeText.reachAgoCompact(context, at, now),
-                false,
-            )
-        }
-        val age = now - at
-        if (age >= 15L * 24L * 60L * 60L * 1000L) {
-            val tested = Calendar.getInstance().apply { timeInMillis = at }
-            val current = Calendar.getInstance().apply { timeInMillis = now }
-            val sameYear = tested.get(Calendar.YEAR) == current.get(Calendar.YEAR)
-            val pattern = if (sameYear) {
-                context.getString(R.string.saved_ip_time_date_same_year)
-            } else {
-                context.getString(R.string.saved_ip_time_date_other_year)
-            }
-            val compactPattern = if (sameYear) {
-                context.getString(R.string.saved_ip_time_date_same_year_compact)
-            } else {
-                context.getString(R.string.saved_ip_time_date_other_year_compact)
-            }
-            val date = SimpleDateFormat(pattern, Locale.getDefault()).format(Date(at))
-            val compactDate = SimpleDateFormat(compactPattern, Locale.getDefault()).format(Date(at))
-            return SavedIpTimeLabel(date, compactDate, true)
-        }
-        return SavedIpTimeLabel(
-            AgeText.reachAgo(context, at, now),
-            AgeText.reachAgoCompact(context, at, now),
-            false,
-        )
     }
 
     // CUSTOM.md #156 step 4: enter / toggle selection only inside one operator group.

@@ -1206,6 +1206,7 @@ class IpTestView(
         }
         grid.addView(headerRow, lp(gridWidth, headerHeight))
 
+        val now = System.currentTimeMillis()
         entries.forEachIndexed { rowIndex, entry ->
             val result = entry.result
             val row = result ?: IpTestRow(ip = entry.address, ok = true)
@@ -1217,6 +1218,17 @@ class IpTestView(
             }
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row)
+            // CUSTOM (CUSTOM.md #156): how long ago this IP was tested, right under the address.
+            SavedIpTimeText.text(context, entry.lastTestedAt, now).takeIf { it.isNotEmpty() }?.let { timeText ->
+                (ipView as? LinearLayout)?.addView(
+                    TextView(context).apply {
+                        text = timeText; textSize = 12f; maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END; setTextColor(colorMuted)
+                    },
+                    1,
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
             val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
             val selected = isSelected(entry.address)
             val rowBackground = if (selected) Color.argb(
