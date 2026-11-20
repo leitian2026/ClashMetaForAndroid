@@ -66,6 +66,11 @@ class SavedIpDesign(
     savedState: Bundle? = null,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
+    private companion object {
+        const val PANEL_STATUS = "status"
+        const val PANEL_COUNTRY = "country"
+        const val PANEL_SORT = "sort"
+    }
     private val filterState = SavedIpFilterState.restore(savedState)
     private val density = context.resources.displayMetrics.density
     private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
@@ -135,16 +140,26 @@ class SavedIpDesign(
         val isDate: Boolean,
     )
 
-    // CUSTOM.md #156 step 16: compact overall status summary above the filter chips.
-    private val summaryView = TextView(context).apply {
-        textSize = 13f
-        setTextColor(colorMuted)
-        setPadding(dp(16), dp(10), dp(16), dp(6))
-    }
-    private val filterBar = LinearLayout(context).apply {
+    // CUSTOM.md #159 (r287): compact toolbar and in-place filter panels.
+    private val filterToolbar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), dp(2), dp(12), dp(8))
+        setPadding(dp(8), dp(2), dp(8), dp(2))
+    }
+    private val filterPanels = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), 0, dp(12), dp(4))
+    }
+    private val statusPanel = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        visibility = View.GONE
+    }
+    private val selectedStatusTags = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(12), 0, dp(12), dp(4))
+        visibility = View.GONE
     }
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -170,21 +185,30 @@ class SavedIpDesign(
     private val selectUnreachableButton = actionButton(R.string.saved_ip_select_unreachable) { selectUnreachable() }
     private val selectOldestButton = actionButton(R.string.saved_ip_select_oldest_20) { selectOldest20() }
 
+    private val searchIconButton = TextView(context).apply {
+        text = "🔍"
+        textSize = 18f
+        gravity = Gravity.CENTER
+        minWidth = dp(40)
+        minHeight = dp(40)
+        background = selectableBackground()
+    }
+    private val statusFilterButton = actionText(R.string.saved_ip_filter_all) { toggleFilterPanel(PANEL_STATUS) }
+    private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { toggleFilterPanel(PANEL_COUNTRY) }
+    private val sortButton = actionText(R.string.saved_ip_sort_button) { toggleFilterPanel(PANEL_SORT) }
+    private val countryPanel = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = View.GONE
+    }
+    private val sortPanel = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = View.GONE
+    }
     private val filterButtons = listOf(
-        filterButton(R.string.saved_ip_filter_all, null),
         filterButton(R.string.saved_ip_filter_reachable, SavedIpStatus.REACHABLE),
         filterButton(R.string.saved_ip_filter_unreachable, SavedIpStatus.UNREACHABLE),
         filterButton(R.string.saved_ip_filter_untested, SavedIpStatus.UNTESTED),
     )
-    private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortOptions() }
-    // CUSTOM.md #160: country filters are multi-select and independent of the status filter.
-    private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { showCountryFilterOptions() }
-    private val countryFilterBar = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        setPadding(dp(12), 0, dp(12), dp(4))
-        addView(countryFilterButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)))
-    }
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -197,19 +221,21 @@ class SavedIpDesign(
             }
         })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(summaryView, fullWidth())
 
-        filterButtons.forEach { filterBar.addView(it, weighted(3)) }
-        filterBar.addView(sortButton, weighted(2))
-        root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(countryFilterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        filterToolbar.addView(searchIconButton, LinearLayout.LayoutParams(dp(40), dp(40)))
+        filterToolbar.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        filterToolbar.addView(countryFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        filterToolbar.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        root.addView(filterToolbar, fullWidth())
+
+        filterButtons.forEach { statusPanel.addView(it, LinearLayout.LayoutParams(0, dp(40), 1f)) }
+        filterPanels.addView(statusPanel, fullWidth())
+        filterPanels.addView(countryPanel, fullWidth())
+        filterPanels.addView(sortPanel, fullWidth())
+        root.addView(filterPanels, fullWidth())
+        root.addView(selectedStatusTags, fullWidth())
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         searchInput.setText(filterState.query)
-        root.addView(searchInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
-            marginStart = dp(16)
-            marginEnd = dp(16)
-            bottomMargin = dp(6)
-        })
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -265,18 +291,9 @@ class SavedIpDesign(
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
-        updateFilterButtons(snapshotCache)
         reconcileCountryFilter(snapshotCache)
-        updateCountryFilterButton(snapshotCache)
         reconcileSelection(snapshotCache)
-        val allEntries = snapshotCache.operators.flatMap { it.ips }
-        summaryView.text = context.getString(
-            R.string.saved_ip_summary,
-            allEntries.size,
-            allEntries.count { it.status == SavedIpStatus.REACHABLE },
-            allEntries.count { it.status == SavedIpStatus.UNREACHABLE },
-            allEntries.count { it.status == SavedIpStatus.UNTESTED },
-        )
+        updateFilterToolbar()
         renderRows()
     }
 
@@ -548,32 +565,31 @@ class SavedIpDesign(
     }
 
     // CUSTOM.md #160: select one or more countries; status and text search remain independent AND filters.
-    private fun showCountryFilterOptions() {
+    private fun buildCountryPanel() {
+        countryPanel.removeAllViews()
         val codes = savedIpCountryCodes(snapshotCache.operators)
-        if (codes.isEmpty()) {
-            Toast.makeText(context, R.string.saved_ip_filter_country_empty, Toast.LENGTH_SHORT).show()
-            return
+        val scroll = android.widget.ScrollView(context).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = true
         }
-        val labels = codes.map { CountryName.label(it) }.toTypedArray()
-        val workingSelection = LinkedHashSet(selectedCountryCodes)
-        val checked = BooleanArray(codes.size) { codes[it] in workingSelection }
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_filter_country_title)
-            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
-                if (which in codes.indices) {
-                    if (isChecked) workingSelection.add(codes[which])
-                    else workingSelection.remove(codes[which])
+        val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        codes.forEach { code ->
+            choices.addView(CheckBox(context).apply {
+                text = "${CountryFlag.of(code)} ${CountryName.label(code)}"
+                textSize = 14f
+                isChecked = code in selectedCountryCodes
+                minHeight = dp(40)
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked) selectedCountryCodes.add(code) else selectedCountryCodes.remove(code)
+                    clearSelectionState()
+                    updateFilterToolbar(rebuildPanels = false)
+                    renderRows()
                 }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                selectedCountryCodes.clear()
-                selectedCountryCodes.addAll(workingSelection)
-                clearSelectionState()
-                updateCountryFilterButton(snapshotCache)
-                renderRows()
-            }
-            .show()
+            }, fullWidth())
+        }
+        scroll.addView(choices, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val panelHeight = minOf(dp(220), dp(44 * codes.size.coerceAtLeast(1)))
+        countryPanel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, panelHeight))
     }
 
     private fun reconcileCountryFilter(snapshot: SavedIpSnapshot) {
@@ -591,48 +607,115 @@ class SavedIpDesign(
         countryFilterButton.alpha = if (enabled) 1f else 0.35f
     }
 
-    // CUSTOM.md #159: show a single-choice menu; changing sort only rebuilds this page's rows.
-    private fun showSortOptions() {
-        val options = arrayOf(
-            context.getString(R.string.saved_ip_sort_default),
-            context.getString(R.string.saved_ip_sort_latency),
-            context.getString(R.string.saved_ip_sort_speed),
-        )
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_sort_title)
-            .setSingleChoiceItems(options, currentSort.ordinal) { dialog, which ->
-                currentSort = SavedIpSort.values()[which]
-                dialog.dismiss()
-                renderRows()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    private fun buildSortPanel() {
+        sortPanel.removeAllViews()
+        val options = listOf(R.string.saved_ip_sort_default, R.string.saved_ip_sort_latency, R.string.saved_ip_sort_speed)
+        options.forEachIndexed { index, label ->
+            sortPanel.addView(TextView(context).apply {
+                setText(label)
+                textSize = 14f
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = dp(40)
+                setPadding(dp(12), 0, dp(12), 0)
+                setTextColor(if (currentSort.ordinal == index) colorLink else colorText)
+                setTypeface(null, if (currentSort.ordinal == index) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                background = selectableBackground()
+                setOnClickListener {
+                    currentSort = SavedIpSort.values()[index]
+                    updateFilterToolbar()
+                    renderRows()
+                }
+            }, fullWidth())
+        }
     }
 
-    private fun filterButton(label: Int, status: SavedIpStatus?) = TextView(context).apply {
-        setText(label)
-        textSize = 14f
-        gravity = Gravity.CENTER
-        minHeight = dp(40)
-        setSingleLine(true)
-        ellipsize = TextUtils.TruncateAt.END
-        setPadding(dp(3), 0, dp(3), 0)
-        setTextColor(colorLink)
-        background = selectableBackground()
-        setOnClickListener {
-            if (status == null) {
-                filterState.selectedStatuses.clear()
-            } else {
-                if (!filterState.selectedStatuses.add(status)) {
-                    filterState.selectedStatuses.remove(status)
+    private fun toggleFilterPanel(panel: String) {
+        filterState.expandedPanel = if (filterState.expandedPanel == panel) "" else panel
+        updateFilterToolbar()
+    }
+
+    private fun updateFilterToolbar(rebuildPanels: Boolean = true) {
+        statusFilterButton.text = buildString {
+            val selected = filterState.selectedStatuses
+            if (selected.isEmpty()) append(context.getString(R.string.saved_ip_filter_all))
+            else {
+                if (SavedIpStatus.REACHABLE in selected) append(context.getString(R.string.saved_ip_filter_reachable))
+                if (SavedIpStatus.UNREACHABLE in selected) {
+                    if (isNotEmpty()) append(" + ")
+                    append(context.getString(R.string.saved_ip_filter_unreachable))
                 }
-                if (filterState.selectedStatuses.size == SavedIpStatus.values().size) {
-                    filterState.selectedStatuses.clear()
+                if (SavedIpStatus.UNTESTED in selected) {
+                    if (isNotEmpty()) append(" + ")
+                    append(context.getString(R.string.saved_ip_filter_untested))
                 }
             }
+            append(" ▾")
+        }
+        countryFilterButton.text = if (selectedCountryCodes.isEmpty()) {
+            context.getString(R.string.saved_ip_filter_country) + " ▾"
+        } else context.getString(R.string.saved_ip_filter_country_selected, selectedCountryCodes.size) + " ▾"
+        sortButton.text = context.getString(when (currentSort) {
+            SavedIpSort.DEFAULT -> R.string.saved_ip_sort_button
+            SavedIpSort.AVG_ASCENDING -> R.string.saved_ip_sort_latency
+            SavedIpSort.SPEED_DESCENDING -> R.string.saved_ip_sort_speed
+        }) + " ▾"
+        val expanded = filterState.expandedPanel
+        statusPanel.visibility = if (expanded == PANEL_STATUS) View.VISIBLE else View.GONE
+        countryPanel.visibility = if (expanded == PANEL_COUNTRY) View.VISIBLE else View.GONE
+        sortPanel.visibility = if (expanded == PANEL_SORT) View.VISIBLE else View.GONE
+        if (rebuildPanels && expanded == PANEL_COUNTRY) buildCountryPanel()
+        if (rebuildPanels && expanded == PANEL_SORT) buildSortPanel()
+        filterPanels.visibility = if (expanded.isEmpty()) View.GONE else View.VISIBLE
+        updateFilterButtons(snapshotCache)
+        updateSelectedStatusTags()
+        countryFilterButton.isEnabled = savedIpCountryCodes(snapshotCache.operators).isNotEmpty()
+        countryFilterButton.alpha = if (countryFilterButton.isEnabled) 1f else 0.35f
+    }
+
+    private fun updateSelectedStatusTags() {
+        selectedStatusTags.removeAllViews()
+        val selected = filterState.selectedStatuses
+        if (selected.isEmpty()) {
+            selectedStatusTags.visibility = View.GONE
+            return
+        }
+        selectedStatusTags.visibility = View.VISIBLE
+        selected.forEach { status ->
+            val (label, color) = when (status) {
+                SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_filter_reachable) to Color.rgb(46, 125, 50)
+                SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_filter_unreachable) to Color.rgb(198, 40, 40)
+                SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_filter_untested) to Color.rgb(239, 143, 0)
+            }
+            selectedStatusTags.addView(TextView(context).apply {
+                text = label
+                textSize = 11f
+                setTextColor(color)
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(10).toFloat()
+                    setColor(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(6)
+            })
+        }
+    }
+
+    private fun filterButton(label: Int, status: SavedIpStatus) = TextView(context).apply {
+        setText(label)
+        textSize = 13f
+        gravity = Gravity.CENTER
+        minHeight = dp(40)
+        setPadding(dp(3), 0, dp(3), 0)
+        setTextColor(colorMuted)
+        background = selectableBackground()
+        setOnClickListener {
+            if (!filterState.selectedStatuses.add(status)) filterState.selectedStatuses.remove(status)
+            if (filterState.selectedStatuses.size == SavedIpStatus.values().size) filterState.selectedStatuses.clear()
             clearSelectionState()
+            updateFilterToolbar()
             renderRows()
-            updateFilterButtons(snapshotCache)
         }
     }
 
@@ -645,27 +728,26 @@ class SavedIpDesign(
             entries.count { it.status == SavedIpStatus.UNTESTED },
         )
         val labels = listOf(
-            R.string.saved_ip_filter_all_count,
             R.string.saved_ip_filter_reachable_count,
             R.string.saved_ip_filter_unreachable_count,
             R.string.saved_ip_filter_untested_count,
         )
         filterButtons.forEachIndexed { index, button ->
-            val selected = if (index == 0) filterState.selectedStatuses.isEmpty()
-            else SavedIpStatus.values()[index - 1] in filterState.selectedStatuses
-            button.text = context.getString(labels[index], counts[index])
-            button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-            button.paintFlags = button.paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()
-            button.setTextColor(if (selected) colorLink else colorMuted)
-            button.background = if (selected) {
-                GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dp(16).toFloat()
-                    setColor(colorDivider)
-                }
-            } else {
-                selectableBackground()
+            val status = SavedIpStatus.values()[index]
+            val selected = status in filterState.selectedStatuses
+            button.text = context.getString(labels[index], counts[index + 1])
+            val color = when (status) {
+                SavedIpStatus.REACHABLE -> Color.rgb(46, 125, 50)
+                SavedIpStatus.UNREACHABLE -> Color.rgb(198, 40, 40)
+                SavedIpStatus.UNTESTED -> Color.rgb(239, 143, 0)
             }
+            button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            button.setTextColor(if (selected) color else colorMuted)
+            button.background = if (selected) GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
+            } else selectableBackground()
         }
     }
 
