@@ -879,7 +879,30 @@ class SavedIpDesign(
             Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
             return
         }
-        // CUSTOM.md #156 step 23: clear the old multi-selection before handing off to ConfigCheckActivity.
+        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        val selectedEntries = operator.ips.filter { it.address in addresses }
+        // Estimates follow iptest_probe.go: direct = 10 TLS attempts + one HEAD + five extra
+        // default-port handshakes (443 is already covered by the ten attempts); node modes =
+        // 10 main probes + country/ASN lookups + one entry-node handshake and one HEAD.
+        // ECH lookup is domain-cached; optional WS/H3/MTU extensions are not included.
+        val estimatedRequests = selectedEntries.sumOf { entry ->
+            if (entry.testDirect) 16 else 15
+        }
+        if (addresses.size >= 10) {
+            MaterialAlertDialogBuilder(context)
+                .setMessage(context.getString(R.string.saved_ip_retest_many_confirm, addresses.size, estimatedRequests))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.saved_ip_retest_continue) { _, _ ->
+                    startRetest(operatorId, addresses)
+                }
+                .show()
+            return
+        }
+        startRetest(operatorId, addresses)
+    }
+
+    private fun startRetest(operatorId: String, addresses: List<String>) {
+        // CUSTOM.md #156: clear the old multi-selection before handing off to ConfigCheckActivity.
         // SavedIpActivity stays on the back stack while the test page is open; retaining this selection
         // makes the next visit look as though the previous batch is still active.
         clearSelectionState()

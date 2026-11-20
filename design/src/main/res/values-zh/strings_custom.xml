@@ -533,4 +533,6 @@
     <string name="saved_ip_copied_hosts">已复制 %1$d 个 IP</string>
     <string name="saved_ip_deleted_undo">已删除 %1$d 个</string>
     <string name="saved_ip_undo">撤销</string>
+    <string name="saved_ip_retest_many_confirm">将重测 %1$d 个 IP，约 %2$d 个请求。继续？</string>
+    <string name="saved_ip_retest_continue">继续</string>
 </resources>

@@ -533,4 +533,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_copied_hosts">Copied %1$d IPs</string>
     <string name="saved_ip_deleted_undo">Deleted %1$d IPs</string>
     <string name="saved_ip_undo">Undo</string>
+    <string name="saved_ip_retest_many_confirm">Retest %1$d IPs, about %2$d requests. Continue?</string>
+    <string name="saved_ip_retest_continue">Continue</string>
 </resources>
