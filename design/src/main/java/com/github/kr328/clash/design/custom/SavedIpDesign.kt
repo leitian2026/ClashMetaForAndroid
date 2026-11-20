@@ -231,6 +231,7 @@ class SavedIpDesign(
     private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { showCountryPopup(it) }
     private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortMenu(it) }
     private var countryPopup: PopupWindow? = null
+    private var filterPopupMenu: PopupMenu? = null
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -621,6 +622,13 @@ class SavedIpDesign(
     }
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
+    private fun dismissFilterPopups() {
+        filterPopupMenu?.dismiss()
+        filterPopupMenu = null
+        countryPopup?.dismiss()
+        countryPopup = null
+    }
+
     private fun showCountryPopup(anchor: View) {
         if (filterState.searchExpanded) collapseSearch()
         if (countryPopup?.isShowing == true) {
@@ -628,6 +636,7 @@ class SavedIpDesign(
             countryPopup = null
             return
         }
+        dismissFilterPopups()
         val codes = savedIpCountryCodes(snapshotCache.operators)
         if (codes.isEmpty()) return
 
@@ -674,7 +683,7 @@ class SavedIpDesign(
 
     private fun showStatusMenu(anchor: View) {
         if (filterState.searchExpanded) collapseSearch()
-        countryPopup?.dismiss()
+        dismissFilterPopups()
         val entries = snapshotCache.operators.flatMap { it.ips }
         val counts = listOf(
             entries.size,
@@ -712,13 +721,15 @@ class SavedIpDesign(
                 renderRows()
                 true
             }
+            setOnDismissListener { if (filterPopupMenu === this) filterPopupMenu = null }
+            filterPopupMenu = this
             show()
         }
     }
 
     private fun showSortMenu(anchor: View) {
         if (filterState.searchExpanded) collapseSearch()
-        countryPopup?.dismiss()
+        dismissFilterPopups()
         val options = listOf(
             SavedIpSort.DEFAULT to R.string.saved_ip_sort_default,
             SavedIpSort.AVG_ASCENDING to R.string.saved_ip_sort_latency,
@@ -736,6 +747,8 @@ class SavedIpDesign(
                 renderRows()
                 true
             }
+            setOnDismissListener { if (filterPopupMenu === this) filterPopupMenu = null }
+            filterPopupMenu = this
             show()
         }
     }
@@ -790,7 +803,7 @@ class SavedIpDesign(
         val narrow = width < dp(460)
         if (filterToolbarNarrow == narrow) return
         filterToolbarNarrow = narrow
-        countryPopup?.dismiss()
+        dismissFilterPopups()
         val target = if (narrow) filterToolbarBottomRow else filterToolbarTopRow
         listOf(countryFilterButton, sortButton).forEach { button ->
             (button.parent as? ViewGroup)?.removeView(button)
