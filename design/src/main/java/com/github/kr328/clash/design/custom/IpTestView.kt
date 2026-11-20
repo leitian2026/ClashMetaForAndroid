@@ -1146,7 +1146,10 @@ class IpTestView(
                     addView(CheckBox(context).apply {
                         isChecked = selected
                         contentDescription = entry.address
-                        setOnClickListener { onLongPress(entry.address) }
+                        setOnClickListener {
+                            onLongPress(entry.address)
+                            post { isChecked = isSelected(entry.address) }
+                        }
                     }, LinearLayout.LayoutParams(checkboxWidth, ViewGroup.LayoutParams.MATCH_PARENT))
                 }
                 addView(ipView, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.MATCH_PARENT))
