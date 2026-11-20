@@ -573,6 +573,8 @@ class SavedIpDesign(
     private fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: List<SavedIpEntry>) {
         val (renderer, widths) = savedTableFor(operator)
         val selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty()
+        // CUSTOM.md #166: calculate from the complete operator list, before UI filters are applied.
+        val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
         val speedSortLabel = when (currentSort) {
             SavedIpSort.DEFAULT -> ""
             SavedIpSort.SPEED_ASCENDING -> "按最快"
@@ -599,6 +601,7 @@ class SavedIpDesign(
             selectedFilters = selectedFilters,
             speedSortLabel = speedSortLabel,
             onHeaderClick = onHeaderClick,
+            recommendedIps = recommendedIps,
         )
 
         val table = makeTable(entries).apply { tag = SAVED_TABLE_TAG }

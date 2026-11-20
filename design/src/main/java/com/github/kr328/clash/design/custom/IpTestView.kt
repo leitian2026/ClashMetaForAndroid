@@ -105,6 +105,7 @@ class IpTestView(
     private val headH = dp(40)
 
     private var rows: List<IpTestRow> = emptyList()
+    private var recommendedIps: Set<String> = emptySet() // CUSTOM.md #166: calculated once per result refresh
     private var savedTableAvailableWidth: Int = 0
     private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
@@ -299,6 +300,7 @@ class IpTestView(
 
     fun setRows(list: List<IpTestRow>) {
         rows = sorted(list)
+        recommendedIps = IpRecommend.forTest(rows)
         redraw()
         updateDiagnostics()
     }
@@ -1182,6 +1184,7 @@ class IpTestView(
         speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
         hostsIps: Set<String> = emptySet(),
+        recommendedIps: Set<String> = emptySet(),
     ): View {
         val gridWidth = widths.drop(1).sum()
         val selectionMode = isSelectionMode()
@@ -1223,6 +1226,7 @@ class IpTestView(
             val renderer = IpTestView(context, entry.testDirect, entry.testTarget)
             renderer.colos = colos
             renderer.coloCountries = coloCountries
+            renderer.recommendedIps = recommendedIps
             renderer.onCopy = { address ->
                 if (isSelectionMode()) onLongPress(address) else onCopy(address)
             }
@@ -1961,7 +1965,10 @@ class IpTestView(
         }
 
         val ip = DashedTextView(context).apply {
-            text = r.ip
+            text = if (r.ip in recommendedIps) SpannableStringBuilder("★ ").apply {
+                append(r.ip)
+                setSpan(ForegroundColorSpan(colorLink), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } else r.ip
             textSize = 15f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.MIDDLE
