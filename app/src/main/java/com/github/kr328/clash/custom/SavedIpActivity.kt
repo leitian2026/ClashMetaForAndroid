@@ -84,6 +84,11 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         if (page?.handleBackPressed() != true) super.onBackPressed()
     }
 
+    override fun onDestroy() {
+        page?.disposeUndo()
+        super.onDestroy()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
