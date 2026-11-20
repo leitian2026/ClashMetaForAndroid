@@ -1218,7 +1218,7 @@ class IpTestView(
         scroll.post { scroll.scrollTo(scrollX, 0) }
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(left, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(left, LinearLayout.LayoutParams(ipColumnWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
     }
