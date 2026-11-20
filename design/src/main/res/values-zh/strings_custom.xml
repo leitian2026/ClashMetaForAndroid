@@ -537,4 +537,7 @@
     <string name="saved_ip_retest_continue">继续</string>
     <string name="saved_ip_show_columns">显示哪些列…</string>
     <string name="saved_ip_show_columns_title">显示哪些列</string>
+    <!-- CUSTOM.md #167：测 IP 表精简 / 完整列切换 -->
+    <string name="iptest_columns_compact">显示列：精简 ✓ | 完整</string>
+    <string name="iptest_columns_full">显示列：精简 | 完整 ✓</string>
 </resources>

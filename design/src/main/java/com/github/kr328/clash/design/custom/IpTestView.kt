@@ -72,10 +72,9 @@ class IpTestView(
         Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
         Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED,
     )
-    private val keys = if (savedTable) {
-        // CUSTOM.md #162/#160: filter only the saved-table instance; the IP column remains fixed outside this list.
-        savedTableKeys.filter { visibleSavedColumns == null || it.name in visibleSavedColumns }
-    } else if (direct) {
+    private val ipUiPreferences = context.getSharedPreferences("custom_iptest_ui", Context.MODE_PRIVATE)
+    private var compactColumns = !savedTable && ipUiPreferences.getBoolean("compact_columns", false)
+    private val liveKeys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
         // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added
@@ -85,6 +84,27 @@ class IpTestView(
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
         // The no-target variant has no target-response / target-colo fields. (CUSTOM.md #43: the 比对照快 column was removed in r309.)
         listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.PHASE, Key.TEST, Key.SPEED)
+    }
+    private var keys = if (savedTable) {
+        // CUSTOM.md #162/#160: filter only the saved-table instance; the IP column remains fixed outside this list.
+        savedTableKeys.filter { visibleSavedColumns == null || it.name in visibleSavedColumns }
+    } else if (compactColumns) compactLiveKeys() else liveKeys
+
+    // CUSTOM.md #167: compact mode keeps only the port, loss, average latency, speed action / speed,
+    // and (when present) the target site's response.
+    private fun compactLiveKeys(): List<Key> = buildList {
+        add(if (direct) Key.PORTS else Key.PORT)
+        add(Key.LOSS)
+        add(Key.AVG)
+        if (target) add(Key.TARGET)
+        add(Key.TEST)
+        add(Key.SPEED)
+    }
+
+    private fun refreshColumnModeButton() {
+        columnModeButton.setText(
+            if (compactColumns) R.string.iptest_columns_compact else R.string.iptest_columns_full,
+        )
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -107,6 +127,7 @@ class IpTestView(
     private var rows: List<IpTestRow> = emptyList()
     private var recommendedIps: Set<String> = emptySet() // CUSTOM.md #166: calculated once per result refresh
     private var savedTableAvailableWidth: Int = 0
+    private var liveTableScrollX: Int = 0 // CUSTOM.md #167: retain horizontal position when columns are redrawn
     private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
@@ -118,6 +139,18 @@ class IpTestView(
     private val logLines = ArrayList<String>()
 
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+    // CUSTOM.md #167: one local preference shared by all three live test modes.
+    private val columnModeButton = MaterialButton(context).apply {
+        isAllCaps = false
+        setOnClickListener {
+            compactColumns = !compactColumns
+            ipUiPreferences.edit().putBoolean("compact_columns", compactColumns).apply()
+            keys = if (compactColumns) compactLiveKeys() else liveKeys
+            refreshColumnModeButton()
+            redraw()
+        }
+    }
 
     private val info = TextView(context).apply {
         textSize = 15f
@@ -251,6 +284,10 @@ class IpTestView(
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteToggle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        if (!savedTable) {
+            refreshColumnModeButton()
+            root.addView(columnModeButton, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(diagnosticsBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -299,8 +336,9 @@ class IpTestView(
     }
 
     fun setRows(list: List<IpTestRow>) {
+        // Rank the original probe order so exact ties keep their original positions.
+        recommendedIps = IpRecommend.forTest(list)
         rows = sorted(list)
-        recommendedIps = IpRecommend.forTest(rows)
         redraw()
         updateDiagnostics()
     }
@@ -983,16 +1021,16 @@ class IpTestView(
 
         sb.append(infoText).append("\n").append(if (noteBody.text.isNotEmpty()) noteBody.text.toString() + "\n" else "").append("\n\n")
         sb.append("| ").append(markdownCell(context.getString(R.string.iptest_col_ip)))
-        for (k in keys) sb.append(" | ").append(markdownCell(title(k)))
+        for (k in liveKeys) sb.append(" | ").append(markdownCell(title(k)))
         sb.append(" |\n")
 
         sb.append("| --- ")
-        repeat(keys.size) { sb.append("| --- ") }
+        repeat(liveKeys.size) { sb.append("| --- ") }
         sb.append("|\n")
 
         for (r in rows) {
             sb.append("| ").append(markdownCell(r.ip))
-            for (k in keys) {
+            for (k in liveKeys) {
                 // CUSTOM.md #68: keep the three phase timings on one line in the copied table.
                 val value = plainOf(k, r).let { if (k == Key.PHASE) it.replace('\n', ' ') else it }
                 sb.append(" | ").append(markdownCell(value))
@@ -1023,6 +1061,8 @@ class IpTestView(
     }
 
     private fun redraw() {
+        val previousScrollX = (tableBox.getChildAt(1) as? HorizontalScrollView)?.scrollX ?: liveTableScrollX
+        liveTableScrollX = previousScrollX
         tableBox.removeAllViews()
 
         if (rows.isEmpty()) return
@@ -1084,7 +1124,17 @@ class IpTestView(
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = true
             addView(grid, ViewGroup.LayoutParams(gridW, ViewGroup.LayoutParams.WRAP_CONTENT))
+            setOnScrollChangeListener { _, x, _, _, _ -> liveTableScrollX = x }
         }
+        scroll.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val observer = scroll.viewTreeObserver
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                if (scroll.scrollX == previousScrollX) return true
+                scroll.scrollTo(previousScrollX, 0)
+                return false
+            }
+        })
 
         tableBox.addView(left, LinearLayout.LayoutParams(w[0], ViewGroup.LayoutParams.WRAP_CONTENT))
         tableBox.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))

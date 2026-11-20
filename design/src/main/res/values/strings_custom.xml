@@ -537,4 +537,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_retest_continue">Continue</string>
     <string name="saved_ip_show_columns">Choose visible columns…</string>
     <string name="saved_ip_show_columns_title">Choose visible columns</string>
+    <!-- CUSTOM.md #167: live IP table compact / full column selector -->
+    <string name="iptest_columns_compact">Columns: Compact ✓ | Full</string>
+    <string name="iptest_columns_full">Columns: Compact | Full ✓</string>
 </resources>
