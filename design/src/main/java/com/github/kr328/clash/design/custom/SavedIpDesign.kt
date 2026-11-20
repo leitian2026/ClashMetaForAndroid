@@ -358,19 +358,17 @@ class SavedIpDesign(
         operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { operatorContent.removeView(it) }
 
         val query = searchInput.text?.toString()?.trim().orEmpty()
-        val entries = if (selectedOperatorId == operator.id) {
-            sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
-        } else {
-            val filtered = visibleEntries(operator)
-            if (query.isEmpty()) filtered else {
-                val renderer = savedTableFor(operator).first
-                filtered.filter { entry ->
-                    entry.address.contains(query, ignoreCase = true) ||
-                        SAVED_SEARCH_COLUMNS.any { column ->
-                            column in visibleSavedColumns &&
-                                renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
-                        }
-                }
+        // Keep status filters, column filters and search active during multi-selection.
+        // Selection changes only the row markers; it must not broaden the visible IP list.
+        val filtered = visibleEntries(operator)
+        val entries = if (query.isEmpty()) filtered else {
+            val renderer = savedTableFor(operator).first
+            filtered.filter { entry ->
+                entry.address.contains(query, ignoreCase = true) ||
+                    SAVED_SEARCH_COLUMNS.any { column ->
+                        column in visibleSavedColumns &&
+                            renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
+                    }
             }
         }
         val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
