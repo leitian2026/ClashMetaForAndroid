@@ -72,9 +72,9 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
     private val sidePadding = context.resources.getDimensionPixelSize(R.dimen.item_tailing_margin)
 
     private companion object {
-        const val NAME_SP = 18f
-        const val COUNTS_SP = 14f
-        const val ADDRESS_SP = 16f
+        const val NAME_SP = 16f
+        const val COUNTS_SP = 12f
+        const val ADDRESS_SP = 14f
     }
 
     private fun px(value: Float): Int = (value * dp).toInt()
@@ -174,7 +174,7 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
             )
             if (other) {
                 addView(
-                    text(context.getString(R.string.mux_other_tag), 12f, android.R.attr.textColorSecondary).apply {
+                    text(context.getString(R.string.mux_other_tag), 10f, android.R.attr.textColorSecondary).apply {
                         setPaddingRelative(px(8f), px(2f), px(8f), px(2f))
                         background = GradientDrawable().apply {
                             cornerRadius = px(10f).toFloat()
@@ -213,7 +213,7 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
     }
 
     private fun omitted(value: String): View =
-        row(text(value, 12f, android.R.attr.textColorTertiary, weight = 1f, width = 0), startPadding = px(12f), vertical = 4f)
+        row(text(value, 10f, android.R.attr.textColorTertiary, weight = 1f, width = 0), startPadding = px(12f), vertical = 4f)
 
     private fun rebuild(snapshot: MuxSnapshot) {
         val list = binding.muxList
@@ -228,7 +228,7 @@ class MuxDesign(context: Context) : Design<MuxDesign.Request>(context) {
 
         if (snapshot.nodesOmitted > 0) {
             list.addView(divider())
-            list.addView(row(text(context.getString(R.string.mux_nodes_omitted, snapshot.nodesOmitted), 12f, android.R.attr.textColorTertiary), vertical = 10f))
+            list.addView(row(text(context.getString(R.string.mux_nodes_omitted, snapshot.nodesOmitted), 10f, android.R.attr.textColorTertiary), vertical = 10f))
         }
     }
 
