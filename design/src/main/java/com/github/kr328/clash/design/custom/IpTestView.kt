@@ -1266,7 +1266,7 @@ class IpTestView(
                 if (isSelectionMode()) onLongPress(address) else onCopy(address)
             }
             renderer.onDetail = onDetail
-            val ipView = renderer.ipCell(row, showRecommendation = false)
+            val ipView = renderer.ipCell(row, showRecommendation = false, showFailureDetail = false)
             // CUSTOM (CUSTOM.md #156): configuration source is the second line; test details follow it.
             val sourceLabels = configIpSources[entry.address].orEmpty().mapNotNull { via ->
                 when (via) {
@@ -1339,6 +1339,25 @@ class IpTestView(
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
                 )
             }
+            if (!row.ok) {
+                val summary = renderer.savedFailureSummary(row)
+                val rawReason = row.reason.ifBlank { row.code.ifBlank { "unknown error" } }
+                val endpoint = if (row.port.isNotBlank()) "${entry.address}:${row.port}" else entry.address
+                (ipView as? LinearLayout)?.addView(
+                    TextView(context).apply {
+                        text = summary
+                        textSize = 13f
+                        maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(colorBad)
+                        setOnClickListener {
+                            onDetail(entry.address, "$endpoint connect error: $rawReason")
+                        }
+                    },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
+
             val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
             val selected = isSelected(entry.address)
             val rowBackground = if (selected) Color.argb(
@@ -2064,7 +2083,11 @@ class IpTestView(
     }
 
     // the IP (a tap copies it, dashed line under it) and under it, small and grey, what the handshake showed
-    private fun ipCell(r: IpTestRow, showRecommendation: Boolean = true): View {
+    private fun ipCell(
+        r: IpTestRow,
+        showRecommendation: Boolean = true,
+        showFailureDetail: Boolean = true,
+    ): View {
         val box = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP // CUSTOM.md #55 (r67): same top padding as the other cells, so the lines match
@@ -2095,7 +2118,7 @@ class IpTestView(
             )
         }
 
-        val small = ipDetails(r)
+        val small = if (!r.ok && !showFailureDetail) "" else ipDetails(r)
 
         if (small.isNotEmpty()) {
             val t = TextView(context).apply {
@@ -2135,6 +2158,35 @@ class IpTestView(
         if (r.inHosts) parts += context.getString(if (direct) R.string.iptest_in_config else R.string.iptest_in_hosts)
 
         return parts.joinToString(" · ")
+    }
+
+    // CUSTOM (CUSTOM.md #156 r329): keep saved-list failure rows compact; the original reason remains in onDetail.
+    private fun savedFailureSummary(row: IpTestRow): String {
+        val reason = row.reason.lowercase(Locale.ROOT)
+        val category = when {
+            "certificate" in reason || "x509" in reason -> "证书校验失败"
+            "alpn" in reason -> "ALPN 不匹配"
+            "context canceled" in reason || "context cancelled" in reason ||
+                "operation was canceled" in reason || "operation was cancelled" in reason -> "已取消"
+            else -> when (row.code) {
+                "timeout" -> "连接超时"
+                "refused" -> "连接被拒绝"
+                "reset" -> "连接被重置"
+                "eof" -> "连接提前关闭"
+                "dns" -> "DNS 解析失败"
+                "network" -> "网络不可达"
+                "tls" -> "TLS 握手失败"
+                "auth" -> "认证失败"
+                "reject" -> "规则拒绝"
+                "echrejected" -> "ECH 被拒绝"
+                else -> ""
+            }
+        }
+        return if (category.isEmpty()) {
+            context.getString(R.string.iptest_handshake_failed).trimEnd('：', ':', ' ')
+        } else {
+            handshakeFailureText(category)
+        }
     }
 
     // the core's own wording carries local addresses and ports, so it is shown only when the cause is not recognised
