@@ -349,20 +349,24 @@ class SavedIpDesign(
         for (operator in snapshotCache.operators) {
             // While selecting a group, show that whole group regardless of the active filter or search text.
             val entries = if (selectedOperatorId == operator.id) {
-                val countryFiltered = filterSavedIpEntriesByCountry(SavedIpStore.sortEntries(operator.ips), selectedCountryCodes)
-                sortSavedIpEntries(countryFiltered, currentSort)
+                // Multi-selection deliberately shows the complete selected operator, bypassing every filter.
+                sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
             } else {
                 visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
             }
             if (entries.isEmpty()) continue
             val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
-            rows += SavedIpListRow.Operator(operator, entries, expanded)
+            rows += SavedIpListRow.Operator(
+                operator,
+                entries,
+                expanded,
+                if (selectedOperatorId == operator.id) selectedAddresses.toSet() else emptySet(),
+            )
             if (expanded) entries.forEach { rows += SavedIpListRow.Ip(operator, it) }
         }
         if (rows.isEmpty()) {
             rows += SavedIpListRow.Message(
-                if (snapshotCache.operators.sumOf { it.ips.size } == 0) R.string.saved_ip_empty
-                else if (query.isNotEmpty()) R.string.saved_ip_search_no_match
+                if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty
                 else R.string.saved_ip_filter_no_match,
             )
         }
@@ -370,7 +374,13 @@ class SavedIpDesign(
     }
 
     private sealed class SavedIpListRow {
-        data class Operator(val operator: SavedIpOperator, val entries: List<SavedIpEntry>, val expanded: Boolean) : SavedIpListRow()
+        data class Operator(
+            val operator: SavedIpOperator,
+            val entries: List<SavedIpEntry>,
+            val expanded: Boolean,
+            // Included in row equality so selection changes still rebind checkbox state.
+            val selectedAddresses: Set<String>,
+        ) : SavedIpListRow()
         data class Ip(val operator: SavedIpOperator, val entry: SavedIpEntry) : SavedIpListRow()
         data class Message(val text: Int) : SavedIpListRow()
     }
@@ -379,6 +389,7 @@ class SavedIpDesign(
         private val rows = ArrayList<SavedIpListRow>()
 
         fun replaceRows(updated: List<SavedIpListRow>) {
+            if (rows == updated) return
             rows.clear()
             rows.addAll(updated)
             notifyDataSetChanged()
@@ -419,9 +430,14 @@ class SavedIpDesign(
 
     private fun bindOperatorRow(container: LinearLayout, row: SavedIpListRow.Operator) {
         val operator = row.operator
+        val reachable = row.entries.count { it.status == SavedIpStatus.REACHABLE }
+        val unreachable = row.entries.count { it.status == SavedIpStatus.UNREACHABLE }
+        val untested = row.entries.count { it.status == SavedIpStatus.UNTESTED }
+        val allUnreachable = operator.ips.any { it.status == SavedIpStatus.UNREACHABLE }
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(56)
         }
         val arrow = TextView(context).apply {
             text = if (row.expanded) "▾" else "▸"
@@ -429,24 +445,24 @@ class SavedIpDesign(
             setTextColor(colorLink)
             gravity = Gravity.CENTER
         }
-        header.addView(arrow, LinearLayout.LayoutParams(dp(28), dp(34)))
+        header.addView(arrow, LinearLayout.LayoutParams(dp(48), dp(48)))
         val title = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
         }
         title.addView(TextView(context).apply {
-            text = context.getString(R.string.saved_ip_group_title, displayName(operator), operator.ips.size)
+            text = context.getString(R.string.saved_ip_group_title, displayName(operator), row.entries.size)
             textSize = 15f
             setTextColor(colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }, fullWidth())
-        val reachable = operator.ips.count { it.status == SavedIpStatus.REACHABLE }
-        val unreachable = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
-        val untested = operator.ips.count { it.status == SavedIpStatus.UNTESTED }
-        title.addView(TextView(context).apply {
-            text = context.getString(R.string.saved_ip_group_counts, reachable, unreachable, untested)
-            textSize = 11f
-            setTextColor(colorMuted)
-        }, fullWidth())
+        val statusTags = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        statusTags.addView(groupStatusTag(R.string.saved_ip_status_reachable, reachable, Color.rgb(46, 125, 50)))
+        statusTags.addView(groupStatusTag(R.string.saved_ip_status_unreachable, unreachable, Color.rgb(198, 40, 40)))
+        statusTags.addView(groupStatusTag(R.string.saved_ip_status_untested, untested, Color.rgb(239, 143, 0)))
+        title.addView(statusTags, fullWidth())
         header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val menuButton = TextView(context).apply {
             text = "⋮"
@@ -454,9 +470,10 @@ class SavedIpDesign(
             gravity = Gravity.CENTER
             setTextColor(colorLink)
             background = selectableBackground()
+            contentDescription = context.getString(R.string.saved_ip_group_menu)
             setOnClickListener { anchor ->
                 PopupMenu(context, anchor).apply {
-                    menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable).isEnabled = unreachable > 0
+                    menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable).isEnabled = allUnreachable
                     menu.add(0, 4, 1, R.string.saved_ip_delete_older)
                     menu.add(0, 5, 2, R.string.saved_ip_select_age)
                     if (operator.id !in SavedIpStore.builtInOperatorIds) {
@@ -477,7 +494,7 @@ class SavedIpDesign(
                 }
             }
         }
-        header.addView(menuButton, LinearLayout.LayoutParams(dp(40), dp(36)))
+        header.addView(menuButton, LinearLayout.LayoutParams(dp(48), dp(48)))
         container.addView(header, fullWidth())
         container.setOnClickListener {
             expandedOperatorId = if (expandedOperatorId == operator.id) null else operator.id
@@ -485,6 +502,19 @@ class SavedIpDesign(
         }
         container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
     }
+
+    private fun groupStatusTag(label: Int, count: Int, color: Int): TextView =
+        TextView(context).apply {
+            text = "${context.getString(label)} $count"
+            textSize = 10f
+            setTextColor(color)
+            setPadding(dp(6), dp(2), dp(6), dp(2))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(8).toFloat()
+                setColor(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
+            }
+        }
 
     // CUSTOM (CUSTOM.md #156 step 22): compact two-column IP card; preserve copy, selection and delete actions.
     private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry) {

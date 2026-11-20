@@ -425,6 +425,7 @@
     <string name="saved_ip_search_close">收起搜索</string>
     <string name="saved_ip_search_no_match">没有找到匹配的 IP 地址。</string>
     <string name="saved_ip_group_title">%1$s（%2$d）</string>
+    <string name="saved_ip_group_menu">运营商分组菜单</string>
     <string name="saved_ip_group_counts">通 %1$d · 不通 %2$d · 未测试 %3$d</string>
     <string name="saved_ip_summary">已保存 %1$d 个 · 通 %2$d · 不通 %3$d · 未测试 %4$d</string>
     <string name="saved_ip_filter_all_count">全部 %1$d</string>
@@ -479,7 +480,7 @@
     <string name="saved_ip_filter_reachable">通</string>
     <string name="saved_ip_filter_unreachable">不通</string>
     <string name="saved_ip_filter_untested">没测过</string>
-    <string name="saved_ip_filter_no_match">没有符合的 IP。</string>
+    <string name="saved_ip_filter_no_match">没有符合条件的 IP。</string>
     <string name="saved_ip_time_date_same_year">M月d日</string>
     <string name="saved_ip_time_date_other_year">yyyy年M月d日</string>
     <string name="saved_ip_time_compact_now">刚刚</string>

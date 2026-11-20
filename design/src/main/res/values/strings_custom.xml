@@ -425,6 +425,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_search_close">Close search</string>
     <string name="saved_ip_search_no_match">No matching IP addresses.</string>
     <string name="saved_ip_group_title">%1$s (%2$d)</string>
+    <string name="saved_ip_group_menu">Operator group menu</string>
     <string name="saved_ip_group_counts">Reachable %1$d · Unreachable %2$d · Untested %3$d</string>
     <string name="saved_ip_summary">Saved %1$d IPs · Reachable %2$d · Unreachable %3$d · Untested %4$d</string>
     <string name="saved_ip_filter_all_count">All %1$d</string>
@@ -479,7 +480,7 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_filter_reachable">Reachable</string>
     <string name="saved_ip_filter_unreachable">Unreachable</string>
     <string name="saved_ip_filter_untested">Untested</string>
-    <string name="saved_ip_filter_no_match">No matching IPs.</string>
+    <string name="saved_ip_filter_no_match">No IPs match the current filters.</string>
     <string name="saved_ip_time_date_same_year">MMM d</string>
     <string name="saved_ip_time_date_other_year">MMM d, yyyy</string>
     <string name="saved_ip_time_compact_now">now</string>
