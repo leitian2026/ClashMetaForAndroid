@@ -714,7 +714,13 @@ class SavedIpDesign(
         val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
         val filtered = operator.ips.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
         val tableFiltered = filterSavedIpEntriesByColumns(operator, filtered)
-        return sortSavedIpEntries(SavedIpStore.sortEntries(tableFiltered), currentSort)
+        val sorted = sortSavedIpEntries(SavedIpStore.sortEntries(tableFiltered), currentSort)
+        // CUSTOM (CUSTOM.md #156): pin recommended and configured IPs above the remaining rows,
+        // while preserving the active sort order within both groups.
+        val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
+        return sorted.sortedBy { entry ->
+            entry.address !in recommendedIps && entry.address !in configuredIpSources
+        }
     }
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
