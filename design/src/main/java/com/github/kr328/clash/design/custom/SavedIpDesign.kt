@@ -485,21 +485,20 @@ class SavedIpDesign(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(if (selectedOperatorId == operator.id) 40 else 18), 0, dp(3), 0)
         }
-        val statusText = TextView(context).apply {
-            text = when (entry.status) {
-                SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_status_reachable)
-                SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_status_unreachable)
-                SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_status_untested)
+        // CUSTOM.md #158: show the saved test metrics instead of repeating the reachability status label.
+        val metricsText = TextView(context).apply {
+            val latency = if (entry.avg > 0) "${entry.avg}ms" else "-"
+            val speed = if (entry.speed > 0.0) {
+                String.format(Locale.US, "%.1f", entry.speed) + " MB/s"
+            } else {
+                "-"
             }
+            text = context.getString(R.string.saved_ip_metrics, latency, speed)
             textSize = 11f
             setSingleLine(true)
-            setTextColor(when (entry.status) {
-                SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
-                SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
-                SavedIpStatus.UNTESTED -> colorMuted
-            })
+            setTextColor(colorMuted)
         }
-        detail.addView(statusText)
+        detail.addView(metricsText)
         if (entry.lastTestedAt > 0L) {
             val label = savedIpTimeLabel(entry.lastTestedAt)
             detail.addView(View(context), LinearLayout.LayoutParams(dp(4), 1))

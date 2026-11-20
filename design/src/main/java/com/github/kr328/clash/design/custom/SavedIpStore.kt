@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Status of a saved address. Only the latest reachability result is kept; latency and port details are not stored.
+ * Status and latest average latency / download speed of a saved address; detailed port results are not stored.
  */
 @Serializable
 enum class SavedIpStatus {
@@ -27,6 +27,9 @@ data class SavedIpEntry(
     val addedAt: Long = 0L,
     // CUSTOM.md #156 第 43 步：IP 归属国家代码；默认空值兼容旧快照。
     val countryCode: String = "",
+    // CUSTOM.md #158: retain the latest average latency and download speed; defaults read older snapshots.
+    val avg: Int = 0,
+    val speed: Double = 0.0,
     // CUSTOM.md #77: retain optional direct extension diagnostics in saved batches; defaults read old snapshots.
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),
@@ -270,6 +273,8 @@ object SavedIpStore {
                     status = status,
                     lastTestedAt = testedAt,
                     countryCode = row.geo.trim().ifBlank { previousInBatch.countryCode },
+                    avg = row.avg,
+                    speed = row.speed,
                     ws = row.ws,
                     h3 = row.h3,
                     mtu = row.mtu,
@@ -284,6 +289,8 @@ object SavedIpStore {
                 lastTestedAt = testedAt,
                 addedAt = previous?.addedAt ?: testedAt,
                 countryCode = row.geo.trim().ifBlank { previous?.countryCode.orEmpty() },
+                avg = row.avg,
+                speed = row.speed,
                 ws = row.ws,
                 h3 = row.h3,
                 mtu = row.mtu,

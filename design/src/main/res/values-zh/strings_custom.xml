@@ -432,6 +432,7 @@
     <string name="saved_ip_status_reachable">通</string>
     <string name="saved_ip_status_unreachable">不通</string>
     <string name="saved_ip_status_untested">未测试</string>
+    <string name="saved_ip_metrics">%1$s · %2$s</string>
     <string name="saved_ip_add_operator">新增运营商</string>
     <string name="saved_ip_paste">粘贴 IP</string>
     <string name="saved_ip_empty">还没有保存 IP。</string>
