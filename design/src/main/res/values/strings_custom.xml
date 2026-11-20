@@ -529,4 +529,6 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="mux_row_count_udp">%1$d</string>
     <string name="mux_other_name">Other</string>
     <string name="mux_other_tag">no node</string>
+    <string name="saved_ip_copy_hosts">Copy as hosts</string>
+    <string name="saved_ip_copied_hosts">Copied %1$d IPs</string>
 </resources>

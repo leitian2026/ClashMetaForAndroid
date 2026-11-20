@@ -158,6 +158,7 @@ class SavedIpDesign(
     private val cancelSelectionButton = actionButton(R.string.saved_ip_cancel_selection) { clearSelection() }
     private val selectUnreachableButton = actionButton(R.string.saved_ip_select_unreachable) { selectUnreachable() }
     private val selectOldestButton = actionButton(R.string.saved_ip_select_oldest_20) { selectOldest20() }
+    private val copyHostsButton = actionButton(R.string.saved_ip_copy_hosts) { copySelectedHosts() }
 
     private val searchIndicator = View(context).apply {
         background = GradientDrawable().apply {
@@ -233,6 +234,7 @@ class SavedIpDesign(
         selectionMainActions.addView(cancelSelectionButton, weighted(2))
         selectionQuickActions.addView(selectUnreachableButton, weighted(2))
         selectionQuickActions.addView(selectOldestButton, weighted(2))
+        selectionQuickActions.addView(copyHostsButton, weighted(2))
         selectionActions.addView(selectionMainActions, fullWidth())
         selectionActions.addView(selectionQuickActions, fullWidth())
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -738,6 +740,8 @@ class SavedIpDesign(
         selectUnreachableButton.alpha = if (selectUnreachableButton.isEnabled) 1f else 0.35f
         selectOldestButton.isEnabled = visible.isNotEmpty()
         selectOldestButton.alpha = if (selectOldestButton.isEnabled) 1f else 0.35f
+        copyHostsButton.isEnabled = selectedAddresses.isNotEmpty()
+        copyHostsButton.alpha = if (copyHostsButton.isEnabled) 1f else 0.35f
     }
 
     private fun selectUnreachable() {
@@ -1036,6 +1040,23 @@ class SavedIpDesign(
             Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
             false
         }
+    }
+
+    private fun copySelectedHosts() {
+        val operatorId = selectedOperatorId ?: return
+        if (selectedAddresses.isEmpty()) return
+        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        val addresses = sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
+            .asSequence()
+            .filter { it.address in selectedAddresses }
+            .take(20)
+            .map { it.address }
+            .toList()
+        if (addresses.isEmpty()) return
+        val hosts = addresses.joinToString(separator = ", ", prefix = "[", postfix = "]") { "\"$it\"" }
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard?.setPrimaryClip(ClipData.newPlainText("hosts", hosts))
+        Toast.makeText(context, context.getString(R.string.saved_ip_copied_hosts, addresses.size), Toast.LENGTH_SHORT).show()
     }
 
     private fun copyIp(address: String) {

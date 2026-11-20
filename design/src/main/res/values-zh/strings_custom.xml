@@ -529,4 +529,6 @@
     <string name="mux_row_count_udp">%1$d 个</string>
     <string name="mux_other_name">其他</string>
     <string name="mux_other_tag">不属于任何节点</string>
+    <string name="saved_ip_copy_hosts">复制为 hosts</string>
+    <string name="saved_ip_copied_hosts">已复制 %1$d 个 IP</string>
 </resources>
