@@ -25,8 +25,10 @@ data class SavedIpEntry(
     // Defaults keep entries written by the previous schema readable.
     val lastTestedAt: Long = 0L,
     val addedAt: Long = 0L,
-    // CUSTOM.md #156 第 43 步：IP 归属国家代码；默认空值兼容旧快照。
+    // CUSTOM.md #156：IP 登记国家代码（归属地）；默认空值兼容旧快照，不作为出口国家筛选来源。
     val countryCode: String = "",
+    // CUSTOM.md #160：目标网站看到的出口国家代码；旧 JSON 缺少此字段时默认为空，不迁移归属地。
+    val exitCountryCode: String = "",
     // CUSTOM.md #158: retain the latest average latency and download speed; defaults read older snapshots.
     val avg: Int = 0,
     val speed: Double = 0.0,
@@ -273,6 +275,7 @@ object SavedIpStore {
                     status = status,
                     lastTestedAt = testedAt,
                     countryCode = row.geo.trim().ifBlank { previousInBatch.countryCode },
+                    exitCountryCode = row.country.trim().ifBlank { previousInBatch.exitCountryCode },
                     avg = row.avg,
                     speed = row.speed,
                     ws = row.ws,
@@ -289,6 +292,7 @@ object SavedIpStore {
                 lastTestedAt = testedAt,
                 addedAt = previous?.addedAt ?: testedAt,
                 countryCode = row.geo.trim().ifBlank { previous?.countryCode.orEmpty() },
+                exitCountryCode = row.country.trim().ifBlank { previous?.exitCountryCode.orEmpty() },
                 avg = row.avg,
                 speed = row.speed,
                 ws = row.ws,

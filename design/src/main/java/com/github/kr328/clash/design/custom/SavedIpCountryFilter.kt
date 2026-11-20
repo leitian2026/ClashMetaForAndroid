@@ -6,7 +6,7 @@ import java.util.Locale
 internal fun savedIpCountryCodes(operators: List<SavedIpOperator>): List<String> =
     operators.asSequence()
         .flatMap { it.ips.asSequence() }
-        .map { it.countryCode.trim().uppercase(Locale.US) }
+        .map { it.exitCountryCode.trim().uppercase(Locale.US) }
         .filter { code ->
             code.length == 2 && code[0] in 'A'..'Z' && code[1] in 'A'..'Z'
         }
@@ -19,5 +19,5 @@ internal fun filterSavedIpEntriesByCountry(
     selectedCountryCodes: Set<String>,
 ): List<SavedIpEntry> {
     if (selectedCountryCodes.isEmpty()) return entries
-    return entries.filter { it.countryCode.trim().uppercase(Locale.US) in selectedCountryCodes }
+    return entries.filter { it.exitCountryCode.trim().uppercase(Locale.US) in selectedCountryCodes }
 }
