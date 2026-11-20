@@ -88,7 +88,7 @@ object SavedIpStore {
     const val OPERATOR_UNICOM = "unicom"
     const val OPERATOR_MOBILE = "mobile"
 
-    const val MAX_IP_COUNT = 5000
+    const val MAX_IP_COUNT = 300
     const val DATA_VERSION = 1
 
     private const val PREFERENCES = "custom_saved_ips"
@@ -169,8 +169,7 @@ object SavedIpStore {
     fun validateBackup(raw: String) {
         val snapshot = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
         val normalized = normalize(snapshot)
-        val total = normalized.operators.sumOf { it.ips.size }
-        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
+        // Backups may contain legacy lists above today's new-save limit; preserve them intact.
     }
 
     /** Restore a previously validated snapshot through the normal storage path. */
@@ -189,9 +188,7 @@ object SavedIpStore {
     @Synchronized
     fun write(context: Context, snapshot: SavedIpSnapshot) {
         val normalized = normalize(snapshot)
-        val total = normalized.operators.sumOf { it.ips.size }
-        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
-
+        // Existing lists may exceed the current new-save limit. Never truncate or block edits/deletions.
         val value = json.encodeToString(SavedIpSnapshot.serializer(), normalized) // CUSTOM.md #156 step 13
         context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -347,7 +344,8 @@ object SavedIpStore {
         operators[operatorIndex] = updatedOperator
         val resultSnapshot = snapshot.copy(operators = operators, lastOperatorId = operatorId)
         val total = resultSnapshot.operators.sumOf { it.ips.size }
-        if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
+        // Only reject adding new addresses. Existing legacy entries above 300 remain untouched/editable.
+        if (added > 0 && total > MAX_IP_COUNT) throw SavedIpLimitException(total)
 
         if (added > 0 || updated > 0 || snapshot.lastOperatorId != operatorId ||
             updatedOperator.colos != operator.colos || updatedOperator.coloCountries != operator.coloCountries

@@ -23,7 +23,6 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import androidx.recyclerview.widget.RecyclerView
 import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -90,14 +89,12 @@ class SavedIpDesign(
         setNavigationOnClickListener { if (!handleBackPressed()) onBack() }
     }
 
-    // CUSTOM.md #156 step 17: RecyclerView virtualizes IP rows; only visible rows are bound.
-    private val listAdapter = SavedIpAdapter()
-    private val operatorList = RecyclerView(context).apply {
-        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
-        adapter = listAdapter
+    // CUSTOM.md #163: render one complete table per expanded operator (maximum 300 newly saved IPs).
+    private val operatorContent = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+    private val operatorList = ScrollView(context).apply {
         setPadding(dp(16), dp(8), dp(16), dp(24))
         clipToPadding = false
-        itemAnimator = null
+        addView(operatorContent, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
     private val searchInput = EditText(context).apply {
@@ -321,104 +318,48 @@ class SavedIpDesign(
         renderRows()
     }
 
-    // Search and expansion only rebuild the lightweight row model. RecyclerView creates/binds
-    // views for the viewport instead of inflating every saved IP at once.
+    // CUSTOM.md #163: each expanded operator is rendered as one shared table. Search deliberately
+    // expands every matching operator, preserving the existing search behavior.
     private fun renderRows() {
         val query = searchInput.text?.toString()?.trim().orEmpty()
-        val rows = ArrayList<SavedIpListRow>()
+        operatorContent.removeAllViews()
+        var visibleGroupCount = 0
         for (operator in snapshotCache.operators) {
-            // While selecting a group, show that whole group regardless of the active filter or search text.
             val entries = if (selectedOperatorId == operator.id) {
-                // Multi-selection deliberately shows the complete selected operator, bypassing every filter.
                 sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
             } else {
                 visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
             }
             if (entries.isEmpty()) continue
+            visibleGroupCount++
             val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
-            rows += SavedIpListRow.Operator(
-                operator,
-                entries,
-                expanded,
-                if (selectedOperatorId == operator.id) selectedAddresses.toSet() else emptySet(),
-            )
-            if (expanded) {
-                rows += SavedIpListRow.TableHeader(operator)
-                entries.forEachIndexed { index, entry -> rows += SavedIpListRow.Ip(operator, entry, index) }
-            }
-        }
-        if (rows.isEmpty()) {
-            rows += SavedIpListRow.Message(
-                if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty
-                else R.string.saved_ip_filter_no_match,
-            )
-        }
-        listAdapter.replaceRows(rows)
-    }
-
-    private sealed class SavedIpListRow {
-        data class Operator(
-            val operator: SavedIpOperator,
-            val entries: List<SavedIpEntry>,
-            val expanded: Boolean,
-            // Included in row equality so selection changes still rebind checkbox state.
-            val selectedAddresses: Set<String>,
-        ) : SavedIpListRow()
-        data class TableHeader(val operator: SavedIpOperator) : SavedIpListRow()
-        data class Ip(val operator: SavedIpOperator, val entry: SavedIpEntry, val index: Int) : SavedIpListRow()
-        data class Message(val text: Int) : SavedIpListRow()
-    }
-
-    private inner class SavedIpAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        private val rows = ArrayList<SavedIpListRow>()
-
-        fun replaceRows(updated: List<SavedIpListRow>) {
-            if (rows == updated) return
-            rows.clear()
-            rows.addAll(updated)
-            notifyDataSetChanged()
-        }
-
-        override fun getItemViewType(position: Int): Int = when (rows[position]) {
-            is SavedIpListRow.Operator -> 0
-            is SavedIpListRow.Ip -> 1
-            is SavedIpListRow.Message -> 2
-            is SavedIpListRow.TableHeader -> 3
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            val container = LinearLayout(context).apply {
+            val group = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, if (viewType == 0) dp(10) else 0, 0, if (viewType == 0) dp(8) else 0)
-                if (viewType != 2) background = selectableBackground()
+                setPadding(0, dp(10), 0, dp(8))
             }
-            return object : RecyclerView.ViewHolder(container) {}
+            bindOperatorRow(group, operator, entries, expanded)
+            operatorContent.addView(group, fullWidth())
+            if (expanded) bindSavedTable(operatorContent, operator, entries)
         }
-
-        override fun getItemCount(): Int = rows.size
-
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val container = holder.itemView as LinearLayout
-            container.removeAllViews()
-            when (val row = rows[position]) {
-                is SavedIpListRow.Operator -> bindOperatorRow(container, row)
-                is SavedIpListRow.TableHeader -> bindSavedTableHeader(container, row.operator)
-                is SavedIpListRow.Ip -> bindIpRow(container, row.operator, row.entry, row.index)
-                is SavedIpListRow.Message -> container.addView(TextView(context).apply {
-                    setText(row.text)
-                    textSize = 14f
-                    setTextColor(colorMuted)
-                    setPadding(0, dp(12), 0, dp(16))
-                }, fullWidth())
-            }
+        if (visibleGroupCount == 0) {
+            operatorContent.addView(TextView(context).apply {
+                setText(if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
+                textSize = 14f
+                setTextColor(colorMuted)
+                setPadding(0, dp(12), 0, dp(16))
+            }, fullWidth())
         }
     }
 
-    private fun bindOperatorRow(container: LinearLayout, row: SavedIpListRow.Operator) {
-        val operator = row.operator
-        val reachable = row.entries.count { it.status == SavedIpStatus.REACHABLE }
-        val unreachable = row.entries.count { it.status == SavedIpStatus.UNREACHABLE }
-        val untested = row.entries.count { it.status == SavedIpStatus.UNTESTED }
+    private fun bindOperatorRow(
+        container: LinearLayout,
+        operator: SavedIpOperator,
+        entries: List<SavedIpEntry>,
+        expanded: Boolean,
+    ) {
+        val reachable = entries.count { it.status == SavedIpStatus.REACHABLE }
+        val unreachable = entries.count { it.status == SavedIpStatus.UNREACHABLE }
+        val untested = entries.count { it.status == SavedIpStatus.UNTESTED }
         val allUnreachable = operator.ips.any { it.status == SavedIpStatus.UNREACHABLE }
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -426,7 +367,7 @@ class SavedIpDesign(
             minimumHeight = dp(56)
         }
         val arrow = TextView(context).apply {
-            text = if (row.expanded) "▾" else "▸"
+            text = if (expanded) "▾" else "▸"
             textSize = 18f
             setTextColor(colorLink)
             gravity = Gravity.CENTER
@@ -436,7 +377,7 @@ class SavedIpDesign(
             orientation = LinearLayout.VERTICAL
         }
         title.addView(TextView(context).apply {
-            text = context.getString(R.string.saved_ip_group_title, displayName(operator), row.entries.size)
+            text = context.getString(R.string.saved_ip_group_title, displayName(operator), entries.size)
             textSize = 15f
             setTextColor(colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -507,45 +448,33 @@ class SavedIpDesign(
             val renderer = IpTestView(context, direct = false, target = false, savedTable = true)
             val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
                 .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(32))
-            val widths = renderer.savedTableWidths(width, operator.ips.map { it.result ?: com.github.kr328.clash.core.model.IpTestRow(ip = it.address, ok = true) }, operator.colos, operator.coloCountries)
+            val widths = renderer.savedTableWidths(
+                width,
+                operator.ips.map { it.result ?: com.github.kr328.clash.core.model.IpTestRow(ip = it.address, ok = true) },
+                operator.colos,
+                operator.coloCountries,
+            )
             renderer to widths
         }
 
-    private fun bindSavedTableHeader(container: LinearLayout, operator: SavedIpOperator) {
+    private fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: List<SavedIpEntry>) {
         val (renderer, widths) = savedTableFor(operator)
-        container.addView(renderer.savedTableHeader(widths, savedTableScrollX) { savedTableScrollX = it }, fullWidth())
-    }
-
-    // CUSTOM.md #162: one IP per virtualized row; all cells come from IpTestView.
-    private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry, index: Int) {
-        val (renderer, widths) = savedTableFor(operator)
-        val selected = selectedOperatorId == operator.id && entry.address in selectedAddresses
-        val rowView = renderer.savedTableRow(
-            address = entry.address,
-            result = entry.result,
-            directMode = entry.testDirect,
-            targetMode = entry.testTarget,
-            widths = widths,
-            stripe = index % 2 == 1,
-            selected = selected,
-            scrollX = savedTableScrollX,
-            onScroll = { savedTableScrollX = it },
-            onCopy = { address -> if (selectedOperatorId == operator.id) toggleSelection(operator.id, address) else copyIp(address) },
-            onDetail = { title, detail ->
-                MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
-                    .setPositiveButton(R.string.close, null).show()
-            },
-            onLongPress = { toggleSelection(operator.id, entry.address) },
+        container.addView(
+            renderer.savedTableView(
+                entries = entries,
+                widths = widths,
+                scrollX = savedTableScrollX,
+                onScroll = { savedTableScrollX = it },
+                isSelected = { address -> selectedOperatorId == operator.id && address in selectedAddresses },
+                onCopy = ::copyIp,
+                onDetail = { title, detail ->
+                    MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
+                        .setPositiveButton(R.string.close, null).show()
+                },
+                onLongPress = { address -> toggleSelection(operator.id, address) },
+            ),
+            fullWidth(),
         )
-        container.addView(rowView, fullWidth())
-        fun attachLongPress(view: View) {
-            view.setOnLongClickListener { toggleSelection(operator.id, entry.address); true }
-            if (view is ViewGroup) {
-                for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
-            }
-        }
-        attachLongPress(rowView)
-        container.setOnLongClickListener { toggleSelection(operator.id, entry.address); true }
     }
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {

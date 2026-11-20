@@ -1086,106 +1086,129 @@ class IpTestView(
         return widths()
     }
 
-    internal fun savedTableHeader(widths: IntArray, scrollX: Int, onScroll: (Int) -> Unit): View {
+    internal fun savedTableView(
+        entries: List<SavedIpEntry>,
+        widths: IntArray,
+        scrollX: Int,
+        onScroll: (Int) -> Unit,
+        isSelected: (String) -> Boolean,
+        onCopy: (String) -> Unit,
+        onDetail: (String, String) -> Unit,
+        onLongPress: (String) -> Unit,
+    ): View {
         val gridWidth = widths.drop(1).sum()
         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val headLeft = headCell(context.getString(R.string.iptest_col_ip), widths[0])
-        val heads = keys.mapIndexed { index, key -> headCell(title(key), widths[index + 1]) }
-        val height = maxOf(headH, heightOf(headLeft, widths[0]), heads.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0) + dp(6)
-        left.addView(headLeft, lp(widths[0], height))
-        val headRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(colorSurface) }
-        heads.forEachIndexed { index, cell -> cell.setBackgroundColor(Color.TRANSPARENT); headRow.addView(cell, lp(widths[index + 1], height)) }
-        grid.addView(headRow, lp(gridWidth, height))
-        val scroll = HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = true
-            addView(grid, ViewGroup.LayoutParams(gridWidth, height))
-            setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
-        }
-        scroll.post { scroll.scrollTo(scrollX, 0) }
-        return LinearLayout(context).apply {
+        val leftHeader = headCell(context.getString(R.string.iptest_col_ip), widths[0])
+        val headers = keys.mapIndexed { index, key -> headCell(title(key), widths[index + 1]) }
+        val headerHeight = maxOf(
+            headH,
+            heightOf(leftHeader, widths[0]),
+            headers.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+        ) + dp(6)
+        left.addView(leftHeader, lp(widths[0], headerHeight))
+        val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(left, LinearLayout.LayoutParams(widths[0], height))
-            addView(scroll, LinearLayout.LayoutParams(0, height, 1f))
+            setBackgroundColor(colorSurface)
         }
-    }
+        headers.forEachIndexed { index, cell ->
+            cell.setBackgroundColor(Color.TRANSPARENT)
+            headerRow.addView(cell, lp(widths[index + 1], headerHeight))
+        }
+        grid.addView(headerRow, lp(gridWidth, headerHeight))
 
-    internal fun savedTableRow(
-        address: String, result: IpTestRow?, directMode: Boolean, targetMode: Boolean,
-        widths: IntArray, stripe: Boolean, selected: Boolean, scrollX: Int,
-        onScroll: (Int) -> Unit, onCopy: (String) -> Unit, onDetail: (String, String) -> Unit,
-        onLongPress: () -> Unit,
-    ): View {
-        val renderer = IpTestView(context, directMode, targetMode)
-        renderer.colos = colos
-        renderer.coloCountries = coloCountries
-        renderer.onCopy = onCopy
-        renderer.onDetail = onDetail
-        val row = result ?: IpTestRow(ip = address, ok = true)
-        val ipView = renderer.ipCell(row)
-        ipView.setOnLongClickListener { onLongPress(); true }
-        if (ipView is LinearLayout) {
-            for (i in 0 until ipView.childCount) ipView.getChildAt(i).setOnLongClickListener { onLongPress(); true }
-        }
-        val gridWidth = widths.drop(1).sum()
-        val stripeColor = if (stripe) colorStripe else Color.TRANSPARENT
-        val left = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(if (selected) Color.argb(36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink)) else stripeColor)
-        }
-        left.addView(ipView, lp(widths[0], ViewGroup.LayoutParams.WRAP_CONTENT))
-        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(stripeColor) }
-        val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(stripeColor) }
-        val cells = keys.mapIndexed { index, key ->
-            val mapped = when (key) {
-                Key.COLO -> Key.COLO
-                Key.ASN -> Key.ASN
-                Key.GEO -> Key.GEO
-                Key.EXIT -> if (directMode) Key.LAND else Key.EXIT
-                Key.PORTS -> if (directMode) Key.PORTS else Key.PORT
-                Key.LOSS -> Key.LOSS
-                Key.MIN -> Key.MIN
-                Key.MAX -> Key.MAX
-                Key.AVG -> Key.AVG
-                Key.JITTER -> Key.JITTER
-                Key.EXIT_IP -> if (directMode) null else Key.EXIT_IP
-                Key.TCOLO -> if (targetMode) Key.TCOLO else null
-                Key.TARGET -> if (targetMode) Key.TARGET else null
-                Key.PHASE -> Key.PHASE
-                Key.FASTER -> if (!directMode && !targetMode) Key.FASTER else null
-                Key.SPEED -> Key.SPEED
-                else -> null
+        entries.forEachIndexed { rowIndex, entry ->
+            val result = entry.result
+            val row = result ?: IpTestRow(ip = entry.address, ok = true)
+            val renderer = IpTestView(context, entry.testDirect, entry.testTarget)
+            renderer.colos = colos
+            renderer.coloCountries = coloCountries
+            renderer.onCopy = { address ->
+                if (isSelected(address)) onLongPress(address) else onCopy(address)
             }
-            val missingExit = key == Key.EXIT && row.country.isEmpty()
-            val cell = when {
-                result == null || mapped == null || missingExit -> textCell("-", colorMuted)
-                mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
-                mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
-                mapped == Key.LOSS && row.sent <= 0 -> textCell("-", colorMuted)
-                mapped in listOf(Key.MIN, Key.MAX, Key.AVG) && when (mapped) {
-                    Key.MIN -> row.min <= 0
-                    Key.MAX -> row.max <= 0
-                    else -> row.avg <= 0
-                } -> textCell("-", colorMuted)
-                mapped == Key.JITTER && row.sent <= 0 -> textCell("-", colorMuted)
-                else -> renderer.cellOf(mapped, row, widths[index + 1])
+            renderer.onDetail = onDetail
+            val ipView = renderer.ipCell(row)
+            val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
+            val leftRow = FrameLayout(context).apply {
+                setBackgroundColor(
+                    if (isSelected(entry.address)) Color.argb(
+                        36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink),
+                    ) else stripe,
+                )
+                addView(ipView, FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ))
             }
-            line.addView(cell, lp(widths[index + 1], ViewGroup.LayoutParams.WRAP_CONTENT))
-            cell
+            val cells = keys.mapIndexed { index, key ->
+                val directMode = entry.testDirect
+                val targetMode = entry.testTarget
+                val mapped = when (key) {
+                    Key.COLO -> Key.COLO
+                    Key.ASN -> Key.ASN
+                    Key.GEO -> Key.GEO
+                    Key.EXIT -> if (directMode) Key.LAND else Key.EXIT
+                    Key.PORTS -> if (directMode) Key.PORTS else Key.PORT
+                    Key.LOSS -> Key.LOSS
+                    Key.MIN -> Key.MIN
+                    Key.MAX -> Key.MAX
+                    Key.AVG -> Key.AVG
+                    Key.JITTER -> Key.JITTER
+                    Key.EXIT_IP -> if (directMode) null else Key.EXIT_IP
+                    Key.TCOLO -> if (targetMode) Key.TCOLO else null
+                    Key.TARGET -> if (targetMode) Key.TARGET else null
+                    Key.PHASE -> Key.PHASE
+                    Key.FASTER -> if (!directMode && !targetMode) Key.FASTER else null
+                    Key.SPEED -> Key.SPEED
+                    else -> null
+                }
+                val missingExit = key == Key.EXIT && row.country.isEmpty()
+                when {
+                    result == null || mapped == null || missingExit -> textCell("-", colorMuted)
+                    mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
+                    mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
+                    mapped == Key.LOSS && row.sent <= 0 -> textCell("-", colorMuted)
+                    mapped in listOf(Key.MIN, Key.MAX, Key.AVG) && when (mapped) {
+                        Key.MIN -> row.min <= 0
+                        Key.MAX -> row.max <= 0
+                        else -> row.avg <= 0
+                    } -> textCell("-", colorMuted)
+                    mapped == Key.JITTER && row.sent <= 0 -> textCell("-", colorMuted)
+                    else -> renderer.cellOf(mapped, row, widths[index + 1])
+                }
+            }
+            val height = maxOf(
+                rowH,
+                heightOf(ipView, widths[0]),
+                cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+            ) + dp(4)
+            left.addView(leftRow, lp(widths[0], height))
+            val line = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(stripe)
+            }
+            cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
+            grid.addView(line, lp(gridWidth, height))
+
+            fun attachLongPress(view: View) {
+                view.setOnLongClickListener { onLongPress(entry.address); true }
+                if (view is ViewGroup) for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
+            }
+            attachLongPress(leftRow)
+            attachLongPress(line)
         }
-        val height = maxOf(rowH, heightOf(ipView, widths[0]), cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0) + dp(4)
-        left.layoutParams = lp(widths[0], height)
-        grid.addView(line, lp(gridWidth, height))
+
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = true
-            addView(grid, ViewGroup.LayoutParams(gridWidth, height))
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
             setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
         }
         scroll.post { scroll.scrollTo(scrollX, 0) }
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(left, LinearLayout.LayoutParams(widths[0], height))
-            addView(scroll, LinearLayout.LayoutParams(0, height, 1f))
+            addView(left, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
     }
 
