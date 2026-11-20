@@ -16,6 +16,7 @@ import android.widget.PopupMenu
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -89,7 +90,7 @@ class SavedIpDesign(
         title = context.getString(R.string.saved_ip_title)
         setTitleTextColor(colorText)
         setNavigationIcon(R.drawable.ic_baseline_arrow_back)
-        setNavigationOnClickListener { onBack() }
+        setNavigationOnClickListener { if (!handleBackPressed()) onBack() }
     }
 
     // CUSTOM.md #156 step 17: RecyclerView virtualizes IP rows; only visible rows are bound.
@@ -113,13 +114,27 @@ class SavedIpDesign(
         textSize = 14f
         setHint(R.string.saved_ip_search_hint)
         inputType = InputType.TYPE_CLASS_TEXT
-        setPadding(dp(12), dp(8), dp(12), dp(8))
+        setPadding(dp(12), dp(8), dp(42), dp(8))
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(8).toFloat()
             setColor(colorSurface)
             setStroke(dp(1), colorDivider)
         }
+    }
+    private val searchClearButton = TextView(context).apply {
+        text = "×"
+        textSize = 20f
+        gravity = Gravity.CENTER
+        setTextColor(colorMuted)
+        contentDescription = context.getString(R.string.saved_ip_search_clear)
+        background = selectableBackground()
+        setOnClickListener { searchInput.text?.clear() }
+    }
+    private val searchBox = FrameLayout(context).apply {
+        visibility = View.GONE
+        addView(searchInput, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
+        addView(searchClearButton, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.END or Gravity.CENTER_VERTICAL))
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var expandedOperatorId: String?
@@ -185,13 +200,37 @@ class SavedIpDesign(
     private val selectUnreachableButton = actionButton(R.string.saved_ip_select_unreachable) { selectUnreachable() }
     private val selectOldestButton = actionButton(R.string.saved_ip_select_oldest_20) { selectOldest20() }
 
-    private val searchIconButton = TextView(context).apply {
-        text = "🔍"
-        textSize = 18f
-        gravity = Gravity.CENTER
-        minWidth = dp(40)
-        minHeight = dp(40)
+    private val searchIndicator = View(context).apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(colorLink)
+        }
+        visibility = View.GONE
+    }
+    private val searchIconButton = FrameLayout(context).apply {
         background = selectableBackground()
+        contentDescription = context.getString(R.string.saved_ip_search_hint)
+        addView(TextView(context).apply {
+            text = "🔍"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            isClickable = false
+        }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        addView(searchIndicator, FrameLayout.LayoutParams(dp(6), dp(6), Gravity.TOP or Gravity.END).apply {
+            topMargin = dp(7)
+            marginEnd = dp(7)
+        })
+        setOnClickListener { expandSearch() }
+    }
+    private val searchCloseButton = TextView(context).apply {
+        text = "×"
+        textSize = 20f
+        gravity = Gravity.CENTER
+        setTextColor(colorLink)
+        contentDescription = context.getString(R.string.saved_ip_search_close)
+        background = selectableBackground()
+        visibility = View.GONE
+        setOnClickListener { collapseSearch() }
     }
     private val statusFilterButton = actionText(R.string.saved_ip_filter_all) { toggleFilterPanel(PANEL_STATUS) }
     private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { toggleFilterPanel(PANEL_COUNTRY) }
@@ -223,6 +262,8 @@ class SavedIpDesign(
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         filterToolbar.addView(searchIconButton, LinearLayout.LayoutParams(dp(40), dp(40)))
+        filterToolbar.addView(searchBox, LinearLayout.LayoutParams(0, dp(40), 2f))
+        filterToolbar.addView(searchCloseButton, LinearLayout.LayoutParams(dp(40), dp(40)))
         filterToolbar.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
         filterToolbar.addView(countryFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
         filterToolbar.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
@@ -239,10 +280,13 @@ class SavedIpDesign(
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filterState.query = s?.toString().orEmpty()
+                updateSearchIndicator()
                 renderRows()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+        updateSearchUi()
 
         // CUSTOM.md #156 step 12: operator creation and IP pasting are managed from the config-check save dialog.
 
@@ -630,8 +674,61 @@ class SavedIpDesign(
     }
 
     private fun toggleFilterPanel(panel: String) {
+        if (filterState.searchExpanded) collapseSearch()
         filterState.expandedPanel = if (filterState.expandedPanel == panel) "" else panel
         updateFilterToolbar()
+    }
+
+    private fun expandSearch() {
+        filterState.searchExpanded = true
+        filterState.expandedPanel = ""
+        updateFilterToolbar()
+        searchInput.requestFocus()
+        searchInput.post {
+            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                ?.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
+    private fun collapseSearch() {
+        if (!filterState.searchExpanded) return
+        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+            ?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+        filterState.searchExpanded = false
+        searchInput.clearFocus()
+        updateFilterToolbar()
+    }
+
+    private fun updateSearchUi() {
+        val expanded = filterState.searchExpanded
+        searchIconButton.visibility = if (expanded) View.GONE else View.VISIBLE
+        searchBox.visibility = if (expanded) View.VISIBLE else View.GONE
+        searchCloseButton.visibility = if (expanded) View.VISIBLE else View.GONE
+        val params = searchBox.layoutParams as? LinearLayout.LayoutParams
+        if (params != null) {
+            params.weight = if (expanded) 2f else 0f
+            searchBox.layoutParams = params
+        }
+        updateSearchIndicator()
+    }
+
+    private fun updateSearchIndicator() {
+        val query = searchInput.text?.toString().orEmpty()
+        searchIndicator.visibility = if (query.isNotBlank()) View.VISIBLE else View.GONE
+        searchClearButton.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    fun handleBackPressed(): Boolean {
+        if (filterState.expandedPanel.isNotEmpty()) {
+            filterState.expandedPanel = ""
+            updateFilterToolbar()
+            return true
+        }
+        if (filterState.searchExpanded) {
+            collapseSearch()
+            return true
+        }
+        return false
     }
 
     private fun updateFilterToolbar(rebuildPanels: Boolean = true) {
@@ -666,6 +763,7 @@ class SavedIpDesign(
         if (rebuildPanels && expanded == PANEL_COUNTRY) buildCountryPanel()
         if (rebuildPanels && expanded == PANEL_SORT) buildSortPanel()
         filterPanels.visibility = if (expanded.isEmpty()) View.GONE else View.VISIBLE
+        updateSearchUi()
         updateFilterButtons(snapshotCache)
         updateSelectedStatusTags()
         countryFilterButton.isEnabled = savedIpCountryCodes(snapshotCache.operators).isNotEmpty()

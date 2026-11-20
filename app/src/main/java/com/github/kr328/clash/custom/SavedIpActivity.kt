@@ -42,6 +42,10 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     }
 
     // CUSTOM.md #156 step 24: refresh the existing page when it is reordered to the front.
+    override fun onBackPressed() {
+        if (page?.handleBackPressed() != true) super.onBackPressed()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
