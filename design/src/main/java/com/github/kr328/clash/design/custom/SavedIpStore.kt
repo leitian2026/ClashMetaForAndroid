@@ -182,8 +182,8 @@ object SavedIpStore {
      * Persist a complete snapshot after an explicit user action.
      *
      * Duplicate addresses are removed within each operator, preserving the first occurrence before timestamp-based ordering is applied.
-     * The same address may exist in different operators. More than [MAX_IP_COUNT] total entries is rejected rather
-     * than silently truncating the user's list.
+     * The same address may exist in different operators. Only new addresses that would take the total above
+     * [MAX_IP_COUNT] are rejected; pre-existing entries are never truncated or blocked from being edited/deleted.
      */
     @Synchronized
     fun write(context: Context, snapshot: SavedIpSnapshot) {

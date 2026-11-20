@@ -702,155 +702,6 @@ class SavedIpDesign(
         countryFilterButton.alpha = if (countryFilterButton.isEnabled) 1f else 0.35f
     }
 
-    private fun addOperatorGroup(operator: SavedIpOperator, entries: List<SavedIpEntry>) {
-        val header = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val name = displayName(operator)
-        header.addView(
-            TextView(context).apply {
-                text = name + " (" + entries.size + ")"
-                textSize = 16f
-                setTextColor(colorText)
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-        )
-
-        val unreachableCount = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
-        val deleteUnreachable = actionText(R.string.saved_ip_delete_unreachable) { confirmDeleteUnreachable(operator) }
-        deleteUnreachable.isEnabled = unreachableCount > 0
-        deleteUnreachable.alpha = if (unreachableCount > 0) 1f else 0.35f
-        header.addView(deleteUnreachable)
-
-        if (operator.id !in SavedIpStore.builtInOperatorIds && selectedOperatorId == null) {
-            header.addView(actionText(R.string.saved_ip_rename) { editOperator(operator) })
-            header.addView(actionText(R.string.saved_ip_delete) { confirmDeleteOperator(operator) })
-        }
-        operatorList.addView(header, fullWidth())
-
-        for (entry in entries) {
-            val item = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(5), 0, dp(5))
-                background = selectableBackground()
-            }
-            val row = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            if (selectedOperatorId == operator.id) {
-                row.addView(
-                    CheckBox(context).apply {
-                        isChecked = entry.address in selectedAddresses
-                        isClickable = false
-                        isFocusable = false
-                    },
-                    LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT),
-                )
-            }
-
-            // CUSTOM.md #156 step 14/16: retain the reachability dot and add a readable status label below the address.
-            val statusMark = FrameLayout(context).apply {
-                val dotColor = when (entry.status) {
-                    SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
-                    SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
-                    SavedIpStatus.UNTESTED -> null
-                }
-                if (dotColor != null) {
-                    addView(
-                        View(context).apply {
-                            background = GradientDrawable().apply {
-                                shape = GradientDrawable.OVAL
-                                setColor(dotColor)
-                            }
-                        },
-                        FrameLayout.LayoutParams(dp(9), dp(9), Gravity.CENTER),
-                    )
-                }
-            }
-            row.addView(statusMark, LinearLayout.LayoutParams(dp(30), dp(36)))
-
-            val address = TextView(context).apply {
-                text = entry.address
-                textSize = 15f
-                setTextColor(colorText)
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), dp(3), dp(4), dp(3))
-                setSingleLine(true)
-                ellipsize = TextUtils.TruncateAt.MIDDLE
-                setOnClickListener {
-                    when (selectedOperatorId) {
-                        null -> copyIp(entry.address)
-                        operator.id -> toggleSelection(operator.id, entry.address)
-                        else -> Unit
-                    }
-                }
-                setOnLongClickListener {
-                    toggleSelection(operator.id, entry.address)
-                    true
-                }
-            }
-            row.addView(address, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-
-            if (selectedOperatorId == null) {
-                val remove = TextView(context).apply {
-                    text = "×"
-                    textSize = 22f
-                    gravity = Gravity.CENTER
-                    setTextColor(colorLink)
-                    contentDescription = context.getString(R.string.saved_ip_delete)
-                    background = selectableBackground()
-                    setPadding(dp(10), dp(2), dp(10), dp(2))
-                    setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-                }
-                row.addView(remove, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
-            }
-            item.addView(row, fullWidth())
-
-            val detail = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(if (selectedOperatorId == operator.id) 64 else 34), 0, dp(8), 0)
-            }
-            val statusText = TextView(context).apply {
-                text = when (entry.status) {
-                    SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_status_reachable)
-                    SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_status_unreachable)
-                    SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_status_untested)
-                }
-                textSize = 12f
-                setTextColor(when (entry.status) {
-                    SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
-                    SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
-                    SavedIpStatus.UNTESTED -> colorMuted
-                })
-                setSingleLine(true)
-            }
-            detail.addView(statusText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-            if (entry.lastTestedAt > 0L) {
-                val label = savedIpTimeLabel(entry.lastTestedAt)
-                detail.addView(View(context), LinearLayout.LayoutParams(dp(8), 1))
-                detail.addView(
-                    TextView(context).apply {
-                        text = label.full
-                        textSize = 12f
-                        setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
-                        gravity = Gravity.CENTER_VERTICAL
-                        setSingleLine(true)
-                        ellipsize = TextUtils.TruncateAt.END
-                        contentDescription = label.full
-                    },
-                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-                )
-            }
-            item.addView(detail, fullWidth())
-            operatorList.addView(item, fullWidth())
-        }
-    }
-
     // CUSTOM.md #156 第 45 步：精确到秒的已保存 IP 相对测试时间；仅在列表行绑定时计算。
     private fun savedIpElapsedTime(at: Long): String {
         val seconds = ((System.currentTimeMillis() - at) / 1000L).coerceAtLeast(0L)
@@ -913,7 +764,10 @@ class SavedIpDesign(
     private fun toggleSelection(operatorId: String, address: String) {
         val currentOperator = selectedOperatorId
         if (currentOperator != null && currentOperator != operatorId) return
-        if (currentOperator == null) selectedOperatorId = operatorId
+        if (currentOperator == null) {
+            selectedOperatorId = operatorId
+            expandedOperatorId = operatorId
+        }
 
         if (address in selectedAddresses) {
             selectedAddresses.remove(address)
@@ -1189,6 +1043,7 @@ class SavedIpDesign(
             return
         }
         selectedOperatorId = operator.id
+        expandedOperatorId = operator.id
         selectedAddresses.clear()
         val selected = matching.take(20)
         selectedAddresses.addAll(selected.map { it.address })
