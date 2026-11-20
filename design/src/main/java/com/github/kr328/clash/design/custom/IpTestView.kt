@@ -2015,9 +2015,9 @@ class IpTestView(
         }
 
         val ip = DashedTextView(context).apply {
-            text = if (r.ip in recommendedIps) SpannableStringBuilder("★ ").apply {
+            text = if (r.ip in recommendedIps) SpannableStringBuilder("推荐 ").apply {
                 append(r.ip)
-                setSpan(ForegroundColorSpan(colorLink), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(ForegroundColorSpan(colorLink), 0, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             } else r.ip
             textSize = 15f
             maxLines = 1
