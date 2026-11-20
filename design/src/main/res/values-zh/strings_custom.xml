@@ -390,7 +390,7 @@
     <string name="cloud_cmp_replaced">文件类订阅，用备份里的内容替换：%1$s</string>
     <string name="cloud_names_more"> …共 %1$d 个</string>
     <string name="connections_summary_filtered_more">匹配 %1$d / 共 %2$d 个连接（仅显示 %3$d 个）· 显示的这 %3$d 个共 ↑ %4$s · ↓ %5$s</string>
-    <string name="connection_node_ip_note">这是节点级 IP，不一定是这条连接实际使用的 IP；grpc、h2、smux 等复用连接的传输只能显示最近一次拨号的 IP。国旗表示经这个 IP 出去的出口国家，不是 IP 的所在地。</string>
+    <string name="connection_node_ip_note">这是节点级 IP，不一定是这条连接实际使用的 IP；grpc、h2、smux 等复用连接的传输只能显示最近一次拨号的 IP。国旗表示经这个 IP 出去的落地国家，不是 IP 的登记国家。</string>
     <string name="ip_history_note">一个 IP 第一次出现，或节点换了 IP，会记一条。</string>
     <string name="connections_close_failed">关闭失败：%1$s</string>
     <string name="custom_reach_fail_timeout">✗ 超时</string>
