@@ -141,7 +141,7 @@ class SavedIpDesign(
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var configuredHostsIps: Set<String> = emptySet()
-    private var expandedOperatorId:
+    private var expandedOperatorId: String?
         get() = filterState.expandedOperatorId
         set(value) { filterState.expandedOperatorId = value }
 
