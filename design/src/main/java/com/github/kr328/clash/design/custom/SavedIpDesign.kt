@@ -1061,7 +1061,8 @@ class SavedIpDesign(
         // 10 main probes + country/ASN lookups + one entry-node handshake and one HEAD.
         // ECH lookup is domain-cached; optional WS/H3/MTU extensions are not included.
         val estimatedRequests = selectedEntries.sumOf { entry ->
-            if (entry.testDirect) 16 else 15
+            val perEntry: Int = if (entry.testDirect) 16 else 15
+            perEntry
         }
         if (addresses.size >= 10) {
             MaterialAlertDialogBuilder(context)
