@@ -9,6 +9,7 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -1091,22 +1092,26 @@ class IpTestView(
         widths: IntArray,
         scrollX: Int,
         onScroll: (Int) -> Unit,
+        isSelectionMode: () -> Boolean,
         isSelected: (String) -> Boolean,
         onCopy: (String) -> Unit,
         onDetail: (String, String) -> Unit,
         onLongPress: (String) -> Unit,
     ): View {
         val gridWidth = widths.drop(1).sum()
+        val selectionMode = isSelectionMode()
+        val checkboxWidth = if (selectionMode) dp(40) else 0
+        val ipColumnWidth = widths[0] + checkboxWidth
         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val leftHeader = headCell(context.getString(R.string.iptest_col_ip), widths[0])
+        val leftHeader = headCell(context.getString(R.string.iptest_col_ip), ipColumnWidth)
         val headers = keys.mapIndexed { index, key -> headCell(title(key), widths[index + 1]) }
         val headerHeight = maxOf(
             headH,
-            heightOf(leftHeader, widths[0]),
+            heightOf(leftHeader, ipColumnWidth),
             headers.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
         ) + dp(6)
-        left.addView(leftHeader, lp(widths[0], headerHeight))
+        left.addView(leftHeader, lp(ipColumnWidth, headerHeight))
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(colorSurface)
@@ -1124,21 +1129,27 @@ class IpTestView(
             renderer.colos = colos
             renderer.coloCountries = coloCountries
             renderer.onCopy = { address ->
-                if (isSelected(address)) onLongPress(address) else onCopy(address)
+                if (isSelectionMode()) onLongPress(address) else onCopy(address)
             }
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row)
             val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
-            val leftRow = FrameLayout(context).apply {
-                setBackgroundColor(
-                    if (isSelected(entry.address)) Color.argb(
-                        36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink),
-                    ) else stripe,
-                )
-                addView(ipView, FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                ))
+            val selected = isSelected(entry.address)
+            val rowBackground = if (selected) Color.argb(
+                36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink),
+            ) else stripe
+            val leftRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundColor(rowBackground)
+                if (selectionMode) {
+                    addView(CheckBox(context).apply {
+                        isChecked = selected
+                        contentDescription = entry.address
+                        setOnClickListener { onLongPress(entry.address) }
+                    }, LinearLayout.LayoutParams(checkboxWidth, ViewGroup.LayoutParams.MATCH_PARENT))
+                }
+                addView(ipView, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.MATCH_PARENT))
             }
             val cells = keys.mapIndexed { index, key ->
                 val directMode = entry.testDirect
@@ -1182,10 +1193,10 @@ class IpTestView(
                 heightOf(ipView, widths[0]),
                 cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
             ) + dp(4)
-            left.addView(leftRow, lp(widths[0], height))
+            left.addView(leftRow, lp(ipColumnWidth, height))
             val line = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(stripe)
+                setBackgroundColor(rowBackground)
             }
             cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
             grid.addView(line, lp(gridWidth, height))
