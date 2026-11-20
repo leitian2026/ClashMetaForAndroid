@@ -14,6 +14,8 @@ import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
@@ -1219,10 +1221,23 @@ class IpTestView(
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row)
             // CUSTOM (CUSTOM.md #156): how long ago this IP was tested, right under the address.
-            SavedIpTimeText.text(context, entry.lastTestedAt, now).takeIf { it.isNotEmpty() }?.let { timeText ->
+            val timeText = SavedIpTimeText.text(context, entry.lastTestedAt, now)
+            if (timeText.isNotEmpty() || entry.failStreak >= 3) {
+                val label = SpannableStringBuilder(timeText)
+                if (entry.failStreak >= 3) {
+                    if (label.isNotEmpty()) label.append("　")
+                    val start = label.length
+                    label.append("连续不通 ${entry.failStreak} 次")
+                    label.setSpan(
+                        ForegroundColorSpan(colorBad),
+                        start,
+                        label.length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
                 (ipView as? LinearLayout)?.addView(
                     TextView(context).apply {
-                        text = timeText; textSize = 12f; maxLines = 1
+                        text = label; textSize = 12f; maxLines = 1
                         ellipsize = TextUtils.TruncateAt.END
                         setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) colorWarn else colorMuted)
                     },

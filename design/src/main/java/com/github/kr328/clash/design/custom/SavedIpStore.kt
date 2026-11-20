@@ -25,6 +25,8 @@ data class SavedIpEntry(
     // Defaults keep entries written by the previous schema readable.
     val lastTestedAt: Long = 0L,
     val addedAt: Long = 0L,
+    // CUSTOM.md #156: consecutive failed test batches; defaults keep older saved data and backups compatible.
+    val failStreak: Int = 0,
     // CUSTOM.md #156：IP 登记国家代码（归属地）；默认空值兼容旧快照，不作为出口国家筛选来源。
     val countryCode: String = "",
     // CUSTOM.md #160：目标网站看到的出口国家代码；旧 JSON 缺少此字段时默认为空，不迁移归属地。
@@ -282,6 +284,7 @@ object SavedIpStore {
                 batchEntries[address] = previousInBatch.copy(
                     status = status,
                     lastTestedAt = testedAt,
+                    failStreak = if (row.ok) 0 else previousInBatch.failStreak + 1,
                     countryCode = row.geo.trim().ifBlank { previousInBatch.countryCode },
                     exitCountryCode = row.country.trim().ifBlank { previousInBatch.exitCountryCode },
                     avg = row.avg,
@@ -302,6 +305,7 @@ object SavedIpStore {
                 status = status,
                 lastTestedAt = testedAt,
                 addedAt = previous?.addedAt ?: testedAt,
+                failStreak = if (row.ok) 0 else (previous?.failStreak ?: 0) + 1,
                 countryCode = row.geo.trim().ifBlank { previous?.countryCode.orEmpty() },
                 exitCountryCode = row.country.trim().ifBlank { previous?.exitCountryCode.orEmpty() },
                 avg = row.avg,
