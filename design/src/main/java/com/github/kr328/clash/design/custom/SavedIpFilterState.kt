@@ -17,7 +17,6 @@ internal class SavedIpFilterState private constructor(
     var sort: SavedIpSort,
     var query: String,
     var searchExpanded: Boolean,
-    var expandedPanel: String,
     var expandedOperatorId: String?,
 ) {
     fun matchesStatus(status: SavedIpStatus): Boolean = when (currentFilter) {
@@ -33,7 +32,6 @@ internal class SavedIpFilterState private constructor(
         outState.putString(KEY_SORT, sort.name)
         outState.putString(KEY_QUERY, query)
         outState.putBoolean(KEY_SEARCH_EXPANDED, searchExpanded)
-        outState.putString(KEY_EXPANDED_PANEL, expandedPanel)
         outState.putString(KEY_EXPANDED_OPERATOR, expandedOperatorId)
     }
 
@@ -44,7 +42,6 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_SORT = "saved_ip_filter_sort"
         private const val KEY_QUERY = "saved_ip_filter_query"
         private const val KEY_SEARCH_EXPANDED = "saved_ip_filter_search_expanded"
-        private const val KEY_EXPANDED_PANEL = "saved_ip_filter_expanded_panel"
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
 
         fun restore(state: Bundle?): SavedIpFilterState {
@@ -74,7 +71,6 @@ internal class SavedIpFilterState private constructor(
                 sort = sort,
                 query = state?.getString(KEY_QUERY).orEmpty(),
                 searchExpanded = state?.getBoolean(KEY_SEARCH_EXPANDED) ?: false,
-                expandedPanel = state?.getString(KEY_EXPANDED_PANEL).orEmpty(),
                 expandedOperatorId = state?.getString(KEY_EXPANDED_OPERATOR),
             )
         }
