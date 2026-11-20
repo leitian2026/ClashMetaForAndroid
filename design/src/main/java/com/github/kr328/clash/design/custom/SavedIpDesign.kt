@@ -387,6 +387,19 @@ class SavedIpDesign(
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             maxLines = 1
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val fastest = operator.ips.asSequence()
+            .filter { it.status == SavedIpStatus.REACHABLE && it.avg > 0 }
+            .minByOrNull { it.avg }
+        if (fastest != null) {
+            title.addView(TextView(context).apply {
+                text = "最快 ${fastest.address}　${fastest.avg} ms"
+                textSize = 11f
+                setTextColor(colorMuted)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                maxWidth = dp(150)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
         val statusTags = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
