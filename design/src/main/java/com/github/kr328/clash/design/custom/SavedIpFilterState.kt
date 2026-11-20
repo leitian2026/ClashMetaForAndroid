@@ -2,15 +2,17 @@ package com.github.kr328.clash.design.custom
 
 import android.os.Bundle
 
-// CUSTOM.md #156 (r286): centralize saved-IP page filters and restorable view state.
-/**
- * Page-local saved-IP filters and view state.
- *
- * Empty status selection means all statuses. Selecting every status is normalized back to empty,
- * keeping one canonical representation for the unfiltered state.
- */
+/** The mutually exclusive status filter shown on the saved-IP page. */
+internal enum class IpFilter {
+    ALL,
+    REACHABLE,
+    UNREACHABLE,
+    UNTESTED,
+}
+
+// CUSTOM.md #156 (r290): keep saved-IP page filters and restorable view state in one place.
 internal class SavedIpFilterState private constructor(
-    val selectedStatuses: LinkedHashSet<SavedIpStatus>,
+    var currentFilter: IpFilter,
     val selectedCountryCodes: LinkedHashSet<String>,
     var sort: SavedIpSort,
     var query: String,
@@ -18,11 +20,15 @@ internal class SavedIpFilterState private constructor(
     var expandedPanel: String,
     var expandedOperatorId: String?,
 ) {
-    fun matchesStatus(status: SavedIpStatus): Boolean =
-        selectedStatuses.isEmpty() || status in selectedStatuses
+    fun matchesStatus(status: SavedIpStatus): Boolean = when (currentFilter) {
+        IpFilter.ALL -> true
+        IpFilter.REACHABLE -> status == SavedIpStatus.REACHABLE
+        IpFilter.UNREACHABLE -> status == SavedIpStatus.UNREACHABLE
+        IpFilter.UNTESTED -> status == SavedIpStatus.UNTESTED
+    }
 
     fun save(outState: Bundle) {
-        outState.putStringArrayList(KEY_STATUSES, ArrayList(selectedStatuses.map { it.name }))
+        outState.putString(KEY_STATUS, currentFilter.name)
         outState.putStringArrayList(KEY_COUNTRIES, ArrayList(selectedCountryCodes))
         outState.putString(KEY_SORT, sort.name)
         outState.putString(KEY_QUERY, query)
@@ -32,7 +38,8 @@ internal class SavedIpFilterState private constructor(
     }
 
     companion object {
-        private const val KEY_STATUSES = "saved_ip_filter_statuses"
+        private const val KEY_STATUS = "saved_ip_filter_status"
+        private const val KEY_LEGACY_STATUSES = "saved_ip_filter_statuses"
         private const val KEY_COUNTRIES = "saved_ip_filter_countries"
         private const val KEY_SORT = "saved_ip_filter_sort"
         private const val KEY_QUERY = "saved_ip_filter_query"
@@ -41,19 +48,28 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
 
         fun restore(state: Bundle?): SavedIpFilterState {
-            val statuses = LinkedHashSet<SavedIpStatus>()
-            state?.getStringArrayList(KEY_STATUSES)?.forEach { name ->
-                runCatching { SavedIpStatus.valueOf(name) }.getOrNull()?.let(statuses::add)
+            val filter = state?.getString(KEY_STATUS)?.let { name ->
+                runCatching { IpFilter.valueOf(name) }.getOrNull()
+            } ?: run {
+                // A former multi-selection has no exact single-filter equivalent; restore it as All.
+                val legacy = state?.getStringArrayList(KEY_LEGACY_STATUSES).orEmpty()
+                    .mapNotNull { name -> runCatching { SavedIpStatus.valueOf(name) }.getOrNull() }
+                    .distinct()
+                if (legacy.size == 1) {
+                    when (legacy.single()) {
+                        SavedIpStatus.REACHABLE -> IpFilter.REACHABLE
+                        SavedIpStatus.UNREACHABLE -> IpFilter.UNREACHABLE
+                        SavedIpStatus.UNTESTED -> IpFilter.UNTESTED
+                    }
+                } else IpFilter.ALL
             }
-            if (statuses.size == SavedIpStatus.values().size) statuses.clear()
-
             val countries = LinkedHashSet(state?.getStringArrayList(KEY_COUNTRIES).orEmpty())
             val sort = state?.getString(KEY_SORT)?.let { name ->
                 runCatching { SavedIpSort.valueOf(name) }.getOrNull()
             } ?: SavedIpSort.DEFAULT
 
             return SavedIpFilterState(
-                selectedStatuses = statuses,
+                currentFilter = filter,
                 selectedCountryCodes = countries,
                 sort = sort,
                 query = state?.getString(KEY_QUERY).orEmpty(),

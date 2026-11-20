@@ -143,6 +143,9 @@ class SavedIpDesign(
 
     // CUSTOM.md #156: status, country, sort and view state are page-local and restored with the Activity.
     private val selectedCountryCodes get() = filterState.selectedCountryCodes
+    private var currentFilter: IpFilter
+        get() = filterState.currentFilter
+        set(value) { filterState.currentFilter = value }
     private var currentSort: SavedIpSort
         get() = filterState.sort
         set(value) { filterState.sort = value }
@@ -168,12 +171,6 @@ class SavedIpDesign(
     private val statusPanel = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        visibility = View.GONE
-    }
-    private val selectedStatusTags = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), 0, dp(12), dp(4))
         visibility = View.GONE
     }
     private val selectionActions = LinearLayout(context).apply {
@@ -244,9 +241,10 @@ class SavedIpDesign(
         visibility = View.GONE
     }
     private val filterButtons = listOf(
-        filterButton(R.string.saved_ip_filter_reachable, SavedIpStatus.REACHABLE),
-        filterButton(R.string.saved_ip_filter_unreachable, SavedIpStatus.UNREACHABLE),
-        filterButton(R.string.saved_ip_filter_untested, SavedIpStatus.UNTESTED),
+        filterButton(R.string.saved_ip_filter_all_count, IpFilter.ALL),
+        filterButton(R.string.saved_ip_filter_reachable_count, IpFilter.REACHABLE),
+        filterButton(R.string.saved_ip_filter_unreachable_count, IpFilter.UNREACHABLE),
+        filterButton(R.string.saved_ip_filter_untested_count, IpFilter.UNTESTED),
     )
 
     init {
@@ -274,7 +272,6 @@ class SavedIpDesign(
         filterPanels.addView(countryPanel, fullWidth())
         filterPanels.addView(sortPanel, fullWidth())
         root.addView(filterPanels, fullWidth())
-        root.addView(selectedStatusTags, fullWidth())
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         searchInput.setText(filterState.query)
         searchInput.addTextChangedListener(object : TextWatcher {
@@ -762,22 +759,18 @@ class SavedIpDesign(
     }
 
     private fun updateFilterToolbar(rebuildPanels: Boolean = true) {
-        statusFilterButton.text = buildString {
-            val selected = filterState.selectedStatuses
-            if (selected.isEmpty()) append(context.getString(R.string.saved_ip_filter_all))
-            else {
-                if (SavedIpStatus.REACHABLE in selected) append(context.getString(R.string.saved_ip_filter_reachable))
-                if (SavedIpStatus.UNREACHABLE in selected) {
-                    if (isNotEmpty()) append(" + ")
-                    append(context.getString(R.string.saved_ip_filter_unreachable))
-                }
-                if (SavedIpStatus.UNTESTED in selected) {
-                    if (isNotEmpty()) append(" + ")
-                    append(context.getString(R.string.saved_ip_filter_untested))
-                }
-            }
-            append(" ▾")
-        }
+        statusFilterButton.text = context.getString(when (currentFilter) {
+            IpFilter.ALL -> R.string.saved_ip_filter_all
+            IpFilter.REACHABLE -> R.string.saved_ip_filter_reachable
+            IpFilter.UNREACHABLE -> R.string.saved_ip_filter_unreachable
+            IpFilter.UNTESTED -> R.string.saved_ip_filter_untested
+        }) + " ▾"
+        statusFilterButton.setTextColor(when (currentFilter) {
+            IpFilter.ALL -> colorText
+            IpFilter.REACHABLE -> Color.rgb(46, 125, 50)
+            IpFilter.UNREACHABLE -> Color.rgb(198, 40, 40)
+            IpFilter.UNTESTED -> Color.rgb(239, 143, 0)
+        })
         countryFilterButton.text = if (selectedCountryCodes.isEmpty()) {
             context.getString(R.string.saved_ip_filter_country) + " ▾"
         } else context.getString(R.string.saved_ip_filter_country_selected, selectedCountryCodes.size) + " ▾"
@@ -795,42 +788,11 @@ class SavedIpDesign(
         filterPanels.visibility = if (expanded.isEmpty()) View.GONE else View.VISIBLE
         updateSearchUi()
         updateFilterButtons(snapshotCache)
-        updateSelectedStatusTags()
         countryFilterButton.isEnabled = savedIpCountryCodes(snapshotCache.operators).isNotEmpty()
         countryFilterButton.alpha = if (countryFilterButton.isEnabled) 1f else 0.35f
     }
 
-    private fun updateSelectedStatusTags() {
-        selectedStatusTags.removeAllViews()
-        val selected = filterState.selectedStatuses
-        if (selected.isEmpty()) {
-            selectedStatusTags.visibility = View.GONE
-            return
-        }
-        selectedStatusTags.visibility = View.VISIBLE
-        selected.forEach { status ->
-            val (label, color) = when (status) {
-                SavedIpStatus.REACHABLE -> context.getString(R.string.saved_ip_filter_reachable) to Color.rgb(46, 125, 50)
-                SavedIpStatus.UNREACHABLE -> context.getString(R.string.saved_ip_filter_unreachable) to Color.rgb(198, 40, 40)
-                SavedIpStatus.UNTESTED -> context.getString(R.string.saved_ip_filter_untested) to Color.rgb(239, 143, 0)
-            }
-            selectedStatusTags.addView(TextView(context).apply {
-                text = label
-                textSize = 11f
-                setTextColor(color)
-                setPadding(dp(8), dp(3), dp(8), dp(3))
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dp(10).toFloat()
-                    setColor(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
-                }
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                marginEnd = dp(6)
-            })
-        }
-    }
-
-    private fun filterButton(label: Int, status: SavedIpStatus) = TextView(context).apply {
+    private fun filterButton(label: Int, filter: IpFilter) = TextView(context).apply {
         setText(label)
         textSize = 13f
         gravity = Gravity.CENTER
@@ -839,8 +801,7 @@ class SavedIpDesign(
         setTextColor(colorMuted)
         background = selectableBackground()
         setOnClickListener {
-            if (!filterState.selectedStatuses.add(status)) filterState.selectedStatuses.remove(status)
-            if (filterState.selectedStatuses.size == SavedIpStatus.values().size) filterState.selectedStatuses.clear()
+            currentFilter = filter
             clearSelectionState()
             updateFilterToolbar()
             renderRows()
@@ -855,19 +816,23 @@ class SavedIpDesign(
             entries.count { it.status == SavedIpStatus.UNREACHABLE },
             entries.count { it.status == SavedIpStatus.UNTESTED },
         )
-        val labels = listOf(
-            R.string.saved_ip_filter_reachable_count,
-            R.string.saved_ip_filter_unreachable_count,
-            R.string.saved_ip_filter_untested_count,
-        )
         filterButtons.forEachIndexed { index, button ->
-            val status = SavedIpStatus.values()[index]
-            val selected = status in filterState.selectedStatuses
-            button.text = context.getString(labels[index], counts[index + 1])
-            val color = when (status) {
-                SavedIpStatus.REACHABLE -> Color.rgb(46, 125, 50)
-                SavedIpStatus.UNREACHABLE -> Color.rgb(198, 40, 40)
-                SavedIpStatus.UNTESTED -> Color.rgb(239, 143, 0)
+            val filter = IpFilter.values()[index]
+            val selected = currentFilter == filter
+            button.text = context.getString(
+                when (filter) {
+                    IpFilter.ALL -> R.string.saved_ip_filter_all_count
+                    IpFilter.REACHABLE -> R.string.saved_ip_filter_reachable_count
+                    IpFilter.UNREACHABLE -> R.string.saved_ip_filter_unreachable_count
+                    IpFilter.UNTESTED -> R.string.saved_ip_filter_untested_count
+                },
+                counts[index],
+            )
+            val color = when (filter) {
+                IpFilter.ALL -> colorText
+                IpFilter.REACHABLE -> Color.rgb(46, 125, 50)
+                IpFilter.UNREACHABLE -> Color.rgb(198, 40, 40)
+                IpFilter.UNTESTED -> Color.rgb(239, 143, 0)
             }
             button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
             button.setTextColor(if (selected) color else colorMuted)
