@@ -56,7 +56,7 @@
     <string name="iptest_col_exit">出口国家</string>
     <string name="iptest_col_exit_ip">出口 IP</string>
     <string name="iptest_col_faster">比对照快</string>
-    <string name="iptest_col_test">下载测速</string>
+    <string name="iptest_col_test">下载&#10;测速</string>
     <string name="iptest_col_speed">速度</string>
     <string name="iptest_btn_speed">下载测速</string>
     <string name="iptest_ms_short">%1$d ms</string>
