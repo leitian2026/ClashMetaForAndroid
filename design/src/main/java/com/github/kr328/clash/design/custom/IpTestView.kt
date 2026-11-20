@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
+import android.text.StaticLayout
 import android.text.Spanned
 import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
@@ -1417,6 +1418,34 @@ class IpTestView(
         return v.measuredHeight
     }
 
+    // Keep ordinary text cells to at most three lines. If a value needs more room,
+    // widen its column; the complete grid scrolls when the page cannot fit all required widths.
+    private fun contentNeed(k: Key): Int {
+        var required = width(k)
+        rows.forEach { row ->
+            val cell = cellOf(k, row, Int.MAX_VALUE / 4) as? TextView ?: return@forEach
+            val value = cell.text
+            if (value.isEmpty()) return@forEach
+
+            var low = dp(32)
+            var high = maxOf(
+                required,
+                cell.paint.measureText(value.toString().replace('\n', ' ')).toInt() +
+                    cell.paddingLeft + cell.paddingRight,
+            )
+            while (low < high) {
+                val mid = (low + high) / 2
+                val contentWidth = (mid - cell.paddingLeft - cell.paddingRight).coerceAtLeast(1)
+                val layout = StaticLayout.Builder.obtain(
+                    value, 0, value.length, cell.paint, contentWidth,
+                ).setIncludePad(cell.includeFontPadding).build()
+                if (layout.lineCount <= 3) high = mid else low = mid + 1
+            }
+            required = maxOf(required, low)
+        }
+        return required
+    }
+
     // [0] the IP column, then one per key. The narrowest widths that read well; when the page is wider than their sum
     // the rest is shared out (the columns with the longest text get the most), so the table fills the page exactly
     private fun widths(): IntArray {
@@ -1429,7 +1458,10 @@ class IpTestView(
         keys.forEachIndexed { i, k ->
             val header = headerNeed(k)
             val button = if (k == Key.TEST) speedButtonNeed() else 0
-            floor[i + 1] = maxOf(header, button)
+            val requiredContentWidth = if (!savedTable && k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP)) {
+                contentNeed(k)
+            } else 0
+            floor[i + 1] = maxOf(header, button, requiredContentWidth)
             min[i + 1] = maxOf(width(k), floor[i + 1])
         }
 
@@ -1756,7 +1788,10 @@ class IpTestView(
             ownerLookupIp == r.ip -> "查询中…"
             else -> "-"
         }
-        return textCell(value, colorText)
+        return textCell(value, colorText).apply {
+            maxLines = 3
+            ellipsize = TextUtils.TruncateAt.END
+        }
     }
     private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
         return when (k) {
@@ -1875,6 +1910,8 @@ class IpTestView(
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setTextColor(color)
             setPadding(dp(4), dp(5), dp(4), dp(5))
+            maxLines = 3
+            ellipsize = TextUtils.TruncateAt.END
 
             if (bold) setTypeface(typeface, Typeface.BOLD)
         }
@@ -1988,10 +2025,7 @@ class IpTestView(
         }
 
         val ip = DashedTextView(context).apply {
-            text = if (showRecommendation && r.ip in recommendedIps) SpannableStringBuilder("推荐 ").apply {
-                append(r.ip)
-                setSpan(ForegroundColorSpan(colorWarn), 0, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            } else r.ip
+            text = r.ip
             textSize = 15f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.MIDDLE
@@ -2002,6 +2036,17 @@ class IpTestView(
         }
 
         box.addView(ip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        if (showRecommendation && r.ip in recommendedIps) {
+            box.addView(
+                TextView(context).apply {
+                    text = "推荐"
+                    textSize = 13f
+                    setTextColor(colorWarn)
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            )
+        }
 
         val small = ipDetails(r)
 
