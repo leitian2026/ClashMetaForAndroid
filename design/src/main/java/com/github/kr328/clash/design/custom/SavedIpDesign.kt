@@ -466,6 +466,7 @@ class SavedIpDesign(
                 widths = widths,
                 scrollX = savedTableScrollX,
                 onScroll = { savedTableScrollX = it },
+                isSelectionMode = { selectedOperatorId == operator.id },
                 isSelected = { address -> selectedOperatorId == operator.id && address in selectedAddresses },
                 onCopy = ::copyIp,
                 onDetail = { title, detail ->
