@@ -172,6 +172,15 @@ class SavedIpDesign(
     // CUSTOM.md #159: the selected ordering is page-local and is never persisted.
     private var currentSort = SavedIpSort.DEFAULT
     private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortOptions() }
+    // CUSTOM.md #160: country filters are multi-select, page-local, and independent of the status filter.
+    private val selectedCountryCodes = LinkedHashSet<String>()
+    private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { showCountryFilterOptions() }
+    private val countryFilterBar = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        setPadding(dp(12), 0, dp(12), dp(4))
+        addView(countryFilterButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)))
+    }
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -189,6 +198,7 @@ class SavedIpDesign(
         filterButtons.forEach { filterBar.addView(it, weighted(3)) }
         filterBar.addView(sortButton, weighted(2))
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(countryFilterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         root.addView(searchInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
             marginStart = dp(16)
@@ -246,6 +256,8 @@ class SavedIpDesign(
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
         updateFilterButtons(snapshotCache)
+        reconcileCountryFilter(snapshotCache)
+        updateCountryFilterButton(snapshotCache)
         reconcileSelection(snapshotCache)
         val allEntries = snapshotCache.operators.flatMap { it.ips }
         summaryView.text = context.getString(
@@ -266,7 +278,8 @@ class SavedIpDesign(
         for (operator in snapshotCache.operators) {
             // While selecting a group, show that whole group regardless of the active filter or search text.
             val entries = if (selectedOperatorId == operator.id) {
-                sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
+                val countryFiltered = filterSavedIpEntriesByCountry(SavedIpStore.sortEntries(operator.ips), selectedCountryCodes)
+                sortSavedIpEntries(countryFiltered, currentSort)
             } else {
                 visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
             }
@@ -527,7 +540,52 @@ class SavedIpDesign(
                 IpFilter.UNTESTED -> entry.status == SavedIpStatus.UNTESTED
             }
         }
-        return sortSavedIpEntries(SavedIpStore.sortEntries(filtered), currentSort)
+        val countryFiltered = filterSavedIpEntriesByCountry(filtered, selectedCountryCodes)
+        return sortSavedIpEntries(SavedIpStore.sortEntries(countryFiltered), currentSort)
+    }
+
+    // CUSTOM.md #160: select one or more countries; status and text search remain independent AND filters.
+    private fun showCountryFilterOptions() {
+        val codes = savedIpCountryCodes(snapshotCache.operators)
+        if (codes.isEmpty()) {
+            Toast.makeText(context, R.string.saved_ip_filter_country_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = codes.map { CountryName.label(it) }.toTypedArray()
+        val workingSelection = LinkedHashSet(selectedCountryCodes)
+        val checked = BooleanArray(codes.size) { codes[it] in workingSelection }
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_filter_country_title)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                if (which in codes.indices) {
+                    if (isChecked) workingSelection.add(codes[which])
+                    else workingSelection.remove(codes[which])
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                selectedCountryCodes.clear()
+                selectedCountryCodes.addAll(workingSelection)
+                clearSelectionState()
+                updateCountryFilterButton(snapshotCache)
+                renderRows()
+            }
+            .show()
+    }
+
+    private fun reconcileCountryFilter(snapshot: SavedIpSnapshot) {
+        selectedCountryCodes.retainAll(savedIpCountryCodes(snapshot.operators).toSet())
+    }
+
+    private fun updateCountryFilterButton(snapshot: SavedIpSnapshot) {
+        countryFilterButton.text = if (selectedCountryCodes.isEmpty()) {
+            context.getString(R.string.saved_ip_filter_country)
+        } else {
+            context.getString(R.string.saved_ip_filter_country_selected, selectedCountryCodes.size)
+        }
+        val enabled = savedIpCountryCodes(snapshot.operators).isNotEmpty()
+        countryFilterButton.isEnabled = enabled
+        countryFilterButton.alpha = if (enabled) 1f else 0.35f
     }
 
     // CUSTOM.md #159: show a single-choice menu; changing sort only rebuilds this page's rows.

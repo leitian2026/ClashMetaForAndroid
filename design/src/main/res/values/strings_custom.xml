@@ -438,6 +438,10 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_sort_default">Default (newest test first)</string>
     <string name="saved_ip_sort_latency">Average latency (low to high)</string>
     <string name="saved_ip_sort_speed">Download speed (high to low)</string>
+    <string name="saved_ip_filter_country">Country</string>
+    <string name="saved_ip_filter_country_selected">Countries (%1$d)</string>
+    <string name="saved_ip_filter_country_title">Filter by country</string>
+    <string name="saved_ip_filter_country_empty">No country information is available.</string>
     <string name="saved_ip_add_operator">Add operator</string>
     <string name="saved_ip_paste">Paste IPs</string>
     <string name="saved_ip_empty">No saved IPs yet.</string>
