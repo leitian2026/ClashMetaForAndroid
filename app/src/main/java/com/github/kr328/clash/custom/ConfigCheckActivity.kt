@@ -8,7 +8,6 @@ import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.core.model.IpTestRow
-import com.github.kr328.clash.design.custom.AgeText
 import com.github.kr328.clash.design.custom.ErrorsText
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
@@ -472,13 +471,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 } else if (target.isNotEmpty()) {
                     getString(R.string.iptest_target_sub, target)
                 } else {
-                    val ref = report.ref
-
-                    if (ref != null) {
-                        getString(R.string.iptest_ref, ref.ip, ref.ms, AgeText.testedAgo(this, ref.at))
-                    } else {
-                        getString(R.string.iptest_ref_none)
-                    }
+                    "" // CUSTOM.md #43 (r309): the "对照" line above the node-mode table was removed
                 }
                 val measureNote = getString(if (direct) R.string.iptest_measure_direct_note else R.string.iptest_measure_node_note)
                 val sub = listOf(contextSub, measureNote).filter { it.isNotEmpty() }.joinToString("\n")

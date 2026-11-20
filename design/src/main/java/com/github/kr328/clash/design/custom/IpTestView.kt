@@ -65,23 +65,22 @@ class IpTestView(
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, TARGET, TCOLO }
 
     private val keys = if (savedTable) {
         // CUSTOM.md #162: semantic union of direct, node and node-with-target result columns.
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
-            Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.FASTER, Key.SPEED)
+            Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED)
     } else if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
-        // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
-        // 比对照快 is dropped (the reference was measured against another address)
+        // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added
         // r248: keep the node path in order: ingress endpoint and metadata, link metrics, then egress and target.
         listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.TEST, Key.SPEED)
     } else {
         // CUSTOM.md #63: through a node too: 机房 | 归属运营商 | 归属地 | 落地 | 端口 | 丢包率 | ...
-        // The no-target variant has no target-response / target-colo fields; keep its existing comparison column after phase timings.
-        listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.PHASE, Key.FASTER, Key.TEST, Key.SPEED)
+        // The no-target variant has no target-response / target-colo fields. (CUSTOM.md #43: the 比对照快 column was removed in r309.)
+        listOf(Key.PORT, Key.COLO, Key.ASN, Key.GEO, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT, Key.EXIT_IP, Key.PHASE, Key.TEST, Key.SPEED)
     }
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -1257,7 +1256,6 @@ class IpTestView(
                     Key.TCOLO -> if (targetMode) Key.TCOLO else null
                     Key.TARGET -> if (targetMode) Key.TARGET else null
                     Key.PHASE -> Key.PHASE
-                    Key.FASTER -> if (!directMode && !targetMode) Key.FASTER else null
                     Key.SPEED -> Key.SPEED
                     else -> null
                 }
@@ -1521,7 +1519,6 @@ class IpTestView(
                 Key.AVG -> R.string.iptest_col_avg
                 Key.JITTER -> R.string.iptest_col_jitter
                 Key.PHASE -> R.string.iptest_col_phase
-                Key.FASTER -> R.string.iptest_col_faster
                 Key.TARGET -> R.string.iptest_col_target
                 Key.TCOLO -> R.string.iptest_col_tcolo
                 Key.TEST -> R.string.iptest_col_test
@@ -1544,7 +1541,6 @@ class IpTestView(
                 Key.PHASE -> 84
                 Key.EXIT -> 76
                 Key.EXIT_IP -> 116
-                Key.FASTER -> 70
                 Key.TARGET -> 84
                 Key.TCOLO -> 84
                 Key.TEST -> 52
@@ -1657,7 +1653,6 @@ class IpTestView(
             Key.PHASE -> phaseText(r)
             Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
             Key.EXIT_IP -> if (tested && r.exitIp.isNotEmpty()) r.exitIp + "\n" + r.exitAsn.ifEmpty { "-" } else "-"
-            Key.FASTER -> if (r.faster > 0) context.getString(R.string.iptest_faster_cell, r.faster) else "-"
             Key.TARGET -> targetText(r)
             Key.TCOLO -> coloLabel(r.targetColo)
             Key.TEST -> ""
@@ -1687,7 +1682,6 @@ class IpTestView(
                     Key.LOSS -> lossColor(r.loss)
                     Key.AVG -> if (r.ok) latencyColor(r.avg) else colorMuted
                     Key.JITTER -> if (r.ok) jitterColor(r.jitter) else colorMuted
-                    Key.FASTER -> if (r.faster > 0) colorGood else colorMuted
                     Key.TARGET -> targetColor(r)
                     Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted
                     Key.ASN, Key.PORT -> colorText

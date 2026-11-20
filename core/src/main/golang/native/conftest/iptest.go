@@ -72,7 +72,7 @@ type IPRow struct {
 	Country string `json:"country"` // the exit country (落地); direct mode (CUSTOM.md #62): only when a node of the config has the typed domain as its server
 	ExitIP  string `json:"exitIp"` // CUSTOM.md #57: the address the target site sees after traffic leaves the node
 	ExitASN string `json:"exitAsn"` // CUSTOM.md #57: operator of ExitIP, separate from the entry IP's ASN
-	Faster  int    `json:"faster"`  // milliseconds quicker than the reference address, 0 when not quicker
+	Faster  int    `json:"faster"`  // CUSTOM.md #43 (r309): no longer filled; kept so old saved results still parse
 
 	// direct mode
 	TLS  string `json:"tls"`  // "1.2" / "1.3"
@@ -158,7 +158,7 @@ type IPExtResult struct {
 	UDPNoResponse bool   `json:"udpNoResponse"`
 }
 
-// IPRef is the quickest address of the node's `hosts:` entry in its last speed test.
+// IPRef: CUSTOM.md #43 (r309): no longer filled; kept so the JSON shape stays the same.
 type IPRef struct {
 	IP string `json:"ip"`
 	Ms int    `json:"ms"`
@@ -176,7 +176,7 @@ type IPReport struct {
 	Skipped   []string `json:"skipped"`   // direct mode: domains, which only node mode tests
 	Cut        int      `json:"cut"`       // addresses over the limit, not tested
 	Duplicates int      `json:"duplicates"` // repeated valid IP addresses removed by parseTargets
-	Ref       *IPRef   `json:"ref"`       // node mode
+	Ref       *IPRef   `json:"ref"`       // CUSTOM.md #43 (r309): always null now
 	ECHSource string   `json:"echSource"` // direct mode: the server that gave the ECH config, "" when there is none
 	At        int64    `json:"at"`
 	Cancelled bool     `json:"cancelled"`

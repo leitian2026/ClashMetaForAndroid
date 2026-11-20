@@ -732,15 +732,6 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 		hosts[ip] = true
 	}
 
-	// CUSTOM.md #66: the reference is measured against the node's own test URL, so it is no comparison for a target address
-	if req.Target == "" {
-		for _, r := range ipdelay.Get(rep.Node) {
-			if r.Delay > 0 && (rep.Ref == nil || r.Delay < rep.Ref.Ms) {
-				rep.Ref = &IPRef{IP: r.IP, Ms: r.Delay, At: r.At}
-			}
-		}
-	}
-
 	var (
 		mu       sync.Mutex
 		okMs     []int
@@ -884,10 +875,6 @@ func probeNode(ctx context.Context, rep *IPReport, req IPRequest) {
 					row.ExitASN = lookupExitOwner(ctx, row.ExitIP)
 				}
 			}
-		}
-
-		if rep.Ref != nil && st.Avg < rep.Ref.Ms {
-			row.Faster = rep.Ref.Ms - st.Avg
 		}
 
 		// CUSTOM.md #63: the data centre, the operator and the registered country of an address that works
