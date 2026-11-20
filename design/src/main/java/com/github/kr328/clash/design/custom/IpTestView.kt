@@ -1256,7 +1256,8 @@ class IpTestView(
         val now = System.currentTimeMillis()
         entries.forEachIndexed { rowIndex, entry ->
             val result = entry.result
-            val row = result ?: IpTestRow(ip = entry.address, ok = true)
+            // CUSTOM.md #156: the config source is the green second line below; drop the stored inHosts so ipDetails() does not repeat it.
+            val row = (result ?: IpTestRow(ip = entry.address, ok = true)).copy(inHosts = false)
             val renderer = IpTestView(context, entry.testDirect, entry.testTarget)
             renderer.colos = colos
             renderer.coloCountries = coloCountries
