@@ -60,6 +60,7 @@ class IpTestView(
     private val direct: Boolean,
     private val target: Boolean = false,
     private val savedTable: Boolean = false,
+    private val visibleSavedColumns: Set<String>? = null,
 ) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
@@ -69,10 +70,13 @@ class IpTestView(
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, TARGET, TCOLO }
 
+    private val savedTableKeys = listOf(
+        Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
+        Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED,
+    )
     private val keys = if (savedTable) {
-        // CUSTOM.md #162: semantic union of direct, node and node-with-target result columns.
-        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
-            Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED)
+        // CUSTOM.md #162/#160: filter only the saved-table instance; the IP column remains fixed outside this list.
+        savedTableKeys.filter { visibleSavedColumns == null || it.name in visibleSavedColumns }
     } else if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
@@ -1102,11 +1106,16 @@ class IpTestView(
     // CUSTOM (CUSTOM.md #164): expose the speed header index for its sort-only click handler.
     internal fun savedSpeedColumnIndex(): Int = keys.indexOf(Key.SPEED)
 
-    internal fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnIndex: Int): List<String> =
-        entries.asSequence().map { savedTableFilterValue(it, columnIndex) }.filter { it.isNotBlank() && it != "-" }.distinct().sorted().toList()
+    internal fun savedTableColumnOptions(): List<Pair<String, String>> =
+        savedTableKeys.map { it.name to title(it) }
 
-    internal fun savedTableFilterValue(entry: SavedIpEntry, columnIndex: Int): String {
-        val key = keys.getOrNull(columnIndex) ?: return ""
+    internal fun savedTableColumnName(columnIndex: Int): String = keys.getOrNull(columnIndex)?.name.orEmpty()
+
+    internal fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): List<String> =
+        entries.asSequence().map { savedTableFilterValue(it, columnName) }.filter { it.isNotBlank() && it != "-" }.distinct().sorted().toList()
+
+    internal fun savedTableFilterValue(entry: SavedIpEntry, columnName: String): String {
+        val key = keys.firstOrNull { it.name == columnName } ?: return ""
         if (!isSavedTableFilterable(key)) return ""
         val row = entry.result ?: return ""
         val mapped = when (key) {
@@ -1171,7 +1180,7 @@ class IpTestView(
         onCopy: (String) -> Unit,
         onDetail: (String, String) -> Unit,
         onLongPress: (String) -> Unit,
-        selectedFilters: Map<Int, Set<String>> = emptyMap(),
+        selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
         hostsIps: Set<String> = emptySet(),
@@ -1187,7 +1196,7 @@ class IpTestView(
             savedHeaderCell(
                 title(key),
                 widths[index + 1],
-                selectedFilters[index].orEmpty(),
+                selectedFilters[key.name].orEmpty(),
                 if (key == Key.SPEED) speedSortLabel else null,
             ) { anchor ->
                 if (isSavedTableFilterable(key) || key == Key.SPEED) onHeaderClick(index, anchor)

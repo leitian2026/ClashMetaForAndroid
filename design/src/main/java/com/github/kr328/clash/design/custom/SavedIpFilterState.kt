@@ -6,7 +6,7 @@ import android.os.Bundle
 // CUSTOM (CUSTOM.md #164): persist independent filters by operator ID and page-wide speed order.
 internal class SavedIpFilterState private constructor(
     val selectedStatuses: LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>,
-    val selectedTableFilters: LinkedHashMap<String, LinkedHashMap<Int, LinkedHashSet<String>>>,
+    val selectedTableFilters: LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>,
     var sort: SavedIpSort,
     var query: String,
     var searchExpanded: Boolean,
@@ -18,7 +18,7 @@ internal class SavedIpFilterState private constructor(
         }
         selectedTableFilters.forEach { (operatorId, columns) ->
             columns.forEach { (column, values) ->
-                outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + operatorId + "_" + column, ArrayList(values))
+                outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + operatorId + "__" + column, ArrayList(values))
             }
         }
         outState.putString(KEY_SORT, sort.name)
@@ -34,10 +34,14 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_QUERY = "saved_ip_filter_query"
         private const val KEY_SEARCH_EXPANDED = "saved_ip_filter_search_expanded"
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
+        private val SAVED_TABLE_COLUMNS = setOf(
+            "COLO", "ASN", "GEO", "EXIT", "PORTS", "LOSS", "MIN", "MAX", "AVG",
+            "JITTER", "EXIT_IP", "TCOLO", "TARGET", "PHASE", "SPEED",
+        )
 
         fun restore(state: Bundle?): SavedIpFilterState {
             val statuses = LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>()
-            val tableFilters = LinkedHashMap<String, LinkedHashMap<Int, LinkedHashSet<String>>>()
+            val tableFilters = LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>()
             state?.keySet().orEmpty().forEach { key ->
                 when {
                     key.startsWith(KEY_STATUS_PREFIX) -> {
@@ -49,8 +53,11 @@ internal class SavedIpFilterState private constructor(
                     }
                     key.startsWith(KEY_TABLE_FILTER_PREFIX) -> {
                         val suffix = key.removePrefix(KEY_TABLE_FILTER_PREFIX)
-                        val column = suffix.substringAfterLast('_').toIntOrNull() ?: return@forEach
-                        val id = suffix.substringBeforeLast('_')
+                        val separator = suffix.lastIndexOf("__")
+                        if (separator <= 0) return@forEach // old numeric-index Bundle keys are intentionally ignored
+                        val id = suffix.substring(0, separator)
+                        val column = suffix.substring(separator + 2)
+                        if (column !in SAVED_TABLE_COLUMNS) return@forEach
                         val values = state?.getStringArrayList(key).orEmpty()
                         if (id.isNotEmpty() && values.isNotEmpty()) {
                             tableFilters.getOrPut(id) { LinkedHashMap() }[column] = LinkedHashSet(values)

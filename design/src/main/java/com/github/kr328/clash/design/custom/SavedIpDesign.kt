@@ -136,6 +136,11 @@ class SavedIpDesign(
     private data class SavedIpUndo(val operatorId: String, val entries: List<SavedIpEntry>)
     private var pendingUndo: SavedIpUndo? = null
     private var undoSnackbar: Snackbar? = null
+    private val savedIpUiPreferences = context.getSharedPreferences("custom_saved_ip_ui", Context.MODE_PRIVATE)
+    private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
+    private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
+    private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
+        ?.filter { it in allSavedColumnNames }?.toSet() ?: allSavedColumnNames
     private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
     private var savedTableScrollX = 0
 
@@ -199,7 +204,7 @@ class SavedIpDesign(
     }
     private var tableFilterPopup: PopupWindow? = null
     private var activeTableFilterOperatorId: String? = null
-    private var activeTableFilterColumn: Int = -1
+    private var activeTableFilterColumn: String = ""
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -316,7 +321,8 @@ class SavedIpDesign(
                 filtered.filter { entry ->
                     entry.address.contains(query, ignoreCase = true) ||
                         SAVED_SEARCH_COLUMNS.any { column ->
-                            renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
+                            column in visibleSavedColumns &&
+                                renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
                         }
                 }
             }
@@ -364,7 +370,8 @@ class SavedIpDesign(
         val EMPTY_STATE_TAG = Any()
         // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
         // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
-        val SAVED_SEARCH_COLUMNS = intArrayOf(0, 1, 2, 3, 4, 10, 11, 12)
+        const val KEY_VISIBLE_SAVED_COLUMNS = "visible_columns"
+        val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS", "EXIT_IP", "TCOLO", "TARGET")
     }
 
     private fun bindOperatorRow(
@@ -435,6 +442,7 @@ class SavedIpDesign(
                     menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable).isEnabled = allUnreachable
                     menu.add(0, 4, 1, R.string.saved_ip_delete_older)
                     menu.add(0, 5, 2, R.string.saved_ip_select_age)
+                    menu.add(0, 6, 5, R.string.saved_ip_show_columns)
                     if (operator.id !in SavedIpStore.builtInOperatorIds) {
                         menu.add(0, 2, 3, R.string.saved_ip_rename)
                         menu.add(0, 3, 4, R.string.saved_ip_delete)
@@ -446,6 +454,7 @@ class SavedIpDesign(
                             3 -> confirmDeleteOperator(operator)
                             4 -> chooseDeleteOlder(operator)
                             5 -> chooseSelectAge(operator)
+                            6 -> showSavedColumnsDialog()
                         }
                         true
                     }
@@ -496,7 +505,10 @@ class SavedIpDesign(
 
     private fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
         savedTableRenderers.getOrPut(operator.id) {
-            val renderer = IpTestView(context, direct = false, target = false, savedTable = true)
+            val renderer = IpTestView(
+                context, direct = false, target = false, savedTable = true,
+                visibleSavedColumns = visibleSavedColumns,
+            )
             val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
                 .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(32))
             val widths = renderer.savedTableWidths(
@@ -540,6 +552,35 @@ class SavedIpDesign(
         )
     }
 
+    private fun showSavedColumnsDialog() {
+        val selected = visibleSavedColumns.toMutableSet()
+        val labels = savedTableColumnOptions.map { it.second }.toTypedArray()
+        val checked = BooleanArray(savedTableColumnOptions.size) { savedTableColumnOptions[it].first in selected }
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_show_columns_title)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                val columnName = savedTableColumnOptions[which].first
+                if (isChecked) selected.add(columnName) else selected.remove(columnName)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val next = selected.intersect(allSavedColumnNames)
+                visibleSavedColumns = next
+                savedIpUiPreferences.edit()
+                    .putStringSet(KEY_VISIBLE_SAVED_COLUMNS, HashSet(next))
+                    .apply()
+                filterState.selectedTableFilters.keys.toList().forEach { operatorId ->
+                    val filters = filterState.selectedTableFilters[operatorId] ?: return@forEach
+                    filters.keys.retainAll(next)
+                    if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
+                }
+                if ("SPEED" !in next) currentSort = SavedIpSort.DEFAULT
+                savedTableRenderers.clear()
+                refresh()
+            }
+            .show()
+    }
+
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
         val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
         val filtered = operator.ips.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
@@ -556,15 +597,18 @@ class SavedIpDesign(
     // CUSTOM (CUSTOM.md #160): reuse the existing scrollable checkbox popup for each saved-table column.
     private fun showTableColumnPopup(anchor: View, operator: SavedIpOperator, columnIndex: Int) {
         if (filterState.searchExpanded) collapseSearch()
-        if (tableFilterPopup?.isShowing == true && activeTableFilterOperatorId == operator.id && activeTableFilterColumn == columnIndex) {
-            tableFilterPopup?.dismiss(); tableFilterPopup = null; return
-        }
+        if (filterState.searchExpanded) collapseSearch()
         dismissFilterPopups()
         val renderer = savedTableFor(operator).first
-        val options = renderer.savedTableFilterOptions(operator.ips, columnIndex)
+        val columnName = renderer.savedTableColumnName(columnIndex)
+        if (columnName.isEmpty()) return
+        if (tableFilterPopup?.isShowing == true && activeTableFilterOperatorId == operator.id && activeTableFilterColumn == columnName) {
+            tableFilterPopup?.dismiss(); tableFilterPopup = null; return
+        }
+        val options = renderer.savedTableFilterOptions(operator.ips, columnName)
         if (options.isEmpty()) return
         val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
-        val selected = operatorFilters.getOrPut(columnIndex) { LinkedHashSet() }
+        val selected = operatorFilters.getOrPut(columnName) { LinkedHashSet() }
         var selectionChanged = false
         val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
         options.forEach { value ->
@@ -573,7 +617,7 @@ class SavedIpDesign(
                 setOnCheckedChangeListener { _, checked ->
                     selectionChanged = true
                     if (checked) selected.add(value) else selected.remove(value)
-                    if (selected.isEmpty()) operatorFilters.remove(columnIndex)
+                    if (selected.isEmpty()) operatorFilters.remove(columnName)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
                     // CUSTOM (CUSTOM.md #165): do not touch the header cell while the popup is open;
                     // its summary is drawn once by the rebuild on dismiss, so the header does not jump twice.
@@ -591,7 +635,7 @@ class SavedIpDesign(
             setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = dp(8).toFloat(); isOutsideTouchable = true
             setOnDismissListener {
                 if (selected.isEmpty()) {
-                    operatorFilters.remove(columnIndex)
+                    operatorFilters.remove(columnName)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
                 }
                 if (tableFilterPopup === this) tableFilterPopup = null
@@ -599,7 +643,7 @@ class SavedIpDesign(
                 if (selectionChanged) renderOperator(operator.id)
             }
         }
-        tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnIndex
+        tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnName
         popup.showAsDropDown(anchor)
     }
 
@@ -614,9 +658,9 @@ class SavedIpDesign(
                 continue
             }
             val renderer = savedTableFor(operator).first
-            for (column in filters.keys.toList()) {
-                filters[column]?.retainAll(renderer.savedTableFilterOptions(operator.ips, column).toSet())
-                if (filters[column].isNullOrEmpty()) filters.remove(column)
+            for (columnName in filters.keys.toList()) {
+                filters[columnName]?.retainAll(renderer.savedTableFilterOptions(operator.ips, columnName).toSet())
+                if (filters[columnName].isNullOrEmpty()) filters.remove(columnName)
             }
             if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
         }
@@ -628,8 +672,8 @@ class SavedIpDesign(
         val filters = filterState.selectedTableFilters[operator.id].orEmpty()
         if (filters.isEmpty()) return entries
         val renderer = savedTableFor(operator).first
-        return entries.filter { entry -> filters.all { (column, values) ->
-            values.isEmpty() || renderer.savedTableFilterValue(entry, column) in values
+        return entries.filter { entry -> filters.all { (columnName, values) ->
+            values.isEmpty() || renderer.savedTableFilterValue(entry, columnName) in values
         } }
     }
 
