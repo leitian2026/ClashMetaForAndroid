@@ -1119,7 +1119,7 @@ class IpTestView(
             Key.PORTS -> portsPlain(row).takeIf { it != "-" }.orEmpty()
             Key.EXIT_IP -> if (row.ok && row.exitIp.isNotBlank()) row.exitIp + "\n" + row.exitAsn.ifEmpty { "-" } else ""
             Key.TCOLO -> coloLabel(row.targetColo).takeIf { it != "-" }.orEmpty()
-            Key.TARGET -> targetText(row).takeIf { it != "-" }.orEmpty()
+            Key.TARGET -> (if (!row.ok && row.reason.length > 40) handshakeFailureText(row.reason.take(40)) + "…" else targetText(row)).takeIf { it != "-" }.orEmpty()
             else -> ""
         }.trim()
     }
