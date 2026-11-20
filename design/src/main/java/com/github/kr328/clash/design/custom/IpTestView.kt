@@ -1458,7 +1458,7 @@ class IpTestView(
         keys.forEachIndexed { i, k ->
             val header = headerNeed(k)
             val button = if (k == Key.TEST) speedButtonNeed() else 0
-            val requiredContentWidth = if (!savedTable && k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP)) {
+            val requiredContentWidth = if (k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP)) {
                 contentNeed(k)
             } else 0
             floor[i + 1] = maxOf(header, button, requiredContentWidth)
