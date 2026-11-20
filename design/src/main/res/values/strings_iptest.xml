@@ -59,6 +59,7 @@
     <string name="iptest_col_test">Download</string>
     <string name="iptest_col_speed">Speed</string>
     <string name="iptest_btn_speed">Download</string>
+    <string name="iptest_btn_speed_button">Download</string>
     <string name="iptest_ms_short">%1$d ms</string>
     <string name="iptest_faster_cell">%1$d ms faster</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>

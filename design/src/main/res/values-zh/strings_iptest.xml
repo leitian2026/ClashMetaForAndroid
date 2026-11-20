@@ -45,11 +45,11 @@
     <string name="iptest_col_geo">登记国家</string>
     <string name="iptest_col_port">端口</string>
     <string name="iptest_col_loss">失败率</string>
-    <string name="iptest_col_min">最小延迟</string>
-    <string name="iptest_col_max">最大延迟</string>
-    <string name="iptest_col_avg">平均延迟</string>
+    <string name="iptest_col_min">最小&#10;延迟</string>
+    <string name="iptest_col_max">最大&#10;延迟</string>
+    <string name="iptest_col_avg">平均&#10;延迟</string>
     <!-- CUSTOM.md #68 -->
-    <string name="iptest_col_jitter">延迟波动</string>
+    <string name="iptest_col_jitter">延迟&#10;波动</string>
     <string name="iptest_col_phase">耗时明细</string>
     <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\n首字节 %3$s</string>
     <string name="iptest_phase_cell_node">拨号 %1$s\n握手 %2$s\n首字节 %3$s</string>
@@ -59,6 +59,7 @@
     <string name="iptest_col_test">下载&#10;测速</string>
     <string name="iptest_col_speed">速度</string>
     <string name="iptest_btn_speed">下载测速</string>
+    <string name="iptest_btn_speed_button">下载&#10;测速</string>
     <string name="iptest_ms_short">%1$d ms</string>
     <string name="iptest_faster_cell">快 %1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>

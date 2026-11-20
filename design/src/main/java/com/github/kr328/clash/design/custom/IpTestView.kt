@@ -1079,20 +1079,35 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     // the rest is shared out (the columns with the longest text get the most), so the table fills the page exactly
     private fun widths(): IntArray {
         val min = IntArray(keys.size + 1)
+        val floor = IntArray(keys.size + 1)
 
         min[0] = ipMin()
+        floor[0] = min[0]
 
-        keys.forEachIndexed { i, k -> min[i + 1] = width(k) }
+        keys.forEachIndexed { i, k ->
+            val header = headerNeed(k)
+            val button = if (k == Key.TEST) speedButtonNeed() else 0
+            floor[i + 1] = maxOf(header, button)
+            min[i + 1] = maxOf(width(k), floor[i + 1])
+        }
 
         // CUSTOM.md #94: the time split is as wide as its longest line, so "首字节 447 ms" does not wrap
         val phaseAt = keys.indexOf(Key.PHASE) + 1
 
-        if (phaseAt > 0) min[phaseAt] = maxOf(min[phaseAt], phaseNeed())
+        if (phaseAt > 0) {
+            val need = phaseNeed()
+            min[phaseAt] = maxOf(min[phaseAt], need)
+            floor[phaseAt] = maxOf(floor[phaseAt], need)
+        }
 
         // Keep the public-facing IP and operator on their own two lines, without wrapping either value.
         val exitIpAt = keys.indexOf(Key.EXIT_IP) + 1
 
-        if (exitIpAt > 0) min[exitIpAt] = maxOf(min[exitIpAt], exitIpNeed())
+        if (exitIpAt > 0) {
+            val need = exitIpNeed()
+            min[exitIpAt] = maxOf(min[exitIpAt], need)
+            floor[exitIpAt] = maxOf(floor[exitIpAt], need)
+        }
 
         val avail = tableBox.width
         val sum = min.sum()
@@ -1153,10 +1168,55 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
             out[out.size - 1] += avail - out.sum()
 
-            return out
+            // Keep every header/button's longest explicit line intact. If the remaining columns cannot
+            // absorb the shrink without breaking that minimum, retain the natural widths and scroll.
+            for (i in out.indices) out[i] = maxOf(out[i], floor[i])
+
+            if (out.sum() <= avail) return out
         }
 
         return min
+    }
+
+    // Measure the longest explicit header line at the same text size, weight and horizontal padding as headCell.
+    private fun headerNeed(k: Key): Int {
+        val sample = TextView(context).apply {
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        val longest = title(k).split('\n').maxOf { sample.paint.measureText(it) }
+
+        return longest.toInt() + 1 + dp(8)
+    }
+
+    // Measure the dedicated button label, not iptest_btn_speed which may also be used by non-button text.
+    private fun speedButtonNeed(): Int {
+        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            textSize = 13f
+            isAllCaps = false
+            setPadding(dp(4), 0, dp(4), 0)
+        }
+        val label = context.getString(speedButtonTextRes())
+        val longest = label.split('\n').maxOf { sample.paint.measureText(it) }
+
+        return longest.toInt() + 1 + dp(8)
+    }
+
+    // Use the two-line label only for Chinese; all other locales retain their existing translation.
+    private fun speedButtonTextRes(): Int {
+        val language = context.resources.configuration.locale?.language ?: Locale.getDefault().language
+
+        return if (language == "zh") R.string.iptest_btn_speed_button else R.string.iptest_btn_speed
+    }
+
+    private fun speedButtonMinHeight(): Int {
+        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            textSize = 13f
+            isAllCaps = false
+        }
+        val line = sample.paint.fontMetricsInt.let { it.bottom - it.top }
+
+        return maxOf(dp(32), line * 2 + dp(4))
     }
 
     // CUSTOM.md #94: the longest line of the three-line time split in the 14 sp of the cell plus its padding. When it
@@ -1553,20 +1613,20 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         val enabled = !testing && (speedIp == null || running)
 
         val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = context.getString(if (running) R.string.check_cancel else R.string.iptest_btn_speed)
+            text = context.getString(if (running) R.string.check_cancel else speedButtonTextRes())
             textSize = 13f
             isAllCaps = false
             gravity = Gravity.CENTER
-            maxLines = 1
+            maxLines = 2
             minWidth = 0
-            minHeight = dp(32)
+            minHeight = speedButtonMinHeight()
             insetTop = 0
             insetBottom = 0
             cornerRadius = dp(5)
             strokeWidth = dp(1)
             strokeColor = ColorStateList.valueOf(colorLink)
             setTextColor(colorLink)
-            setPadding(dp(4), 0, dp(4), 0)
+            setPadding(dp(4), dp(2), dp(4), dp(2))
             isEnabled = enabled
             alpha = if (enabled) 1f else 0.35f
 
