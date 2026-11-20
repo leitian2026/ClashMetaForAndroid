@@ -1174,6 +1174,7 @@ class IpTestView(
         selectedFilters: Map<Int, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
+        hostsIps: Set<String> = emptySet(),
     ): View {
         val gridWidth = widths.drop(1).sum()
         val selectionMode = isSelectionMode()
@@ -1222,7 +1223,7 @@ class IpTestView(
             val ipView = renderer.ipCell(row)
             // CUSTOM (CUSTOM.md #156): how long ago this IP was tested, right under the address.
             val timeText = SavedIpTimeText.text(context, entry.lastTestedAt, now)
-            if (timeText.isNotEmpty() || entry.failStreak >= 3) {
+            if (timeText.isNotEmpty() || entry.failStreak >= 3 || entry.address in hostsIps) {
                 val label = SpannableStringBuilder(timeText)
                 if (entry.failStreak >= 3) {
                     if (label.isNotEmpty()) label.append("　")
@@ -1230,6 +1231,17 @@ class IpTestView(
                     label.append("连续不通 ${entry.failStreak} 次")
                     label.setSpan(
                         ForegroundColorSpan(colorBad),
+                        start,
+                        label.length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
+                if (entry.address in hostsIps) {
+                    if (label.isNotEmpty()) label.append("　")
+                    val start = label.length
+                    label.append("已在 hosts")
+                    label.setSpan(
+                        ForegroundColorSpan(colorLink),
                         start,
                         label.length,
                         android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,

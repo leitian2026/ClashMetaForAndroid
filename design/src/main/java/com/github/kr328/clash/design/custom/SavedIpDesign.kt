@@ -121,7 +121,8 @@ class SavedIpDesign(
         addView(searchClearButton, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.END or Gravity.CENTER_VERTICAL))
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
-    private var expandedOperatorId: String?
+    private var configuredHostsIps: Set<String> = emptySet()
+    private var expandedOperatorId:
         get() = filterState.expandedOperatorId
         set(value) { filterState.expandedOperatorId = value }
 
@@ -253,6 +254,12 @@ class SavedIpDesign(
     fun saveState(outState: Bundle) {
         filterState.query = searchInput.text?.toString().orEmpty()
         filterState.save(outState)
+    }
+
+    fun setHostsIps(value: Set<String>) {
+        if (configuredHostsIps == value) return
+        configuredHostsIps = value
+        renderRows()
     }
 
     fun refresh() {
@@ -502,6 +509,7 @@ class SavedIpDesign(
         container.addView(
             renderer.savedTableView(
                 entries = entries,
+                hostsIps = configuredHostsIps,
                 widths = widths,
                 scrollX = savedTableScrollX,
                 onScroll = { savedTableScrollX = it },
