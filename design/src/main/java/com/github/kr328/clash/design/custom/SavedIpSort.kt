@@ -1,9 +1,9 @@
 package com.github.kr328.clash.design.custom
 
-/** Ordering modes for the saved-IP list. The choice belongs to the current page only. */
+/** CUSTOM (CUSTOM.md #164): only speed ascending / descending; DEFAULT restores test-time order. */
 internal enum class SavedIpSort {
     DEFAULT,
-    AVG_ASCENDING,
+    SPEED_ASCENDING,
     SPEED_DESCENDING,
 }
 
@@ -21,13 +21,11 @@ internal fun sortSavedIpEntries(
 
     return defaultOrderedEntries.withIndex().sortedWith { left, right ->
         val leftValue = when (sort) {
-            SavedIpSort.AVG_ASCENDING -> left.value.avg.toDouble()
-            SavedIpSort.SPEED_DESCENDING -> left.value.speed
+            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> left.value.speed
             SavedIpSort.DEFAULT -> 0.0
         }
         val rightValue = when (sort) {
-            SavedIpSort.AVG_ASCENDING -> right.value.avg.toDouble()
-            SavedIpSort.SPEED_DESCENDING -> right.value.speed
+            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> right.value.speed
             SavedIpSort.DEFAULT -> 0.0
         }
         val leftMissing = leftValue <= 0.0
@@ -35,7 +33,7 @@ internal fun sortSavedIpEntries(
         when {
             leftMissing != rightMissing -> if (leftMissing) 1 else -1
             !leftMissing && leftValue != rightValue -> {
-                if (sort == SavedIpSort.AVG_ASCENDING) leftValue.compareTo(rightValue)
+                if (sort == SavedIpSort.SPEED_ASCENDING) leftValue.compareTo(rightValue)
                 else rightValue.compareTo(leftValue)
             }
             else -> left.index.compareTo(right.index)

@@ -2,33 +2,25 @@ package com.github.kr328.clash.design.custom
 
 import android.os.Bundle
 
-/** The mutually exclusive status filter shown on the saved-IP page. */
-internal enum class IpFilter {
-    ALL,
-    REACHABLE,
-    UNREACHABLE,
-    UNTESTED,
-}
-
-// CUSTOM.md #156 (r290): keep saved-IP page filters and restorable view state in one place.
+// CUSTOM (CUSTOM.md #164): status and column filters are isolated per saved-IP operator.
+// CUSTOM (CUSTOM.md #164): persist independent filters by operator ID and page-wide speed order.
 internal class SavedIpFilterState private constructor(
-    var currentFilter: IpFilter,
-    val selectedTableFilters: LinkedHashMap<Int, LinkedHashSet<String>>,
+    val selectedStatuses: LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>,
+    val selectedTableFilters: LinkedHashMap<String, LinkedHashMap<Int, LinkedHashSet<String>>>,
     var sort: SavedIpSort,
     var query: String,
     var searchExpanded: Boolean,
     var expandedOperatorId: String?,
 ) {
-    fun matchesStatus(status: SavedIpStatus): Boolean = when (currentFilter) {
-        IpFilter.ALL -> true
-        IpFilter.REACHABLE -> status == SavedIpStatus.REACHABLE
-        IpFilter.UNREACHABLE -> status == SavedIpStatus.UNREACHABLE
-        IpFilter.UNTESTED -> status == SavedIpStatus.UNTESTED
-    }
-
     fun save(outState: Bundle) {
-        outState.putString(KEY_STATUS, currentFilter.name)
-        selectedTableFilters.forEach { (column, values) -> outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + column, ArrayList(values)) }
+        selectedStatuses.forEach { (operatorId, statuses) ->
+            outState.putStringArrayList(KEY_STATUS_PREFIX + operatorId, ArrayList(statuses.map { it.name }))
+        }
+        selectedTableFilters.forEach { (operatorId, columns) ->
+            columns.forEach { (column, values) ->
+                outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + operatorId + "_" + column, ArrayList(values))
+            }
+        }
         outState.putString(KEY_SORT, sort.name)
         outState.putString(KEY_QUERY, query)
         outState.putBoolean(KEY_SEARCH_EXPANDED, searchExpanded)
@@ -36,8 +28,7 @@ internal class SavedIpFilterState private constructor(
     }
 
     companion object {
-        private const val KEY_STATUS = "saved_ip_filter_status"
-        private const val KEY_LEGACY_STATUSES = "saved_ip_filter_statuses"
+        private const val KEY_STATUS_PREFIX = "saved_ip_statuses_"
         private const val KEY_TABLE_FILTER_PREFIX = "saved_ip_table_filter_"
         private const val KEY_SORT = "saved_ip_filter_sort"
         private const val KEY_QUERY = "saved_ip_filter_query"
@@ -45,32 +36,31 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
 
         fun restore(state: Bundle?): SavedIpFilterState {
-            val filter = state?.getString(KEY_STATUS)?.let { name ->
-                runCatching { IpFilter.valueOf(name) }.getOrNull()
-            } ?: run {
-                // A former multi-selection has no exact single-filter equivalent; restore it as All.
-                val legacy = state?.getStringArrayList(KEY_LEGACY_STATUSES).orEmpty()
-                    .mapNotNull { name -> runCatching { SavedIpStatus.valueOf(name) }.getOrNull() }
-                    .distinct()
-                if (legacy.size == 1) {
-                    when (legacy.single()) {
-                        SavedIpStatus.REACHABLE -> IpFilter.REACHABLE
-                        SavedIpStatus.UNREACHABLE -> IpFilter.UNREACHABLE
-                        SavedIpStatus.UNTESTED -> IpFilter.UNTESTED
+            val statuses = LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>()
+            val tableFilters = LinkedHashMap<String, LinkedHashMap<Int, LinkedHashSet<String>>>()
+            state?.keySet().orEmpty().forEach { key ->
+                when {
+                    key.startsWith(KEY_STATUS_PREFIX) -> {
+                        val id = key.removePrefix(KEY_STATUS_PREFIX)
+                        val values = state?.getStringArrayList(key).orEmpty()
+                            .mapNotNull { runCatching { SavedIpStatus.valueOf(it) }.getOrNull() }
+                        if (values.isNotEmpty()) statuses[id] = LinkedHashSet(values)
                     }
-                } else IpFilter.ALL
+                    key.startsWith(KEY_TABLE_FILTER_PREFIX) -> {
+                        val suffix = key.removePrefix(KEY_TABLE_FILTER_PREFIX)
+                        val column = suffix.substringAfterLast('_').toIntOrNull() ?: return@forEach
+                        val id = suffix.substringBeforeLast('_')
+                        val values = state?.getStringArrayList(key).orEmpty()
+                        if (id.isNotEmpty() && values.isNotEmpty()) {
+                            tableFilters.getOrPut(id) { LinkedHashMap() }[column] = LinkedHashSet(values)
+                        }
+                    }
+                }
             }
-            val tableFilters = LinkedHashMap<Int, LinkedHashSet<String>>()
-            for (column in 0 until 32) {
-                val values = state?.getStringArrayList(KEY_TABLE_FILTER_PREFIX + column).orEmpty()
-                if (values.isNotEmpty()) tableFilters[column] = LinkedHashSet(values)
-            }
-            val sort = state?.getString(KEY_SORT)?.let { name ->
-                runCatching { SavedIpSort.valueOf(name) }.getOrNull()
-            } ?: SavedIpSort.DEFAULT
-
+            val sort = state?.getString(KEY_SORT)?.let { runCatching { SavedIpSort.valueOf(it) }.getOrNull() }
+                ?: SavedIpSort.DEFAULT
             return SavedIpFilterState(
-                currentFilter = filter,
+                selectedStatuses = statuses,
                 selectedTableFilters = tableFilters,
                 sort = sort,
                 query = state?.getString(KEY_QUERY).orEmpty(),

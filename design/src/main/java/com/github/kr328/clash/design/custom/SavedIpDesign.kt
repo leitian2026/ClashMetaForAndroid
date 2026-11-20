@@ -130,10 +130,7 @@ class SavedIpDesign(
         get() = filterState.expandedOperatorId
         set(value) { filterState.expandedOperatorId = value }
 
-    // CUSTOM.md #156: status, country, sort and view state are page-local and restored with the Activity.
-    private var currentFilter: IpFilter
-        get() = filterState.currentFilter
-        set(value) { filterState.currentFilter = value }
+    // CUSTOM (CUSTOM.md #164): status and table filters are isolated per operator.
     private var currentSort: SavedIpSort
         get() = filterState.sort
         set(value) { filterState.sort = value }
@@ -148,22 +145,7 @@ class SavedIpDesign(
         val isDate: Boolean,
     )
 
-    // CUSTOM.md #159 (r291): compact toolbar with anchored dropdown menus.
-    // CUSTOM.md #156 (r292): move country and sort controls to a second row on narrow screens.
-    private val filterToolbar = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(8), dp(2), dp(8), dp(2))
-    }
-    private val filterToolbarTopRow = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-    }
-    private val filterToolbarBottomRow = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        visibility = View.GONE
-    }
-    private var filterToolbarNarrow: Boolean? = null
+    // CUSTOM (CUSTOM.md #164): the former filter toolbar is removed; search moves into the title row.
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(8), dp(4), dp(8), dp(4))
@@ -220,12 +202,9 @@ class SavedIpDesign(
         visibility = View.GONE
         setOnClickListener { collapseSearch() }
     }
-    private val statusFilterButton = actionText(R.string.saved_ip_filter_all) { showStatusMenu(it) }
-    private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortMenu(it) }
     private var tableFilterPopup: PopupWindow? = null
     private var activeTableFilterOperatorId: String? = null
     private var activeTableFilterColumn: Int = -1
-    private var filterPopupMenu: PopupMenu? = null
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -239,17 +218,10 @@ class SavedIpDesign(
         })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        filterToolbar.addView(filterToolbarTopRow, fullWidth())
-        filterToolbar.addView(filterToolbarBottomRow, fullWidth())
-        filterToolbarTopRow.addView(searchIconButton, LinearLayout.LayoutParams(dp(40), dp(40)))
-        filterToolbarTopRow.addView(searchBox, LinearLayout.LayoutParams(0, dp(40), 2f))
-        filterToolbarTopRow.addView(searchCloseButton, LinearLayout.LayoutParams(dp(40), dp(40)))
-        filterToolbarTopRow.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
-        filterToolbarTopRow.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
-        root.addView(filterToolbar, fullWidth())
-        filterToolbar.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
-            updateFilterToolbarLayout(right - left)
-        }
+        // CUSTOM (CUSTOM.md #164): keep search on the same title row at the toolbar's end.
+        toolbar.addView(searchIconButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
+        toolbar.addView(searchBox, androidx.appcompat.widget.Toolbar.LayoutParams(dp(180), dp(40), Gravity.END).apply { marginEnd = dp(40) })
+        toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
 
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         searchInput.setText(filterState.query)
@@ -314,7 +286,7 @@ class SavedIpDesign(
         }
         reconcileTableFilters(snapshotCache)
         reconcileSelection(snapshotCache)
-        updateFilterToolbar()
+        updateSearchUi()
         renderRows()
     }
 
@@ -330,7 +302,9 @@ class SavedIpDesign(
             } else {
                 visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
             }
-            if (entries.isEmpty()) continue
+            val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
+                filterState.selectedTableFilters.containsKey(operator.id)
+            if (entries.isEmpty() && (operator.ips.isEmpty() || !hasActiveFilters)) continue
             visibleGroupCount++
             val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
             val group = LinearLayout(context).apply {
@@ -339,7 +313,18 @@ class SavedIpDesign(
             }
             bindOperatorRow(group, operator, entries, expanded)
             operatorContent.addView(group, fullWidth())
-            if (expanded) bindSavedTable(operatorContent, operator, entries)
+            if (expanded) {
+                if (entries.isNotEmpty()) {
+                    bindSavedTable(operatorContent, operator, entries)
+                } else {
+                    operatorContent.addView(TextView(context).apply {
+                        setText(R.string.saved_ip_filter_no_match)
+                        textSize = 13f
+                        setTextColor(colorMuted)
+                        setPadding(dp(48), dp(8), 0, dp(12))
+                    }, fullWidth())
+                }
+            }
         }
         if (visibleGroupCount == 0) {
             operatorContent.addView(TextView(context).apply {
@@ -357,9 +342,9 @@ class SavedIpDesign(
         entries: List<SavedIpEntry>,
         expanded: Boolean,
     ) {
-        val reachable = entries.count { it.status == SavedIpStatus.REACHABLE }
-        val unreachable = entries.count { it.status == SavedIpStatus.UNREACHABLE }
-        val untested = entries.count { it.status == SavedIpStatus.UNTESTED }
+        val reachable = operator.ips.count { it.status == SavedIpStatus.REACHABLE }
+        val unreachable = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
+        val untested = operator.ips.count { it.status == SavedIpStatus.UNTESTED }
         val allUnreachable = operator.ips.any { it.status == SavedIpStatus.UNREACHABLE }
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -374,22 +359,24 @@ class SavedIpDesign(
         }
         header.addView(arrow, LinearLayout.LayoutParams(dp(48), dp(48)))
         val title = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
         title.addView(TextView(context).apply {
             text = context.getString(R.string.saved_ip_group_title, displayName(operator), entries.size)
             textSize = 15f
             setTextColor(colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-        }, fullWidth())
+            maxLines = 1
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val statusTags = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        statusTags.addView(groupStatusTag(R.string.saved_ip_status_reachable, reachable, Color.rgb(46, 125, 50)))
-        statusTags.addView(groupStatusTag(R.string.saved_ip_status_unreachable, unreachable, Color.rgb(198, 40, 40)))
-        statusTags.addView(groupStatusTag(R.string.saved_ip_status_untested, untested, Color.rgb(239, 143, 0)))
-        title.addView(statusTags, fullWidth())
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.REACHABLE, R.string.saved_ip_status_reachable, reachable, Color.rgb(46, 125, 50)))
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNREACHABLE, R.string.saved_ip_status_unreachable, unreachable, Color.rgb(198, 40, 40)))
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNTESTED, R.string.saved_ip_status_untested, untested, Color.rgb(239, 143, 0)))
+        title.addView(statusTags, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val menuButton = TextView(context).apply {
             text = "⋮"
@@ -430,16 +417,25 @@ class SavedIpDesign(
         container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
     }
 
-    private fun groupStatusTag(label: Int, count: Int, color: Int): TextView =
+    // CUSTOM (CUSTOM.md #164): status chips toggle independently within their operator group.
+    private fun groupStatusTag(operator: SavedIpOperator, status: SavedIpStatus, label: Int, count: Int, color: Int): TextView =
         TextView(context).apply {
             text = "${context.getString(label)} $count"
-            textSize = 10f
-            setTextColor(color)
-            setPadding(dp(6), dp(2), dp(6), dp(2))
+            textSize = 12f
+            val selected = status in filterState.selectedStatuses[operator.id].orEmpty()
+            setTextColor(if (selected) Color.WHITE else color)
+            setPadding(dp(7), dp(4), dp(7), dp(4))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(8).toFloat()
-                setColor(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
+                setColor(if (selected) color else Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
+            }
+            setOnClickListener {
+                val filters = filterState.selectedStatuses.getOrPut(operator.id) { LinkedHashSet() }
+                if (!filters.add(status)) filters.remove(status)
+                if (filters.isEmpty()) filterState.selectedStatuses.remove(operator.id)
+                clearSelectionState()
+                renderRows()
             }
         }
 
@@ -473,23 +469,30 @@ class SavedIpDesign(
                         .setPositiveButton(R.string.close, null).show()
                 },
                 onLongPress = { address -> toggleSelection(operator.id, address) },
-                selectedFilters = filterState.selectedTableFilters,
-                onHeaderClick = { columnIndex, anchor -> showTableColumnPopup(anchor, operator, columnIndex) },
+                selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty(),
+                speedSortLabel = when (currentSort) {
+                    SavedIpSort.DEFAULT -> ""
+                    SavedIpSort.SPEED_ASCENDING -> "按最快"
+                    SavedIpSort.SPEED_DESCENDING -> "按最慢"
+                },
+                onHeaderClick = { columnIndex, anchor ->
+                    if (columnIndex == savedTableFor(operator).first.savedSpeedColumnIndex()) showSpeedSortMenu(anchor)
+                    else showTableColumnPopup(anchor, operator, columnIndex)
+                },
             ),
             fullWidth(),
         )
     }
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
-        val filtered = operator.ips.filter { entry -> filterState.matchesStatus(entry.status) }
+        val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
+        val filtered = operator.ips.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
         val tableFiltered = filterSavedIpEntriesByColumns(operator, filtered)
         return sortSavedIpEntries(SavedIpStore.sortEntries(tableFiltered), currentSort)
     }
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
     private fun dismissFilterPopups() {
-        filterPopupMenu?.dismiss()
-        filterPopupMenu = null
         tableFilterPopup?.dismiss()
         tableFilterPopup = null
     }
@@ -504,15 +507,16 @@ class SavedIpDesign(
         val renderer = savedTableFor(operator).first
         val options = renderer.savedTableFilterOptions(operator.ips, columnIndex)
         if (options.isEmpty()) return
-        val selected = filterState.selectedTableFilters.getOrPut(columnIndex) { LinkedHashSet() }
+        val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
+        val selected = operatorFilters.getOrPut(columnIndex) { LinkedHashSet() }
         val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
         options.forEach { value ->
             choices.addView(CheckBox(context).apply {
                 text = value; textSize = 14f; isChecked = value in selected; minHeight = dp(44)
                 setOnCheckedChangeListener { _, checked ->
                     if (checked) selected.add(value) else selected.remove(value)
-                    if (selected.isEmpty()) filterState.selectedTableFilters.remove(columnIndex)
-                    else filterState.selectedTableFilters[columnIndex] = selected
+                    if (selected.isEmpty()) operatorFilters.remove(columnIndex)
+                    if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
                     val summary = anchor.tag as? TextView
                     summary?.text = when {
                         selected.isEmpty() -> ""
@@ -520,7 +524,7 @@ class SavedIpDesign(
                         else -> selected.first() + " +" + (selected.size - 1)
                     }
                     summary?.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
-                    clearSelectionState(); updateFilterToolbar()
+                    clearSelectionState(); updateSearchUi()
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
@@ -532,104 +536,75 @@ class SavedIpDesign(
         val popupHeight = minOf(dp(280), dp(48 * options.size.coerceAtLeast(1)))
         val popup = PopupWindow(scroll, popupWidth, popupHeight, true).apply {
             setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = dp(8).toFloat(); isOutsideTouchable = true
-            setOnDismissListener { if (tableFilterPopup === this) tableFilterPopup = null; renderRows() }
+            setOnDismissListener {
+                if (selected.isEmpty()) {
+                    operatorFilters.remove(columnIndex)
+                    if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
+                }
+                if (tableFilterPopup === this) tableFilterPopup = null
+                renderRows()
+            }
         }
         tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnIndex
         popup.showAsDropDown(anchor)
     }
 
+    // CUSTOM (CUSTOM.md #164): reconcile each operator's selections only against that operator's values.
     private fun reconcileTableFilters(snapshot: SavedIpSnapshot) {
-        val columns = filterState.selectedTableFilters.keys.toList()
-        for (column in columns) {
-            val values = snapshot.operators.flatMap { operator -> savedTableFor(operator).first.savedTableFilterOptions(operator.ips, column) }.toSet()
-            filterState.selectedTableFilters[column]?.retainAll(values)
-            if (filterState.selectedTableFilters[column].isNullOrEmpty()) filterState.selectedTableFilters.remove(column)
+        val operatorIds = filterState.selectedTableFilters.keys.toList()
+        for (operatorId in operatorIds) {
+            val operator = snapshot.operators.firstOrNull { it.id == operatorId }
+            val filters = filterState.selectedTableFilters[operatorId] ?: continue
+            if (operator == null) {
+                filterState.selectedTableFilters.remove(operatorId)
+                continue
+            }
+            val renderer = savedTableFor(operator).first
+            for (column in filters.keys.toList()) {
+                filters[column]?.retainAll(renderer.savedTableFilterOptions(operator.ips, column).toSet())
+                if (filters[column].isNullOrEmpty()) filters.remove(column)
+            }
+            if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
         }
+        val validIds = snapshot.operators.mapTo(HashSet()) { it.id }
+        filterState.selectedStatuses.keys.retainAll(validIds)
     }
 
     private fun filterSavedIpEntriesByColumns(operator: SavedIpOperator, entries: List<SavedIpEntry>): List<SavedIpEntry> {
-        if (filterState.selectedTableFilters.isEmpty()) return entries
+        val filters = filterState.selectedTableFilters[operator.id].orEmpty()
+        if (filters.isEmpty()) return entries
         val renderer = savedTableFor(operator).first
-        return entries.filter { entry -> filterState.selectedTableFilters.all { (column, values) ->
+        return entries.filter { entry -> filters.all { (column, values) ->
             values.isEmpty() || renderer.savedTableFilterValue(entry, column) in values
         } }
     }
 
-    private fun showStatusMenu(anchor: View) {
+    // CUSTOM (CUSTOM.md #164): only speed is sortable; selecting the active direction clears it.
+    private fun showSpeedSortMenu(anchor: View) {
         if (filterState.searchExpanded) collapseSearch()
         dismissFilterPopups()
-        val entries = snapshotCache.operators.flatMap { it.ips }
-        val counts = listOf(
-            entries.size,
-            entries.count { it.status == SavedIpStatus.REACHABLE },
-            entries.count { it.status == SavedIpStatus.UNREACHABLE },
-            entries.count { it.status == SavedIpStatus.UNTESTED },
-        )
-        val filters = listOf(
-            IpFilter.ALL to R.string.saved_ip_filter_all_count,
-            IpFilter.REACHABLE to R.string.saved_ip_filter_reachable_count,
-            IpFilter.UNREACHABLE to R.string.saved_ip_filter_unreachable_count,
-            IpFilter.UNTESTED to R.string.saved_ip_filter_untested_count,
-        )
         PopupMenu(context, anchor).apply {
-            filters.forEachIndexed { index, (filter, label) ->
-                val title: CharSequence = if (filter == currentFilter) {
-                    android.text.SpannableString(context.getString(label, counts[index])).apply {
-                        setSpan(
-                            android.text.style.ForegroundColorSpan(statusFilterColor(filter)),
-                            0,
-                            length,
-                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                        )
-                    }
-                } else context.getString(label, counts[index])
-                menu.add(0, filter.ordinal, index, title).isCheckable = true
-            }
+            menu.add(0, 1, 0, "按最快").isCheckable = true
+            menu.add(0, 2, 1, "按最慢").isCheckable = true
             menu.setGroupCheckable(0, true, true)
-            menu.findItem(currentFilter.ordinal)?.isChecked = true
+            when (currentSort) {
+                SavedIpSort.SPEED_ASCENDING -> menu.findItem(1)?.isChecked = true
+                SavedIpSort.SPEED_DESCENDING -> menu.findItem(2)?.isChecked = true
+                SavedIpSort.DEFAULT -> Unit
+            }
             setOnMenuItemClickListener { item ->
-                val filter = IpFilter.values().getOrNull(item.itemId) ?: return@setOnMenuItemClickListener false
-                currentFilter = filter
-                clearSelectionState()
-                updateFilterToolbar()
+                val chosen = if (item.itemId == 1) SavedIpSort.SPEED_ASCENDING else SavedIpSort.SPEED_DESCENDING
+                currentSort = if (currentSort == chosen) SavedIpSort.DEFAULT else chosen
                 renderRows()
                 true
             }
-            setOnDismissListener { if (filterPopupMenu === this) filterPopupMenu = null }
-            filterPopupMenu = this
-            show()
-        }
-    }
-
-    private fun showSortMenu(anchor: View) {
-        if (filterState.searchExpanded) collapseSearch()
-        dismissFilterPopups()
-        val options = listOf(
-            SavedIpSort.DEFAULT to R.string.saved_ip_sort_default,
-            SavedIpSort.AVG_ASCENDING to R.string.saved_ip_sort_latency,
-            SavedIpSort.SPEED_DESCENDING to R.string.saved_ip_sort_speed,
-        )
-        PopupMenu(context, anchor).apply {
-            options.forEachIndexed { index, (sort, label) ->
-                menu.add(0, sort.ordinal, index, label).isCheckable = true
-            }
-            menu.setGroupCheckable(0, true, true)
-            menu.findItem(currentSort.ordinal)?.isChecked = true
-            setOnMenuItemClickListener { item ->
-                currentSort = SavedIpSort.values().getOrNull(item.itemId) ?: return@setOnMenuItemClickListener false
-                updateFilterToolbar()
-                renderRows()
-                true
-            }
-            setOnDismissListener { if (filterPopupMenu === this) filterPopupMenu = null }
-            filterPopupMenu = this
             show()
         }
     }
 
     private fun expandSearch() {
         filterState.searchExpanded = true
-        updateFilterToolbar()
+        updateSearchUi()
         searchInput.requestFocus()
         searchInput.post {
             (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
@@ -643,7 +618,7 @@ class SavedIpDesign(
             ?.hideSoftInputFromWindow(searchInput.windowToken, 0)
         filterState.searchExpanded = false
         searchInput.clearFocus()
-        updateFilterToolbar()
+        updateSearchUi()
     }
 
     private fun updateSearchUi() {
@@ -651,11 +626,6 @@ class SavedIpDesign(
         searchIconButton.visibility = if (expanded) View.GONE else View.VISIBLE
         searchBox.visibility = if (expanded) View.VISIBLE else View.GONE
         searchCloseButton.visibility = if (expanded) View.VISIBLE else View.GONE
-        val params = searchBox.layoutParams as? LinearLayout.LayoutParams
-        if (params != null) {
-            params.weight = if (expanded) 2f else 0f
-            searchBox.layoutParams = params
-        }
         updateSearchIndicator()
     }
 
@@ -671,42 +641,6 @@ class SavedIpDesign(
             return true
         }
         return false
-    }
-
-    private fun updateFilterToolbarLayout(width: Int) {
-        val narrow = width < dp(460)
-        if (filterToolbarNarrow == narrow) return
-        filterToolbarNarrow = narrow
-        dismissFilterPopups()
-        val target = if (narrow) filterToolbarBottomRow else filterToolbarTopRow
-        listOf(sortButton).forEach { button ->
-            (button.parent as? ViewGroup)?.removeView(button)
-            target.addView(button, LinearLayout.LayoutParams(0, dp(40), 1f))
-        }
-        filterToolbarBottomRow.visibility = if (narrow) View.VISIBLE else View.GONE
-    }
-
-    private fun statusFilterColor(filter: IpFilter): Int = when (filter) {
-        IpFilter.ALL -> colorText
-        IpFilter.REACHABLE -> Color.rgb(46, 125, 50)
-        IpFilter.UNREACHABLE -> Color.rgb(198, 40, 40)
-        IpFilter.UNTESTED -> Color.rgb(239, 143, 0)
-    }
-
-    private fun updateFilterToolbar() {
-        statusFilterButton.text = context.getString(when (currentFilter) {
-            IpFilter.ALL -> R.string.saved_ip_filter_all
-            IpFilter.REACHABLE -> R.string.saved_ip_filter_reachable
-            IpFilter.UNREACHABLE -> R.string.saved_ip_filter_unreachable
-            IpFilter.UNTESTED -> R.string.saved_ip_filter_untested
-        }) + " ▾"
-        statusFilterButton.setTextColor(statusFilterColor(currentFilter))
-        sortButton.text = context.getString(when (currentSort) {
-            SavedIpSort.DEFAULT -> R.string.saved_ip_sort_button
-            SavedIpSort.AVG_ASCENDING -> R.string.saved_ip_sort_latency
-            SavedIpSort.SPEED_DESCENDING -> R.string.saved_ip_sort_speed
-        }) + " ▾"
-        updateSearchUi()
     }
 
     // CUSTOM.md #156 第 45 步：精确到秒的已保存 IP 相对测试时间；仅在列表行绑定时计算。

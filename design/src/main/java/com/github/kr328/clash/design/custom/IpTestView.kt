@@ -1090,6 +1090,9 @@ class IpTestView(
     // CUSTOM (CUSTOM.md #160): filter options use the same semantic mapping as saved-table cells.
     private fun isSavedTableFilterable(key: Key): Boolean = key in setOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.EXIT_IP, Key.TCOLO, Key.TARGET)
 
+    // CUSTOM (CUSTOM.md #164): expose the speed header index for its sort-only click handler.
+    internal fun savedSpeedColumnIndex(): Int = keys.indexOf(Key.SPEED)
+
     internal fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnIndex: Int): List<String> =
         entries.asSequence().map { savedTableFilterValue(it, columnIndex) }.filter { it.isNotBlank() && it != "-" }.distinct().sorted().toList()
 
@@ -1124,16 +1127,16 @@ class IpTestView(
         }.trim()
     }
 
-    private fun savedHeaderCell(title: String, width: Int, selected: Set<String>, onClick: (View) -> Unit): View {
+    private fun savedHeaderCell(title: String, width: Int, selected: Set<String>, summaryOverride: String? = null, onClick: (View) -> Unit): View {
         val titleView = TextView(context).apply {
             text = title; textSize = 14f; gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD)
             setTextColor(colorMuted); setPadding(dp(4), dp(4), dp(4), dp(1))
         }
         val selectedView = TextView(context).apply {
-            text = when { selected.isEmpty() -> ""; selected.size == 1 -> selected.first(); else -> selected.first() + " +" + (selected.size - 1) }
+            text = summaryOverride ?: when { selected.isEmpty() -> ""; selected.size == 1 -> selected.first(); else -> selected.first() + " +" + (selected.size - 1) }
             textSize = 11f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
             ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(3))
-            visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
+            visibility = if (summaryOverride.isNullOrEmpty() && selected.isEmpty()) View.GONE else View.VISIBLE
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1159,6 +1162,7 @@ class IpTestView(
         onDetail: (String, String) -> Unit,
         onLongPress: (String) -> Unit,
         selectedFilters: Map<Int, Set<String>> = emptyMap(),
+        speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
     ): View {
         val gridWidth = widths.drop(1).sum()
@@ -1169,9 +1173,14 @@ class IpTestView(
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val leftHeader = headCell(context.getString(R.string.iptest_col_ip), ipColumnWidth)
         val headers = keys.mapIndexed { index, key ->
-            savedHeaderCell(title(key), widths[index + 1], selectedFilters[index].orEmpty()) { anchor ->
-                if (isSavedTableFilterable(key)) onHeaderClick(index, anchor)
-            }.apply { isEnabled = isSavedTableFilterable(key) }
+            savedHeaderCell(
+                title(key),
+                widths[index + 1],
+                selectedFilters[index].orEmpty(),
+                if (key == Key.SPEED) speedSortLabel else null,
+            ) { anchor ->
+                if (isSavedTableFilterable(key) || key == Key.SPEED) onHeaderClick(index, anchor)
+            }.apply { isEnabled = isSavedTableFilterable(key) || key == Key.SPEED }
         }
         val headerHeight = maxOf(
             headH,
