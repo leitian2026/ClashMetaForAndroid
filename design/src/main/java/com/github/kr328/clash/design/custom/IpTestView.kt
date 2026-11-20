@@ -72,8 +72,6 @@ class IpTestView(
         Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
         Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED,
     )
-    private val ipUiPreferences = context.getSharedPreferences("custom_iptest_ui", Context.MODE_PRIVATE)
-    private var compactColumns = !savedTable && ipUiPreferences.getBoolean("compact_columns", false)
     private val liveKeys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
@@ -88,24 +86,7 @@ class IpTestView(
     private var keys = if (savedTable) {
         // CUSTOM.md #162/#160: filter only the saved-table instance; the IP column remains fixed outside this list.
         savedTableKeys.filter { visibleSavedColumns == null || it.name in visibleSavedColumns }
-    } else if (compactColumns) compactLiveKeys() else liveKeys
-
-    // CUSTOM.md #167: compact mode keeps only the port, loss, average latency, speed action / speed,
-    // and (when present) the target site's response.
-    private fun compactLiveKeys(): List<Key> = buildList {
-        add(if (direct) Key.PORTS else Key.PORT)
-        add(Key.LOSS)
-        add(Key.AVG)
-        if (target) add(Key.TARGET)
-        add(Key.TEST)
-        add(Key.SPEED)
-    }
-
-    private fun refreshColumnModeButton() {
-        columnModeButton.setText(
-            if (compactColumns) R.string.iptest_columns_compact else R.string.iptest_columns_full,
-        )
-    }
+    } else liveKeys
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
@@ -127,7 +108,7 @@ class IpTestView(
     private var rows: List<IpTestRow> = emptyList()
     private var recommendedIps: Set<String> = emptySet() // CUSTOM.md #166: calculated once per result refresh
     private var savedTableAvailableWidth: Int = 0
-    private var liveTableScrollX: Int = 0 // CUSTOM.md #167: retain horizontal position when columns are redrawn
+    private var liveTableScrollX: Int = 0 // retain horizontal position when the table is refreshed
     private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
@@ -139,18 +120,6 @@ class IpTestView(
     private val logLines = ArrayList<String>()
 
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-
-    // CUSTOM.md #167: one local preference shared by all three live test modes.
-    private val columnModeButton = MaterialButton(context).apply {
-        isAllCaps = false
-        setOnClickListener {
-            compactColumns = !compactColumns
-            ipUiPreferences.edit().putBoolean("compact_columns", compactColumns).apply()
-            keys = if (compactColumns) compactLiveKeys() else liveKeys
-            refreshColumnModeButton()
-            redraw()
-        }
-    }
 
     private val info = TextView(context).apply {
         textSize = 15f
@@ -284,10 +253,6 @@ class IpTestView(
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteToggle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        if (!savedTable) {
-            refreshColumnModeButton()
-            root.addView(columnModeButton, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(diagnosticsBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
