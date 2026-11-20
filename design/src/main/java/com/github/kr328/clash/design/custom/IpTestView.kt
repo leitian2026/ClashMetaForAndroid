@@ -1217,7 +1217,7 @@ class IpTestView(
         selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
-        hostsIps: Set<String> = emptySet(),
+        configIpSources: Map<String, Set<String>> = emptyMap(),
         recommendedIps: Set<String> = emptySet(),
     ): View {
         val gridWidth = widths.drop(1).sum()
@@ -1266,9 +1266,31 @@ class IpTestView(
             }
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row, showRecommendation = false)
-            // CUSTOM (CUSTOM.md #156): how long ago this IP was tested, right under the address.
+            // CUSTOM (CUSTOM.md #156): configuration source is the second line; test details follow it.
+            val sourceLabels = configIpSources[entry.address].orEmpty().mapNotNull { via ->
+                when (via) {
+                    "server" -> "已在 server"
+                    "hosts", "alias" -> "已在 hosts"
+                    "dns" -> "配置解析 IP"
+                    else -> null
+                }
+            }.distinct()
+            if (sourceLabels.isNotEmpty()) {
+                val sourceLabel = sourceLabels.joinToString("　")
+                (ipView as? LinearLayout)?.addView(
+                    TextView(context).apply {
+                        text = sourceLabel
+                        textSize = 13f
+                        maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(colorGood)
+                    },
+                    1,
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
             val timeText = SavedIpTimeText.text(context, entry.lastTestedAt, now)
-            if (timeText.isNotEmpty() || entry.failStreak >= 3 || entry.address in hostsIps) {
+            if (entry.address in recommendedIps || timeText.isNotEmpty() || entry.failStreak >= 3) {
                 val label = SpannableStringBuilder()
                 if (entry.address in recommendedIps) {
                     val start = label.length
@@ -1289,24 +1311,13 @@ class IpTestView(
                         android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                     )
                 }
-                if (entry.address in hostsIps) {
-                    if (label.isNotEmpty()) label.append("　")
-                    val start = label.length
-                    label.append("已在 hosts")
-                    label.setSpan(
-                        ForegroundColorSpan(colorLink),
-                        start,
-                        label.length,
-                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                    )
-                }
                 (ipView as? LinearLayout)?.addView(
                     TextView(context).apply {
                         text = label; textSize = 13f; maxLines = 1
                         ellipsize = TextUtils.TruncateAt.END
                         setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) colorWarn else colorMuted)
                     },
-                    1,
+                    if (sourceLabels.isNotEmpty()) 2 else 1,
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
                 )
             }

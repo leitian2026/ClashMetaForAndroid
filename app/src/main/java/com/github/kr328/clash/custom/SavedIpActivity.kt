@@ -16,8 +16,8 @@ import org.json.JSONObject
 class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     private var page: SavedIpDesign? = null
     private var restoredState: Bundle? = null
-    private var configuredHostsIps: Set<String> = emptySet()
-    private var hostsReadJob: Job? = null
+    private var configuredIpSources: Map<String, Set<String>> = emptyMap()
+    private var configReadJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         restoredState = savedInstanceState
@@ -48,36 +48,38 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         )
         page = design
         setContentDesign(design)
-        design.setHostsIps(configuredHostsIps)
+        design.setConfigIpSources(configuredIpSources)
     }
 
-    // CUSTOM.md #156: read the active profile's configured node/hosts IPs once on each page start.
+    // CUSTOM.md #156: read the active profile's configured IP sources once on each page start.
     // Reuse the existing read-only conftest mode="config" path; failures and an unloaded config stay silent.
     override fun onStart() {
         super.onStart()
-        hostsReadJob?.cancel()
-        hostsReadJob = launch {
-            val ips = try {
-                if (!clashRunning) emptySet() else {
+        configReadJob?.cancel()
+        configReadJob = launch {
+            val sources: Map<String, Set<String>> = try {
+                if (!clashRunning) emptyMap() else {
                     val request = JSONObject().put("kind", "ip").put("mode", "config").toString()
                     IpTestReport.parse(
                         withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) },
-                    ).config.mapNotNull { it.ip.trim().takeIf(String::isNotEmpty) }.toSet()
+                    ).config.filter { it.ip.isNotBlank() }
+                        .groupBy({ it.ip.trim() }, { it.via })
+                        .mapValues { (_, vias) -> vias.toSet() }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                emptySet()
+                emptyMap()
             }
-            configuredHostsIps = ips
-            page?.setHostsIps(ips)
+            configuredIpSources = sources
+            page?.setConfigIpSources(sources)
         }
     }
 
     override fun onStop() {
         page?.savePersistentUiState()
-        hostsReadJob?.cancel()
-        hostsReadJob = null
+        configReadJob?.cancel()
+        configReadJob = null
         super.onStop()
     }
 
