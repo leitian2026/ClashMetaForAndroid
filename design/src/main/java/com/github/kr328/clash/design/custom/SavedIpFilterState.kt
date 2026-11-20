@@ -44,7 +44,8 @@ internal class SavedIpFilterState private constructor(
                         val id = key.removePrefix(KEY_STATUS_PREFIX)
                         val values = state?.getStringArrayList(key).orEmpty()
                             .mapNotNull { runCatching { SavedIpStatus.valueOf(it) }.getOrNull() }
-                        if (values.isNotEmpty()) statuses[id] = LinkedHashSet(values)
+                        // CUSTOM (CUSTOM.md #164): migrate any earlier multi-select state to one status.
+                        if (values.isNotEmpty()) statuses[id] = linkedSetOf(values.first())
                     }
                     key.startsWith(KEY_TABLE_FILTER_PREFIX) -> {
                         val suffix = key.removePrefix(KEY_TABLE_FILTER_PREFIX)

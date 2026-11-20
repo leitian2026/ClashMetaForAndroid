@@ -358,9 +358,10 @@ class SavedIpDesign(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.REACHABLE, R.string.saved_ip_status_reachable, reachable, Color.rgb(46, 125, 50)))
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNREACHABLE, R.string.saved_ip_status_unreachable, unreachable, Color.rgb(198, 40, 40)))
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNTESTED, R.string.saved_ip_status_untested, untested, Color.rgb(239, 143, 0)))
+        statusTags.addView(groupStatusTag(operator, null, "全部", operator.ips.size, colorLink))
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.REACHABLE, context.getString(R.string.saved_ip_status_reachable), reachable, Color.rgb(46, 125, 50)))
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNREACHABLE, context.getString(R.string.saved_ip_status_unreachable), unreachable, Color.rgb(198, 40, 40)))
+        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNTESTED, context.getString(R.string.saved_ip_status_untested), untested, Color.rgb(239, 143, 0)))
         title.addView(statusTags, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val menuButton = TextView(context).apply {
@@ -402,27 +403,35 @@ class SavedIpDesign(
         container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
     }
 
-    // CUSTOM (CUSTOM.md #164): status chips toggle independently within their operator group.
-    private fun groupStatusTag(operator: SavedIpOperator, status: SavedIpStatus, label: Int, count: Int, color: Int): TextView =
-        TextView(context).apply {
-            text = "${context.getString(label)} $count"
-            textSize = 12f
-            val selected = status in filterState.selectedStatuses[operator.id].orEmpty()
-            setTextColor(if (selected) Color.WHITE else color)
-            setPadding(dp(7), dp(4), dp(7), dp(4))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(8).toFloat()
-                setColor(if (selected) color else Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
-            }
-            setOnClickListener {
-                val filters = filterState.selectedStatuses.getOrPut(operator.id) { LinkedHashSet() }
-                if (!filters.add(status)) filters.remove(status)
-                if (filters.isEmpty()) filterState.selectedStatuses.remove(operator.id)
-                clearSelectionState()
-                renderRows()
-            }
+    // CUSTOM (CUSTOM.md #164): one mutually exclusive status choice per operator; "全部" clears it.
+    private fun groupStatusTag(
+        operator: SavedIpOperator,
+        status: SavedIpStatus?,
+        label: String,
+        count: Int,
+        color: Int,
+    ): TextView = TextView(context).apply {
+        text = "$label $count"
+        textSize = 12f
+        val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
+        val selected = if (status == null) selectedStatuses.isEmpty() else selectedStatuses.singleOrNull() == status
+        setTextColor(if (selected) Color.WHITE else color)
+        setPadding(dp(7), dp(4), dp(7), dp(4))
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(8).toFloat()
+            setColor(if (selected) color else Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
         }
+        setOnClickListener {
+            if (status == null) {
+                filterState.selectedStatuses.remove(operator.id)
+            } else {
+                filterState.selectedStatuses[operator.id] = linkedSetOf(status)
+            }
+            clearSelectionState()
+            renderRows()
+        }
+    }
 
     private fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
         savedTableRenderers.getOrPut(operator.id) {
