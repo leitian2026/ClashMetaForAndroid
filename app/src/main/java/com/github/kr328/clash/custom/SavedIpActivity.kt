@@ -9,6 +9,7 @@ import com.github.kr328.clash.design.custom.SavedIpDesign
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /** CUSTOM.md #156 step 3/4: local saved-IP management and the hand-off to the existing IP test flow. */
