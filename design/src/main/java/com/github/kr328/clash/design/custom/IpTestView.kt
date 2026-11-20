@@ -1334,6 +1334,21 @@ class IpTestView(
             cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
             grid.addView(line, lp(gridWidth, height))
 
+            // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
+            // click handlers so a tap cannot open a port / detail dialog or copy the IP.
+            if (selectionMode) {
+                fun attachSelectionClick(view: View) {
+                    if (view !is CheckBox) {
+                        view.setOnClickListener { onLongPress(entry.address) }
+                    }
+                    if (view is ViewGroup) {
+                        for (childIndex in 0 until view.childCount) attachSelectionClick(view.getChildAt(childIndex))
+                    }
+                }
+                attachSelectionClick(leftRow)
+                attachSelectionClick(line)
+            }
+
             fun attachLongPress(view: View) {
                 view.setOnLongClickListener { onLongPress(entry.address); true }
                 if (view is ViewGroup) for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
