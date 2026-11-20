@@ -1136,7 +1136,12 @@ class IpTestView(
             visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
         }
         return LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = selectableBackground()
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            val selectable = android.util.TypedValue()
+            if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, selectable, true) && selectable.resourceId != 0) {
+                setBackgroundResource(selectable.resourceId)
+            }
             addView(titleView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(selectedView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             isClickable = true; minimumWidth = width; setOnClickListener { if (isEnabled) onClick(this) }
