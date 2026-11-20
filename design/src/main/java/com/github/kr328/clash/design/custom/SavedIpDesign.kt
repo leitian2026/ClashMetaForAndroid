@@ -156,11 +156,21 @@ class SavedIpDesign(
     )
 
     // CUSTOM.md #159 (r291): compact toolbar with anchored dropdown menus.
+    // CUSTOM.md #156 (r292): move country and sort controls to a second row on narrow screens.
     private val filterToolbar = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.VERTICAL
         setPadding(dp(8), dp(2), dp(8), dp(2))
     }
+    private val filterToolbarTopRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    private val filterToolbarBottomRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        visibility = View.GONE
+    }
+    private var filterToolbarNarrow: Boolean? = null
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(8), dp(4), dp(8), dp(4))
@@ -234,13 +244,18 @@ class SavedIpDesign(
         })
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        filterToolbar.addView(searchIconButton, LinearLayout.LayoutParams(dp(40), dp(40)))
-        filterToolbar.addView(searchBox, LinearLayout.LayoutParams(0, dp(40), 2f))
-        filterToolbar.addView(searchCloseButton, LinearLayout.LayoutParams(dp(40), dp(40)))
-        filterToolbar.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
-        filterToolbar.addView(countryFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
-        filterToolbar.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        filterToolbar.addView(filterToolbarTopRow, fullWidth())
+        filterToolbar.addView(filterToolbarBottomRow, fullWidth())
+        filterToolbarTopRow.addView(searchIconButton, LinearLayout.LayoutParams(dp(40), dp(40)))
+        filterToolbarTopRow.addView(searchBox, LinearLayout.LayoutParams(0, dp(40), 2f))
+        filterToolbarTopRow.addView(searchCloseButton, LinearLayout.LayoutParams(dp(40), dp(40)))
+        filterToolbarTopRow.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        filterToolbarTopRow.addView(countryFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
+        filterToolbarTopRow.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
         root.addView(filterToolbar, fullWidth())
+        filterToolbar.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+            updateFilterToolbarLayout(right - left)
+        }
 
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         searchInput.setText(filterState.query)
@@ -759,6 +774,19 @@ class SavedIpDesign(
             return true
         }
         return false
+    }
+
+    private fun updateFilterToolbarLayout(width: Int) {
+        val narrow = width < dp(460)
+        if (filterToolbarNarrow == narrow) return
+        filterToolbarNarrow = narrow
+        countryPopup?.dismiss()
+        val target = if (narrow) filterToolbarBottomRow else filterToolbarTopRow
+        listOf(countryFilterButton, sortButton).forEach { button ->
+            (button.parent as? ViewGroup)?.removeView(button)
+            target.addView(button, LinearLayout.LayoutParams(0, dp(40), 1f))
+        }
+        filterToolbarBottomRow.visibility = if (narrow) View.VISIBLE else View.GONE
     }
 
     private fun updateFilterToolbar() {
