@@ -39,6 +39,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 import java.util.UUID
 
@@ -243,25 +245,59 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
     }
 
-    private fun persistIpTest() {
-        val saved = ipSaved ?: return
-        try {
-            val json = JSONObject()
-                .put("direct", saved.direct)
-                .put("head", saved.head)
-                .put("sub", saved.sub)
-                .put("warnings", JSONArray(saved.warnings))
-                .put("target", saved.target)
-                .put("domain", saved.domain)
-                .put("node", saved.node)
-                .put("ports", saved.ports)
-                .put("url", saved.url)
-                .put("report", Json.encodeToString(IpTestReport.serializer(), saved.report))
-                .put("total", saved.total)
-                .put("tested", saved.tested)
-                .put("logs", JSONArray(saved.logs))
-            prefs.edit().putString("ip_test_last", json.toString()).apply()
-        } catch (_: Exception) {
+    // CUSTOM.md #87: snapshot on Main, then serialize and write the preference off Main.
+    // A version guard prevents an older concurrent snapshot from overwriting a newer one.
+    private val persistMutex = Mutex()
+    private var persistVersion = 0L
+    private var persistedVersion = 0L
+
+    private suspend fun persistIpTest() {
+        val versioned = withContext(Dispatchers.Main.immediate) {
+            val saved = ipSaved ?: return@withContext null
+            val snapshot = saved.copy(
+                warnings = saved.warnings.toList(),
+                report = saved.report.copy(
+                    rows = saved.report.rows.toList(),
+                    colos = saved.report.colos.toMap(),
+                    coloCountries = saved.report.coloCountries.toMap(),
+                ),
+                logs = saved.logs.toList(),
+            )
+            (++persistVersion) to snapshot
+        } ?: return
+
+        persistMutex.withLock {
+            if (versioned.first <= persistedVersion) return@withLock
+
+            try {
+                val value = withContext(Dispatchers.Default) {
+                    val saved = versioned.second
+                    JSONObject()
+                        .put("direct", saved.direct)
+                        .put("head", saved.head)
+                        .put("sub", saved.sub)
+                        .put("warnings", JSONArray(saved.warnings))
+                        .put("target", saved.target)
+                        .put("domain", saved.domain)
+                        .put("node", saved.node)
+                        .put("ports", saved.ports)
+                        .put("url", saved.url)
+                        .put("report", Json.encodeToString(IpTestReport.serializer(), saved.report))
+                        .put("total", saved.total)
+                        .put("tested", saved.tested)
+                        .put("logs", JSONArray(saved.logs))
+                        .toString()
+                }
+
+                withContext(Dispatchers.IO) {
+                    prefs.edit().putString("ip_test_last", value).apply()
+                }
+                persistedVersion = versioned.first
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep the page and the running test usable if local persistence fails.
+            }
         }
     }
 
@@ -641,7 +677,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 it.setInfo(head, sub, warnings)
                 ipSaved = ipSaved?.copy(head = head, sub = sub, warnings = warnings)
                 persistIpTest()
-                shown = it.plain()
             }
         }
     }
@@ -654,7 +689,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 updateSaveBatchAction()
                 ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(rows = rows))
                 persistIpTest()
-                shown = it.plain()
             }
         }
     }
@@ -674,7 +708,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 it.setProgress(total, tested)
                 ipSaved = ipSaved?.copy(total = total, tested = tested)
                 persistIpTest()
-                shown = it.plain()
             }
         }
     }
@@ -694,7 +727,6 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 it.log(text)
                 ipSaved = ipSaved?.copy(logs = it.savedLogs())
                 persistIpTest()
-                shown = it.plain()
             }
         }
     }
@@ -781,7 +813,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun copyAll() {
         withContext(Dispatchers.Main) {
             context.getSystemService<ClipboardManager>()
-                ?.setPrimaryClip(ClipData.newPlainText("config_check", shown))
+                ?.setPrimaryClip(ClipData.newPlainText("config_check", ipView?.plain() ?: shown))
         }
 
         showToast(R.string.copied, ToastDuration.Short)

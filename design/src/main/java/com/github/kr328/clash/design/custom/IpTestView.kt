@@ -208,6 +208,7 @@ class IpTestView(
         textSize = 13f
         setTextColor(colorText)
         setPadding(dp(8), dp(6), dp(8), dp(6))
+        setText("", TextView.BufferType.EDITABLE)
     }
 
     private val logScroll = ScrollView(context).apply {
@@ -961,13 +962,30 @@ class IpTestView(
     }
 
     /** One line of the live status, `[HH:MM:SS] text`; at most 200 lines are kept. */
+    private var logScrollPending = false
+
     fun log(text: String) {
-        logLines += "[" + SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + "] " + text
+        val line = "[" + SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + "] " + text
+        logLines += line
 
-        while (logLines.size > MAX_LOG) logLines.removeAt(0)
+        val editable = logView.editableText
+        if (editable.isNotEmpty()) editable.append('\n')
+        editable.append(line)
 
-        logView.text = logLines.joinToString("\n")
-        logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
+        while (logLines.size > MAX_LOG) {
+            logLines.removeAt(0)
+            val firstLineEnd = editable.indexOf("\n")
+            if (firstLineEnd >= 0) editable.delete(0, firstLineEnd + 1) else editable.clear()
+        }
+
+        // Multiple log events in one frame share one scroll/layout request.
+        if (!logScrollPending) {
+            logScrollPending = true
+            logScroll.postOnAnimation {
+                logScrollPending = false
+                logScroll.fullScroll(View.FOCUS_DOWN)
+            }
+        }
     }
 
     fun savedLogs(): List<String> = logLines.toList()
@@ -975,7 +993,7 @@ class IpTestView(
     fun setLogs(lines: List<String>) {
         logLines.clear()
         logLines.addAll(lines.takeLast(MAX_LOG))
-        logView.text = logLines.joinToString("\n")
+        logView.setText(logLines.joinToString("\n"), TextView.BufferType.EDITABLE)
     }
 
     /**
