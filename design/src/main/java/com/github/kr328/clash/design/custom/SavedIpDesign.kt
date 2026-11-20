@@ -267,32 +267,57 @@ class SavedIpDesign(
 
     // CUSTOM.md #163: each expanded operator is rendered as one shared table. Search deliberately
     // expands every matching operator, preserving the existing search behavior.
+    // CUSTOM (CUSTOM.md #165): each operator owns one section View. Local filter/selection
+    // changes replace only that section; page-wide changes still call renderRows().
+    private val operatorSections = HashMap<String, LinearLayout>()
+
     private fun renderRows() {
-        val query = searchInput.text?.toString()?.trim().orEmpty()
         operatorContent.removeAllViews()
-        var visibleGroupCount = 0
-        for (operator in snapshotCache.operators) {
-            val entries = if (selectedOperatorId == operator.id) {
-                sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
-            } else {
-                visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
-            }
-            val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
-                filterState.selectedTableFilters.containsKey(operator.id)
-            if (entries.isEmpty() && (operator.ips.isEmpty() || !hasActiveFilters)) continue
-            visibleGroupCount++
+        operatorSections.clear()
+        snapshotCache.operators.forEach { renderOperator(it.id, showEmptyState = false) }
+        if (operatorContent.childCount == 0) addEmptyState()
+    }
+
+    private fun addEmptyState() {
+        operatorContent.addView(TextView(context).apply {
+            tag = EMPTY_STATE_TAG
+            setText(if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
+            textSize = 14f
+            setTextColor(colorMuted)
+            setPadding(0, dp(12), 0, dp(16))
+        }, fullWidth())
+    }
+
+    private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
+        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        operatorSections.remove(operatorId)?.let { operatorContent.removeView(it) }
+        operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { operatorContent.removeView(it) }
+
+        val query = searchInput.text?.toString()?.trim().orEmpty()
+        val entries = if (selectedOperatorId == operator.id) {
+            sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
+        } else {
+            visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
+        }
+        val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
+            filterState.selectedTableFilters.containsKey(operator.id)
+        if (entries.isNotEmpty() || (operator.ips.isNotEmpty() && hasActiveFilters)) {
             val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
+            val section = LinearLayout(context).apply {
+                tag = operator.id
+                orientation = LinearLayout.VERTICAL
+            }
             val group = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, dp(10), 0, dp(8))
             }
             bindOperatorRow(group, operator, entries, expanded)
-            operatorContent.addView(group, fullWidth())
+            section.addView(group, fullWidth())
             if (expanded) {
                 if (entries.isNotEmpty()) {
-                    bindSavedTable(operatorContent, operator, entries)
+                    bindSavedTable(section, operator, entries)
                 } else {
-                    operatorContent.addView(TextView(context).apply {
+                    section.addView(TextView(context).apply {
                         setText(R.string.saved_ip_filter_no_match)
                         textSize = 13f
                         setTextColor(colorMuted)
@@ -300,15 +325,21 @@ class SavedIpDesign(
                     }, fullWidth())
                 }
             }
+            val targetOrder = snapshotCache.operators.indexOfFirst { it.id == operatorId }
+            var insertAt = operatorContent.childCount
+            for (i in 0 until operatorContent.childCount) {
+                val childId = operatorContent.getChildAt(i).tag as? String ?: continue
+                val childOrder = snapshotCache.operators.indexOfFirst { it.id == childId }
+                if (childOrder > targetOrder) { insertAt = i; break }
+            }
+            operatorContent.addView(section, insertAt, fullWidth())
+            operatorSections[operatorId] = section
         }
-        if (visibleGroupCount == 0) {
-            operatorContent.addView(TextView(context).apply {
-                setText(if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
-                textSize = 14f
-                setTextColor(colorMuted)
-                setPadding(0, dp(12), 0, dp(16))
-            }, fullWidth())
-        }
+        if (showEmptyState && operatorContent.childCount == 0) addEmptyState()
+    }
+
+    private companion object {
+        val EMPTY_STATE_TAG = Any()
     }
 
     private fun bindOperatorRow(
@@ -418,8 +449,10 @@ class SavedIpDesign(
             } else {
                 filterState.selectedStatuses[operator.id] = linkedSetOf(status)
             }
+            val previousSelection = selectedOperatorId
             clearSelectionState()
-            renderRows()
+            renderOperator(operator.id)
+            if (previousSelection != null && previousSelection != operator.id) renderOperator(previousSelection)
         }
     }
 
@@ -524,7 +557,7 @@ class SavedIpDesign(
                 }
                 if (tableFilterPopup === this) tableFilterPopup = null
                 // Tapping outside without changing any checkbox must not rebuild the whole list.
-                if (selectionChanged) renderRows()
+                if (selectionChanged) renderOperator(operator.id)
             }
         }
         tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnIndex
@@ -646,7 +679,7 @@ class SavedIpDesign(
 
         if (selectedAddresses.isEmpty()) selectedOperatorId = null
         updateSelectionActions()
-        renderRows()
+        renderOperator(operatorId)
     }
 
     private fun reconcileSelection(snapshot: SavedIpSnapshot) {
@@ -704,7 +737,8 @@ class SavedIpDesign(
         selectedAddresses.clear()
         selectedAddresses.addAll(selected.map { it.address })
         if (selectedAddresses.isEmpty()) selectedOperatorId = null
-        refresh()
+        updateSelectionActions()
+        renderOperator(operatorId)
     }
 
     private fun clearSelectionState() {
@@ -714,8 +748,9 @@ class SavedIpDesign(
     }
 
     private fun clearSelection() {
+        val operatorId = selectedOperatorId
         clearSelectionState()
-        refresh()
+        if (operatorId != null) renderOperator(operatorId)
     }
 
     private fun deleteSelected() {
@@ -753,7 +788,7 @@ class SavedIpDesign(
         // SavedIpActivity stays on the back stack while the test page is open; retaining this selection
         // makes the next visit look as though the previous batch is still active.
         clearSelectionState()
-        renderRows()
+        renderOperator(operatorId)
         onRetest(operatorId, addresses)
     }
 
@@ -912,7 +947,8 @@ class SavedIpDesign(
         selectedAddresses.clear()
         val selected = matching.take(20)
         selectedAddresses.addAll(selected.map { it.address })
-        refresh()
+        updateSelectionActions()
+        renderOperator(operator.id)
         if (matching.size > 20) {
             Toast.makeText(
                 context,
