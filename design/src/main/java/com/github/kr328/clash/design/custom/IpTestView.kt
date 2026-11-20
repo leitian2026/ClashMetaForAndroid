@@ -44,7 +44,12 @@ import java.util.Locale
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
 // r85 (CUSTOM.md #68): direct mode keeps 抖动 / 分段耗时 after 平均延迟. Via-node mode puts link metrics first, then exit / target details, then 分段耗时.
-class IpTestView(private val context: Context, private val direct: Boolean, private val target: Boolean = false) {
+class IpTestView(
+    private val context: Context,
+    private val direct: Boolean,
+    private val target: Boolean = false,
+    private val savedTable: Boolean = false,
+) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
     var onSpeedCancel: () -> Unit = {} // a tap on "取消" of the row that is downloading
@@ -53,7 +58,11 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, FASTER, TEST, SPEED, TARGET, TCOLO }
 
-    private val keys = if (direct) {
+    private val keys = if (savedTable) {
+        // CUSTOM.md #162: semantic union of direct, node and node-with-target result columns.
+        listOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
+            Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.FASTER, Key.SPEED)
+    } else if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
     } else if (target) {
         // CUSTOM.md #66: with a target address the tries go to that site: 目标站反应 and 出口机房 (its Cf-Ray) are added, and
@@ -84,6 +93,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private val headH = dp(40)
 
     private var rows: List<IpTestRow> = emptyList()
+    private var savedTableAvailableWidth: Int = 0
     private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
@@ -1066,6 +1076,119 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
         tableBox.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
     }
 
+
+    // CUSTOM.md #162: saved-IP rows use the live table's header, cell, IP and width factories.
+    internal fun savedTableWidths(availableWidth: Int, savedRows: List<IpTestRow>, cityNames: Map<String, String>, countryCodes: Map<String, String>): IntArray {
+        rows = savedRows
+        colos = cityNames
+        coloCountries = countryCodes
+        savedTableAvailableWidth = availableWidth
+        return widths()
+    }
+
+    internal fun savedTableHeader(widths: IntArray, scrollX: Int, onScroll: (Int) -> Unit): View {
+        val gridWidth = widths.drop(1).sum()
+        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val headLeft = headCell(context.getString(R.string.iptest_col_ip), widths[0])
+        val heads = keys.mapIndexed { index, key -> headCell(title(key), widths[index + 1]) }
+        val height = maxOf(headH, heightOf(headLeft, widths[0]), heads.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0) + dp(6)
+        left.addView(headLeft, lp(widths[0], height))
+        val headRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(colorSurface) }
+        heads.forEachIndexed { index, cell -> cell.setBackgroundColor(Color.TRANSPARENT); headRow.addView(cell, lp(widths[index + 1], height)) }
+        grid.addView(headRow, lp(gridWidth, height))
+        val scroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = true
+            addView(grid, ViewGroup.LayoutParams(gridWidth, height))
+            setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
+        }
+        scroll.post { scroll.scrollTo(scrollX, 0) }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(left, LinearLayout.LayoutParams(widths[0], height))
+            addView(scroll, LinearLayout.LayoutParams(0, height, 1f))
+        }
+    }
+
+    internal fun savedTableRow(
+        address: String, result: IpTestRow?, directMode: Boolean, targetMode: Boolean,
+        widths: IntArray, stripe: Boolean, selected: Boolean, scrollX: Int,
+        onScroll: (Int) -> Unit, onCopy: (String) -> Unit, onDetail: (String, String) -> Unit,
+        onLongPress: () -> Unit,
+    ): View {
+        val renderer = IpTestView(context, directMode, targetMode)
+        renderer.colos = colos
+        renderer.coloCountries = coloCountries
+        renderer.onCopy = onCopy
+        renderer.onDetail = onDetail
+        val row = result ?: IpTestRow(ip = address, ok = true)
+        val ipView = renderer.ipCell(row)
+        ipView.setOnLongClickListener { onLongPress(); true }
+        if (ipView is LinearLayout) {
+            for (i in 0 until ipView.childCount) ipView.getChildAt(i).setOnLongClickListener { onLongPress(); true }
+        }
+        val gridWidth = widths.drop(1).sum()
+        val stripeColor = if (stripe) colorStripe else Color.TRANSPARENT
+        val left = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(if (selected) Color.argb(36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink)) else stripeColor)
+        }
+        left.addView(ipView, lp(widths[0], ViewGroup.LayoutParams.WRAP_CONTENT))
+        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(stripeColor) }
+        val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(stripeColor) }
+        val cells = keys.mapIndexed { index, key ->
+            val mapped = when (key) {
+                Key.COLO -> Key.COLO
+                Key.ASN -> Key.ASN
+                Key.GEO -> Key.GEO
+                Key.EXIT -> if (directMode) Key.LAND else Key.EXIT
+                Key.PORTS -> if (directMode) Key.PORTS else Key.PORT
+                Key.LOSS -> Key.LOSS
+                Key.MIN -> Key.MIN
+                Key.MAX -> Key.MAX
+                Key.AVG -> Key.AVG
+                Key.JITTER -> Key.JITTER
+                Key.EXIT_IP -> if (directMode) null else Key.EXIT_IP
+                Key.TCOLO -> if (targetMode) Key.TCOLO else null
+                Key.TARGET -> if (targetMode) Key.TARGET else null
+                Key.PHASE -> Key.PHASE
+                Key.FASTER -> if (!directMode && !targetMode) Key.FASTER else null
+                Key.SPEED -> Key.SPEED
+                else -> null
+            }
+            val missingExit = key == Key.EXIT && row.country.isEmpty()
+            val cell = when {
+                result == null || mapped == null || missingExit -> textCell("-", colorMuted)
+                mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
+                mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
+                mapped == Key.LOSS && row.sent <= 0 -> textCell("-", colorMuted)
+                mapped in listOf(Key.MIN, Key.MAX, Key.AVG) && when (mapped) {
+                    Key.MIN -> row.min <= 0
+                    Key.MAX -> row.max <= 0
+                    else -> row.avg <= 0
+                } -> textCell("-", colorMuted)
+                mapped == Key.JITTER && row.sent <= 0 -> textCell("-", colorMuted)
+                else -> renderer.cellOf(mapped, row, widths[index + 1])
+            }
+            line.addView(cell, lp(widths[index + 1], ViewGroup.LayoutParams.WRAP_CONTENT))
+            cell
+        }
+        val height = maxOf(rowH, heightOf(ipView, widths[0]), cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0) + dp(4)
+        left.layoutParams = lp(widths[0], height)
+        grid.addView(line, lp(gridWidth, height))
+        val scroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = true
+            addView(grid, ViewGroup.LayoutParams(gridWidth, height))
+            setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
+        }
+        scroll.post { scroll.scrollTo(scrollX, 0) }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(left, LinearLayout.LayoutParams(widths[0], height))
+            addView(scroll, LinearLayout.LayoutParams(0, height, 1f))
+        }
+    }
+
     private fun heightOf(v: View, w: Int): Int {
         v.measure(
             View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
@@ -1109,7 +1232,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
             floor[exitIpAt] = maxOf(floor[exitIpAt], need)
         }
 
-        val avail = tableBox.width
+        val avail = if (savedTable && savedTableAvailableWidth > 0) savedTableAvailableWidth else tableBox.width
         val sum = min.sum()
         val speedAt = keys.indexOf(Key.SPEED) + 1 // 0 when there is no such column
 
@@ -1146,7 +1269,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
                 val extra = avail - sumNoSpeed
                 val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
 
-                val firstColumnAt = keys.indexOf(if (direct) Key.COLO else Key.PORT) + 1
+                val firstColumnAt = keys.indexOf(if (direct || savedTable) Key.COLO else Key.PORT) + 1
                 out[firstColumnAt] += avail - sumNoSpeed - (0 until min.size).filter { it != speedAt }.sumOf { out[it] - min[it] }
 
                 return out
@@ -1223,7 +1346,10 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     // wrapped ("447" and "ms" on two lines) the row became two or three lines taller than anything else in it.
     private fun phaseNeed(): Int {
         val paint = TextView(context).apply { textSize = 14f }.paint
-        val longest = rows.maxOfOrNull { r -> phaseText(r).split('\n').maxOf { paint.measureText(it) } } ?: 0f
+        val longest = rows.maxOfOrNull { r ->
+            val texts = if (savedTable) listOf(phaseText(r, true), phaseText(r, false)) else listOf(phaseText(r))
+            texts.maxOf { text -> text.split('\n').maxOf { paint.measureText(it) } }
+        } ?: 0f
 
         return (longest.toInt() + dp(10)).coerceAtMost(dp(120))
     }
@@ -1251,7 +1377,7 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
     private fun title(k: Key): String {
         return context.getString(
             when (k) {
-                Key.COLO -> if (direct) R.string.iptest_col_colo else R.string.iptest_col_colo_node
+                Key.COLO -> if (direct || savedTable) R.string.iptest_col_colo else R.string.iptest_col_colo_node
                 Key.ASN -> R.string.iptest_col_asn
                 Key.GEO -> R.string.iptest_col_geo
                 Key.LAND, Key.EXIT -> R.string.iptest_col_exit
@@ -1312,13 +1438,13 @@ class IpTestView(private val context: Context, private val direct: Boolean, priv
 
     // CUSTOM.md #68: three lines, one per part; "-" for a part that was not measured (a plain http address has no
     // handshake part), all "-" for an address that failed
-    private fun phaseText(r: IpTestRow): String {
+    private fun phaseText(r: IpTestRow, directMode: Boolean = direct): String {
         if (!r.ok) return "-"
 
         val v = { n: Int -> if (n > 0) context.getString(R.string.iptest_ms_short, n) else "-" }
 
         return context.getString(
-            if (direct) R.string.iptest_phase_cell_direct else R.string.iptest_phase_cell_node,
+            if (directMode) R.string.iptest_phase_cell_direct else R.string.iptest_phase_cell_node,
             v(r.dial),
             v(r.shake),
             v(r.first),

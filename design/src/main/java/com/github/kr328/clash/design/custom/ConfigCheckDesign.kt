@@ -527,6 +527,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         emptyList(),
                         0,
                         0,
+                        testDirect = ipSaved?.direct ?: true,
+                        testTarget = ipSaved?.target ?: false,
+                        colos = ipSaved?.report?.colos.orEmpty(),
+                        coloCountries = ipSaved?.report?.coloCountries.orEmpty(),
                     )
                     Toast.makeText(
                         context,
@@ -590,6 +594,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         pasted.addresses,
                         pasted.duplicates,
                         pasted.ignored,
+                        testDirect = ipSaved?.direct ?: true,
+                        testTarget = ipSaved?.target ?: false,
+                        colos = ipSaved?.report?.colos.orEmpty(),
+                        coloCountries = ipSaved?.report?.coloCountries.orEmpty(),
                     )
                     Toast.makeText(
                         context,

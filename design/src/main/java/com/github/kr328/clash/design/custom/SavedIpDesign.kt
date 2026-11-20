@@ -93,13 +93,7 @@ class SavedIpDesign(
     // CUSTOM.md #156 step 17: RecyclerView virtualizes IP rows; only visible rows are bound.
     private val listAdapter = SavedIpAdapter()
     private val operatorList = RecyclerView(context).apply {
-        layoutManager = androidx.recyclerview.widget.GridLayoutManager(context, 2).apply {
-            // CUSTOM (CUSTOM.md #156 step 22): IP cards use two columns; operator headers and messages span the full width.
-            spanSizeLookup = object : androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup() {
-                override fun getSpanSize(position: Int): Int =
-                    if (listAdapter.getItemViewType(position) == 1) 1 else 2
-            }
-        }
+        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         adapter = listAdapter
         setPadding(dp(16), dp(8), dp(16), dp(24))
         clipToPadding = false
@@ -148,6 +142,8 @@ class SavedIpDesign(
         set(value) { filterState.sort = value }
     private var selectedOperatorId: String? = null
     private val selectedAddresses = LinkedHashSet<String>()
+    private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
+    private var savedTableScrollX = 0
 
     private data class SavedIpTimeLabel(
         val full: String,
@@ -315,6 +311,7 @@ class SavedIpDesign(
 
     fun refresh() {
         snapshotCache = SavedIpStore.read(context)
+        savedTableRenderers.clear()
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
@@ -345,7 +342,10 @@ class SavedIpDesign(
                 expanded,
                 if (selectedOperatorId == operator.id) selectedAddresses.toSet() else emptySet(),
             )
-            if (expanded) entries.forEach { rows += SavedIpListRow.Ip(operator, it) }
+            if (expanded) {
+                rows += SavedIpListRow.TableHeader(operator)
+                entries.forEachIndexed { index, entry -> rows += SavedIpListRow.Ip(operator, entry, index) }
+            }
         }
         if (rows.isEmpty()) {
             rows += SavedIpListRow.Message(
@@ -364,7 +364,8 @@ class SavedIpDesign(
             // Included in row equality so selection changes still rebind checkbox state.
             val selectedAddresses: Set<String>,
         ) : SavedIpListRow()
-        data class Ip(val operator: SavedIpOperator, val entry: SavedIpEntry) : SavedIpListRow()
+        data class TableHeader(val operator: SavedIpOperator) : SavedIpListRow()
+        data class Ip(val operator: SavedIpOperator, val entry: SavedIpEntry, val index: Int) : SavedIpListRow()
         data class Message(val text: Int) : SavedIpListRow()
     }
 
@@ -382,12 +383,13 @@ class SavedIpDesign(
             is SavedIpListRow.Operator -> 0
             is SavedIpListRow.Ip -> 1
             is SavedIpListRow.Message -> 2
+            is SavedIpListRow.TableHeader -> 3
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val container = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(if (viewType == 1) dp(4) else 0, if (viewType == 0) dp(10) else dp(4), if (viewType == 1) dp(4) else 0, if (viewType == 0) dp(8) else dp(4))
+                setPadding(0, if (viewType == 0) dp(10) else 0, 0, if (viewType == 0) dp(8) else 0)
                 if (viewType != 2) background = selectableBackground()
             }
             return object : RecyclerView.ViewHolder(container) {}
@@ -400,7 +402,8 @@ class SavedIpDesign(
             container.removeAllViews()
             when (val row = rows[position]) {
                 is SavedIpListRow.Operator -> bindOperatorRow(container, row)
-                is SavedIpListRow.Ip -> bindIpRow(container, row.operator, row.entry)
+                is SavedIpListRow.TableHeader -> bindSavedTableHeader(container, row.operator)
+                is SavedIpListRow.Ip -> bindIpRow(container, row.operator, row.entry, row.index)
                 is SavedIpListRow.Message -> container.addView(TextView(context).apply {
                     setText(row.text)
                     textSize = 14f
@@ -499,120 +502,50 @@ class SavedIpDesign(
             }
         }
 
-    // CUSTOM (CUSTOM.md #156 step 22): compact two-column IP card; preserve copy, selection and delete actions.
-    private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry) {
-        val item = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(3), 0, dp(3))
+    private fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
+        savedTableRenderers.getOrPut(operator.id) {
+            val renderer = IpTestView(context, direct = false, target = false, savedTable = true)
+            val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
+                .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(32))
+            val widths = renderer.savedTableWidths(width, operator.ips.map { it.result ?: com.github.kr328.clash.core.model.IpTestRow(ip = it.address, ok = true) }, operator.colos, operator.coloCountries)
+            renderer to widths
         }
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        if (selectedOperatorId == operator.id) {
-            // CUSTOM.md #156 step 24: the checkbox itself toggles the same IP selection as the address.
-            row.addView(CheckBox(context).apply {
-                isChecked = entry.address in selectedAddresses
-                isClickable = true
-                isFocusable = false
-                setOnClickListener { toggleSelection(operator.id, entry.address) }
-            }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val statusMark = FrameLayout(context)
-        val dotColor = when (entry.status) {
-            SavedIpStatus.REACHABLE -> CheckMark.MARK_DOT_GOOD
-            SavedIpStatus.UNREACHABLE -> CheckMark.MARK_DOT_BAD
-            SavedIpStatus.UNTESTED -> null
-        }
-        if (dotColor != null) {
-            statusMark.addView(View(context).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(dotColor)
-                }
-            }, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER))
-        }
-        row.addView(statusMark, LinearLayout.LayoutParams(dp(18), dp(32)))
-        // CUSTOM.md #156 (r217): increase saved-IP address text by one size.
-        val address = TextView(context).apply {
-            // CUSTOM.md #160：显示测试时取得的出口国家旗帜；不回退到 IP 归属地，也不触发额外查询。
-            val flag = CountryFlag.of(entry.exitCountryCode)
-            text = if (flag.isEmpty()) entry.address else "$flag ${entry.address}"
-            textSize = 14f
-            setTextColor(colorText)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(2), dp(3), dp(2), dp(3))
-            setSingleLine(true)
-            ellipsize = TextUtils.TruncateAt.MIDDLE
-            setOnClickListener {
-                if (selectedOperatorId == null) copyIp(entry.address)
-                else toggleSelection(operator.id, entry.address)
-            }
-            setOnLongClickListener {
-                toggleSelection(operator.id, entry.address)
-                true
+
+    private fun bindSavedTableHeader(container: LinearLayout, operator: SavedIpOperator) {
+        val (renderer, widths) = savedTableFor(operator)
+        container.addView(renderer.savedTableHeader(widths, savedTableScrollX) { savedTableScrollX = it }, fullWidth())
+    }
+
+    // CUSTOM.md #162: one IP per virtualized row; all cells come from IpTestView.
+    private fun bindIpRow(container: LinearLayout, operator: SavedIpOperator, entry: SavedIpEntry, index: Int) {
+        val (renderer, widths) = savedTableFor(operator)
+        val selected = selectedOperatorId == operator.id && entry.address in selectedAddresses
+        val rowView = renderer.savedTableRow(
+            address = entry.address,
+            result = entry.result,
+            directMode = entry.testDirect,
+            targetMode = entry.testTarget,
+            widths = widths,
+            stripe = index % 2 == 1,
+            selected = selected,
+            scrollX = savedTableScrollX,
+            onScroll = { savedTableScrollX = it },
+            onCopy = { address -> if (selectedOperatorId == operator.id) toggleSelection(operator.id, address) else copyIp(address) },
+            onDetail = { title, detail ->
+                MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
+                    .setPositiveButton(R.string.close, null).show()
+            },
+            onLongPress = { toggleSelection(operator.id, entry.address) },
+        )
+        container.addView(rowView, fullWidth())
+        fun attachLongPress(view: View) {
+            view.setOnLongClickListener { toggleSelection(operator.id, entry.address); true }
+            if (view is ViewGroup) {
+                for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
             }
         }
-        val showDelete = selectedOperatorId == null
-        val selectionWidth = if (selectedOperatorId == operator.id) dp(30) else 0
-        val deleteWidth = if (showDelete) dp(56) else 0
-        fun updateAddressMaxWidth() {
-            address.maxWidth = (row.width - dp(18 + 4) - selectionWidth - deleteWidth).coerceAtLeast(dp(24))
-        }
-        val fallbackRowWidth = (context.resources.displayMetrics.widthPixels - dp(32)) / 2 - dp(8)
-        address.maxWidth = (fallbackRowWidth - dp(18 + 4) - selectionWidth - deleteWidth).coerceAtLeast(dp(24))
-        row.addView(address, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        // CUSTOM.md #156 第 44 步：测量双列单元格后限制 IP 文本宽度，删除按钮紧跟文字，不占用行尾空白。
-        row.post { updateAddressMaxWidth() }
-        if (showDelete) {
-            row.addView(TextView(context).apply {
-                text = "×"
-                textSize = 20f
-                gravity = Gravity.CENTER
-                setTextColor(colorLink)
-                contentDescription = context.getString(R.string.saved_ip_delete)
-                background = selectableBackground()
-                minWidth = dp(48)
-                minHeight = dp(48)
-                setPadding(0, 0, 0, 0)
-                setOnClickListener { confirmDeleteIp(operator.id, entry.address) }
-            }, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                marginStart = dp(8)
-            })
-        }
-        item.addView(row, fullWidth())
-        val detail = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(if (selectedOperatorId == operator.id) 40 else 18), 0, dp(3), 0)
-        }
-        // CUSTOM.md #158: show the saved test metrics instead of repeating the reachability status label.
-        val metricsText = TextView(context).apply {
-            val latency = if (entry.avg > 0) "${entry.avg}ms" else "-"
-            val speed = if (entry.speed > 0.0) {
-                String.format(Locale.US, "%.1f", entry.speed) + " MB/s"
-            } else {
-                "-"
-            }
-            text = context.getString(R.string.saved_ip_metrics, latency, speed)
-            textSize = 11f
-            setSingleLine(true)
-            setTextColor(colorMuted)
-        }
-        detail.addView(metricsText)
-        if (entry.lastTestedAt > 0L) {
-            val label = savedIpTimeLabel(entry.lastTestedAt)
-            detail.addView(View(context), LinearLayout.LayoutParams(dp(4), 1))
-            detail.addView(TextView(context).apply {
-                text = savedIpElapsedTime(entry.lastTestedAt)
-                textSize = 11f
-                setTextColor(if (label.isDate) Color.rgb(255, 145, 0) else colorMuted)
-                setSingleLine(true)
-                ellipsize = TextUtils.TruncateAt.END
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        item.addView(detail, fullWidth())
-        container.addView(item, fullWidth())
+        attachLongPress(rowView)
+        container.setOnLongClickListener { toggleSelection(operator.id, entry.address); true }
     }
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {

@@ -36,6 +36,10 @@ data class SavedIpEntry(
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),
     val mtu: IpTestExtResult = IpTestExtResult(),
+    // CUSTOM.md #162: complete result snapshot; null means legacy or pasted IP without measurements.
+    val result: IpTestRow? = null,
+    val testDirect: Boolean = true,
+    val testTarget: Boolean = false,
 )
 
 /**
@@ -47,6 +51,9 @@ data class SavedIpOperator(
     val id: String,
     val name: String = "",
     val ips: List<SavedIpEntry> = emptyList(),
+    // CUSTOM.md #162: data-centre labels used by the shared result table.
+    val colos: Map<String, String> = emptyMap(),
+    val coloCountries: Map<String, String> = emptyMap(),
 )
 
 /** Counts returned after saving one completed test batch. */
@@ -234,6 +241,10 @@ object SavedIpStore {
         pastedAddresses: List<String> = emptyList(),
         pastedDuplicates: Int = 0,
         ignoredPasted: Int = 0,
+        testDirect: Boolean = true,
+        testTarget: Boolean = false,
+        colos: Map<String, String> = emptyMap(),
+        coloCountries: Map<String, String> = emptyMap(),
     ): SavedIpSaveResult {
         // A batch save must never replace a damaged/unreadable list with an empty snapshot.
         val snapshot = readForUpdate(context)
@@ -281,6 +292,9 @@ object SavedIpStore {
                     ws = row.ws,
                     h3 = row.h3,
                     mtu = row.mtu,
+                    result = row,
+                    testDirect = testDirect,
+                    testTarget = testTarget,
                 )
                 continue
             }
@@ -298,6 +312,9 @@ object SavedIpStore {
                 ws = row.ws,
                 h3 = row.h3,
                 mtu = row.mtu,
+                result = row,
+                testDirect = testDirect,
+                testTarget = testTarget,
             )
             if (previous == null) added++ else updated++
         }
@@ -322,12 +339,19 @@ object SavedIpStore {
         val entries = batchEntries.values.toList() + operator.ips.filterNot { it.address in batchEntries }
 
         val operators = snapshot.operators.toMutableList()
-        operators[operatorIndex] = operator.copy(ips = entries)
+        val updatedOperator = operator.copy(
+            ips = entries,
+            colos = operator.colos + colos,
+            coloCountries = operator.coloCountries + coloCountries,
+        )
+        operators[operatorIndex] = updatedOperator
         val resultSnapshot = snapshot.copy(operators = operators, lastOperatorId = operatorId)
         val total = resultSnapshot.operators.sumOf { it.ips.size }
         if (total > MAX_IP_COUNT) throw SavedIpLimitException(total)
 
-        if (added > 0 || updated > 0 || snapshot.lastOperatorId != operatorId) {
+        if (added > 0 || updated > 0 || snapshot.lastOperatorId != operatorId ||
+            updatedOperator.colos != operator.colos || updatedOperator.coloCountries != operator.coloCountries
+        ) {
             write(context, resultSnapshot)
         }
 
