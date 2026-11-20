@@ -12,6 +12,7 @@ internal fun savedIpCountryCodes(operators: List<SavedIpOperator>): List<String>
         }
         .distinct()
         .sortedBy { CountryName.label(it) }
+        .toList()
 
 internal fun filterSavedIpEntriesByCountry(
     entries: List<SavedIpEntry>,
