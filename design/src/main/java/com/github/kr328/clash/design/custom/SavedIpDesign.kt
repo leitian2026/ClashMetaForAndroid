@@ -169,6 +169,9 @@ class SavedIpDesign(
         filterButton(R.string.saved_ip_filter_unreachable, IpFilter.UNREACHABLE),
         filterButton(R.string.saved_ip_filter_untested, IpFilter.UNTESTED),
     )
+    // CUSTOM.md #159: the selected ordering is page-local and is never persisted.
+    private var currentSort = SavedIpSort.DEFAULT
+    private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortOptions() }
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -184,6 +187,7 @@ class SavedIpDesign(
         root.addView(summaryView, fullWidth())
 
         filterButtons.forEach { filterBar.addView(it, weighted(3)) }
+        filterBar.addView(sortButton, weighted(2))
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         root.addView(searchInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
@@ -262,7 +266,7 @@ class SavedIpDesign(
         for (operator in snapshotCache.operators) {
             // While selecting a group, show that whole group regardless of the active filter or search text.
             val entries = if (selectedOperatorId == operator.id) {
-                SavedIpStore.sortEntries(operator.ips)
+                sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
             } else {
                 visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
             }
@@ -523,7 +527,25 @@ class SavedIpDesign(
                 IpFilter.UNTESTED -> entry.status == SavedIpStatus.UNTESTED
             }
         }
-        return SavedIpStore.sortEntries(filtered)
+        return sortSavedIpEntries(SavedIpStore.sortEntries(filtered), currentSort)
+    }
+
+    // CUSTOM.md #159: show a single-choice menu; changing sort only rebuilds this page's rows.
+    private fun showSortOptions() {
+        val options = arrayOf(
+            context.getString(R.string.saved_ip_sort_default),
+            context.getString(R.string.saved_ip_sort_latency),
+            context.getString(R.string.saved_ip_sort_speed),
+        )
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.saved_ip_sort_title)
+            .setSingleChoiceItems(options, currentSort.ordinal) { dialog, which ->
+                currentSort = SavedIpSort.values()[which]
+                dialog.dismiss()
+                renderRows()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun filterButton(label: Int, filter: IpFilter) = TextView(context).apply {
