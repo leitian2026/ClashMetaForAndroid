@@ -505,11 +505,8 @@ class SavedIpDesign(
                     if (selected.isEmpty()) operatorFilters.remove(columnIndex)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
                     val summary = anchor.tag as? TextView
-                    summary?.text = when {
-                        selected.isEmpty() -> ""
-                        selected.size == 1 -> selected.first()
-                        else -> selected.first() + " +" + (selected.size - 1)
-                    }
+                    // CUSTOM (CUSTOM.md #160): keep the live popup summary consistent with the table header.
+                    summary?.text = savedIpFilterSummary(selected)
                     summary?.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
                     clearSelectionState(); updateSearchUi()
                 }

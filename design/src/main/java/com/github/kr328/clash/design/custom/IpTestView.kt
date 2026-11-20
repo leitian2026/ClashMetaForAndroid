@@ -45,6 +45,14 @@ import java.util.Locale
 // the registered country and the exit country have a flag and the name. When all columns but 速度 fit on the page, they
 // fill it and 速度 sits behind the right edge (scroll sideways to see it); the header has room for two lines.
 // r85 (CUSTOM.md #68): direct mode keeps 抖动 / 分段耗时 after 平均延迟. Via-node mode puts link metrics first, then exit / target details, then 分段耗时.
+// CUSTOM (CUSTOM.md #160): keep two selected values readable in the saved-table header summary.
+internal fun savedIpFilterSummary(selected: Collection<String>): String = when {
+    selected.isEmpty() -> ""
+    selected.size == 1 -> selected.first()
+    else -> selected.take(2).joinToString("、") +
+        if (selected.size > 2) " +${selected.size - 2}" else ""
+}
+
 class IpTestView(
     private val context: Context,
     private val direct: Boolean,
@@ -1133,8 +1141,9 @@ class IpTestView(
             setTextColor(colorMuted); setPadding(dp(4), dp(4), dp(4), dp(1))
         }
         val selectedView = TextView(context).apply {
-            text = summaryOverride ?: when { selected.isEmpty() -> ""; selected.size == 1 -> selected.first(); else -> selected.first() + " +" + (selected.size - 1) }
-            textSize = 11f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
+            // CUSTOM (CUSTOM.md #160): a readable one-line summary; show up to two selected values.
+            text = summaryOverride ?: savedIpFilterSummary(selected)
+            textSize = 12f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
             ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(3))
             visibility = if (summaryOverride.isNullOrEmpty() && selected.isEmpty()) View.GONE else View.VISIBLE
         }
