@@ -1389,7 +1389,7 @@ class SavedIpDesign(
         setOnClickListener { click() }
     }
 
-    private fun actionText(text: Int, click: () -> Unit) = TextView(context).apply {
+    private fun actionText(text: Int, click: (View) -> Unit) = TextView(context).apply {
         setText(text)
         textSize = 13f
         setTextColor(colorLink)
@@ -1397,7 +1397,7 @@ class SavedIpDesign(
         minHeight = dp(40)
         background = selectableBackground()
         setPadding(dp(8), dp(4), dp(8), dp(4))
-        setOnClickListener { click() }
+        setOnClickListener { click(it) }
     }
 
     private fun addDivider(parent: LinearLayout) {
