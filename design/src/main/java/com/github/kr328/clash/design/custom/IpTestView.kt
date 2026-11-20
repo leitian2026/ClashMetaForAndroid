@@ -1223,7 +1223,8 @@ class IpTestView(
                 (ipView as? LinearLayout)?.addView(
                     TextView(context).apply {
                         text = timeText; textSize = 12f; maxLines = 1
-                        ellipsize = TextUtils.TruncateAt.END; setTextColor(colorMuted)
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) colorWarn else colorMuted)
                     },
                     1,
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
