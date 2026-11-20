@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -62,8 +63,10 @@ class SavedIpDesign(
     private val onBack: () -> Unit,
     private var canRetest: Boolean,
     private val onRetest: (String, List<String>) -> Unit,
+    savedState: Bundle? = null,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
+    private val filterState = SavedIpFilterState.restore(savedState)
     private val density = context.resources.displayMetrics.density
     private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
     // Match the explicit color source used by the config-check page's Material text buttons.
@@ -114,11 +117,15 @@ class SavedIpDesign(
         }
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
-    private var expandedOperatorId: String? = null
+    private var expandedOperatorId: String?
+        get() = filterState.expandedOperatorId
+        set(value) { filterState.expandedOperatorId = value }
 
-    // CUSTOM.md #156 step 4/6: filters and selection are page-local and never persisted.
-    private enum class IpFilter { ALL, REACHABLE, UNREACHABLE, UNTESTED }
-    private var currentFilter = IpFilter.ALL
+    // CUSTOM.md #156: status, country, sort and view state are page-local and restored with the Activity.
+    private val selectedCountryCodes get() = filterState.selectedCountryCodes
+    private var currentSort: SavedIpSort
+        get() = filterState.sort
+        set(value) { filterState.sort = value }
     private var selectedOperatorId: String? = null
     private val selectedAddresses = LinkedHashSet<String>()
 
@@ -164,16 +171,13 @@ class SavedIpDesign(
     private val selectOldestButton = actionButton(R.string.saved_ip_select_oldest_20) { selectOldest20() }
 
     private val filterButtons = listOf(
-        filterButton(R.string.saved_ip_filter_all, IpFilter.ALL),
-        filterButton(R.string.saved_ip_filter_reachable, IpFilter.REACHABLE),
-        filterButton(R.string.saved_ip_filter_unreachable, IpFilter.UNREACHABLE),
-        filterButton(R.string.saved_ip_filter_untested, IpFilter.UNTESTED),
+        filterButton(R.string.saved_ip_filter_all, null),
+        filterButton(R.string.saved_ip_filter_reachable, SavedIpStatus.REACHABLE),
+        filterButton(R.string.saved_ip_filter_unreachable, SavedIpStatus.UNREACHABLE),
+        filterButton(R.string.saved_ip_filter_untested, SavedIpStatus.UNTESTED),
     )
-    // CUSTOM.md #159: the selected ordering is page-local and is never persisted.
-    private var currentSort = SavedIpSort.DEFAULT
     private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortOptions() }
-    // CUSTOM.md #160: country filters are multi-select, page-local, and independent of the status filter.
-    private val selectedCountryCodes = LinkedHashSet<String>()
+    // CUSTOM.md #160: country filters are multi-select and independent of the status filter.
     private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { showCountryFilterOptions() }
     private val countryFilterBar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -200,6 +204,7 @@ class SavedIpDesign(
         root.addView(filterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(countryFilterBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
+        searchInput.setText(filterState.query)
         root.addView(searchInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
             marginStart = dp(16)
             marginEnd = dp(16)
@@ -248,6 +253,11 @@ class SavedIpDesign(
     fun setCanRetest(value: Boolean) {
         canRetest = value
         updateSelectionActions()
+    }
+
+    fun saveState(outState: Bundle) {
+        filterState.query = searchInput.text?.toString().orEmpty()
+        filterState.save(outState)
     }
 
     fun refresh() {
@@ -532,14 +542,7 @@ class SavedIpDesign(
     }
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
-        val filtered = operator.ips.filter { entry ->
-            when (currentFilter) {
-                IpFilter.ALL -> true
-                IpFilter.REACHABLE -> entry.status == SavedIpStatus.REACHABLE
-                IpFilter.UNREACHABLE -> entry.status == SavedIpStatus.UNREACHABLE
-                IpFilter.UNTESTED -> entry.status == SavedIpStatus.UNTESTED
-            }
-        }
+        val filtered = operator.ips.filter { entry -> filterState.matchesStatus(entry.status) }
         val countryFiltered = filterSavedIpEntriesByCountry(filtered, selectedCountryCodes)
         return sortSavedIpEntries(SavedIpStore.sortEntries(countryFiltered), currentSort)
     }
@@ -606,7 +609,7 @@ class SavedIpDesign(
             .show()
     }
 
-    private fun filterButton(label: Int, filter: IpFilter) = TextView(context).apply {
+    private fun filterButton(label: Int, status: SavedIpStatus?) = TextView(context).apply {
         setText(label)
         textSize = 14f
         gravity = Gravity.CENTER
@@ -617,12 +620,19 @@ class SavedIpDesign(
         setTextColor(colorLink)
         background = selectableBackground()
         setOnClickListener {
-            if (currentFilter != filter) {
-                currentFilter = filter
-                clearSelectionState()
-                renderRows()
-                updateFilterButtons(snapshotCache)
+            if (status == null) {
+                filterState.selectedStatuses.clear()
+            } else {
+                if (!filterState.selectedStatuses.add(status)) {
+                    filterState.selectedStatuses.remove(status)
+                }
+                if (filterState.selectedStatuses.size == SavedIpStatus.values().size) {
+                    filterState.selectedStatuses.clear()
+                }
             }
+            clearSelectionState()
+            renderRows()
+            updateFilterButtons(snapshotCache)
         }
     }
 
@@ -641,7 +651,8 @@ class SavedIpDesign(
             R.string.saved_ip_filter_untested_count,
         )
         filterButtons.forEachIndexed { index, button ->
-            val selected = currentFilter.ordinal == index
+            val selected = if (index == 0) filterState.selectedStatuses.isEmpty()
+            else SavedIpStatus.values()[index - 1] in filterState.selectedStatuses
             button.text = context.getString(labels[index], counts[index])
             button.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
             button.paintFlags = button.paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()

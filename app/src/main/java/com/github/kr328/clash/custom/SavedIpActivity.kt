@@ -1,12 +1,24 @@
 package com.github.kr328.clash.custom
 
 import android.content.Intent
+import android.os.Bundle
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.design.custom.SavedIpDesign
 
 /** CUSTOM.md #156 step 3/4: local saved-IP management and the hand-off to the existing IP test flow. */
 class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     private var page: SavedIpDesign? = null
+    private var restoredState: Bundle? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        restoredState = savedInstanceState
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        page?.saveState(outState)
+        super.onSaveInstanceState(outState)
+    }
 
     override suspend fun main() {
         val canRetest = intent.getBooleanExtra(EXTRA_CAN_RETEST, false)
@@ -14,6 +26,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
             this,
             onBack = { finish() },
             canRetest = canRetest,
+            savedState = restoredState,
             onRetest = { operatorId, addresses ->
                 // CUSTOM.md #156 step 25: reuse the existing config-check page instead of stacking test pages.
                 startActivity(
