@@ -1277,15 +1277,32 @@ class IpTestView(
                 }
             }.distinct()
             if (sourceLabels.isNotEmpty()) {
-                val sourceLabel = sourceLabels.joinToString("　")
+                // CUSTOM.md #156 (r328): each config source is a capsule - translucent green fill, blue text; static, no animation.
+                val pillFill = if (night) Color.argb(64, 129, 199, 132) else Color.argb(48, 46, 125, 50)
+                val pillText = if (night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
+                val pillRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                sourceLabels.forEachIndexed { i, label ->
+                    pillRow.addView(
+                        TextView(context).apply {
+                            text = label
+                            textSize = 12f
+                            maxLines = 1
+                            ellipsize = TextUtils.TruncateAt.END
+                            setTextColor(pillText)
+                            setPadding(dp(8), dp(1), dp(8), dp(1))
+                            background = GradientDrawable().apply {
+                                setColor(pillFill)
+                                cornerRadius = dp(12).toFloat()
+                            }
+                        },
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                            topMargin = dp(1); bottomMargin = dp(1)
+                            if (i > 0) marginStart = dp(4)
+                        },
+                    )
+                }
                 (ipView as? LinearLayout)?.addView(
-                    TextView(context).apply {
-                        text = sourceLabel
-                        textSize = 13f
-                        maxLines = 1
-                        ellipsize = TextUtils.TruncateAt.END
-                        setTextColor(colorGood)
-                    },
+                    pillRow,
                     1,
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
                 )
