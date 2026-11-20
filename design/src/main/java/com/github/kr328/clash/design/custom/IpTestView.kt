@@ -1087,6 +1087,61 @@ class IpTestView(
         return widths()
     }
 
+    // CUSTOM (CUSTOM.md #160): filter options use the same semantic mapping as saved-table cells.
+    private fun isSavedTableFilterable(key: Key): Boolean = key in setOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.EXIT_IP, Key.TCOLO, Key.TARGET)
+
+    internal fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnIndex: Int): List<String> =
+        entries.asSequence().map { savedTableFilterValue(it, columnIndex) }.filter { it.isNotBlank() && it != "-" }.distinct().sorted().toList()
+
+    internal fun savedTableFilterValue(entry: SavedIpEntry, columnIndex: Int): String {
+        val key = keys.getOrNull(columnIndex) ?: return ""
+        if (!isSavedTableFilterable(key)) return ""
+        val row = entry.result ?: return ""
+        val mapped = when (key) {
+            Key.COLO -> Key.COLO
+            Key.ASN -> Key.ASN
+            Key.GEO -> Key.GEO
+            Key.EXIT -> if (entry.testDirect) Key.LAND else Key.EXIT
+            Key.PORTS -> if (entry.testDirect) Key.PORTS else Key.PORT
+            Key.EXIT_IP -> if (entry.testDirect) null else Key.EXIT_IP
+            Key.TCOLO -> if (entry.testTarget) Key.TCOLO else null
+            Key.TARGET -> if (entry.testTarget) Key.TARGET else null
+            else -> null
+        } ?: return ""
+        if (key == Key.EXIT && row.country.isEmpty()) return ""
+        return when (mapped) {
+            Key.COLO -> coloLabel(row.colo).takeIf { it != "-" }.orEmpty()
+            Key.ASN -> row.asn
+            Key.GEO -> if (row.ok) CountryName.label(row.geo).takeIf { it != "-" }.orEmpty() else ""
+            Key.LAND -> if (row.ok) CountryName.label(row.country).takeIf { it != "-" }.orEmpty() else ""
+            Key.EXIT -> if (row.ok) CountryName.label(row.country).takeIf { it != "-" && it != "？" }.orEmpty() else ""
+            Key.PORT -> row.port
+            Key.PORTS -> portsPlain(row).takeIf { it != "-" }.orEmpty()
+            Key.EXIT_IP -> if (row.ok && row.exitIp.isNotBlank()) row.exitIp + "\n" + row.exitAsn.ifEmpty { "-" } else ""
+            Key.TCOLO -> coloLabel(row.targetColo).takeIf { it != "-" }.orEmpty()
+            Key.TARGET -> targetText(row).takeIf { it != "-" }.orEmpty()
+            else -> ""
+        }.trim()
+    }
+
+    private fun savedHeaderCell(title: String, width: Int, selected: Set<String>, onClick: (View) -> Unit): View {
+        val titleView = TextView(context).apply {
+            text = title; textSize = 14f; gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(colorMuted); setPadding(dp(4), dp(4), dp(4), dp(1))
+        }
+        val selectedView = TextView(context).apply {
+            text = when { selected.isEmpty() -> ""; selected.size == 1 -> selected.first(); else -> selected.first() + " +" + (selected.size - 1) }
+            textSize = 11f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(3))
+            visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = selectableBackground()
+            addView(titleView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(selectedView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            isClickable = true; minimumWidth = width; setOnClickListener { if (isEnabled) onClick(this) }
+        }
+    }
     internal fun savedTableView(
         entries: List<SavedIpEntry>,
         widths: IntArray,
@@ -1097,6 +1152,8 @@ class IpTestView(
         onCopy: (String) -> Unit,
         onDetail: (String, String) -> Unit,
         onLongPress: (String) -> Unit,
+        selectedFilters: Map<Int, Set<String>> = emptyMap(),
+        onHeaderClick: (Int, View) -> Unit = { _, _ -> },
     ): View {
         val gridWidth = widths.drop(1).sum()
         val selectionMode = isSelectionMode()
@@ -1105,7 +1162,11 @@ class IpTestView(
         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val leftHeader = headCell(context.getString(R.string.iptest_col_ip), ipColumnWidth)
-        val headers = keys.mapIndexed { index, key -> headCell(title(key), widths[index + 1]) }
+        val headers = keys.mapIndexed { index, key ->
+            savedHeaderCell(title(key), widths[index + 1], selectedFilters[index].orEmpty()) { anchor ->
+                if (isSavedTableFilterable(key)) onHeaderClick(index, anchor)
+            }.apply { isEnabled = isSavedTableFilterable(key) }
+        }
         val headerHeight = maxOf(
             headH,
             heightOf(leftHeader, ipColumnWidth),

@@ -13,7 +13,7 @@ internal enum class IpFilter {
 // CUSTOM.md #156 (r290): keep saved-IP page filters and restorable view state in one place.
 internal class SavedIpFilterState private constructor(
     var currentFilter: IpFilter,
-    val selectedCountryCodes: LinkedHashSet<String>,
+    val selectedTableFilters: LinkedHashMap<Int, LinkedHashSet<String>>,
     var sort: SavedIpSort,
     var query: String,
     var searchExpanded: Boolean,
@@ -28,7 +28,7 @@ internal class SavedIpFilterState private constructor(
 
     fun save(outState: Bundle) {
         outState.putString(KEY_STATUS, currentFilter.name)
-        outState.putStringArrayList(KEY_COUNTRIES, ArrayList(selectedCountryCodes))
+        selectedTableFilters.forEach { (column, values) -> outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + column, ArrayList(values)) }
         outState.putString(KEY_SORT, sort.name)
         outState.putString(KEY_QUERY, query)
         outState.putBoolean(KEY_SEARCH_EXPANDED, searchExpanded)
@@ -38,7 +38,7 @@ internal class SavedIpFilterState private constructor(
     companion object {
         private const val KEY_STATUS = "saved_ip_filter_status"
         private const val KEY_LEGACY_STATUSES = "saved_ip_filter_statuses"
-        private const val KEY_COUNTRIES = "saved_ip_filter_countries"
+        private const val KEY_TABLE_FILTER_PREFIX = "saved_ip_table_filter_"
         private const val KEY_SORT = "saved_ip_filter_sort"
         private const val KEY_QUERY = "saved_ip_filter_query"
         private const val KEY_SEARCH_EXPANDED = "saved_ip_filter_search_expanded"
@@ -60,14 +60,18 @@ internal class SavedIpFilterState private constructor(
                     }
                 } else IpFilter.ALL
             }
-            val countries = LinkedHashSet(state?.getStringArrayList(KEY_COUNTRIES).orEmpty())
+            val tableFilters = LinkedHashMap<Int, LinkedHashSet<String>>()
+            for (column in 0 until 32) {
+                val values = state?.getStringArrayList(KEY_TABLE_FILTER_PREFIX + column).orEmpty()
+                if (values.isNotEmpty()) tableFilters[column] = LinkedHashSet(values)
+            }
             val sort = state?.getString(KEY_SORT)?.let { name ->
                 runCatching { SavedIpSort.valueOf(name) }.getOrNull()
             } ?: SavedIpSort.DEFAULT
 
             return SavedIpFilterState(
                 currentFilter = filter,
-                selectedCountryCodes = countries,
+                selectedTableFilters = tableFilters,
                 sort = sort,
                 query = state?.getString(KEY_QUERY).orEmpty(),
                 searchExpanded = state?.getBoolean(KEY_SEARCH_EXPANDED) ?: false,

@@ -131,7 +131,6 @@ class SavedIpDesign(
         set(value) { filterState.expandedOperatorId = value }
 
     // CUSTOM.md #156: status, country, sort and view state are page-local and restored with the Activity.
-    private val selectedCountryCodes get() = filterState.selectedCountryCodes
     private var currentFilter: IpFilter
         get() = filterState.currentFilter
         set(value) { filterState.currentFilter = value }
@@ -222,9 +221,10 @@ class SavedIpDesign(
         setOnClickListener { collapseSearch() }
     }
     private val statusFilterButton = actionText(R.string.saved_ip_filter_all) { showStatusMenu(it) }
-    private val countryFilterButton = actionText(R.string.saved_ip_filter_country) { showCountryPopup(it) }
     private val sortButton = actionText(R.string.saved_ip_sort_button) { showSortMenu(it) }
-    private var countryPopup: PopupWindow? = null
+    private var tableFilterPopup: PopupWindow? = null
+    private var activeTableFilterOperatorId: String? = null
+    private var activeTableFilterColumn: Int = -1
     private var filterPopupMenu: PopupMenu? = null
 
     init {
@@ -245,7 +245,6 @@ class SavedIpDesign(
         filterToolbarTopRow.addView(searchBox, LinearLayout.LayoutParams(0, dp(40), 2f))
         filterToolbarTopRow.addView(searchCloseButton, LinearLayout.LayoutParams(dp(40), dp(40)))
         filterToolbarTopRow.addView(statusFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
-        filterToolbarTopRow.addView(countryFilterButton, LinearLayout.LayoutParams(0, dp(40), 1f))
         filterToolbarTopRow.addView(sortButton, LinearLayout.LayoutParams(0, dp(40), 1f))
         root.addView(filterToolbar, fullWidth())
         filterToolbar.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
@@ -313,7 +312,7 @@ class SavedIpDesign(
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
         }
-        reconcileCountryFilter(snapshotCache)
+        reconcileTableFilters(snapshotCache)
         reconcileSelection(snapshotCache)
         updateFilterToolbar()
         renderRows()
@@ -474,6 +473,8 @@ class SavedIpDesign(
                         .setPositiveButton(R.string.close, null).show()
                 },
                 onLongPress = { address -> toggleSelection(operator.id, address) },
+                selectedFilters = filterState.selectedTableFilters,
+                onHeaderClick = { columnIndex, anchor -> showTableColumnPopup(anchor, operator, columnIndex) },
             ),
             fullWidth(),
         )
@@ -481,68 +482,70 @@ class SavedIpDesign(
 
     private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
         val filtered = operator.ips.filter { entry -> filterState.matchesStatus(entry.status) }
-        val countryFiltered = filterSavedIpEntriesByCountry(filtered, selectedCountryCodes)
-        return sortSavedIpEntries(SavedIpStore.sortEntries(countryFiltered), currentSort)
+        val tableFiltered = filterSavedIpEntriesByColumns(operator, filtered)
+        return sortSavedIpEntries(SavedIpStore.sortEntries(tableFiltered), currentSort)
     }
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
     private fun dismissFilterPopups() {
         filterPopupMenu?.dismiss()
         filterPopupMenu = null
-        countryPopup?.dismiss()
-        countryPopup = null
+        tableFilterPopup?.dismiss()
+        tableFilterPopup = null
     }
 
-    private fun showCountryPopup(anchor: View) {
+    // CUSTOM (CUSTOM.md #160): reuse the existing scrollable checkbox popup for each saved-table column.
+    private fun showTableColumnPopup(anchor: View, operator: SavedIpOperator, columnIndex: Int) {
         if (filterState.searchExpanded) collapseSearch()
-        if (countryPopup?.isShowing == true) {
-            countryPopup?.dismiss()
-            countryPopup = null
-            return
+        if (tableFilterPopup?.isShowing == true && activeTableFilterOperatorId == operator.id && activeTableFilterColumn == columnIndex) {
+            tableFilterPopup?.dismiss(); tableFilterPopup = null; return
         }
         dismissFilterPopups()
-        val codes = savedIpCountryCodes(snapshotCache.operators)
-        if (codes.isEmpty()) return
-
-        val choices = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-        }
-        codes.forEach { code ->
+        val renderer = savedTableFor(operator).first
+        val options = renderer.savedTableFilterOptions(operator.ips, columnIndex)
+        if (options.isEmpty()) return
+        val selected = filterState.selectedTableFilters.getOrPut(columnIndex) { LinkedHashSet() }
+        val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        options.forEach { value ->
             choices.addView(CheckBox(context).apply {
-                text = "${CountryFlag.of(code)} ${CountryName.label(code)}"
-                textSize = 14f
-                isChecked = code in selectedCountryCodes
-                minHeight = dp(44)
+                text = value; textSize = 14f; isChecked = value in selected; minHeight = dp(44)
                 setOnCheckedChangeListener { _, checked ->
-                    if (checked) selectedCountryCodes.add(code) else selectedCountryCodes.remove(code)
-                    clearSelectionState()
-                    updateFilterToolbar()
-                    renderRows()
+                    if (checked) selected.add(value) else selected.remove(value)
+                    if (selected.isEmpty()) filterState.selectedTableFilters.remove(columnIndex)
+                    else filterState.selectedTableFilters[columnIndex] = selected
+                    clearSelectionState(); updateFilterToolbar()
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        val scroll = android.widget.ScrollView(context).apply {
-            isFillViewport = true
-            isVerticalScrollBarEnabled = true
+        val scroll = ScrollView(context).apply {
+            isFillViewport = true; isVerticalScrollBarEnabled = true
             addView(choices, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        val popupWidth = maxOf(anchor.width, dp(220)).coerceAtMost(
-            context.resources.displayMetrics.widthPixels - dp(24),
-        )
-        val popupHeight = minOf(dp(280), dp(48 * codes.size.coerceAtLeast(1)))
+        val popupWidth = maxOf(anchor.width, dp(220)).coerceAtMost(context.resources.displayMetrics.widthPixels - dp(24))
+        val popupHeight = minOf(dp(280), dp(48 * options.size.coerceAtLeast(1)))
         val popup = PopupWindow(scroll, popupWidth, popupHeight, true).apply {
-            setBackgroundDrawable(ColorDrawable(colorSurface))
-            elevation = dp(8).toFloat()
-            isOutsideTouchable = true
-            setOnDismissListener { if (countryPopup === this) countryPopup = null }
+            setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = dp(8).toFloat(); isOutsideTouchable = true
+            setOnDismissListener { if (tableFilterPopup === this) tableFilterPopup = null; renderRows() }
         }
-        countryPopup = popup
+        tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnIndex
         popup.showAsDropDown(anchor)
     }
 
-    private fun reconcileCountryFilter(snapshot: SavedIpSnapshot) {
-        selectedCountryCodes.retainAll(savedIpCountryCodes(snapshot.operators).toSet())
+    private fun reconcileTableFilters(snapshot: SavedIpSnapshot) {
+        val columns = filterState.selectedTableFilters.keys.toList()
+        for (column in columns) {
+            val values = snapshot.operators.flatMap { operator -> savedTableFor(operator).first.savedTableFilterOptions(operator.ips, column) }.toSet()
+            filterState.selectedTableFilters[column]?.retainAll(values)
+            if (filterState.selectedTableFilters[column].isNullOrEmpty()) filterState.selectedTableFilters.remove(column)
+        }
+    }
+
+    private fun filterSavedIpEntriesByColumns(operator: SavedIpOperator, entries: List<SavedIpEntry>): List<SavedIpEntry> {
+        if (filterState.selectedTableFilters.isEmpty()) return entries
+        val renderer = savedTableFor(operator).first
+        return entries.filter { entry -> filterState.selectedTableFilters.all { (column, values) ->
+            values.isEmpty() || renderer.savedTableFilterValue(entry, column) in values
+        } }
     }
 
     private fun showStatusMenu(anchor: View) {
@@ -669,7 +672,7 @@ class SavedIpDesign(
         filterToolbarNarrow = narrow
         dismissFilterPopups()
         val target = if (narrow) filterToolbarBottomRow else filterToolbarTopRow
-        listOf(countryFilterButton, sortButton).forEach { button ->
+        listOf(sortButton).forEach { button ->
             (button.parent as? ViewGroup)?.removeView(button)
             target.addView(button, LinearLayout.LayoutParams(0, dp(40), 1f))
         }
@@ -691,17 +694,12 @@ class SavedIpDesign(
             IpFilter.UNTESTED -> R.string.saved_ip_filter_untested
         }) + " ▾"
         statusFilterButton.setTextColor(statusFilterColor(currentFilter))
-        countryFilterButton.text = if (selectedCountryCodes.isEmpty()) {
-            context.getString(R.string.saved_ip_filter_country) + " ▾"
-        } else context.getString(R.string.saved_ip_filter_country_selected, selectedCountryCodes.size) + " ▾"
         sortButton.text = context.getString(when (currentSort) {
             SavedIpSort.DEFAULT -> R.string.saved_ip_sort_button
             SavedIpSort.AVG_ASCENDING -> R.string.saved_ip_sort_latency
             SavedIpSort.SPEED_DESCENDING -> R.string.saved_ip_sort_speed
         }) + " ▾"
         updateSearchUi()
-        countryFilterButton.isEnabled = savedIpCountryCodes(snapshotCache.operators).isNotEmpty()
-        countryFilterButton.alpha = if (countryFilterButton.isEnabled) 1f else 0.35f
     }
 
     // CUSTOM.md #156 第 45 步：精确到秒的已保存 IP 相对测试时间；仅在列表行绑定时计算。
