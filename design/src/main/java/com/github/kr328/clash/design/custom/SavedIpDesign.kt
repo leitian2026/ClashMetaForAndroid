@@ -65,7 +65,13 @@ class SavedIpDesign(
     savedState: Bundle? = null,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
-    private val filterState = SavedIpFilterState.restore(savedState)
+    private val savedIpUiPreferences = context.getSharedPreferences("custom_saved_ip_ui", Context.MODE_PRIVATE)
+    private var lastPersistedUiState = savedIpUiPreferences.getString(KEY_PERSISTENT_UI_STATE, null)
+    private val filterState = if (savedState == null) {
+        SavedIpFilterState.restorePersistent(lastPersistedUiState)
+    } else {
+        SavedIpFilterState.restore(savedState)
+    }
     private val density = context.resources.displayMetrics.density
     private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
     // Match the explicit color source used by the config-check page's Material text buttons.
@@ -136,7 +142,6 @@ class SavedIpDesign(
     private data class SavedIpUndo(val operatorId: String, val entries: List<SavedIpEntry>)
     private var pendingUndo: SavedIpUndo? = null
     private var undoSnackbar: Snackbar? = null
-    private val savedIpUiPreferences = context.getSharedPreferences("custom_saved_ip_ui", Context.MODE_PRIVATE)
     private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
     private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
@@ -265,6 +270,14 @@ class SavedIpDesign(
         filterState.save(outState)
     }
 
+    fun savePersistentUiState() {
+        val current = filterState.persistentJson()
+        if (current != lastPersistedUiState) {
+            savedIpUiPreferences.edit().putString(KEY_PERSISTENT_UI_STATE, current).apply()
+            lastPersistedUiState = current
+        }
+    }
+
     fun setHostsIps(value: Set<String>) {
         if (configuredHostsIps == value) return
         configuredHostsIps = value
@@ -371,6 +384,7 @@ class SavedIpDesign(
         // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
         // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
         const val KEY_VISIBLE_SAVED_COLUMNS = "visible_columns"
+        const val KEY_PERSISTENT_UI_STATE = "persistent_filter_state"
         val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS", "EXIT_IP", "TCOLO", "TARGET")
     }
 
@@ -597,14 +611,13 @@ class SavedIpDesign(
     // CUSTOM (CUSTOM.md #160): reuse the existing scrollable checkbox popup for each saved-table column.
     private fun showTableColumnPopup(anchor: View, operator: SavedIpOperator, columnIndex: Int) {
         if (filterState.searchExpanded) collapseSearch()
-        if (filterState.searchExpanded) collapseSearch()
-        dismissFilterPopups()
         val renderer = savedTableFor(operator).first
         val columnName = renderer.savedTableColumnName(columnIndex)
         if (columnName.isEmpty()) return
         if (tableFilterPopup?.isShowing == true && activeTableFilterOperatorId == operator.id && activeTableFilterColumn == columnName) {
             tableFilterPopup?.dismiss(); tableFilterPopup = null; return
         }
+        dismissFilterPopups()
         val options = renderer.savedTableFilterOptions(operator.ips, columnName)
         if (options.isEmpty()) return
         val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }

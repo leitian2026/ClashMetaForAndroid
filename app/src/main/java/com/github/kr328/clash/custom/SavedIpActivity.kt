@@ -74,6 +74,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     }
 
     override fun onStop() {
+        page?.savePersistentUiState()
         hostsReadJob?.cancel()
         hostsReadJob = null
         super.onStop()

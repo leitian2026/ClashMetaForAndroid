@@ -1,6 +1,8 @@
 package com.github.kr328.clash.design.custom
 
 import android.os.Bundle
+import org.json.JSONArray
+import org.json.JSONObject
 
 // CUSTOM (CUSTOM.md #164): status and column filters are isolated per saved-IP operator.
 // CUSTOM (CUSTOM.md #164): persist independent filters by operator ID and page-wide speed order.
@@ -12,6 +14,26 @@ internal class SavedIpFilterState private constructor(
     var searchExpanded: Boolean,
     var expandedOperatorId: String?,
 ) {
+    // CUSTOM.md #156: persistent state intentionally excludes search text and search visibility.
+    fun persistentJson(): String {
+        val statuses = JSONArray()
+        selectedStatuses.forEach { (operatorId, values) ->
+            values.forEach { status -> statuses.put(JSONObject().put("operatorId", operatorId).put("status", status.name)) }
+        }
+        val filters = JSONArray()
+        selectedTableFilters.forEach { (operatorId, columns) ->
+            columns.forEach { (columnName, values) ->
+                filters.put(JSONObject().put("operatorId", operatorId).put("column", columnName).put("values", JSONArray(values.toList())))
+            }
+        }
+        return JSONObject()
+            .put("sort", sort.name)
+            .put("expandedOperatorId", expandedOperatorId ?: JSONObject.NULL)
+            .put("statuses", statuses)
+            .put("tableFilters", filters)
+            .toString()
+    }
+
     fun save(outState: Bundle) {
         selectedStatuses.forEach { (operatorId, statuses) ->
             outState.putStringArrayList(KEY_STATUS_PREFIX + operatorId, ArrayList(statuses.map { it.name }))
@@ -38,6 +60,38 @@ internal class SavedIpFilterState private constructor(
             "COLO", "ASN", "GEO", "EXIT", "PORTS", "LOSS", "MIN", "MAX", "AVG",
             "JITTER", "EXIT_IP", "TCOLO", "TARGET", "PHASE", "SPEED",
         )
+
+        fun restorePersistent(raw: String?): SavedIpFilterState {
+            if (raw.isNullOrBlank()) return restore(null)
+            return try {
+                val root = JSONObject(raw)
+                val statuses = LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>()
+                val statusItems = root.optJSONArray("statuses") ?: JSONArray()
+                for (i in 0 until statusItems.length()) {
+                    val item = statusItems.optJSONObject(i) ?: continue
+                    val id = item.optString("operatorId")
+                    val status = runCatching { SavedIpStatus.valueOf(item.optString("status")) }.getOrNull() ?: continue
+                    if (id.isNotEmpty()) statuses.getOrPut(id) { LinkedHashSet() }.add(status)
+                }
+                val filters = LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>()
+                val filterItems = root.optJSONArray("tableFilters") ?: JSONArray()
+                for (i in 0 until filterItems.length()) {
+                    val item = filterItems.optJSONObject(i) ?: continue
+                    val id = item.optString("operatorId")
+                    val column = item.optString("column")
+                    if (id.isEmpty() || column !in SAVED_TABLE_COLUMNS) continue
+                    val values = item.optJSONArray("values") ?: continue
+                    val selected = LinkedHashSet<String>()
+                    for (j in 0 until values.length()) values.optString(j).takeIf { it.isNotEmpty() }?.let(selected::add)
+                    if (selected.isNotEmpty()) filters.getOrPut(id) { LinkedHashMap() }[column] = selected
+                }
+                val sort = runCatching { SavedIpSort.valueOf(root.optString("sort")) }.getOrNull() ?: SavedIpSort.DEFAULT
+                val expanded = if (root.isNull("expandedOperatorId")) null else root.optString("expandedOperatorId").takeIf { it.isNotEmpty() }
+                SavedIpFilterState(statuses, filters, sort, "", false, expanded)
+            } catch (_: Exception) {
+                restore(null)
+            }
+        }
 
         fun restore(state: Bundle?): SavedIpFilterState {
             val statuses = LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>()
