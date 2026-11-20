@@ -1213,7 +1213,7 @@ class IpTestView(
         isSelected: (String) -> Boolean,
         onCopy: (String) -> Unit,
         onDetail: (String, String) -> Unit,
-        onLongPress: (String) -> Unit,
+        onLongPress: (String) -> Boolean,
         selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
@@ -1263,7 +1263,10 @@ class IpTestView(
             renderer.coloCountries = coloCountries
             renderer.recommendedIps = recommendedIps
             renderer.onCopy = { address ->
-                if (isSelectionMode()) onLongPress(address) else onCopy(address)
+                if (isSelectionMode()) {
+                    onLongPress(address)
+                    Unit
+                } else onCopy(address)
             }
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row, showRecommendation = false, showFailureDetail = false)
@@ -1360,22 +1363,22 @@ class IpTestView(
 
             val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
             val selected = isSelected(entry.address)
-            val rowBackground = if (selected) Color.argb(
+            val selectedBackground = Color.argb(
                 36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink),
-            ) else stripe
+            )
+            val rowBackground = if (selected) selectedBackground else stripe
+            var selectionCheckBox: CheckBox? = null
             val leftRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setBackgroundColor(rowBackground)
                 if (selectionMode) {
-                    addView(CheckBox(context).apply {
+                    val checkBox = CheckBox(context).apply {
                         isChecked = selected
                         contentDescription = entry.address
-                        setOnClickListener {
-                            onLongPress(entry.address)
-                            post { isChecked = isSelected(entry.address) }
-                        }
-                    }, LinearLayout.LayoutParams(checkboxWidth, ViewGroup.LayoutParams.MATCH_PARENT))
+                    }
+                    selectionCheckBox = checkBox
+                    addView(checkBox, LinearLayout.LayoutParams(checkboxWidth, ViewGroup.LayoutParams.MATCH_PARENT))
                 }
                 addView(ipView, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.MATCH_PARENT))
             }
@@ -1430,10 +1433,22 @@ class IpTestView(
 
             // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
             // click handlers so a tap cannot open a port / detail dialog or copy the IP.
+            // CUSTOM (CUSTOM.md #163 r330): active multi-selection updates only this row;
+            // entering / leaving selection mode still rebuilds once to add / remove the checkbox column.
+            fun toggleRowSelection() {
+                val nowSelected = onLongPress(entry.address)
+                if (isSelectionMode()) {
+                    val background = if (nowSelected) selectedBackground else stripe
+                    leftRow.setBackgroundColor(background)
+                    line.setBackgroundColor(background)
+                    selectionCheckBox?.isChecked = nowSelected
+                }
+            }
+
             if (selectionMode) {
                 fun attachSelectionClick(view: View) {
                     if (view !is CheckBox) {
-                        view.setOnClickListener { onLongPress(entry.address) }
+                        view.setOnClickListener { toggleRowSelection() }
                     }
                     if (view is ViewGroup) {
                         for (childIndex in 0 until view.childCount) attachSelectionClick(view.getChildAt(childIndex))
@@ -1441,10 +1456,11 @@ class IpTestView(
                 }
                 attachSelectionClick(leftRow)
                 attachSelectionClick(line)
+                selectionCheckBox?.setOnClickListener { toggleRowSelection() }
             }
 
             fun attachLongPress(view: View) {
-                view.setOnLongClickListener { onLongPress(entry.address); true }
+                view.setOnLongClickListener { toggleRowSelection(); true }
                 if (view is ViewGroup) for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
             }
             attachLongPress(leftRow)

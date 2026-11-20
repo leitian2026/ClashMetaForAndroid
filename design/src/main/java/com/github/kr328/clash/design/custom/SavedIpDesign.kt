@@ -880,10 +880,13 @@ class SavedIpDesign(
     }
 
     // CUSTOM.md #156 step 4: enter / toggle selection only inside one operator group.
-    private fun toggleSelection(operatorId: String, address: String) {
+    // CUSTOM (CUSTOM.md #163 r330): keep active row toggles synchronous; rebuild only when
+    // the checkbox column must appear on entry or disappear after the final item is cleared.
+    private fun toggleSelection(operatorId: String, address: String): Boolean {
         val currentOperator = selectedOperatorId
-        if (currentOperator != null && currentOperator != operatorId) return
-        if (currentOperator == null) {
+        if (currentOperator != null && currentOperator != operatorId) return false
+        val enteringSelectionMode = currentOperator == null
+        if (enteringSelectionMode) {
             selectedOperatorId = operatorId
             expandedOperatorId = operatorId
         }
@@ -893,14 +896,16 @@ class SavedIpDesign(
         } else {
             if (selectedAddresses.size >= 20) {
                 Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
-                return
+                return false
             }
             selectedAddresses.add(address)
         }
 
-        if (selectedAddresses.isEmpty()) selectedOperatorId = null
+        val leavingSelectionMode = selectedAddresses.isEmpty()
+        if (leavingSelectionMode) selectedOperatorId = null
         updateSelectionActions()
-        renderOperator(operatorId)
+        if (enteringSelectionMode || leavingSelectionMode) renderOperator(operatorId)
+        return address in selectedAddresses
     }
 
     private fun reconcileSelection(snapshot: SavedIpSnapshot) {
