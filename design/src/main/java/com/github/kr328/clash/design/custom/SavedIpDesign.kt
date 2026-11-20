@@ -22,6 +22,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -99,6 +100,17 @@ class SavedIpDesign(
         clipToPadding = false
         addView(operatorContent, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
+    // CUSTOM.md #163: overlay only; the original ScrollView and table hierarchy remain unchanged.
+    private val stickyHeaderContainer = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = View.GONE
+        setBackgroundColor(colorSurface)
+        elevation = dp(4).toFloat()
+    }
+    private val operatorListFrame = FrameLayout(context).apply {
+        addView(operatorList, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        addView(stickyHeaderContainer, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
+    }
 
     private val searchInput = EditText(context).apply {
         setSingleLine(true)
@@ -147,6 +159,12 @@ class SavedIpDesign(
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
         ?.filter { it in allSavedColumnNames }?.toSet() ?: allSavedColumnNames
     private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
+    // Must be initialized before init{} calls refresh() -> renderRows().
+    private val operatorSections = HashMap<String, LinearLayout>()
+    private val stickyHeaderCopies = HashMap<String, View>()
+    private val stickyHeaderSourceScrolls = HashMap<String, HorizontalScrollView>()
+    private val stickyHeaderCopyScrolls = HashMap<String, HorizontalScrollView>()
+    private var stickyHeaderOperatorId: String? = null
     private var savedTableScrollX = 0
 
     // CUSTOM (CUSTOM.md #164): the former filter toolbar is removed; search moves into the title row.
@@ -254,7 +272,8 @@ class SavedIpDesign(
         selectionActions.addView(selectionQuickActions, fullWidth())
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        root.addView(operatorList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(operatorListFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        operatorList.setOnScrollChangeListener { _, _, _, _, _ -> updateStickyHeader() }
         // CUSTOM (CUSTOM.md #165): do not rebuild the table on popup window focus changes.
         refresh()
     }
@@ -300,13 +319,19 @@ class SavedIpDesign(
     // expands every matching operator, preserving the existing search behavior.
     // CUSTOM (CUSTOM.md #165): each operator owns one section View. Local filter/selection
     // changes replace only that section; page-wide changes still call renderRows().
-    private val operatorSections = HashMap<String, LinearLayout>()
-
     private fun renderRows() {
         operatorContent.removeAllViews()
         operatorSections.clear()
+        stickyHeaderCopies.clear()
+        stickyHeaderSourceScrolls.clear()
+        stickyHeaderCopyScrolls.clear()
+        stickyHeaderContainer.removeAllViews()
+        stickyHeaderContainer.visibility = View.GONE
+        stickyHeaderOperatorId = null
         snapshotCache.operators.forEach { renderOperator(it.id, showEmptyState = false) }
         if (operatorContent.childCount == 0) addEmptyState()
+        updateStickyHeader()
+        operatorList.post { updateStickyHeader() }
     }
 
     private fun addEmptyState() {
@@ -321,6 +346,14 @@ class SavedIpDesign(
 
     private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
         val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        stickyHeaderCopies.remove(operatorId)
+        stickyHeaderSourceScrolls.remove(operatorId)
+        stickyHeaderCopyScrolls.remove(operatorId)
+        if (stickyHeaderOperatorId == operatorId) {
+            stickyHeaderContainer.removeAllViews()
+            stickyHeaderContainer.visibility = View.GONE
+            stickyHeaderOperatorId = null
+        }
         operatorSections.remove(operatorId)?.let { operatorContent.removeView(it) }
         operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { operatorContent.removeView(it) }
 
@@ -377,6 +410,8 @@ class SavedIpDesign(
             operatorSections[operatorId] = section
         }
         if (showEmptyState && operatorContent.childCount == 0) addEmptyState()
+        updateStickyHeader()
+        operatorList.post { updateStickyHeader() }
     }
 
     private companion object {
@@ -385,6 +420,7 @@ class SavedIpDesign(
         // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
         const val KEY_VISIBLE_SAVED_COLUMNS = "visible_columns"
         const val KEY_PERSISTENT_UI_STATE = "persistent_filter_state"
+        val SAVED_TABLE_TAG = Any()
         val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS", "EXIT_IP", "TCOLO", "TARGET")
     }
 
@@ -536,34 +572,112 @@ class SavedIpDesign(
 
     private fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: List<SavedIpEntry>) {
         val (renderer, widths) = savedTableFor(operator)
-        container.addView(
-            renderer.savedTableView(
-                entries = entries,
-                hostsIps = configuredHostsIps,
-                widths = widths,
-                scrollX = savedTableScrollX,
-                onScroll = { savedTableScrollX = it },
-                isSelectionMode = { selectedOperatorId == operator.id },
-                isSelected = { address -> selectedOperatorId == operator.id && address in selectedAddresses },
-                onCopy = ::copyIp,
-                onDetail = { title, detail ->
-                    MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
-                        .setPositiveButton(R.string.close, null).show()
-                },
-                onLongPress = { address -> toggleSelection(operator.id, address) },
-                selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty(),
-                speedSortLabel = when (currentSort) {
-                    SavedIpSort.DEFAULT -> ""
-                    SavedIpSort.SPEED_ASCENDING -> "按最快"
-                    SavedIpSort.SPEED_DESCENDING -> "按最慢"
-                },
-                onHeaderClick = { columnIndex, anchor ->
-                    if (columnIndex == savedTableFor(operator).first.savedSpeedColumnIndex()) showSpeedSortMenu(anchor)
-                    else showTableColumnPopup(anchor, operator, columnIndex)
-                },
-            ),
-            fullWidth(),
+        val selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty()
+        val speedSortLabel = when (currentSort) {
+            SavedIpSort.DEFAULT -> ""
+            SavedIpSort.SPEED_ASCENDING -> "按最快"
+            SavedIpSort.SPEED_DESCENDING -> "按最慢"
+        }
+        val onHeaderClick: (Int, View) -> Unit = { columnIndex, anchor ->
+            if (columnIndex == renderer.savedSpeedColumnIndex()) showSpeedSortMenu(anchor)
+            else showTableColumnPopup(anchor, operator, columnIndex)
+        }
+        fun makeTable(rows: List<SavedIpEntry>): View = renderer.savedTableView(
+            entries = rows,
+            hostsIps = configuredHostsIps,
+            widths = widths,
+            scrollX = savedTableScrollX,
+            onScroll = { savedTableScrollX = it },
+            isSelectionMode = { selectedOperatorId == operator.id },
+            isSelected = { address -> selectedOperatorId == operator.id && address in selectedAddresses },
+            onCopy = ::copyIp,
+            onDetail = { title, detail ->
+                MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
+                    .setPositiveButton(R.string.close, null).show()
+            },
+            onLongPress = { address -> toggleSelection(operator.id, address) },
+            selectedFilters = selectedFilters,
+            speedSortLabel = speedSortLabel,
+            onHeaderClick = onHeaderClick,
         )
+
+        val table = makeTable(entries).apply { tag = SAVED_TABLE_TAG }
+        container.addView(table, fullWidth())
+
+        // One header-only twin per rendered operator. It uses the same renderer, widths and click callbacks.
+        val stickyCopy = makeTable(emptyList())
+        stickyHeaderCopies[operator.id] = stickyCopy
+        val sourceScroll = findHorizontalScroll(table)
+        val copyScroll = findHorizontalScroll(stickyCopy)
+        if (sourceScroll != null && copyScroll != null) {
+            var syncing = false
+            sourceScroll.setOnScrollChangeListener { _, x, _, _, _ ->
+                savedTableScrollX = x
+                if (!syncing && copyScroll.scrollX != x) {
+                    syncing = true
+                    copyScroll.scrollTo(x, 0)
+                    syncing = false
+                }
+            }
+            copyScroll.setOnScrollChangeListener { _, x, _, _, _ ->
+                savedTableScrollX = x
+                if (!syncing && sourceScroll.scrollX != x) {
+                    syncing = true
+                    sourceScroll.scrollTo(x, 0)
+                    syncing = false
+                }
+            }
+            stickyHeaderSourceScrolls[operator.id] = sourceScroll
+            stickyHeaderCopyScrolls[operator.id] = copyScroll
+        }
+    }
+
+    private fun findHorizontalScroll(view: View): HorizontalScrollView? {
+        if (view is HorizontalScrollView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                findHorizontalScroll(view.getChildAt(i))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun updateStickyHeader() {
+        val viewportLocation = IntArray(2)
+        operatorList.getLocationOnScreen(viewportLocation)
+        val viewportTop = viewportLocation[1]
+        var activeOperatorId: String? = null
+        for (operator in snapshotCache.operators) {
+            val section = operatorSections[operator.id] ?: continue
+            val table = section.findViewWithTag<View>(SAVED_TABLE_TAG) ?: continue
+            if (table.height <= 0) continue
+            val tableLocation = IntArray(2)
+            table.getLocationOnScreen(tableLocation)
+            if (tableLocation[1] < viewportTop && tableLocation[1] + table.height > viewportTop) {
+                activeOperatorId = operator.id
+                break
+            }
+        }
+
+        if (activeOperatorId == null) {
+            stickyHeaderContainer.visibility = View.GONE
+            stickyHeaderOperatorId = null
+            return
+        }
+
+        val copy = stickyHeaderCopies[activeOperatorId] ?: return
+        if (stickyHeaderOperatorId != activeOperatorId || stickyHeaderContainer.childCount == 0) {
+            stickyHeaderContainer.removeAllViews()
+            (copy.parent as? ViewGroup)?.removeView(copy)
+            stickyHeaderContainer.addView(copy, fullWidth())
+            stickyHeaderOperatorId = activeOperatorId
+        }
+        stickyHeaderContainer.visibility = View.VISIBLE
+        val sourceScroll = stickyHeaderSourceScrolls[activeOperatorId]
+        val copyScroll = stickyHeaderCopyScrolls[activeOperatorId]
+        if (sourceScroll != null && copyScroll != null && copyScroll.scrollX != sourceScroll.scrollX) {
+            copyScroll.scrollTo(sourceScroll.scrollX, 0)
+        }
     }
 
     private fun showSavedColumnsDialog() {
@@ -623,6 +737,7 @@ class SavedIpDesign(
         val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
         val selected = operatorFilters.getOrPut(columnName) { LinkedHashSet() }
         var selectionChanged = false
+        var selectionClearedOperatorId: String? = null
         val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
         options.forEach { value ->
             choices.addView(CheckBox(context).apply {
@@ -632,8 +747,8 @@ class SavedIpDesign(
                     if (checked) selected.add(value) else selected.remove(value)
                     if (selected.isEmpty()) operatorFilters.remove(columnName)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
-                    // CUSTOM (CUSTOM.md #165): do not touch the header cell while the popup is open;
-                    // its summary is drawn once by the rebuild on dismiss, so the header does not jump twice.
+                    // CUSTOM (CUSTOM.md #165): defer every affected operator rebuild until the popup closes.
+                    if (selectedOperatorId != null) selectionClearedOperatorId = selectedOperatorId
                     clearSelectionState(); updateSearchUi()
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -653,7 +768,10 @@ class SavedIpDesign(
                 }
                 if (tableFilterPopup === this) tableFilterPopup = null
                 // Tapping outside without changing any checkbox must not rebuild the whole list.
-                if (selectionChanged) renderOperator(operator.id)
+                if (selectionChanged) {
+                    renderOperator(operator.id)
+                    selectionClearedOperatorId?.takeIf { it != operator.id }?.let { renderOperator(it) }
+                }
             }
         }
         tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnName
