@@ -18,7 +18,6 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
@@ -249,21 +248,7 @@ class SavedIpDesign(
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(operatorList, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            private val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                if (hasFocus) renderRows()
-            }
-
-            override fun onViewAttachedToWindow(view: View) {
-                view.viewTreeObserver.addOnWindowFocusChangeListener(focusListener)
-            }
-
-            override fun onViewDetachedFromWindow(view: View) {
-                view.viewTreeObserver.let { observer ->
-                    if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
-                }
-            }
-        })
+        // CUSTOM (CUSTOM.md #165): do not rebuild the table on popup window focus changes.
         refresh()
     }
 
@@ -509,11 +494,13 @@ class SavedIpDesign(
         if (options.isEmpty()) return
         val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
         val selected = operatorFilters.getOrPut(columnIndex) { LinkedHashSet() }
+        var selectionChanged = false
         val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
         options.forEach { value ->
             choices.addView(CheckBox(context).apply {
                 text = value; textSize = 14f; isChecked = value in selected; minHeight = dp(44)
                 setOnCheckedChangeListener { _, checked ->
+                    selectionChanged = true
                     if (checked) selected.add(value) else selected.remove(value)
                     if (selected.isEmpty()) operatorFilters.remove(columnIndex)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
@@ -542,7 +529,8 @@ class SavedIpDesign(
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
                 }
                 if (tableFilterPopup === this) tableFilterPopup = null
-                renderRows()
+                // Tapping outside without changing any checkbox must not rebuild the whole list.
+                if (selectionChanged) renderRows()
             }
         }
         tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnIndex
