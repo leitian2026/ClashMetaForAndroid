@@ -1246,11 +1246,19 @@ class IpTestView(
                 if (isSelectionMode()) onLongPress(address) else onCopy(address)
             }
             renderer.onDetail = onDetail
-            val ipView = renderer.ipCell(row)
+            val ipView = renderer.ipCell(row, showRecommendation = false)
             // CUSTOM (CUSTOM.md #156): how long ago this IP was tested, right under the address.
             val timeText = SavedIpTimeText.text(context, entry.lastTestedAt, now)
             if (timeText.isNotEmpty() || entry.failStreak >= 3 || entry.address in hostsIps) {
-                val label = SpannableStringBuilder(timeText)
+                val label = SpannableStringBuilder()
+                if (entry.address in recommendedIps) {
+                    val start = label.length
+                    label.append("推荐")
+                    label.setSpan(ForegroundColorSpan(colorWarn), start, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    label.setSpan(android.text.style.AbsoluteSizeSpan(13, true), start, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (timeText.isNotEmpty()) label.append("　")
+                }
+                label.append(timeText)
                 if (entry.failStreak >= 3) {
                     if (label.isNotEmpty()) label.append("　")
                     val start = label.length
@@ -1275,7 +1283,7 @@ class IpTestView(
                 }
                 (ipView as? LinearLayout)?.addView(
                     TextView(context).apply {
-                        text = label; textSize = 12f; maxLines = 1
+                        text = label; textSize = 13f; maxLines = 1
                         ellipsize = TextUtils.TruncateAt.END
                         setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) colorWarn else colorMuted)
                     },
@@ -1972,7 +1980,7 @@ class IpTestView(
     }
 
     // the IP (a tap copies it, dashed line under it) and under it, small and grey, what the handshake showed
-    private fun ipCell(r: IpTestRow): View {
+    private fun ipCell(r: IpTestRow, showRecommendation: Boolean = true): View {
         val box = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP // CUSTOM.md #55 (r67): same top padding as the other cells, so the lines match
@@ -1980,7 +1988,7 @@ class IpTestView(
         }
 
         val ip = DashedTextView(context).apply {
-            text = if (r.ip in recommendedIps) SpannableStringBuilder("推荐 ").apply {
+            text = if (showRecommendation && r.ip in recommendedIps) SpannableStringBuilder("推荐 ").apply {
                 append(r.ip)
                 setSpan(ForegroundColorSpan(colorWarn), 0, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             } else r.ip
