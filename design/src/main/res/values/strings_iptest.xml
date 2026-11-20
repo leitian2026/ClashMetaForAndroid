@@ -35,26 +35,26 @@
     <string name="iptest_colo">ingress data centre %1$s</string>
     <string name="iptest_cf">Cloudflare confirmed</string>
     <string name="iptest_running">Testing… a random 1 to 3 seconds between two IPs; tap the button again to cancel</string>
-    <string name="iptest_dialog_hint">Enter IP addresses that are not in the config, one per line (commas and spaces work too), at most 20. Resolve domains to IPv4 in the separate domain field below, select the results; putting them in this box replaces its existing contents; do not enter domains directly here. Direct latency testing still uses the domain in the page-top field as SNI and Host. Via-node latency testing temporarily replaces the selected node server with the IP in this box. The test also reads the ingress data centre, registered operator and registered location; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds). Domain lookups bypass the DNS cache and query again; domains in hosts are read directly from the configuration and are not queried.</string>
+    <string name="iptest_dialog_hint">Enter IP addresses that are not in the config, one per line (commas and spaces work too), at most 20. Resolve domains to IPv4 in the separate domain field below, select the results; putting them in this box replaces its existing contents; do not enter domains directly here. Direct latency testing still uses the domain in the page-top field as SNI and Host. Via-node latency testing temporarily replaces the selected node server with the IP in this box. The test also reads the ingress data centre, ingress operator and registered country; direct mode also tests ports and ECH. The two download URLs are used only after testing, when you tap Download on a table row; neither latency-test button uses them. Every IP is tried 10 times (up to 5 at once, each at most 3 seconds). Domain lookups bypass the DNS cache and query again; domains in hosts are read directly from the configuration and are not queried.</string>
     <string name="iptest_ports_label">Ports (direct latency test: each working IP gets a handshake on these ports, separated by spaces or commas)</string>
     <string name="iptest_url_direct_label">Direct download-test URL (for download testing only; direct; must be hosted on Cloudflare)</string>
     <string name="iptest_url_node_label">Via-node download-test URL (for download testing only; through the node; preferably not hosted on Cloudflare — Workers can be slow to access CF sites and may time out)</string>
     <string name="iptest_col_ip">IP</string>
     <string name="iptest_col_colo">Ingress data centre</string>
-    <string name="iptest_col_asn">Operator</string>
-    <string name="iptest_col_geo">Registered</string>
+    <string name="iptest_col_asn">Ingress operator</string>
+    <string name="iptest_col_geo">Registered country</string>
     <string name="iptest_col_port">Ports</string>
     <string name="iptest_col_loss">Failure rate</string>
     <string name="iptest_col_min">Min</string>
     <string name="iptest_col_max">Max</string>
     <string name="iptest_col_avg">Average</string>
     <!-- CUSTOM.md #68 -->
-    <string name="iptest_col_jitter">Jitter</string>
-    <string name="iptest_col_phase">Time split</string>
+    <string name="iptest_col_jitter">Latency jitter</string>
+    <string name="iptest_col_phase">Timing breakdown</string>
     <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\nFirst byte %3$s</string>
     <string name="iptest_phase_cell_node">Dial %1$s\nHandshake %2$s\nFirst byte %3$s</string>
-    <string name="iptest_col_exit">Exit country</string>
-    <string name="iptest_col_exit_ip">Exit IP</string>
+    <string name="iptest_col_exit">Landing country</string>
+    <string name="iptest_col_exit_ip">Landing IP</string>
     <string name="iptest_col_faster">vs reference</string>
     <string name="iptest_col_test">Download</string>
     <string name="iptest_col_speed">Speed</string>
@@ -63,7 +63,7 @@
     <string name="iptest_faster_cell">%1$d ms faster</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">failed</string>
-    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android\'s system certificate store. In via-node tests, Exit IP is the address seen by the target site; it is different from the registered operator of the entry IP.</string>
+    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 10 MB or 5 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot read Android\'s system certificate store. In via-node tests, Landing IP is returned by the echo service through the node. Landing country is also returned by that service; neither is the target site's own country judgement. The ingress operator belongs to the entry IP.</string>
     <string name="iptest_log_title">Live status</string>
     <string name="iptest_log_progress">(%2$d of %1$d IPs tested)</string>
     <string name="iptest_port_title">Ports: %1$s</string>
@@ -80,9 +80,9 @@
     <string name="iptest_log_ip_ok">%1$s done: average handshake latency %2$d ms, failure rate %3$d%%, ports open: %4$s</string>
     <string name="iptest_log_ip_ok_noports">%1$s done: average via-node latency %2$d ms, failure rate %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s failed: %2$s (failure rate %3$d%%)</string>
-    <string name="iptest_log_split_direct">%1$s jitter (mean deviation) %2$d ms; split: TCP %3$d / TLS %4$d / first byte %5$d (ms; 0 = not measured; TCP and TLS are averages of the tries that worked, the first byte is one HEAD)</string>
-    <string name="iptest_log_asn_none">%1$s operator: not found (maybe rate limited; the result is not affected)</string>
-    <string name="iptest_log_exit_asn_none">Exit IP %1$s operator: not found (possibly rate limited; latency is unaffected)</string>
+    <string name="iptest_log_split_direct">%1$s latency jitter (mean deviation) %2$d ms; timing: TCP %3$d / TLS %4$d / first byte %5$d (ms; 0 = not measured; TCP and TLS are averages of the tries that worked, the first byte is one HEAD)</string>
+    <string name="iptest_log_asn_none">%1$s ingress operator: not found (maybe rate limited; the result is not affected)</string>
+    <string name="iptest_log_exit_asn_none">Landing IP %1$s ingress operator: not found (possibly rate limited; latency is unaffected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>
     <string name="iptest_log_done">All done, %1$d tested</string>
     <string name="iptest_log_speed_start">%1$s download test started (up to 10 MB or 5 seconds from the first byte; the first second is also counted from the first byte)</string>
@@ -91,18 +91,18 @@
     <string name="iptest_http_403_note">The server refused the request</string>
     <string name="iptest_log_speed_cancelled">%1$s download test cancelled</string>
     <string name="iptest_log_error">Error: %1$s</string>
-    <string name="iptest_log_land_ok">%1$s exit country: %2$s (through node %3$s, asked now)</string>
-    <string name="iptest_log_land_none">%1$s exit country: not found (through node %2$s, asked now)</string>
-    <string name="iptest_log_land_no_node">No config node uses %1$s as its server, so the exit country is not queried (it can only be seen through a node)</string>
+    <string name="iptest_log_land_ok">%1$s landing country: %2$s (through node %3$s, asked now)</string>
+    <string name="iptest_log_land_none">%1$s landing country: not found (through node %2$s, asked now)</string>
+    <string name="iptest_log_land_no_node">No config node uses %1$s as its server, so the landing country is not queried (it can only be looked up through a node)</string>
     <string name="iptest_log_node_colo_nosni">%1$s ingress data centre: not read, the node has no domain to use as SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s ingress data centre: not read (the extra direct connection failed: %2$s)</string>
-    <string name="iptest_target_label">Target URL (used for via-node latency and exit data centre; optional. To see the exit data centre, use a Cloudflare-hosted site)</string>
+    <string name="iptest_target_label">Target URL (used for via-node latency and the target-site data centre; optional. To see the target-site data centre, use a Cloudflare-hosted site)</string>
     <string name="iptest_target_hint">https://example.com/</string>
     <string name="iptest_target_bad">The target address must start with http:// or https://</string>
     <string name="iptest_target_sub">Target address: %1$s</string>
-    <string name="iptest_target_note">Latency and failure rate are measured by requesting the target URL through the node. Site reaction is its response; Exit data centre is read from its Cf-Ray header. The target must be hosted on Cloudflare to provide an exit data centre. The target URL is used for latency and exit data-centre checks; leaving it blank keeps the existing behavior.</string>
-    <string name="iptest_col_target">Site reaction</string>
-    <string name="iptest_col_tcolo">Exit data centre</string>
+    <string name="iptest_target_note">Latency and failure rate are measured by requesting the target URL through the node. Site response is its HTTP response; Target-site data centre is read from its Cf-Ray header. The target must be hosted on Cloudflare to provide a target-site data centre. The target URL is used for latency and target-site data-centre checks; leaving it blank keeps the existing behavior.</string>
+    <string name="iptest_col_target">Site response</string>
+    <string name="iptest_col_tcolo">Target-site data centre</string>
     <string name="iptest_log_target_none">%1$s target site: no answer</string>
     <string name="iptest_log_target_protocol">%1$s protocol details: NegotiatedProtocol=%2$s; resp.Proto=%3$s</string>
     <string name="iptest_soft_redirect">The page moves to %1$s</string>
@@ -134,8 +134,8 @@
     <string name="iptest_col_colo_node">Ingress DC*</string>
     <string name="iptest_speed_timeout">timeout</string>
     <string name="iptest_speed_no_data">no data</string>
-    <string name="iptest_measure_direct_note">Handshake latency = TCP connection + TLS handshake. Jitter is the mean deviation of successful results from their average.</string>
-    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node\'s built-in test URL is used. Ingress DC* is read using one extra direct connection; via-node mode does not test ports, so the port column shows “-”. Exit country is the country of the exit IP; exit data centre is the receiving data centre read from the target site’s response. They come from different locations and need not match. Use exit country when judging whether the target site is reachable. Jitter is the mean deviation of successful results from their average.</string>
+    <string name="iptest_measure_direct_note">Handshake latency = TCP connection + TLS handshake. Latency jitter is the mean deviation of successful results from their average.</string>
+    <string name="iptest_measure_node_note">Via-node latency = total time for a request through the node to the target URL; if blank, the node\'s built-in test URL is used. Ingress DC* is read using one extra direct connection; via-node mode does not test ports, so the port column shows “-”. Landing country is returned by the echo service through the node and identifies the country associated with the landing IP; it is not the target site’s own country judgement. Target-site data centre is read from the target site’s Cf-Ray response header. They come from different locations and need not match. Landing country is a reference for the egress location reported by the echo service, not the target site’s country judgement. Latency jitter is the mean deviation of successful results from their average.</string>
     <string name="iptest_handshake_failed">Handshake failed: </string>
     <string name="iptest_page_hint">Title: %1$s; Start: %2$s</string>
     <string name="iptest_page_hint_no_title">Start: %1$s</string>

@@ -441,10 +441,10 @@
     <string name="saved_ip_sort_default">默认（测试时间新到旧）</string>
     <string name="saved_ip_sort_latency">平均延迟（低到高）</string>
     <string name="saved_ip_sort_speed">下载速度（高到低）</string>
-    <string name="saved_ip_filter_country">国家</string>
-    <string name="saved_ip_filter_country_selected">国家（%1$d）</string>
-    <string name="saved_ip_filter_country_title">按国家筛选</string>
-    <string name="saved_ip_filter_country_empty">没有可用的国家信息。</string>
+    <string name="saved_ip_filter_country">落地国家</string>
+    <string name="saved_ip_filter_country_selected">落地国家（%1$d）</string>
+    <string name="saved_ip_filter_country_title">按落地国家筛选</string>
+    <string name="saved_ip_filter_country_empty">没有可用的落地国家信息。</string>
     <string name="saved_ip_add_operator">新增运营商</string>
     <string name="saved_ip_paste">粘贴 IP</string>
     <string name="saved_ip_empty">还没有保存 IP。</string>

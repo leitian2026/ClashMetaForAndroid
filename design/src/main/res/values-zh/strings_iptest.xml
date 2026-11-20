@@ -35,26 +35,26 @@
     <string name="iptest_colo">入口机房 %1$s</string>
     <string name="iptest_cf">确认是 Cloudflare</string>
     <string name="iptest_running">测试中……每个 IP 之间随机隔 1 到 3 秒，再点一次按钮可以取消</string>
-    <string name="iptest_dialog_hint">填不在配置里的 IP 地址，每行一个，也可以用逗号、空格分隔，最多 20 个。域名请在下面独立的域名输入框解析为 IPv4，勾选后放入测试框会覆盖测试框里原有内容；不要把域名直接填进 IP 测试框。直连测延迟仍使用页面顶部输入框里的域名作为 SNI 和 Host；经节点测延迟只把所选节点的 server 临时替换成测试框里的 IP。测试时同时读取入口机房、归属运营商和归属地等信息；直连还会测端口和 ECH。两个下载地址只在测完后点击某一行的“下载测速”时使用，上面的两个延迟测试按钮不会用到。每个 IP 测 10 次（最多 5 个同时，每次最多 3 秒）。 域名解析会跳过 DNS 缓存重新查询；写在 hosts 里的域名直接读取配置，不查询 DNS。</string>
+    <string name="iptest_dialog_hint">填不在配置里的 IP 地址，每行一个，也可以用逗号、空格分隔，最多 20 个。域名请在下面独立的域名输入框解析为 IPv4，勾选后放入测试框会覆盖测试框里原有内容；不要把域名直接填进 IP 测试框。直连测延迟仍使用页面顶部输入框里的域名作为 SNI 和 Host；经节点测延迟只把所选节点的 server 临时替换成测试框里的 IP。测试时同时读取入口机房、入口运营商和登记国家等信息；直连还会测端口和 ECH。两个下载地址只在测完后点击某一行的“下载测速”时使用，上面的两个延迟测试按钮不会用到。每个 IP 测 10 次（最多 5 个同时，每次最多 3 秒）。 域名解析会跳过 DNS 缓存重新查询；写在 hosts 里的域名直接读取配置，不查询 DNS。</string>
     <string name="iptest_ports_label">端口（直连延迟测试时，通了的 IP 逐个握手试这些端口，用空格或逗号分隔）</string>
     <string name="iptest_url_direct_label">直连下载测速地址（下载测速用，直连，必须填 Cloudflare 上的地址）</string>
     <string name="iptest_url_node_label">经节点下载测速地址（下载测速用，经节点，建议填不在 Cloudflare 上的地址；Worker 访问 CF 站较慢，容易超时）</string>
     <string name="iptest_col_ip">IP地址</string>
     <string name="iptest_col_colo">入口机房</string>
-    <string name="iptest_col_asn">归属运营商</string>
-    <string name="iptest_col_geo">归属地</string>
+    <string name="iptest_col_asn">入口运营商</string>
+    <string name="iptest_col_geo">登记国家</string>
     <string name="iptest_col_port">端口</string>
     <string name="iptest_col_loss">失败率</string>
     <string name="iptest_col_min">最小延迟</string>
     <string name="iptest_col_max">最大延迟</string>
     <string name="iptest_col_avg">平均延迟</string>
     <!-- CUSTOM.md #68 -->
-    <string name="iptest_col_jitter">抖动</string>
-    <string name="iptest_col_phase">分段耗时</string>
+    <string name="iptest_col_jitter">延迟波动</string>
+    <string name="iptest_col_phase">耗时明细</string>
     <string name="iptest_phase_cell_direct">TCP %1$s\nTLS %2$s\n首字节 %3$s</string>
     <string name="iptest_phase_cell_node">拨号 %1$s\n握手 %2$s\n首字节 %3$s</string>
-    <string name="iptest_col_exit">出口国家</string>
-    <string name="iptest_col_exit_ip">出口 IP</string>
+    <string name="iptest_col_exit">落地国家</string>
+    <string name="iptest_col_exit_ip">落地 IP</string>
     <string name="iptest_col_faster">比对照快</string>
     <string name="iptest_col_test">下载&#10;测速</string>
     <string name="iptest_col_speed">速度</string>
@@ -63,7 +63,7 @@
     <string name="iptest_faster_cell">快 %1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">失败</string>
-    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。经节点测试的出口 IP 是目标站看到的来访地址，和“归属运营商”（入口 IP 的）不是同一个。</string>
+    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 10 MB 或从首字节起 5 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。经节点测试的落地 IP 是回显服务返回的地址，和入口 IP 的入口运营商不是同一个；落地国家也是由回显服务返回，不代表目标站自行判断的国家。</string>
     <string name="iptest_log_title">实时状态</string>
     <string name="iptest_log_progress">（共 %1$d 个 IP，已测 %2$d 个）</string>
     <string name="iptest_port_title">端口结果：%1$s</string>
@@ -80,12 +80,12 @@
     <string name="iptest_log_ip_ok">%1$s 完成：平均握手延迟 %2$d 毫秒，失败率 %3$d%%，端口通：%4$s</string>
     <string name="iptest_log_ip_ok_noports">%1$s 完成：平均经节点延迟 %2$d 毫秒，失败率 %3$d%%</string>
     <string name="iptest_log_ip_fail">%1$s 失败：%2$s（失败率 %3$d%%）</string>
-    <string name="iptest_log_split_direct">%1$s 抖动（平均偏差）%2$d 毫秒；分段：TCP %3$d / TLS %4$d / 首字节 %5$d（毫秒；0 = 没测到；TCP 和 TLS 是 10 次里成功的平均，首字节只有一次 HEAD）</string>
-    <string name="iptest_log_asn_none">%1$s 归属运营商：没查到（可能被限流，不影响结果）</string>
-    <string name="iptest_log_exit_asn_none">出口 IP %1$s 的运营商：没查到（可能被限流，不影响延迟结果）</string>
-    <string name="iptest_log_land_ok">%1$s 出口国家：%2$s（经节点 %3$s，实时查的）</string>
-    <string name="iptest_log_land_none">%1$s 出口国家：没查到（经节点 %2$s，实时查的）</string>
-    <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，不查询出口国家（出口国家要经过节点才看得到）</string>
+    <string name="iptest_log_split_direct">%1$s 延迟波动（平均偏差）%2$d 毫秒；耗时明细：TCP %3$d / TLS %4$d / 首字节 %5$d（毫秒；0 = 没测到；TCP 和 TLS 是 10 次里成功的平均，首字节只有一次 HEAD）</string>
+    <string name="iptest_log_asn_none">%1$s 入口运营商：没查到（可能被限流，不影响结果）</string>
+    <string name="iptest_log_exit_asn_none">落地 IP %1$s 的运营商：没查到（可能被限流，不影响延迟结果）</string>
+    <string name="iptest_log_land_ok">%1$s 落地国家：%2$s（经节点 %3$s，实时查的）</string>
+    <string name="iptest_log_land_none">%1$s 落地国家：没查到（经节点 %2$s，实时查的）</string>
+    <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，不查询落地国家（落地国家要经过节点才能查询）</string>
     <string name="iptest_log_cancelled">已取消</string>
     <string name="iptest_log_done">全部完成，共测了 %1$d 个</string>
     <string name="iptest_log_speed_start">%1$s 开始下载测速（最多 10 MB 或从收到第一个字节起 5 秒，前 1 秒也从第一个字节起算）</string>
@@ -96,13 +96,13 @@
     <string name="iptest_log_error">出错：%1$s</string>
     <string name="iptest_log_node_colo_nosni">%1$s 入口机房：没读，这个节点没有域名可当 SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s 入口机房：没读到（额外直连一次失败：%2$s）</string>
-    <string name="iptest_target_label">目标网址（用于经节点测延迟和读取出口机房，可不填；要看出口机房，请填 Cloudflare 上的站点）</string>
+    <string name="iptest_target_label">目标网址（用于经节点测延迟和读取目标站机房，可不填；要看目标站机房，请填 Cloudflare 上的站点）</string>
     <string name="iptest_target_hint">https://example.com/</string>
     <string name="iptest_target_bad">目标网址必须以 http:// 或 https:// 开头</string>
     <string name="iptest_target_sub">目标网址：%1$s</string>
-    <string name="iptest_target_note">延迟、失败率都是经过节点对目标网址测的；“目标站反应”是它自己的回应，“出口机房”读它回应里的 Cf-Ray，目标站要在 Cloudflare 上才有出口机房。目标网址只用于测延迟和读取出口机房，留空的现有行为不变。</string>
-    <string name="iptest_col_target">目标站反应</string>
-    <string name="iptest_col_tcolo">出口机房</string>
+    <string name="iptest_target_note">延迟、失败率都是经过节点对目标网址测的；“目标站响应”是目标站自己的 HTTP 响应，“目标站机房”读取它响应里的 Cf-Ray；目标站要在 Cloudflare 上才有目标站机房。目标网址只用于测延迟和读取目标站机房，留空的现有行为不变。</string>
+    <string name="iptest_col_target">目标站响应</string>
+    <string name="iptest_col_tcolo">目标站机房</string>
     <string name="iptest_log_target_none">%1$s 目标站：没有回应</string>
     <string name="iptest_log_target_protocol">%1$s 协议原始值：NegotiatedProtocol=%2$s；resp.Proto=%3$s</string>
     <string name="iptest_soft_redirect">页面自己跳转 %1$s</string>
@@ -134,8 +134,8 @@
     <string name="iptest_col_colo_node">入口机房*</string>
     <string name="iptest_speed_timeout">超时</string>
     <string name="iptest_speed_no_data">无数据</string>
-    <string name="iptest_measure_direct_note">握手延迟 = TCP 建连 + TLS 握手；抖动是成功结果相对平均值的平均偏差。</string>
-    <string name="iptest_measure_node_note">经节点延迟 = 经节点请求目标网址的总时间；未填目标网址时使用节点自带测试地址。入口机房*为另连一次读取；经节点模式不测端口，端口列显示“-”。出口国家是出口 IP 所在的国家；出口机房是目标站响应里读到的接收机房，两者来自不同位置，对不上不一定是错。判断能否访问目标站时，以出口国家为准。抖动是成功结果相对平均值的平均偏差。</string>
+    <string name="iptest_measure_direct_note">握手延迟 = TCP 建连 + TLS 握手；延迟波动是成功结果相对平均值的平均偏差。</string>
+    <string name="iptest_measure_node_note">经节点延迟 = 经节点请求目标网址的总时间；未填目标网址时使用节点自带测试地址。入口机房*为另连一次读取；经节点模式不测端口，端口列显示“-”。落地国家是经节点查询回显服务得到的国家；目标站机房是从目标站响应的 Cf-Ray 读取的机房，两者来自不同位置，对不上不一定是错。落地国家反映回显服务所见的出口位置，不代表目标站自己的国家判断。延迟波动是成功结果相对平均值的平均偏差。</string>
     <string name="iptest_handshake_failed">握手失败：</string>
     <string name="iptest_page_hint">标题：%1$s；开头：%2$s</string>
     <string name="iptest_page_hint_no_title">开头：%1$s</string>
