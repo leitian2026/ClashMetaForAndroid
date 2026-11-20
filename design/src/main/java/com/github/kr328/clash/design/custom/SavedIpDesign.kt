@@ -690,7 +690,17 @@ class SavedIpDesign(
         )
         PopupMenu(context, anchor).apply {
             filters.forEachIndexed { index, (filter, label) ->
-                menu.add(0, filter.ordinal, index, context.getString(label, counts[index])).isCheckable = true
+                val title: CharSequence = if (filter == currentFilter) {
+                    android.text.SpannableString(context.getString(label, counts[index])).apply {
+                        setSpan(
+                            android.text.style.ForegroundColorSpan(statusFilterColor(filter)),
+                            0,
+                            length,
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                        )
+                    }
+                } else context.getString(label, counts[index])
+                menu.add(0, filter.ordinal, index, title).isCheckable = true
             }
             menu.setGroupCheckable(0, true, true)
             menu.findItem(currentFilter.ordinal)?.isChecked = true
@@ -789,6 +799,13 @@ class SavedIpDesign(
         filterToolbarBottomRow.visibility = if (narrow) View.VISIBLE else View.GONE
     }
 
+    private fun statusFilterColor(filter: IpFilter): Int = when (filter) {
+        IpFilter.ALL -> colorText
+        IpFilter.REACHABLE -> Color.rgb(46, 125, 50)
+        IpFilter.UNREACHABLE -> Color.rgb(198, 40, 40)
+        IpFilter.UNTESTED -> Color.rgb(239, 143, 0)
+    }
+
     private fun updateFilterToolbar() {
         statusFilterButton.text = context.getString(when (currentFilter) {
             IpFilter.ALL -> R.string.saved_ip_filter_all
@@ -796,12 +813,7 @@ class SavedIpDesign(
             IpFilter.UNREACHABLE -> R.string.saved_ip_filter_unreachable
             IpFilter.UNTESTED -> R.string.saved_ip_filter_untested
         }) + " ▾"
-        statusFilterButton.setTextColor(when (currentFilter) {
-            IpFilter.ALL -> colorText
-            IpFilter.REACHABLE -> Color.rgb(46, 125, 50)
-            IpFilter.UNREACHABLE -> Color.rgb(198, 40, 40)
-            IpFilter.UNTESTED -> Color.rgb(239, 143, 0)
-        })
+        statusFilterButton.setTextColor(statusFilterColor(currentFilter))
         countryFilterButton.text = if (selectedCountryCodes.isEmpty()) {
             context.getString(R.string.saved_ip_filter_country) + " ▾"
         } else context.getString(R.string.saved_ip_filter_country_selected, selectedCountryCodes.size) + " ▾"
