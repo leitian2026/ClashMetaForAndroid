@@ -513,6 +513,13 @@ class SavedIpDesign(
                     if (checked) selected.add(value) else selected.remove(value)
                     if (selected.isEmpty()) filterState.selectedTableFilters.remove(columnIndex)
                     else filterState.selectedTableFilters[columnIndex] = selected
+                    val summary = anchor.tag as? TextView
+                    summary?.text = when {
+                        selected.isEmpty() -> ""
+                        selected.size == 1 -> selected.first()
+                        else -> selected.first() + " +" + (selected.size - 1)
+                    }
+                    summary?.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
                     clearSelectionState(); updateFilterToolbar()
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))

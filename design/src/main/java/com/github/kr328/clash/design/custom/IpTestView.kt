@@ -1144,6 +1144,7 @@ class IpTestView(
             }
             addView(titleView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(selectedView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            tag = selectedView
             isClickable = true; minimumWidth = width; setOnClickListener { if (isEnabled) onClick(this) }
         }
     }
