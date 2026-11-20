@@ -1303,7 +1303,17 @@ class IpTestView(
             addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
             setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
         }
-        scroll.post { scroll.scrollTo(scrollX, 0) }
+        // CUSTOM (CUSTOM.md #165): restore the horizontal position before the first frame is drawn,
+        // so a rebuilt table never shows at the far left for one frame and then jumps back.
+        scroll.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val observer = scroll.viewTreeObserver
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                if (scroll.scrollX == scrollX) return true
+                scroll.scrollTo(scrollX, 0)
+                return false
+            }
+        })
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(left, LinearLayout.LayoutParams(ipColumnWidth, ViewGroup.LayoutParams.WRAP_CONTENT))

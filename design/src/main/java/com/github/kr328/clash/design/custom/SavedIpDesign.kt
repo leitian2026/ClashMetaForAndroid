@@ -513,10 +513,8 @@ class SavedIpDesign(
                     if (checked) selected.add(value) else selected.remove(value)
                     if (selected.isEmpty()) operatorFilters.remove(columnIndex)
                     if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
-                    val summary = anchor.tag as? TextView
-                    // CUSTOM (CUSTOM.md #160): keep the live popup summary consistent with the table header.
-                    summary?.text = savedIpFilterSummary(selected)
-                    summary?.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
+                    // CUSTOM (CUSTOM.md #165): do not touch the header cell while the popup is open;
+                    // its summary is drawn once by the rebuild on dismiss, so the header does not jump twice.
                     clearSelectionState(); updateSearchUi()
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
