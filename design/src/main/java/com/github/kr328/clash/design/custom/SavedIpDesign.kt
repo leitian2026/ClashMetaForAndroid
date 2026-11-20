@@ -297,7 +297,16 @@ class SavedIpDesign(
         val entries = if (selectedOperatorId == operator.id) {
             sortSavedIpEntries(SavedIpStore.sortEntries(operator.ips), currentSort)
         } else {
-            visibleEntries(operator).filter { query.isEmpty() || it.address.contains(query, ignoreCase = true) }
+            val filtered = visibleEntries(operator)
+            if (query.isEmpty()) filtered else {
+                val renderer = savedTableFor(operator).first
+                filtered.filter { entry ->
+                    entry.address.contains(query, ignoreCase = true) ||
+                        SAVED_SEARCH_COLUMNS.any { column ->
+                            renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
+                        }
+                }
+            }
         }
         val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
             filterState.selectedTableFilters.containsKey(operator.id)
@@ -340,6 +349,9 @@ class SavedIpDesign(
 
     private companion object {
         val EMPTY_STATE_TAG = Any()
+        // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
+        // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
+        val SAVED_SEARCH_COLUMNS = intArrayOf(0, 1, 2, 3, 4, 10, 11, 12)
     }
 
     private fun bindOperatorRow(
