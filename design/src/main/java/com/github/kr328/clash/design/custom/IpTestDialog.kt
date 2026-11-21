@@ -147,74 +147,14 @@ object IpTestDialog {
                     setPadding(pad, pad / 2, pad, 0)
                 }
 
-                val hint = TextView(context).apply {
-                    setText(R.string.iptest_dialog_hint)
-                    textSize = 13f
-                    alpha = 0.7f
-                    visibility = View.GONE
-                }
-
-                val titleRow = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(pad, 0, pad, 0)
-                }
-                val titleText = TextView(context).apply {
-                    setText(R.string.iptest_dialog_title)
-                    TextViewCompat.setTextAppearance(this, com.google.android.material.R.style.TextAppearance_MaterialComponents_Headline6)
-                    isSingleLine = true
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                    val dialogWidth = minOf(context.resources.displayMetrics.widthPixels, (560 * density).toInt()) -
-                        (2 * pad) - (60 * density).toInt()
-                    maxWidth = dialogWidth.coerceAtLeast((80 * density).toInt())
-                }
-                var hintExpanded = false
-                val helpButton = TextView(context).apply {
-                    setText(R.string.iptest_dialog_help)
-                    textSize = 14f
-                    isClickable = true
-                    isFocusable = true
-                    setPadding((8 * density).toInt(), (8 * density).toInt(), 0, (8 * density).toInt())
-                    setOnClickListener {
-                        hintExpanded = !hintExpanded
-                        hint.visibility = if (hintExpanded) View.VISIBLE else View.GONE
-                    }
-                }
-                titleRow.addView(titleText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                titleRow.addView(helpButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-                val inputLabel = TextView(context).apply {
-                    setText(R.string.iptest_test_box_label)
-                    textSize = 13f
-                    alpha = 0.7f
-                    setPadding(0, pad / 2, 0, 0)
-                }
-
-                val inputField = LayoutInflater.from(context)
-                    .inflate(R.layout.dialog_iptest_outlined_field, null, false) as TextInputLayout
-                val input = inputField.findViewById<TextInputEditText>(R.id.iptest_outlined_input).apply {
-                    setHint(R.string.iptest_ips_hint)
-                    minLines = 1
-                    maxLines = 12
-                    gravity = Gravity.TOP or Gravity.START
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                    isVerticalScrollBarEnabled = true
-                    setHorizontallyScrolling(false)
-
-                    try {
-                        // CUSTOM.md #156 step 4: a supplied preset wins for this dialog only; otherwise keep the manual history.
-                        setText(presetIps ?: (prefs.getString("ip_text", "") ?: ""))
-                    } catch (_: Exception) {
-                    }
-                }
-
-                // CUSTOM.md #43: input history and its header live outside this large suspend function.
-                val inputHistory = IpTestInputHistory(context, prefs, input, inputLabel, presetIps == null, density)
-                val inputHeader = inputHistory.header
-
-                // CUSTOM.md #43: draw saved-address hints inside matching input rows using the cached snapshot.
-                IpTestSavedIpHint.create(context, input)
+                // CUSTOM #99: title and input controls were moved out to keep ask below the Kotlin coroutine stack limit.
+                val dialogInput = IpTestDialogInput.create(context, prefs, presetIps, density, pad)
+                val hint = dialogInput.hint
+                val titleRow = dialogInput.titleRow
+                val inputLabel = dialogInput.inputLabel
+                val inputField = dialogInput.inputField
+                val input = dialogInput.input
+                val inputHeader = dialogInput.inputHeader
 
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -754,11 +694,11 @@ object IpTestDialog {
                     .show()
                 val dialogDecor = dialog.window?.decorView
                 val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                    if (hasFocus) inputHistory.updateHeader()
+                    if (hasFocus) dialogInput.updateHeader()
                 }
                 dialogDecor?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
                 dialog.setOnDismissListener {
-                    inputHistory.flush()
+                    dialogInput.flush()
                     dialogDecor?.viewTreeObserver?.let { observer ->
                         if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
                     }
@@ -779,7 +719,7 @@ object IpTestDialog {
                             ctx.resume(null)
                         }
                     }
-                ctx.invokeOnCancellation { inputHistory.dismissOnCancellation(dialog) }
+                ctx.invokeOnCancellation { dialogInput.dismissOnCancellation(dialog) }
             }
         }
     }
