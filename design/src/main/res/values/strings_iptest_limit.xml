@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="iptest_download_max_mb">Maximum download (MB)</string>
+    <string name="iptest_download_max_seconds">Maximum time (seconds)</string>
+    <string name="iptest_download_direct_limit_hint">The default direct URL provides only 30 MiB. Increasing this limit does not increase the file size available from that URL.</string>
+</resources>
