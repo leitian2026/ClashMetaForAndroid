@@ -190,6 +190,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private var completion: ClashCompletion? = null
 
     private var lineStarts = intArrayOf(0)
+    private var hasDiffMarks = false
+    private var mayHaveTab = false
     private var gutterWidth = 0
     private var gutterDigits = 0
 
@@ -277,6 +279,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 val wasRemoved = removed
                 val wasInserted = inserted
 
+                if (wasInserted.indexOf('\t') >= 0) mayHaveTab = true
+
                 rebuildLineStarts(s)
 
                 fullCache = null
@@ -333,6 +337,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     /** Puts [text] in, forgets undo history and marks. A text over 3000 lines is shown a window at a time (CUSTOM.md #50). */
     fun load(text: String) {
+        hasDiffMarks = false
         loadFull(text, 0)
 
         errorLine = -1
@@ -439,6 +444,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         setText(w)
         loading = false
 
+        hasDiffMarks = false
+        mayHaveTab = w.indexOf('\t') >= 0
         before = b
         after = a
         lineOffset = offset
@@ -670,7 +677,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 )
             }
 
-            drawDiff(canvas, l, t, first, last, padLeft, padTop, false)
+            if (hasDiffMarks) drawDiff(canvas, l, t, first, last, padLeft, padTop, false)
 
             drawPair(canvas, l, t, padLeft, padTop)
 
@@ -714,7 +721,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 }
             }
 
-            drawDiff(canvas, l, t, first, last, padLeft, padTop, true)
+            if (hasDiffMarks) drawDiff(canvas, l, t, first, last, padLeft, padTop, true)
         }
 
         super.onDraw(canvas)
@@ -745,7 +752,10 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             val a = lineStarts[local]
             val b = lineEnd(local, t.length)
 
-            if (b > a) t.setSpan(DiffSpan(status, marks.old[line]), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (b > a) {
+                t.setSpan(DiffSpan(status, marks.old[line]), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                hasDiffMarks = true
+            }
         }
 
         for ((line, rows) in marks.removed) {
@@ -757,6 +767,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
                 if (b > a) {
                     t.setSpan(GhostSpan(rows, rowH, false), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    hasDiffMarks = true
 
                     continue
                 }
@@ -771,7 +782,10 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                 val a = lineStarts[k]
                 val b = lineEnd(k, t.length)
 
-                if (b > a) t.setSpan(GhostSpan(rows, rowH, true), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                if (b > a) {
+                    t.setSpan(GhostSpan(rows, rowH, true), a, b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    hasDiffMarks = true
+                }
             }
         }
 
@@ -779,6 +793,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     }
 
     private fun clearDiffMarks() {
+        hasDiffMarks = false
         val t = text ?: return
 
         for (s in t.getSpans(0, t.length, DiffSpan::class.java)) t.removeSpan(s)
@@ -957,15 +972,17 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         val endsLogical = le >= t.length || t[le - 1] == '\n'
         val textEnd = if (t[le - 1] == '\n') le - 1 else le
 
-        for (k in start until textEnd) {
-            if (t[k] != '\t') continue
+        if (mayHaveTab) {
+            for (k in start until textEnd) {
+                if (t[k] != '\t') continue
 
-            val x1 = padLeft + l.getPrimaryHorizontal(k)
-            val x2 = padLeft + (if (k + 1 < le) l.getPrimaryHorizontal(k + 1) else l.getLineRight(line))
+                val x1 = padLeft + l.getPrimaryHorizontal(k)
+                val x2 = padLeft + (if (k + 1 < le) l.getPrimaryHorizontal(k + 1) else l.getLineRight(line))
 
-            fillPaint.color = colorTabBg
-            canvas.drawRect(x1, top, x2, bottom, fillPaint)
-            canvas.drawText("\u2192", (x1 + x2) / 2f, (l.getLineBaseline(line) + padTop).toFloat(), tabPaint)
+                fillPaint.color = colorTabBg
+                canvas.drawRect(x1, top, x2, bottom, fillPaint)
+                canvas.drawText("\u2192", (x1 + x2) / 2f, (l.getLineBaseline(line) + padTop).toFloat(), tabPaint)
+            }
         }
 
         if (!endsLogical) return
