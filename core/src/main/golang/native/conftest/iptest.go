@@ -46,6 +46,9 @@ type IPRequest struct {
 	Domain  string `json:"domain"`  // direct: SNI and Host
 	Node    string `json:"node"`    // node: the node to copy
 	IPs     string `json:"ips"`     // the text as typed
+	// CUSTOM.md #99: download limits; zero values mean use the Go-side defaults.
+	MaxBytes   int64 `json:"maxBytes"`
+	MaxSeconds int   `json:"maxSeconds"`
 	// CUSTOM.md #52: the per-address modes "probe", "nodeone", "download", "colo" (iptest_probe.go)
 	Ports string `json:"ports"` // probe: the ports to try, as typed ("" = the default list)
 	URL   string `json:"url"`   // download: the address to download ("" = the default)
