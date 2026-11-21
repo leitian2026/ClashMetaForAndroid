@@ -524,6 +524,7 @@ class SavedIpDesign(
                 if (entries.isNotEmpty()) {
                     bindSavedTable(section, operator, entries)
                 } else {
+                    bindSavedTable(section, operator, emptyList())
                     section.addView(TextView(context).apply {
                         setText(R.string.saved_ip_filter_no_match)
                         textSize = 13f
