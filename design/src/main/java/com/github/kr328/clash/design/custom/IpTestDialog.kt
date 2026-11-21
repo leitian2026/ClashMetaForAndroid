@@ -724,10 +724,6 @@ object IpTestDialog {
                             .putBoolean("ip_ext_mtu", mtuCheck.isChecked)
                             .putString("ip_ws_path", wsPath)
                             .apply()
-                        IpDownloadLimit.save(
-                            prefs,
-                            IpDownloadLimit.parse(maxDownloadMbInput.text?.toString(), maxDownloadSecondsInput.text?.toString()),
-                        )
                     } catch (_: Exception) {
                     }
 
@@ -741,12 +737,15 @@ object IpTestDialog {
                     .setNeutralButton(R.string.iptest_btn_direct) { _, _ -> done("direct") }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> }
                     .show()
+                // CUSTOM #99: save the two limits on focus loss; dismissal flushes the final pending value.
+                IpDownloadLimit.bindAutoSave(context, prefs, maxDownloadMbInput, maxDownloadSecondsInput)
                 val dialogDecor = dialog.window?.decorView
                 val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
                     if (hasFocus) dialogInput.updateHeader()
                 }
                 dialogDecor?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
                 dialog.setOnDismissListener {
+                    IpDownloadLimit.flushPending(maxDownloadMbInput)
                     dialogInput.flush()
                     dialogDecor?.viewTreeObserver?.let { observer ->
                         if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
