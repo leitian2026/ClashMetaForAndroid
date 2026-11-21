@@ -3,4 +3,7 @@
     <string name="iptest_download_max_mb">Maximum download (MB)</string>
     <string name="iptest_download_max_seconds">Maximum time (seconds)</string>
     <string name="iptest_download_direct_limit_hint">The default direct URL provides only 30 MiB. Increasing this limit does not increase the file size available from that URL.</string>
+    <string name="iptest_download_limit_saved">Saved: maximum %1$d MB, maximum %2$d seconds</string>
+    <string name="iptest_download_limit_clamped">Saved: maximum %1$d MB, maximum %2$d seconds (out of range; adjusted to the allowed range)</string>
+    <item type="id" name="iptest_download_limit_flush" />
 </resources>
