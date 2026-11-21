@@ -576,6 +576,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             withContext(NonCancellable) {
                 design.setIpRunning(false)
                 design.ipSaveAvailable(ipRows.isNotEmpty()) // CUSTOM.md #156 step 2: cancelled rounds may save completed rows
+                design.flushIpTest()
             }
         }
     }
@@ -826,6 +827,17 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             else -> getString(R.string.check_flush_failed)
         }
         design.showText(message)
+    }
+
+    override fun onStop() {
+        configPage?.let { design -> launch { design.flushIpTest() } }
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        configPage?.dispose()
+        configPage = null
+        super.onDestroy()
     }
 
     // CUSTOM (CUSTOM.md #25): the DNS check. Same rules as the ECH check: runs only when tapped, nothing in the background.

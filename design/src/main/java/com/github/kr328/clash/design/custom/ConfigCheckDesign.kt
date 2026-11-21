@@ -36,7 +36,13 @@ import com.github.kr328.clash.design.util.applyFrom
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.root
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -158,6 +164,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             binding.checkCopyView.isEnabled = !running
             binding.checkCopyView.alpha = if (running) 0.38f else 1f
             if (task == RunningTask.ECH || task == RunningTask.DNS) {
+                flushIpTest()
                 textMode()
                 binding.checkTextView.text = context.getString(R.string.check_running)
             }
@@ -248,13 +255,41 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // CUSTOM.md #87: snapshot on Main, then serialize and write the preference off Main.
     // A version guard prevents an older concurrent snapshot from overwriting a newer one.
     private val persistMutex = Mutex()
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var persistJob: Job? = null
     private var persistVersion = 0L
     private var persistedVersion = 0L
+
+    // CUSTOM.md #87: coalesce live table/log updates into one write after the latest change.
+    private fun schedulePersistIpTest() {
+        persistJob?.cancel()
+        persistJob = persistScope.launch {
+            delay(2_000)
+            persistIpTest()
+        }
+    }
+
+    suspend fun flushIpTest() {
+        withContext(Dispatchers.Main.immediate) {
+            persistJob?.cancel()
+            persistJob = null
+        }
+        persistIpTest()
+    }
+
+    fun dispose() {
+        persistJob?.cancel()
+        persistJob = persistScope.launch {
+            persistIpTest()
+            persistScope.cancel()
+        }
+    }
 
     private suspend fun persistIpTest() {
         val versioned = withContext(Dispatchers.Main.immediate) {
             val saved = ipSaved ?: return@withContext null
             val snapshot = saved.copy(
+                logs = ipView?.savedLogs() ?: saved.logs,
                 warnings = saved.warnings.toList(),
                 report = saved.report.copy(
                     rows = saved.report.rows.toList(),
@@ -304,6 +339,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     private fun JSONArray.toStringList(): List<String> = List(length()) { optString(it) }
 
     suspend fun restoreIpTest(): IpTestRestore? {
+        flushIpTest()
         return withContext(Dispatchers.Main) {
             val saved = ipSaved ?: return@withContext null
             createIpView(saved.direct, saved.target, saved.head, saved.sub, saved.warnings)
@@ -674,9 +710,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun ipInfo(head: String, sub: String, warnings: List<String>) {
         withContext(Dispatchers.Main) {
             ipView?.let {
-                it.setInfo(head, sub, warnings)
-                ipSaved = ipSaved?.copy(head = head, sub = sub, warnings = warnings)
-                persistIpTest()
+                val current = ipSaved
+                if (current != null && (current.head != head || current.sub != sub || current.warnings != warnings)) {
+                    it.setInfo(head, sub, warnings)
+                    ipSaved = current.copy(head = head, sub = sub, warnings = warnings.toList())
+                    schedulePersistIpTest()
+                }
             }
         }
     }
@@ -684,20 +723,30 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun ipRows(rows: List<com.github.kr328.clash.core.model.IpTestRow>) {
         withContext(Dispatchers.Main) {
             ipView?.let {
-                it.setRows(rows)
+                val current = ipSaved
+                if (current?.report?.rows != rows) {
+                    it.setRows(rows)
+                    ipSaved = current?.copy(report = current.report.copy(rows = rows.toList()))
+                    schedulePersistIpTest()
+                } else {
+                    it.setRows(rows)
+                }
                 ipSaveAvailable = rows.isNotEmpty() // each row delivered here is a completed probe result
                 updateSaveBatchAction()
-                ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(rows = rows))
-                persistIpTest()
             }
         }
     }
 
     suspend fun ipColos(colos: Map<String, String>, countries: Map<String, String>) {
         withContext(Dispatchers.Main) {
-            ipView?.setColos(colos, countries)
-            ipSaved = ipSaved?.copy(report = (ipSaved?.report ?: IpTestReport()).copy(colos = colos, coloCountries = countries))
-            persistIpTest()
+            val current = ipSaved
+            if (current != null && (current.report.colos != colos || current.report.coloCountries != countries)) {
+                ipView?.setColos(colos, countries)
+                ipSaved = current.copy(report = current.report.copy(colos = colos.toMap(), coloCountries = countries.toMap()))
+                schedulePersistIpTest()
+            } else {
+                ipView?.setColos(colos, countries)
+            }
         }
     }
 
@@ -705,9 +754,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun ipProgress(total: Int, tested: Int) {
         withContext(Dispatchers.Main) {
             ipView?.let {
+                val current = ipSaved
                 it.setProgress(total, tested)
-                ipSaved = ipSaved?.copy(total = total, tested = tested)
-                persistIpTest()
+                if (current != null && (current.total != total || current.tested != tested)) {
+                    ipSaved = current.copy(total = total, tested = tested)
+                    schedulePersistIpTest()
+                }
             }
         }
     }
@@ -725,8 +777,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 it.log(text)
-                ipSaved = ipSaved?.copy(logs = it.savedLogs())
-                persistIpTest()
+                schedulePersistIpTest()
             }
         }
     }
@@ -742,6 +793,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     }
 
     suspend fun showText(text: String) {
+        flushIpTest()
         withContext(Dispatchers.Main) {
             textMode() // CUSTOM.md #52
             if (linksOn) {
@@ -760,6 +812,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     private var linksOn = false
 
     suspend fun showEffective(config: EffectiveConfig) {
+        flushIpTest()
         withContext(Dispatchers.Main) {
             textMode() // CUSTOM.md #52
 
@@ -783,6 +836,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     // CUSTOM.md #26 (r32): the DNS check page has lines that open on a tap (a server's details, the fold of the
     // rest), so like the effective config its taps go to the links; the copy button copies the whole text
     suspend fun showDns(report: DnsCheckReport) {
+        if (ipView == null) flushIpTest()
         withContext(Dispatchers.Main) {
             // CUSTOM.md #156 step 42: keep the IP table and append DNS timings to its shared diagnostics fold.
             // DNS remains a separate result group; it is never presented as an individual IP's DNS latency.
