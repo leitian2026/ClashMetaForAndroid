@@ -86,8 +86,8 @@ class IpTestView(
         textHeight + dp(8)
     }
     private val savedSpeedShortButtonHeight by lazy {
-        val sample = SpannableStringBuilder("经节点\n88.8\n不足30M")
-        val hintStart = sample.length - "不足30M".length
+        val sample = SpannableStringBuilder("经节点\n88.8\n不足上限")
+        val hintStart = sample.length - "不足上限".length
         sample.setSpan(
             android.text.style.AbsoluteSizeSpan(11, true),
             hintStart,
@@ -2128,9 +2128,7 @@ class IpTestView(
         val value = SpannableStringBuilder("$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " ")
         if (showShort) {
             val hint = context.getString(R.string.saved_ip_speed_short)
-            val hintPaint = TextView(context).apply { textSize = 11f }.paint
-            val availableWidth = (cellWidth - dp(14)).coerceAtLeast(0)
-            val shownHint = if (hintPaint.measureText(hint) <= availableWidth) hint else "<30M"
+            val shownHint = hint
             val start = value.length
             value.append("\n").append(shownHint)
             value.setSpan(ForegroundColorSpan(colorWarn), start, value.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
