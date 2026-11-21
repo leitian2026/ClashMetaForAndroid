@@ -172,10 +172,7 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 		return DownloadResult{Err: "no data", Ms: int(elapsed.Milliseconds())}
 	}
 
-	short := total > 0 && total < maxBytes && (
-		readErr == io.EOF ||
-			(resp.ContentLength >= 0 && resp.ContentLength < maxBytes && total >= resp.ContentLength)
-	)
+	short := total > 0 && total < maxBytes && (readErr == io.EOF || (resp.ContentLength >= 0 && resp.ContentLength < maxBytes && total >= resp.ContentLength))
 
 	return DownloadResult{Bytes: total, Ms: int(elapsed.Milliseconds()), MBps: speedOf(total, atSkip, elapsed, tSkip, skipped), Short: short}
 }
