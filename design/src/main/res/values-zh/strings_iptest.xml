@@ -162,4 +162,5 @@
     <string name="iptest_note_title">说明</string>
     <string name="iptest_resolve_from_hosts">来自 hosts</string>
     <string name="iptest_resolve_cache_unsupported">未能绕过缓存</string>
+    <string name="iptest_saved_ip_exists">%1$s：已在保存的 IP 中</string>
 </resources>
