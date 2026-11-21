@@ -11,6 +11,7 @@ import com.github.kr328.clash.core.model.EffectiveConfig
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.design.custom.ErrorsText
+import com.github.kr328.clash.design.custom.IpDownloadLimit
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.ConfigCheckText
 import com.github.kr328.clash.design.custom.CountryName
@@ -667,15 +668,20 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         design.ipLog(getString(R.string.iptest_log_speed_start, ip))
 
         try {
+            val downloadLimits = IpDownloadLimit.read(getSharedPreferences("custom_config_check", MODE_PRIVATE))
             val progressObserver = IpDownloadProgressObserver.create { bytes, elapsedMs ->
-                val progress = IpSpeedTestCoordinator.updateProgress(ip, run.direct, bytes, elapsedMs)
+                val progress = IpSpeedTestCoordinator.updateProgress(
+                    ip, run.direct, bytes, elapsedMs, downloadLimits.maxBytes, downloadLimits.maxSeconds,
+                )
                 if (pageVisible && screenInteractive()) {
                     runOnUiThread {
                         if (pageVisible && screenInteractive()) design.ipSpeedProgress(ip, run.direct, progress.percent)
                     }
                 }
             }
-            val report = IpDownloadSpeed.run(ip, if (run.direct) "" else run.node, run.url) { request ->
+            val report = IpDownloadSpeed.run(
+                ip, if (run.direct) "" else run.node, run.url, downloadLimits.maxBytes, downloadLimits.maxSeconds,
+            ) { request ->
                 withClash { queryCustomConnectionsWithProgress(CustomConnections.SORT_CHECK, request, progressObserver) }
             }
             val row = report.rows.firstOrNull()
