@@ -9,7 +9,6 @@ import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.LineBackgroundSpan
 import android.text.style.LineHeightSpan
-import android.util.TypedValue
 import com.github.kr328.clash.design.R
 import com.google.android.material.textfield.TextInputEditText
 import java.util.Locale
@@ -88,10 +87,11 @@ internal object IpTestSavedIpHint {
         val measurePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = textSizePx }
         val metrics = measurePaint.fontMetrics
         val extraHeight = ceil(metrics.descent - metrics.ascent).toInt() + (2f * density).toInt()
-        val textColor = context.obtainStyledAttributes(
-            intArrayOf(android.R.attr.textColorSecondary),
-        ).use { attributes ->
+        val attributes = context.obtainStyledAttributes(intArrayOf(android.R.attr.textColorSecondary))
+        val textColor = try {
             attributes.getColor(0, 0xFF666666.toInt())
+        } finally {
+            attributes.recycle()
         }
         val label = context.getString(R.string.iptest_saved_ip_exists)
         val horizontalPadding = 2f * density
@@ -165,7 +165,8 @@ internal object IpTestSavedIpHint {
     }
 
     private fun isTokenDelimiter(char: Char): Boolean =
-        char.isWhitespace() || char in charArrayOf(',', '，', '#', ';', '；', '、')
+        char.isWhitespace() || char == ',' || char == '，' || char == '#' ||
+            char == ';' || char == '；' || char == '、'
 
     private fun normalize(raw: String): String {
         var value = raw.trim()
