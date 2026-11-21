@@ -24,6 +24,7 @@ class CompletionRequest(
     val lines: List<String>,
     val line: Int,
     val column: Int,
+    val editVersion: Int,
     val documentWords: () -> List<String>,
 ) {
     val lineText: String get() = lines[line]
@@ -252,18 +253,19 @@ class ClashCompletion(private val schema: ClashSchema) {
         return out
     }
 
-    // the names are read again only when the text has changed since the last time they were asked for
-    private var namesOf: List<String>? = null
+    // Names are expensive (the document is scanned once), so build them only for a completion
+    // that actually needs names and reuse them until the editor text / window changes.
+    private var namesVersion = Int.MIN_VALUE
     private var namesValue: DocumentNames? = null
 
     private fun names(request: CompletionRequest): DocumentNames {
         val cached = namesValue
 
-        if (cached != null && namesOf === request.lines) return cached
+        if (cached != null && namesVersion == request.editVersion) return cached
 
         val fresh = DocumentNames(request.lines)
 
-        namesOf = request.lines
+        namesVersion = request.editVersion
         namesValue = fresh
 
         return fresh

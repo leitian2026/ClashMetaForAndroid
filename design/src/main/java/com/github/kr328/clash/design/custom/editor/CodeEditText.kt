@@ -1788,10 +1788,21 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         val offset = selectionStart
         val index = lineIndexAt(offset)
-        val lines = t.toString().split('\n').map { it.trimEnd('\r') }
-        val column = offset - lineStarts[index]
+        // Keep this view local to this completion pass: lineStarts changes with every edit / window install.
+        val starts = lineStarts
+        val lines = object : AbstractList<String>() {
+            override val size: Int get() = starts.size
 
-        val request = CompletionRequest(lines, index, column) { wordsOf(t, offset) }
+            override fun get(index: Int): String {
+                val start = starts[index]
+                val end = if (index + 1 < starts.size) starts[index + 1] - 1 else t.length
+
+                return t.subSequence(start, end).toString().trimEnd('\r')
+            }
+        }
+        val column = offset - starts[index]
+
+        val request = CompletionRequest(lines, index, column, editVersion) { wordsOf(t, offset) }
         val result = try {
             engine.complete(request)
         } catch (_: Exception) {
@@ -1810,7 +1821,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     // the words of the text, not the one being typed (up to 3000 different ones)
     private fun wordsOf(t: Editable, caret: Int): List<String> {
         val out = LinkedHashSet<String>()
-        val pattern = Regex("[A-Za-z0-9_.-]{3,}")
+        val pattern = COMPLETION_WORD_PATTERN
         var from = caret
 
         while (from > 0 && (t[from - 1].isLetterOrDigit() || t[from - 1] == '_' || t[from - 1] == '-' || t[from - 1] == '.')) from--
@@ -2058,5 +2069,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         // CUSTOM.md #53: the change of the distance between two fingers that makes one step of size
         const val PINCH_STEP = 1.08f
+
+        private val COMPLETION_WORD_PATTERN = Regex("[A-Za-z0-9_.-]{3,}")
     }
 }
