@@ -11,8 +11,10 @@ import com.github.kr328.clash.design.custom.SavedIpStore
 import android.widget.Toast
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /** CUSTOM.md #156 step 3/4: local saved-IP management and the hand-off to the existing IP test flow. */
@@ -21,6 +23,8 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     private var restoredState: Bundle? = null
     private var configuredIpSources: Map<String, Set<String>> = emptyMap()
     private var configReadJob: Job? = null
+    private var savedIpReadJob: Job? = null
+    private var savedIpLoaded = false
     private var speedJob: Job? = null
     private var removeSpeedListener: (() -> Unit)? = null
     private val speedStateListener: (Boolean) -> Unit = { busy ->
@@ -60,12 +64,29 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         page = design
         setContentDesign(design)
         design.setConfigIpSources(configuredIpSources)
+        loadSavedIpSnapshot()
+    }
+
+    // CUSTOM.md #156: show the page shell first; load and parse the saved list only while this page is started.
+    private fun loadSavedIpSnapshot() {
+        val targetPage = page ?: return
+        if (!activityStarted || savedIpLoaded || savedIpReadJob?.isActive == true) return
+        savedIpReadJob = launch(Dispatchers.IO) {
+            val (snapshot, version) = SavedIpStore.readVersioned(this@SavedIpActivity)
+            withContext(Dispatchers.Main) {
+                if (page === targetPage && !isFinishing && !isDestroyed) {
+                    targetPage.setInitialSnapshot(snapshot, version)
+                    savedIpLoaded = true
+                }
+            }
+        }
     }
 
     // CUSTOM.md #156: read the active profile's configured IP sources once on each page start.
     // Reuse the existing read-only conftest mode="config" path; failures and an unloaded config stay silent.
     override fun onStart() {
         super.onStart()
+        loadSavedIpSnapshot()
         removeSpeedListener?.invoke()
         removeSpeedListener = IpSpeedTestCoordinator.addListener(speedStateListener)
         page?.setSpeedState(clashRunning, IpSpeedTestCoordinator.isBusy)
@@ -95,6 +116,8 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         removeSpeedListener = null
         page?.cancelPendingSearchRender()
         page?.savePersistentUiState()
+        savedIpReadJob?.cancel()
+        savedIpReadJob = null
         configReadJob?.cancel()
         configReadJob = null
         super.onStop()
@@ -108,6 +131,8 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     override fun onDestroy() {
         removeSpeedListener?.invoke()
         removeSpeedListener = null
+        savedIpReadJob?.cancel()
+        savedIpReadJob = null
         speedJob?.cancel()
         page?.disposeUndo()
         super.onDestroy()

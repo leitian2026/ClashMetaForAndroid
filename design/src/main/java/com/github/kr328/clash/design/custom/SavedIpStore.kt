@@ -122,6 +122,7 @@ object SavedIpStore {
     @Volatile
     private var readError: String? = null
 
+    @Synchronized
     fun takeReadError(): String? {
         val error = readError
         readError = null
@@ -136,7 +137,16 @@ object SavedIpStore {
         ),
     )
 
+    // CUSTOM.md #156: cache the normalized immutable snapshot for the current in-process data version.
+    @Volatile
+    private var cachedSnapshot: SavedIpSnapshot? = null
+    private var cachedDataVersion = -1L
+
+    @Synchronized
     fun read(context: Context): SavedIpSnapshot {
+        val currentVersion = dataVersion
+        cachedSnapshot?.takeIf { cachedDataVersion == currentVersion }?.let { return it }
+
         val raw = try {
             context.applicationContext
                 .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -160,7 +170,17 @@ object SavedIpStore {
             }
         }
 
-        return normalize(decoded)
+        return normalize(decoded).also {
+            cachedSnapshot = it
+            cachedDataVersion = currentVersion
+        }
+    }
+
+    /** Read a snapshot and its version under the same lock for asynchronous page initialization. */
+    @Synchronized
+    fun readVersioned(context: Context): Pair<SavedIpSnapshot, Long> {
+        val snapshot = read(context)
+        return snapshot to dataVersion
     }
 
     /** Strictly serialize the current snapshot for inclusion in an encrypted backup. */
@@ -206,7 +226,10 @@ object SavedIpStore {
             .edit()
             .putString(KEY_DATA, value)
             .apply()
+        // apply() may not have reached disk yet: publish the exact normalized value before advancing the version.
         dataVersion++
+        cachedSnapshot = normalized
+        cachedDataVersion = dataVersion
     }
 
     /** Atomically read, transform, and persist a snapshot for an explicit list mutation. */

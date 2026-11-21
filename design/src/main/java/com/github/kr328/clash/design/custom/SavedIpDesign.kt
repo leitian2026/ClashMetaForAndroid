@@ -150,6 +150,7 @@ class SavedIpDesign(
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var renderedDataVersion = -1L
+    private var hasLoadedSnapshot = false
     private val searchHandler = Handler(Looper.getMainLooper())
     private var pendingSearchRender: Runnable? = null
     private var renderedQuery: String? = null
@@ -304,7 +305,7 @@ class SavedIpDesign(
         root.addView(operatorListFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         operatorList.setOnScrollChangeListener { _, _, _, _, _ -> updateStickyHeader() }
         // CUSTOM (CUSTOM.md #165): do not rebuild the table on popup window focus changes.
-        refresh()
+        // Initial storage loading is started by SavedIpActivity on Dispatchers.IO after this page is attached.
     }
 
     // CUSTOM.md #156 step 24: update the retest gate when an existing page is brought forward.
@@ -326,8 +327,9 @@ class SavedIpDesign(
 
     // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
     fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double) {
-        snapshotCache = SavedIpStore.read(context)
-        renderedDataVersion = SavedIpStore.version()
+        val (snapshot, version) = SavedIpStore.readVersioned(context)
+        snapshotCache = snapshot
+        renderedDataVersion = version
         val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
         defaultOrderCache.remove(operatorId)
         sortedEntriesCache.remove(operatorId)
@@ -380,6 +382,7 @@ class SavedIpDesign(
     }
 
     fun refreshIfDataChanged(): Boolean {
+        if (!hasLoadedSnapshot) return false
         if (SavedIpStore.version() != renderedDataVersion) {
             refresh()
             return true
@@ -391,9 +394,24 @@ class SavedIpDesign(
         return false
     }
 
+    /** Apply the background-loaded first snapshot, rejecting it if a write happened meanwhile. */
+    fun setInitialSnapshot(snapshot: SavedIpSnapshot, version: Long) {
+        if (version != SavedIpStore.version()) {
+            refresh()
+        } else {
+            refresh(snapshot, version)
+        }
+    }
+
     fun refresh() {
-        snapshotCache = SavedIpStore.read(context)
-        renderedDataVersion = SavedIpStore.version()
+        val (snapshot, version) = SavedIpStore.readVersioned(context)
+        refresh(snapshot, version)
+    }
+
+    private fun refresh(snapshot: SavedIpSnapshot, version: Long) {
+        snapshotCache = snapshot
+        renderedDataVersion = version
+        hasLoadedSnapshot = true
         defaultOrderCache.clear()
         sortedEntriesCache.clear()
         savedTableRenderers.clear()
