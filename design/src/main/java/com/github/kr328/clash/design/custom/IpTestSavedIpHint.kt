@@ -9,6 +9,7 @@ import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.LineBackgroundSpan
 import android.text.style.LineHeightSpan
+import android.text.style.UpdateLayout
 import com.github.kr328.clash.design.R
 import com.google.android.material.textfield.TextInputEditText
 import java.util.Locale
@@ -28,7 +29,13 @@ internal object IpTestSavedIpHint {
         private val textSizePx: Float,
         private val textColor: Int,
         private val horizontalPadding: Float,
-    ) : LineHeightSpan, LineBackgroundSpan {
+    ) : LineHeightSpan, LineBackgroundSpan, UpdateLayout {
+        private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = textSizePx
+            color = textColor
+            alpha = (Color.alpha(textColor) * 0.75f).toInt().coerceIn(0, 255)
+        }
+
         override fun chooseHeight(
             text: CharSequence,
             start: Int,
@@ -60,11 +67,6 @@ internal object IpTestSavedIpHint {
             // Draw once, in the extra space below the final visual line of this input row.
             if (end != endExclusive) return
 
-            val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.textSize = textSizePx
-                color = textColor
-                alpha = (Color.alpha(textColor) * 0.75f).toInt().coerceIn(0, 255)
-            }
             val metrics = hintPaint.fontMetrics
             val textHeight = metrics.descent - metrics.ascent
             val extraTop = bottom - extraHeight
