@@ -931,6 +931,23 @@ class SavedIpDesign(
         dismissFilterPopups()
         val options = renderer.savedTableFilterOptions(operator.ips, columnName)
         if (options.isEmpty()) return
+        // CUSTOM (CUSTOM.md #164): calculate once on popup open; the current column's own selection is excluded.
+        val query = searchInput.text?.toString()?.trim().orEmpty()
+        val counts = SavedIpFilterCounts.count(
+            entries = operator.ips,
+            columnName = columnName,
+            valueOf = renderer::savedTableFilterValue,
+            selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty(),
+            selectedOtherColumns = filterState.selectedTableFilters[operator.id].orEmpty(),
+            query = query,
+            matchesSearch = { entry, search ->
+                entry.address.contains(search, ignoreCase = true) ||
+                    SAVED_SEARCH_COLUMNS.any { column ->
+                        column in visibleSavedColumns &&
+                            renderer.savedTableFilterValue(entry, column).contains(search, ignoreCase = true)
+                    }
+            },
+        )
         val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
         val selected = operatorFilters.getOrPut(columnName) { LinkedHashSet() }
         var selectionChanged = false
@@ -938,7 +955,9 @@ class SavedIpDesign(
         val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
         options.forEach { value ->
             choices.addView(CheckBox(context).apply {
-                text = value; textSize = 14f; isChecked = value in selected; minHeight = dp(44)
+                tag = value
+                text = context.getString(R.string.saved_filter_count, value, counts[value] ?: 0)
+                textSize = 14f; isChecked = value in selected; minHeight = dp(44)
                 setOnCheckedChangeListener { _, checked ->
                     selectionChanged = true
                     if (checked) selected.add(value) else selected.remove(value)
