@@ -162,6 +162,10 @@ class SavedIpDesign(
     private var currentSort: SavedIpSort
         get() = filterState.sort
         set(value) { filterState.sort = value }
+    private data class OrderedEntriesCache(val version: Long, val entries: List<SavedIpEntry>)
+    private data class SortedEntriesCache(val version: Long, val sort: SavedIpSort, val entries: List<SavedIpEntry>)
+    private val defaultOrderCache = HashMap<String, OrderedEntriesCache>()
+    private val sortedEntriesCache = HashMap<String, SortedEntriesCache>()
     private var selectedOperatorId: String? = null
     private val selectedAddresses = LinkedHashSet<String>()
     private data class SavedIpUndo(val operatorId: String, val entries: List<SavedIpEntry>)
@@ -314,7 +318,38 @@ class SavedIpDesign(
         if (speedAvailable == available && speedBusy == busy) return
         speedAvailable = available
         speedBusy = busy
-        renderRows()
+        // CUSTOM #158: update currently bound buttons without rebuilding the table.
+        savedTableRenderers.values.forEach { (renderer, _) ->
+            renderer.setSavedSpeedAvailability(speedAvailable, speedBusy)
+        }
+    }
+
+    // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
+    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double) {
+        snapshotCache = SavedIpStore.read(context)
+        renderedDataVersion = SavedIpStore.version()
+        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        defaultOrderCache.remove(operatorId)
+        sortedEntriesCache.remove(operatorId)
+        val renderer = savedTableRenderers[operatorId]?.first ?: return
+        renderer.updateSavedSpeed(address, direct, speed, speedAvailable, speedBusy)
+        val updatedColumn = if (direct) "SPEED" else "SPEED_NODE"
+        if ((operatorId == expandedOperatorId || operatorId == selectedOperatorId) &&
+            currentSort.columnName == updatedColumn
+        ) {
+            val query = searchInput.text?.toString()?.trim().orEmpty()
+            val visible = visibleEntries(operator, applySort = true)
+            val ordered = if (query.isEmpty()) visible else {
+                visible.filter { entry ->
+                    entry.address.contains(query, ignoreCase = true) ||
+                        SAVED_SEARCH_COLUMNS.any { column ->
+                            column in visibleSavedColumns &&
+                                renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
+                        }
+                }
+            }
+            renderer.moveSavedRow(address, ordered)
+        }
     }
 
     fun saveState(outState: Bundle) {
@@ -359,6 +394,8 @@ class SavedIpDesign(
     fun refresh() {
         snapshotCache = SavedIpStore.read(context)
         renderedDataVersion = SavedIpStore.version()
+        defaultOrderCache.clear()
+        sortedEntriesCache.clear()
         savedTableRenderers.clear()
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
@@ -433,9 +470,10 @@ class SavedIpDesign(
         operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { operatorContent.removeView(it) }
 
         val query = searchInput.text?.toString()?.trim().orEmpty()
+        val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
         // Keep status filters, column filters and search active during multi-selection.
-        // Selection changes only the row markers; it must not broaden the visible IP list.
-        val filtered = visibleEntries(operator)
+        // Calculate speed sorting only for the explicitly expanded operator group.
+        val filtered = visibleEntries(operator, applySort = operator.id == expandedOperatorId || selectedOperatorId == operator.id)
         val entries = if (query.isEmpty()) filtered else {
             val renderer = savedTableFor(operator).first
             filtered.filter { entry ->
@@ -449,7 +487,6 @@ class SavedIpDesign(
         val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
             filterState.selectedTableFilters.containsKey(operator.id)
         if (entries.isNotEmpty() || (operator.ips.isNotEmpty() && hasActiveFilters)) {
-            val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
             val section = LinearLayout(context).apply {
                 tag = operator.id
                 orientation = LinearLayout.VERTICAL
@@ -648,16 +685,17 @@ class SavedIpDesign(
         val selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty()
         // CUSTOM.md #166: calculate from the complete operator list, before UI filters are applied.
         val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
-        val speedSortLabel = when (currentSort) {
-            SavedIpSort.DEFAULT -> ""
-            SavedIpSort.SPEED_ASCENDING -> "按最快"
-            SavedIpSort.SPEED_DESCENDING -> "按最慢"
+        val speedSortLabel = when {
+            currentSort == SavedIpSort.DEFAULT -> ""
+            currentSort.isFastest -> "按最快"
+            else -> "按最慢"
         }
         val onHeaderClick: (Int, View) -> Unit = { columnIndex, anchor ->
-            if (columnIndex == renderer.savedSpeedColumnIndex()) showSpeedSortMenu(anchor)
+            val columnName = renderer.savedTableColumnName(columnIndex)
+            if (columnName == "SPEED" || columnName == "SPEED_NODE") showSpeedSortMenu(anchor, columnName)
             else showTableColumnPopup(anchor, operator, columnIndex)
         }
-        fun makeTable(rows: List<SavedIpEntry>): View = renderer.savedTableView(
+        fun makeTable(rows: List<SavedIpEntry>, tableRenderer: IpTestView): View = tableRenderer.savedTableView(
             entries = rows,
             configIpSources = configuredIpSources,
             widths = widths,
@@ -699,6 +737,7 @@ class SavedIpDesign(
             onLongPress = { address -> toggleSelection(operator.id, address) },
             selectedFilters = selectedFilters,
             speedSortLabel = speedSortLabel,
+            speedSortColumnName = currentSort.columnName,
             onHeaderClick = onHeaderClick,
             recommendedIps = recommendedIps,
             speedAvailable = speedAvailable,
@@ -706,12 +745,13 @@ class SavedIpDesign(
             onSpeedTest = { address, direct -> onSpeedTest(operator.id, address, direct) },
         )
 
-        val table = makeTable(entries).apply { tag = SAVED_TABLE_TAG }
+        val table = makeTable(entries, renderer).apply { tag = SAVED_TABLE_TAG }
         stickyHeaderTables[operator.id] = table
         container.addView(table, fullWidth())
 
-        // One header-only twin per rendered operator. It uses the same renderer, widths and click callbacks.
-        val stickyCopy = makeTable(emptyList())
+        // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
+        val stickyRenderer = IpTestView(context, direct = false, target = false, savedTable = true, visibleSavedColumns = visibleSavedColumns)
+        val stickyCopy = makeTable(emptyList(), stickyRenderer)
         stickyHeaderCopies[operator.id] = stickyCopy
         val sourceScroll = findHorizontalScroll(table)
         val copyScroll = findHorizontalScroll(stickyCopy)
@@ -809,22 +849,43 @@ class SavedIpDesign(
                     filters.keys.retainAll(next)
                     if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
                 }
-                if ("SPEED" !in next) currentSort = SavedIpSort.DEFAULT
+                if (currentSort.columnName != null && currentSort.columnName !in next) {
+                    currentSort = SavedIpSort.DEFAULT
+                    sortedEntriesCache.clear()
+                }
                 savedTableRenderers.clear()
                 refresh()
             }
             .show()
     }
 
-    private fun visibleEntries(operator: SavedIpOperator): List<SavedIpEntry> {
+    private fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry> {
+        // Collapsed groups need only their filtered count; do not sort their rows.
+        val ordered = if (!applySort) {
+            operator.ips
+        } else {
+            val defaultOrdered = defaultOrderCache[operator.id]
+                ?.takeIf { it.version == renderedDataVersion }
+                ?.entries
+                ?: SavedIpStore.sortEntries(operator.ips).also {
+                    defaultOrderCache[operator.id] = OrderedEntriesCache(renderedDataVersion, it)
+                }
+            // Speed sorting is cached by data version and option; filters only retain items from this order.
+            val cached = sortedEntriesCache[operator.id]
+            if (cached != null && cached.version == renderedDataVersion && cached.sort == currentSort) {
+                cached.entries
+            } else {
+                val sorted = sortSavedIpEntries(defaultOrdered, currentSort)
+                sortedEntriesCache[operator.id] = SortedEntriesCache(renderedDataVersion, currentSort, sorted)
+                sorted
+            }
+        }
         val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
-        val filtered = operator.ips.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
+        val filtered = ordered.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
         val tableFiltered = filterSavedIpEntriesByColumns(operator, filtered)
-        val sorted = sortSavedIpEntries(SavedIpStore.sortEntries(tableFiltered), currentSort)
-        // CUSTOM (CUSTOM.md #156): pin recommended and configured IPs above the remaining rows,
-        // while preserving the active sort order within both groups.
+        // CUSTOM (CUSTOM.md #156): pin recommended and configured IPs above the remaining rows.
         val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
-        return sorted.sortedBy { entry ->
+        return tableFiltered.sortedBy { entry ->
             entry.address !in recommendedIps && entry.address !in configuredIpSources
         }
     }
@@ -921,22 +982,25 @@ class SavedIpDesign(
         } }
     }
 
-    // CUSTOM (CUSTOM.md #164): only speed is sortable; selecting the active direction clears it.
-    private fun showSpeedSortMenu(anchor: View) {
+    // CUSTOM (CUSTOM.md #159/#164): each speed column has its own fastest / slowest menu.
+    private fun showSpeedSortMenu(anchor: View, columnName: String) {
         if (filterState.searchExpanded) collapseSearch()
         dismissFilterPopups()
         PopupMenu(context, anchor).apply {
             menu.add(0, 1, 0, "按最快").isCheckable = true
             menu.add(0, 2, 1, "按最慢").isCheckable = true
             menu.setGroupCheckable(0, true, true)
+            val fastest = SavedIpSort.forColumn(columnName, true)
+            val slowest = SavedIpSort.forColumn(columnName, false)
             when (currentSort) {
-                SavedIpSort.SPEED_ASCENDING -> menu.findItem(1)?.isChecked = true
-                SavedIpSort.SPEED_DESCENDING -> menu.findItem(2)?.isChecked = true
-                SavedIpSort.DEFAULT -> Unit
+                fastest -> menu.findItem(1)?.isChecked = true
+                slowest -> menu.findItem(2)?.isChecked = true
+                else -> Unit
             }
             setOnMenuItemClickListener { item ->
-                val chosen = if (item.itemId == 1) SavedIpSort.SPEED_ASCENDING else SavedIpSort.SPEED_DESCENDING
+                val chosen = if (item.itemId == 1) fastest else slowest
                 currentSort = if (currentSort == chosen) SavedIpSort.DEFAULT else chosen
+                sortedEntriesCache.clear()
                 renderRows()
                 true
             }
@@ -1041,7 +1105,7 @@ class SavedIpDesign(
         val operator = selectedOperatorId?.let { id ->
             snapshotCache.operators.firstOrNull { it.id == id }
         }
-        val visible = operator?.let { visibleEntries(it) }.orEmpty()
+        val visible = operator?.let { visibleEntries(it, applySort = true) }.orEmpty()
         selectUnreachableButton.isEnabled = visible.any { it.status == SavedIpStatus.UNREACHABLE }
         selectUnreachableButton.alpha = if (selectUnreachableButton.isEnabled) 1f else 0.35f
         selectOldestButton.isEnabled = visible.isNotEmpty()
@@ -1053,7 +1117,7 @@ class SavedIpDesign(
     private fun selectUnreachable() {
         val operatorId = selectedOperatorId ?: return
         val operator = SavedIpStore.read(context).operators.firstOrNull { it.id == operatorId } ?: return
-        val unreachable = visibleEntries(operator).filter { it.status == SavedIpStatus.UNREACHABLE }
+        val unreachable = visibleEntries(operator, applySort = true).filter { it.status == SavedIpStatus.UNREACHABLE }
         if (unreachable.isEmpty()) return
         val selected = unreachable.sortedBy { it.lastTestedAt }.take(20)
         selectedAddresses.clear()
@@ -1068,7 +1132,7 @@ class SavedIpDesign(
     private fun selectOldest20() {
         val operatorId = selectedOperatorId ?: return
         val operator = SavedIpStore.read(context).operators.firstOrNull { it.id == operatorId } ?: return
-        val selected = visibleEntries(operator).sortedBy { it.lastTestedAt }.take(20)
+        val selected = visibleEntries(operator, applySort = true).sortedBy { it.lastTestedAt }.take(20)
         selectedAddresses.clear()
         selectedAddresses.addAll(selected.map { it.address })
         if (selectedAddresses.isEmpty()) selectedOperatorId = null

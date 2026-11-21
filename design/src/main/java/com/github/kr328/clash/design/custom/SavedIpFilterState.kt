@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // CUSTOM (CUSTOM.md #164): status and column filters are isolated per saved-IP operator.
-// CUSTOM (CUSTOM.md #164): persist independent filters by operator ID and page-wide speed order.
+// CUSTOM (CUSTOM.md #159/#164): persist independent filters by operator ID and selected speed column / direction.
 internal class SavedIpFilterState private constructor(
     val selectedStatuses: LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>,
     val selectedTableFilters: LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>,
@@ -58,7 +58,7 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
         private val SAVED_TABLE_COLUMNS = setOf(
             "COLO", "ASN", "GEO", "EXIT", "PORTS", "LOSS", "MIN", "MAX", "AVG",
-            "JITTER", "EXIT_IP", "TCOLO", "TARGET", "PHASE", "SPEED",
+            "JITTER", "EXIT_IP", "TCOLO", "TARGET", "PHASE", "SPEED", "SPEED_NODE",
         )
 
         fun restorePersistent(raw: String?): SavedIpFilterState {

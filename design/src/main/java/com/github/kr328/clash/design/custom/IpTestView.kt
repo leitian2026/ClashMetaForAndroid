@@ -69,6 +69,12 @@ class IpTestView(
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
+    private data class SavedSpeedButtons(var direct: MaterialButton? = null, var node: MaterialButton? = null)
+    private val savedSpeedButtons = HashMap<String, SavedSpeedButtons>()
+    private val savedRowViews = LinkedHashMap<String, Pair<View, View>>()
+    private var savedRowsLeft: LinearLayout? = null
+    private var savedRowsGrid: LinearLayout? = null
+
     private val savedTableKeys = listOf(
         Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
         Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED, Key.SPEED_NODE,
@@ -1157,7 +1163,7 @@ class IpTestView(
     private fun isSavedTableFilterable(key: Key): Boolean = key in setOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.EXIT_IP, Key.TCOLO, Key.TARGET)
 
     // CUSTOM (CUSTOM.md #164): expose the speed header index for its sort-only click handler.
-    internal fun savedSpeedColumnIndex(): Int = keys.indexOfFirst { it == Key.SPEED || it == Key.SPEED_NODE }
+    internal fun isSavedSpeedColumn(index: Int): Boolean = keys.getOrNull(index) == Key.SPEED || keys.getOrNull(index) == Key.SPEED_NODE
 
     internal fun savedTableColumnOptions(): List<Pair<String, String>> =
         savedTableKeys.map { it.name to title(it) }
@@ -1208,7 +1214,9 @@ class IpTestView(
             text = summaryOverride ?: savedIpFilterSummary(selected)
             textSize = 12f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
             ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(3))
-            visibility = if (summaryOverride.isNullOrEmpty() && selected.isEmpty()) View.GONE else View.VISIBLE
+            minHeight = dp(18)
+            // Keep a second-line slot in every header so all column titles share one baseline.
+            visibility = if (summaryOverride.isNullOrEmpty() && selected.isEmpty()) View.INVISIBLE else View.VISIBLE
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1236,6 +1244,7 @@ class IpTestView(
         onLongPress: (String) -> Boolean,
         selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
+        speedSortColumnName: String? = null,
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
         configIpSources: Map<String, Set<String>> = emptyMap(),
         recommendedIps: Set<String> = emptySet(),
@@ -1249,16 +1258,19 @@ class IpTestView(
         val ipColumnWidth = widths[0] + checkboxWidth
         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        savedSpeedButtons.clear()
+        savedRowViews.clear()
         val leftHeader = headCell(context.getString(R.string.iptest_col_ip), ipColumnWidth)
         val headers = keys.mapIndexed { index, key ->
+            val isSpeedColumn = key == Key.SPEED || key == Key.SPEED_NODE
             savedHeaderCell(
                 title(key),
                 widths[index + 1],
                 selectedFilters[key.name].orEmpty(),
-                if (index == savedSpeedColumnIndex()) speedSortLabel else null,
+                if (isSpeedColumn && key.name == speedSortColumnName) speedSortLabel else null,
             ) { anchor ->
-                if (isSavedTableFilterable(key) || index == savedSpeedColumnIndex()) onHeaderClick(index, anchor)
-            }.apply { isEnabled = isSavedTableFilterable(key) || index == savedSpeedColumnIndex() }
+                if (isSavedTableFilterable(key) || isSpeedColumn) onHeaderClick(index, anchor)
+            }.apply { isEnabled = isSavedTableFilterable(key) || isSpeedColumn }
         }
         val headerHeight = maxOf(
             headH,
@@ -1429,8 +1441,10 @@ class IpTestView(
                 }
                 val missingExit = key == Key.EXIT && row.country.isEmpty()
                 when {
-                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct), entry.speedDirect, speedAvailable, speedBusy) { onSpeedTest(entry.address, true) }
-                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node), entry.speedNode, speedAvailable, speedBusy) { onSpeedTest(entry.address, false) }
+                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct), entry.speedDirect, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, true) }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }
+                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node), entry.speedNode, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, false) }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
                     mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
                     mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
@@ -1448,7 +1462,7 @@ class IpTestView(
                 rowH,
                 heightOf(ipView, widths[0]),
                 cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
-            ) + dp(4)
+            ) + dp(8)
             left.addView(leftRow, lp(ipColumnWidth, height))
             val line = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1456,6 +1470,7 @@ class IpTestView(
             }
             cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
             grid.addView(line, lp(gridWidth, height))
+            savedRowViews[entry.address] = leftRow to line
 
             // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
             // click handlers so a tap cannot open a port / detail dialog or copy the IP.
@@ -1493,6 +1508,8 @@ class IpTestView(
             attachLongPress(line)
         }
 
+        savedRowsLeft = left
+        savedRowsGrid = grid
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = true
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
@@ -1515,6 +1532,37 @@ class IpTestView(
             addView(left, LinearLayout.LayoutParams(ipColumnWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
+    }
+
+    internal fun setSavedSpeedAvailability(available: Boolean, busy: Boolean) {
+        savedSpeedButtons.values.forEach { buttons ->
+            buttons.direct?.isEnabled = available && !busy
+            buttons.node?.isEnabled = available && !busy
+        }
+    }
+
+    internal fun updateSavedSpeed(address: String, direct: Boolean, speed: Double, available: Boolean, busy: Boolean) {
+        val button = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
+        val label = context.getString(if (direct) R.string.saved_ip_speed_direct else R.string.saved_ip_speed_node)
+        button.text = if (speed > 0.0) {
+            label + "\n" + context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", speed))
+        } else label
+        button.isEnabled = available && !busy
+    }
+
+    internal fun moveSavedRow(address: String, orderedEntries: List<SavedIpEntry>) {
+        val left = savedRowsLeft ?: return
+        val grid = savedRowsGrid ?: return
+        val (leftRow, gridRow) = savedRowViews[address] ?: return
+        val targetRowIndex = orderedEntries.indexOfFirst { it.address == address }
+        if (targetRowIndex < 0) return
+        val currentRowIndex = left.indexOfChild(leftRow) - 1
+        if (currentRowIndex == targetRowIndex) return
+        left.removeView(leftRow)
+        grid.removeView(gridRow)
+        val targetChildIndex = targetRowIndex + 1 // index zero is the fixed header
+        left.addView(leftRow, targetChildIndex.coerceAtMost(left.childCount))
+        grid.addView(gridRow, targetChildIndex.coerceAtMost(grid.childCount))
     }
 
     private fun heightOf(v: View, w: Int): Int {
@@ -1841,7 +1889,7 @@ class IpTestView(
 
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
-    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, onClick: () -> Unit): View {
+    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, rowBackground: Int, onClick: () -> Unit): MaterialButton {
         val value = if (speed > 0.0) {
             label + "\n" + context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", speed))
         } else label
@@ -1849,13 +1897,16 @@ class IpTestView(
             text = value
             textSize = 12f
             isAllCaps = false
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             maxLines = 2
             minWidth = 0
             minHeight = dp(38)
             insetTop = 0
             insetBottom = 0
-            setPadding(dp(3), 0, dp(3), 0)
+            setPadding(dp(3), dp(5), dp(3), dp(5))
+            backgroundTintList = ColorStateList.valueOf(rowBackground)
+            strokeColor = ColorStateList.valueOf(colorMuted)
+            strokeWidth = dp(1)
             isEnabled = available && !busy
             setOnClickListener { if (isEnabled) onClick() }
         }

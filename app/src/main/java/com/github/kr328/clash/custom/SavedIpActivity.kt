@@ -178,7 +178,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
                     return@launch
                 }
                 SavedIpStore.updateSpeed(this@SavedIpActivity, operatorId, address, direct, row.speed)
-                page?.refreshIfDataChanged()
+                page?.updateSpeedResult(operatorId, address, direct, row.speed)
                 if (row.speedErr.isNotEmpty()) {
                     Toast.makeText(this@SavedIpActivity, getString(R.string.saved_ip_speed_failed, row.speedErr), Toast.LENGTH_LONG).show()
                 } else {
