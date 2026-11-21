@@ -61,6 +61,8 @@ class ClashManager(private val context: Context) : IClashManager,
         } finally {
             forwarder.cancel()
             channel.cancel()
+            // Match setLogObserver(): release the native callback after its channel is closed.
+            Clash.forceGc()
         }
     }
 
