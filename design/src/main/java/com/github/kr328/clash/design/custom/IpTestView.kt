@@ -70,6 +70,18 @@ class IpTestView(
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
     private data class SavedSpeedButtons(var direct: MaterialButton? = null, var node: MaterialButton? = null)
+    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton)
+    private val savedSpeedButtonHeight by lazy {
+        val sample = "经节点\n88.8"
+        val paint = TextView(context).apply { textSize = 14f }.paint
+        val textHeight = StaticLayout.Builder.obtain(sample, 0, sample.length, paint, dp(80))
+            .setIncludePad(true)
+            .setLineSpacing(dp(2).toFloat(), 1f)
+            .build()
+            .height
+        // Include the button's vertical padding and a small safety allowance for font rendering.
+        textHeight + dp(8)
+    }
     private val savedSpeedButtons = HashMap<String, SavedSpeedButtons>()
     private val savedRowViews = LinkedHashMap<String, Pair<View, View>>()
     private var savedRowsLeft: LinearLayout? = null
@@ -1448,9 +1460,9 @@ class IpTestView(
                 val missingExit = key == Key.EXIT && row.country.isEmpty()
                 when {
                     key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, true) }
-                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it.button }.container
                     key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, false) }
-                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it.button }.container
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
                     mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
                     mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
@@ -1901,18 +1913,19 @@ class IpTestView(
 
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
-    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, rowBackground: Int, onClick: () -> Unit): MaterialButton {
+    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, rowBackground: Int, onClick: () -> Unit): SavedSpeedCell {
         val value = "$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " "
-        return MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        val buttonHeight = savedSpeedButtonHeight
+        val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = value
-            textSize = 12f
+            textSize = 14f
+            setLineSpacing(dp(2).toFloat(), 1f)
             isAllCaps = false
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.CENTER
             maxLines = 2
             minWidth = 0
-            minHeight = dp(42)
-            maxHeight = dp(42)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42))
+            minHeight = buttonHeight
+            maxHeight = buttonHeight
             insetTop = 0
             insetBottom = 0
             setPadding(dp(3), dp(2), dp(3), dp(2))
@@ -1922,8 +1935,20 @@ class IpTestView(
             isEnabled = available && !busy
             setOnClickListener { if (isEnabled) onClick() }
         }
+        val container = FrameLayout(context).apply {
+            setBackgroundColor(rowBackground)
+            addView(
+                button,
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, buttonHeight, Gravity.CENTER).apply {
+                    leftMargin = dp(4)
+                    rightMargin = dp(4)
+                    topMargin = dp(2)
+                    bottomMargin = dp(2)
+                },
+            )
+        }
+        return SavedSpeedCell(container, button)
     }
-
     private fun speedText(r: IpTestRow): String {
         return when {
             speedIp == r.ip -> "…"
