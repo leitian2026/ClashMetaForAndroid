@@ -66,6 +66,9 @@ class SavedIpDesign(
     private val onBack: () -> Unit,
     private var canRetest: Boolean,
     private val onRetest: (String, List<String>) -> Unit,
+    private val onSpeedTest: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    private var speedAvailable: Boolean = false,
+    private var speedBusy: Boolean = false,
     savedState: Bundle? = null,
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
@@ -168,7 +171,8 @@ class SavedIpDesign(
     private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
     private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
-        ?.filter { it in allSavedColumnNames }?.toSet() ?: allSavedColumnNames
+        ?.let { stored -> (stored + "SPEED_NODE").filter { it in allSavedColumnNames }.toSet() }
+        ?: allSavedColumnNames
     private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
     // Must be initialized before init{} calls refresh() -> renderRows().
     private val operatorSections = HashMap<String, LinearLayout>()
@@ -303,6 +307,14 @@ class SavedIpDesign(
     fun setCanRetest(value: Boolean) {
         canRetest = value
         updateSelectionActions()
+    }
+
+    // CUSTOM.md #158: update saved download buttons from the process-wide event source.
+    fun setSpeedState(available: Boolean, busy: Boolean) {
+        if (speedAvailable == available && speedBusy == busy) return
+        speedAvailable = available
+        speedBusy = busy
+        renderRows()
     }
 
     fun saveState(outState: Bundle) {
@@ -689,6 +701,9 @@ class SavedIpDesign(
             speedSortLabel = speedSortLabel,
             onHeaderClick = onHeaderClick,
             recommendedIps = recommendedIps,
+            speedAvailable = speedAvailable,
+            speedBusy = speedBusy,
+            onSpeedTest = { address, direct -> onSpeedTest(operator.id, address, direct) },
         )
 
         val table = makeTable(entries).apply { tag = SAVED_TABLE_TAG }

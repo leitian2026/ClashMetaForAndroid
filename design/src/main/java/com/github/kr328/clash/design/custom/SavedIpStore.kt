@@ -34,6 +34,9 @@ data class SavedIpEntry(
     // CUSTOM.md #158: retain the latest average latency and download speed; defaults read older snapshots.
     val avg: Int = 0,
     val speed: Double = 0.0,
+    // CUSTOM.md #158: separate explicit download tests; negative defaults identify legacy JSON.
+    val speedDirect: Double = -1.0,
+    val speedNode: Double = -1.0,
     // CUSTOM.md #77: retain optional direct extension diagnostics in saved batches; defaults read old snapshots.
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),
@@ -295,7 +298,12 @@ object SavedIpStore {
                     countryCode = row.geo.trim().ifBlank { previousInBatch.countryCode },
                     exitCountryCode = row.country.trim().ifBlank { previousInBatch.exitCountryCode },
                     avg = row.avg,
-                    speed = row.speed,
+                    speed = maxOf(
+                        if (testDirect) row.speed else previousInBatch.speedDirect.coerceAtLeast(0.0),
+                        if (!testDirect) row.speed else previousInBatch.speedNode.coerceAtLeast(0.0),
+                    ),
+                    speedDirect = if (testDirect) row.speed else previousInBatch.speedDirect.coerceAtLeast(0.0),
+                    speedNode = if (!testDirect) row.speed else previousInBatch.speedNode.coerceAtLeast(0.0),
                     ws = row.ws,
                     h3 = row.h3,
                     mtu = row.mtu,
@@ -316,7 +324,12 @@ object SavedIpStore {
                 countryCode = row.geo.trim().ifBlank { previous?.countryCode.orEmpty() },
                 exitCountryCode = row.country.trim().ifBlank { previous?.exitCountryCode.orEmpty() },
                 avg = row.avg,
-                speed = row.speed,
+                speed = maxOf(
+                    if (testDirect) row.speed else (previous?.speedDirect ?: 0.0).coerceAtLeast(0.0),
+                    if (!testDirect) row.speed else (previous?.speedNode ?: 0.0).coerceAtLeast(0.0),
+                ),
+                speedDirect = if (testDirect) row.speed else (previous?.speedDirect ?: 0.0).coerceAtLeast(0.0),
+                speedNode = if (!testDirect) row.speed else (previous?.speedNode ?: 0.0).coerceAtLeast(0.0),
                 ws = row.ws,
                 h3 = row.h3,
                 mtu = row.mtu,
@@ -398,11 +411,45 @@ object SavedIpStore {
 
     private fun normalizeOperator(operator: SavedIpOperator, name: String): SavedIpOperator {
         val seen = HashSet<String>()
-        val ips = sortEntries(operator.ips.filter { entry ->
+        val ips = operator.ips.filter { entry ->
             entry.address.isNotBlank() && seen.add(entry.address)
-        })
+        }.map { entry ->
+            // CUSTOM.md #158: migrate the legacy speed only to the mode recorded by testDirect.
+            val legacy = entry.speedDirect < 0.0 && entry.speedNode < 0.0
+            val direct = when {
+                legacy && entry.testDirect -> entry.speed.coerceAtLeast(0.0)
+                entry.speedDirect < 0.0 -> 0.0
+                else -> entry.speedDirect
+            }
+            val node = when {
+                legacy && !entry.testDirect -> entry.speed.coerceAtLeast(0.0)
+                entry.speedNode < 0.0 -> 0.0
+                else -> entry.speedNode
+            }
+            entry.copy(speed = maxOf(direct, node), speedDirect = direct, speedNode = node)
+        }
 
-        return operator.copy(name = name, ips = ips)
+        return operator.copy(name = name, ips = sortEntries(ips))
+    }
+
+    /** Update only one saved download result after an explicit user action. */
+    @Synchronized
+    fun updateSpeed(context: Context, operatorId: String, address: String, direct: Boolean, speed: Double) {
+        val snapshot = readForUpdate(context)
+        var changed = false
+        val operators = snapshot.operators.map { operator ->
+            if (operator.id != operatorId) operator else operator.copy(
+                ips = operator.ips.map { entry ->
+                    if (entry.address != address) entry else {
+                        changed = true
+                        val directSpeed = if (direct) speed.coerceAtLeast(0.0) else entry.speedDirect.coerceAtLeast(0.0)
+                        val nodeSpeed = if (direct) entry.speedNode.coerceAtLeast(0.0) else speed.coerceAtLeast(0.0)
+                        entry.copy(speed = maxOf(directSpeed, nodeSpeed), speedDirect = directSpeed, speedNode = nodeSpeed)
+                    }
+                },
+            )
+        }
+        if (changed) write(context, snapshot.copy(operators = operators))
     }
 
     /** Shared stable ordering for the full list and every filtered view. */

@@ -3,6 +3,7 @@ package com.github.kr328.clash.custom
 import android.content.Intent
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.custom.IpSpeedTestCoordinator
 import com.github.kr328.clash.core.model.ConfigCheckReport
 import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.EffectiveConfig
@@ -66,12 +67,13 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         // CUSTOM.md #52: a tap on "下载测速" / "取消" of a row of the IP test
         design.onSpeedTest = { ip ->
-            if (job?.isActive != true && speedJob?.isActive != true) {
+            if (job?.isActive != true && speedJob?.isActive != true && IpSpeedTestCoordinator.tryAcquire()) {
                 speedJob = launch {
                     design.setSaveBatchBusy(true)
                     try {
                         runSpeed(design, ip)
                     } finally {
+                        IpSpeedTestCoordinator.setBusy(false)
                         design.setSaveBatchBusy(false)
                     }
                 }
@@ -86,7 +88,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         }
         // CUSTOM.md #156 step 3/4: list management is always available; only its re-test action is gated.
         design.onOpenSavedIps = {
-            val busy = job?.isActive == true || speedJob?.isActive == true || ipTesting || checkTesting
+            val busy = job?.isActive == true || speedJob?.isActive == true || ipTesting || checkTesting || IpSpeedTestCoordinator.isBusy
             // CUSTOM.md #156 step 24: bring the existing saved-IP page forward instead of stacking another copy.
             startActivity(
                 Intent(this, SavedIpActivity::class.java)
@@ -135,6 +137,8 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                                 Unit
                             } else if (job?.isActive == true) {
                                 cancelRunning(design)
+                            } else if (!IpSpeedTestCoordinator.tryAcquire()) {
+                                Unit
                             } else {
                                 val preset = pendingSavedIpPreset
                                 val preferredOperatorId = pendingSavedIpOperatorId
@@ -145,6 +149,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                                     try {
                                         runIpTest(design, preset, preferredOperatorId)
                                     } finally {
+                                        IpSpeedTestCoordinator.setBusy(false)
                                         design.setSaveBatchBusy(false)
                                     }
                                 }
@@ -212,6 +217,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
         if (wasIp) {
             ipTesting = false
+            IpSpeedTestCoordinator.setBusy(false)
 
             try {
                 withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
@@ -401,6 +407,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             begun = true
             design.setIpRunning(true)
             ipTesting = true
+            IpSpeedTestCoordinator.setBusy(true)
             design.ipProgress(targets.size, 0)
 
             design.ipLog(
@@ -572,6 +579,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             if (begun) design.ipLog(failure) else design.showText(failure)
         } finally {
             ipTesting = false
+            IpSpeedTestCoordinator.setBusy(false)
 
             withContext(NonCancellable) {
                 design.setIpRunning(false)
@@ -654,15 +662,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         design.ipLog(getString(R.string.iptest_log_speed_start, ip))
 
         try {
-            val request = JSONObject()
-                .put("kind", "ip")
-                .put("mode", "download")
-                .put("node", if (run.direct) "" else run.node)
-                .put("ips", ip)
-                .put("url", run.url)
-                .toString()
-
-            val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
+            val report = IpDownloadSpeed.run(ip, if (run.direct) "" else run.node, run.url) { request ->
+                withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }
+            }
             val row = report.rows.firstOrNull()
 
             when {

@@ -537,4 +537,10 @@
     <string name="saved_ip_retest_continue">继续</string>
     <string name="saved_ip_show_columns">显示哪些列…</string>
     <string name="saved_ip_show_columns_title">显示哪些列</string>
+    <string name="saved_ip_speed_direct">直连测速</string>
+    <string name="saved_ip_speed_node">经节点测速</string>
+    <string name="saved_ip_speed_not_running">请先启动 Clash，再进行下载测速。</string>
+    <string name="saved_ip_speed_need_node">请先到测试 IP 页面选择一个有效节点。</string>
+    <string name="saved_ip_speed_failed">下载测速失败：%1$s</string>
+    <string name="saved_ip_speed_done">%1$s完成：%2$s MB/s</string>
 </resources>

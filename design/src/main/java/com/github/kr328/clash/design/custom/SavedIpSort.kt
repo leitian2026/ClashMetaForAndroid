@@ -21,11 +21,11 @@ internal fun sortSavedIpEntries(
 
     return defaultOrderedEntries.withIndex().sortedWith { left, right ->
         val leftValue = when (sort) {
-            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> left.value.speed
+            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> maxOf(left.value.speedDirect, left.value.speedNode)
             SavedIpSort.DEFAULT -> 0.0
         }
         val rightValue = when (sort) {
-            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> right.value.speed
+            SavedIpSort.SPEED_ASCENDING, SavedIpSort.SPEED_DESCENDING -> maxOf(right.value.speedDirect, right.value.speedNode)
             SavedIpSort.DEFAULT -> 0.0
         }
         val leftMissing = leftValue <= 0.0

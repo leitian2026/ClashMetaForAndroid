@@ -67,11 +67,11 @@ class IpTestView(
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, TARGET, TCOLO }
+    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
     private val savedTableKeys = listOf(
         Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
-        Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED,
+        Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED, Key.SPEED_NODE,
     )
     private val liveKeys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
@@ -1157,7 +1157,7 @@ class IpTestView(
     private fun isSavedTableFilterable(key: Key): Boolean = key in setOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.EXIT_IP, Key.TCOLO, Key.TARGET)
 
     // CUSTOM (CUSTOM.md #164): expose the speed header index for its sort-only click handler.
-    internal fun savedSpeedColumnIndex(): Int = keys.indexOf(Key.SPEED)
+    internal fun savedSpeedColumnIndex(): Int = keys.indexOfFirst { it == Key.SPEED || it == Key.SPEED_NODE }
 
     internal fun savedTableColumnOptions(): List<Pair<String, String>> =
         savedTableKeys.map { it.name to title(it) }
@@ -1239,6 +1239,9 @@ class IpTestView(
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
         configIpSources: Map<String, Set<String>> = emptyMap(),
         recommendedIps: Set<String> = emptySet(),
+        speedAvailable: Boolean = true,
+        speedBusy: Boolean = false,
+        onSpeedTest: (String, Boolean) -> Unit = { _, _ -> },
     ): View {
         val gridWidth = widths.drop(1).sum()
         val selectionMode = isSelectionMode()
@@ -1252,10 +1255,10 @@ class IpTestView(
                 title(key),
                 widths[index + 1],
                 selectedFilters[key.name].orEmpty(),
-                if (key == Key.SPEED) speedSortLabel else null,
+                if (index == savedSpeedColumnIndex()) speedSortLabel else null,
             ) { anchor ->
-                if (isSavedTableFilterable(key) || key == Key.SPEED) onHeaderClick(index, anchor)
-            }.apply { isEnabled = isSavedTableFilterable(key) || key == Key.SPEED }
+                if (isSavedTableFilterable(key) || index == savedSpeedColumnIndex()) onHeaderClick(index, anchor)
+            }.apply { isEnabled = isSavedTableFilterable(key) || index == savedSpeedColumnIndex() }
         }
         val headerHeight = maxOf(
             headH,
@@ -1421,10 +1424,13 @@ class IpTestView(
                     Key.TARGET -> if (targetMode) Key.TARGET else null
                     Key.PHASE -> Key.PHASE
                     Key.SPEED -> Key.SPEED
+                    Key.SPEED_NODE -> Key.SPEED_NODE
                     else -> null
                 }
                 val missingExit = key == Key.EXIT && row.country.isEmpty()
                 when {
+                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct), entry.speedDirect, speedAvailable, speedBusy) { onSpeedTest(entry.address, true) }
+                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node), entry.speedNode, speedAvailable, speedBusy) { onSpeedTest(entry.address, false) }
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
                     mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
                     mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
@@ -1587,7 +1593,7 @@ class IpTestView(
 
         val avail = if (savedTable && savedTableAvailableWidth > 0) savedTableAvailableWidth else tableBox.width
         val sum = min.sum()
-        val speedAt = keys.indexOf(Key.SPEED) + 1 // 0 when there is no such column
+        val speedColumns = keys.indices.filter { keys[it] == Key.SPEED || keys[it] == Key.SPEED_NODE }.map { it + 1 }
 
         // how the spare width is shared: the columns with the longest text get the most
         fun weightOf(i: Int): Double {
@@ -1613,17 +1619,18 @@ class IpTestView(
 
         // CUSTOM.md #62: everything but 速度 fits: those columns keep their natural widths and fill the page, and 速度
         // stays behind the right edge (the table scrolls sideways to it)
-        if (speedAt > 0) {
-            val sumNoSpeed = sum - min[speedAt]
+        if (speedColumns.isNotEmpty()) {
+            val sumNoSpeed = sum - speedColumns.sumOf { min[it] }
 
             if (avail >= sumNoSpeed) {
-                val weight = DoubleArray(min.size) { if (it == speedAt) 0.0 else weightOf(it) }
+                val weight = DoubleArray(min.size) { if (it in speedColumns) 0.0 else weightOf(it) }
                 val total = weight.sum()
                 val extra = avail - sumNoSpeed
                 val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
 
                 val firstColumnAt = keys.indexOf(if (direct || savedTable) Key.COLO else Key.PORT) + 1
-                out[firstColumnAt] += avail - sumNoSpeed - (0 until min.size).filter { it != speedAt }.sumOf { out[it] - min[it] }
+                val nonSpeedColumns = (0 until min.size).filter { it !in speedColumns }
+                out[firstColumnAt] += avail - sumNoSpeed - nonSpeedColumns.sumOf { out[it] - min[it] }
 
                 return out
             }
@@ -1745,7 +1752,8 @@ class IpTestView(
                 Key.TARGET -> R.string.iptest_col_target
                 Key.TCOLO -> R.string.iptest_col_tcolo
                 Key.TEST -> R.string.iptest_col_test
-                Key.SPEED -> R.string.iptest_col_speed
+                Key.SPEED -> R.string.saved_ip_speed_direct
+                Key.SPEED_NODE -> R.string.saved_ip_speed_node
             },
         )
     }
@@ -1767,7 +1775,8 @@ class IpTestView(
                 Key.TARGET -> 84
                 Key.TCOLO -> 84
                 Key.TEST -> 52
-                Key.SPEED -> 76
+                Key.SPEED -> 96
+                Key.SPEED_NODE -> 96
             },
         )
     }
@@ -1831,6 +1840,27 @@ class IpTestView(
     }
 
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
+    // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
+    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, onClick: () -> Unit): View {
+        val value = if (speed > 0.0) {
+            label + "\n" + context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", speed))
+        } else label
+        return MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = value
+            textSize = 12f
+            isAllCaps = false
+            gravity = Gravity.CENTER
+            maxLines = 2
+            minWidth = 0
+            minHeight = dp(38)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(dp(3), 0, dp(3), 0)
+            isEnabled = available && !busy
+            setOnClickListener { if (isEnabled) onClick() }
+        }
+    }
+
     private fun speedText(r: IpTestRow): String {
         return when {
             speedIp == r.ip -> "…"
@@ -1879,6 +1909,7 @@ class IpTestView(
             Key.TCOLO -> coloLabel(r.targetColo)
             Key.TEST -> ""
             Key.SPEED -> speedText(r)
+            Key.SPEED_NODE -> "-"
         }
     }
 
