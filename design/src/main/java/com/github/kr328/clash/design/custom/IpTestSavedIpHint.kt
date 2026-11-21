@@ -97,6 +97,7 @@ internal object IpTestSavedIpHint {
         val horizontalPadding = 2f * density
 
         var lastRanges = emptyList<LineRange>()
+        var lastEditable: Editable? = null
         val watcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -104,7 +105,8 @@ internal object IpTestSavedIpHint {
             override fun afterTextChanged(editable: Editable?) {
                 val text = editable ?: return
                 val newRanges = findMatchingLines(text, saved)
-                if (newRanges == lastRanges) return
+                // setText() replaces the Editable instance; its spans do not carry over even if ranges match.
+                if (text === lastEditable && newRanges == lastRanges) return
 
                 text.getSpans(0, text.length, SavedIpLineSpan::class.java)
                     .forEach(text::removeSpan)
@@ -125,6 +127,7 @@ internal object IpTestSavedIpHint {
                     )
                 }
                 lastRanges = newRanges
+                lastEditable = text
             }
         }
         input.addTextChangedListener(watcher)
