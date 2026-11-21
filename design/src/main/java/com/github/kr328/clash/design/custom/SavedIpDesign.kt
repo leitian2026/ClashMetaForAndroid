@@ -164,6 +164,7 @@ class SavedIpDesign(
     private data class SavedIpUndo(val operatorId: String, val entries: List<SavedIpEntry>)
     private var pendingUndo: SavedIpUndo? = null
     private var undoSnackbar: Snackbar? = null
+    private var failureDetailDialog: android.app.Dialog? = null
     private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
     private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
@@ -377,6 +378,7 @@ class SavedIpDesign(
     // changes replace only that section; page-wide changes still call renderRows().
     private fun renderRows() {
         cancelPendingSearchRender()
+        dismissFailureDetailDialog()
         renderedQuery = searchInput.text?.toString().orEmpty()
         operatorContent.removeAllViews()
         operatorSections.clear()
@@ -405,6 +407,7 @@ class SavedIpDesign(
 
     private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
         val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        dismissFailureDetailDialog()
         stickyHeaderCopies.remove(operatorId)
         stickyHeaderTables.remove(operatorId)
         stickyHeaderSourceScrolls.remove(operatorId)
@@ -654,6 +657,32 @@ class SavedIpDesign(
             onDetail = { title, detail ->
                 MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
                     .setPositiveButton(R.string.close, null).show()
+            },
+            onFailureDetail = { title, detail ->
+                val message = TextView(context).apply {
+                    text = detail
+                    textSize = 14f
+                    setTextColor(colorText)
+                    setTextIsSelectable(true)
+                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                }
+                val scroll = ScrollView(context).apply {
+                    isVerticalScrollBarEnabled = true
+                    addView(message, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                dismissFailureDetailDialog()
+                val dialog = MaterialAlertDialogBuilder(context).setTitle(title).setView(
+                    scroll,
+                    dp(12),
+                    dp(8),
+                    dp(12),
+                    dp(8),
+                ).setPositiveButton(R.string.close, null).create()
+                failureDetailDialog = dialog
+                dialog.setOnDismissListener {
+                    if (failureDetailDialog === dialog) failureDetailDialog = null
+                }
+                dialog.show()
             },
             onLongPress = { address -> toggleSelection(operator.id, address) },
             selectedFilters = selectedFilters,
@@ -1090,8 +1119,14 @@ class SavedIpDesign(
         refresh()
     }
 
+    private fun dismissFailureDetailDialog() {
+        failureDetailDialog?.dismiss()
+        failureDetailDialog = null
+    }
+
     fun disposeUndo() {
         cancelPendingSearchRender()
+        dismissFailureDetailDialog()
         invalidateUndo()
     }
 

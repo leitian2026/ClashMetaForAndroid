@@ -1232,6 +1232,7 @@ class IpTestView(
         isSelected: (String) -> Boolean,
         onCopy: (String) -> Unit,
         onDetail: (String, String) -> Unit,
+        onFailureDetail: (String, String) -> Unit = onDetail,
         onLongPress: (String) -> Boolean,
         selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
@@ -1373,7 +1374,7 @@ class IpTestView(
                         ellipsize = TextUtils.TruncateAt.END
                         setTextColor(colorBad)
                         setOnClickListener {
-                            onDetail(entry.address, "$endpoint connect error: $rawReason")
+                            onFailureDetail(entry.address, "$endpoint connect error: $rawReason")
                         }
                     },
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
