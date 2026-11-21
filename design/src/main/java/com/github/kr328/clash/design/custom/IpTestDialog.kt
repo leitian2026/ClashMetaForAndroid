@@ -800,6 +800,7 @@ object IpTestDialog {
                             ctx.resume(null)
                         }
                     }
+                ctx.invokeOnCancellation { inputHistory.dismissOnCancellation(dialog) }
             }
         }
     }

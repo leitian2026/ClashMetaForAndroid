@@ -2,6 +2,7 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.app.Dialog
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -88,6 +89,14 @@ internal class IpTestInputHistory(
         }
         pendingWrite = task
         handler.postDelayed(task, 1_000L)
+    }
+
+    /** Close the dialog on the main thread when its owning coroutine is cancelled (for example, Activity destruction). */
+    fun dismissOnCancellation(dialog: Dialog) {
+        handler.post {
+            flush()
+            dialog.dismiss()
+        }
     }
 
     /** Flush only a pending edit; an already-fired debounce has already persisted the current value. */
