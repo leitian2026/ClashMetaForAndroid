@@ -213,8 +213,8 @@ object IpTestDialog {
                 val inputHistory = IpTestInputHistory(context, prefs, input, inputLabel, presetIps == null, density)
                 val inputHeader = inputHistory.header
 
-                // CUSTOM.md #43: snapshot saved addresses once per dialog; edits compare against this in-memory set.
-                val savedIpHints = IpTestSavedIpHint.create(context, input)
+                // CUSTOM.md #43: draw saved-address hints inside matching input rows using the cached snapshot.
+                IpTestSavedIpHint.create(context, input)
 
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -675,7 +675,6 @@ object IpTestDialog {
                 box.addView(hint, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(inputHeader, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(inputField, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                box.addView(savedIpHints, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 if (readConfig != null) {
                     box.addView(readButton, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 }
