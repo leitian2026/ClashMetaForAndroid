@@ -1053,13 +1053,13 @@ class IpTestView(
             val testedAt = progress.indexOf("，已测")
             if (testedAt > 0) {
                 title.setSpan(
-                    ForegroundColorSpan(if (night) Color.parseColor("#90CAF9") else Color.parseColor("#64B5F6")),
+                    ForegroundColorSpan(if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")),
                     0,
                     testedAt,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
                 title.setSpan(
-                    ForegroundColorSpan(if (night) Color.parseColor("#64B5F6") else Color.parseColor("#2196F3")),
+                    ForegroundColorSpan(if (night) Color.parseColor("#66BB6A") else Color.parseColor("#1B5E20")),
                     testedAt,
                     title.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
