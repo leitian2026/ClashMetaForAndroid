@@ -60,7 +60,7 @@
     <string name="iptest_ms_short">%1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">failed</string>
-    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (up to 30 MB or 6 seconds from the first byte); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot access the Android system certificate store. In via-node tests, Landing IP is returned by the echo service through the node. Landing country is also returned by that service; neither represents the country as judged by the target site. The ingress operator belongs to the entry IP.</string>
+    <string name="iptest_table_hint">Tap an IP to copy it; tap a ports cell for port results; Download applies to that row only (stops at the configured download-size or time limit); ingress DC* in via-node mode is read using one extra direct connection; the table scrolls sideways, Speed is at the far right. In detailed diagnostics, - means no response, None means the item is absent, and Not obtained means an expected value was not read. Certificates are not verified because the core cannot access the Android system certificate store. In via-node tests, Landing IP is returned by the echo service through the node. Landing country is also returned by that service; neither represents the country as judged by the target site. The ingress operator belongs to the entry IP.</string>
     <string name="iptest_log_title">Live status</string>
     <string name="iptest_log_progress">(%2$d of %1$d IPs tested)</string>
     <string name="iptest_port_title">Ports: %1$s</string>
@@ -82,7 +82,7 @@
     <string name="iptest_log_exit_asn_none">Landing IP %1$s ingress operator: not found (possibly rate limited; latency is unaffected)</string>
     <string name="iptest_log_cancelled">Cancelled</string>
     <string name="iptest_log_done">All done, %1$d tested</string>
-    <string name="iptest_log_speed_start">%1$s download test started (up to 30 MB or 6 seconds from the first byte; the first second is also counted from the first byte)</string>
+    <string name="iptest_log_speed_start">%1$s download test started (stops at the configured download-size or time limit; the first second is counted from the first byte)</string>
     <string name="iptest_log_speed_done">%1$s download test done: %2$s MB/s (read %3$s, %4$d ms from first byte)</string>
     <string name="iptest_log_speed_fail">%1$s download test failed: %2$s</string>
     <string name="iptest_http_403_note">The server refused the request</string>
