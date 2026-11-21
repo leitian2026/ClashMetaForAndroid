@@ -76,8 +76,10 @@ class IpTestView(
     private var savedRowsGrid: LinearLayout? = null
 
     private val savedTableKeys = listOf(
-        Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG,
-        Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE, Key.SPEED, Key.SPEED_NODE,
+        // The IP column is rendered separately in the fixed left pane; these are the first two
+        // columns in the horizontally scrolling grid, in direct-then-node order.
+        Key.SPEED, Key.SPEED_NODE, Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.LOSS,
+        Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.EXIT_IP, Key.TCOLO, Key.TARGET, Key.PHASE,
     )
     private val liveKeys = if (direct) {
         listOf(Key.COLO, Key.ASN, Key.GEO, Key.LAND, Key.PORTS, Key.LOSS, Key.MIN, Key.MAX, Key.AVG, Key.JITTER, Key.PHASE, Key.TEST, Key.SPEED)
