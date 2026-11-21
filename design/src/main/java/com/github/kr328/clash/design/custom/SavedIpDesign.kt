@@ -140,6 +140,7 @@ class SavedIpDesign(
         addView(searchClearButton, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.END or Gravity.CENTER_VERTICAL))
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
+    private var renderedDataVersion = -1L
     private var configuredIpSources: Map<String, Set<String>> = emptyMap()
     private var expandedOperatorId: String?
         get() = filterState.expandedOperatorId
@@ -303,8 +304,15 @@ class SavedIpDesign(
         renderRows()
     }
 
+    fun refreshIfDataChanged(): Boolean {
+        if (SavedIpStore.version() == renderedDataVersion) return false
+        refresh()
+        return true
+    }
+
     fun refresh() {
         snapshotCache = SavedIpStore.read(context)
+        renderedDataVersion = SavedIpStore.version()
         savedTableRenderers.clear()
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()

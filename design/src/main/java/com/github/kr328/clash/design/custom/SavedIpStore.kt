@@ -101,6 +101,12 @@ object SavedIpStore {
         encodeDefaults = true
     }
 
+    // CUSTOM.md #156: in-process generation lets an existing page avoid rebuilding on every resume.
+    @Volatile
+    private var dataVersion = 0L
+
+    fun version(): Long = dataVersion
+
     /** Built-in IDs are stable and deliberately independent of localized display names. */
     val builtInOperatorIds: Set<String> = linkedSetOf(
         OPERATOR_TELECOM,
@@ -197,6 +203,7 @@ object SavedIpStore {
             .edit()
             .putString(KEY_DATA, value)
             .apply()
+        dataVersion++
     }
 
     /** Atomically read, transform, and persist a snapshot for an explicit list mutation. */

@@ -101,7 +101,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
 
     override fun onResume() {
         super.onResume()
-        page?.refresh()
+        page?.refreshIfDataChanged()
     }
 
     companion object {
