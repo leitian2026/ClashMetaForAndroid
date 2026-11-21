@@ -17,9 +17,17 @@ internal object IpSpeedTestCoordinator {
     data class DownloadProgress(val ip: String, val direct: Boolean, val percent: Int, val savedOperatorId: String? = null)
     @Volatile private var downloadProgress: DownloadProgress? = null
     fun currentProgress(): DownloadProgress? = downloadProgress
-    fun updateProgress(ip: String, direct: Boolean, bytes: Long, elapsedMs: Long, savedOperatorId: String? = null): DownloadProgress {
-        val byteRatio = bytes.toDouble() / (30L * 1024L * 1024L).toDouble()
-        val timeRatio = elapsedMs.toDouble() / 6000.0
+    fun updateProgress(
+        ip: String,
+        direct: Boolean,
+        bytes: Long,
+        elapsedMs: Long,
+        maxBytes: Long,
+        maxSeconds: Int,
+        savedOperatorId: String? = null,
+    ): DownloadProgress {
+        val byteRatio = bytes.toDouble() / maxBytes.coerceAtLeast(1L).toDouble()
+        val timeRatio = elapsedMs.toDouble() / (maxSeconds.coerceAtLeast(1).toDouble() * 1000.0)
         val percent = (max(byteRatio, timeRatio) * 100.0).toInt().coerceIn(0, 100)
         return DownloadProgress(ip, direct, percent, savedOperatorId).also { downloadProgress = it }
     }
