@@ -172,6 +172,7 @@ class SavedIpDesign(
     // Must be initialized before init{} calls refresh() -> renderRows().
     private val operatorSections = HashMap<String, LinearLayout>()
     private val stickyHeaderCopies = HashMap<String, View>()
+    private val stickyHeaderTables = HashMap<String, View>()
     private val stickyHeaderSourceScrolls = HashMap<String, HorizontalScrollView>()
     private val stickyHeaderCopyScrolls = HashMap<String, HorizontalScrollView>()
     private var stickyHeaderOperatorId: String? = null
@@ -373,6 +374,7 @@ class SavedIpDesign(
         operatorContent.removeAllViews()
         operatorSections.clear()
         stickyHeaderCopies.clear()
+        stickyHeaderTables.clear()
         stickyHeaderSourceScrolls.clear()
         stickyHeaderCopyScrolls.clear()
         stickyHeaderContainer.removeAllViews()
@@ -397,6 +399,7 @@ class SavedIpDesign(
     private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
         val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
         stickyHeaderCopies.remove(operatorId)
+        stickyHeaderTables.remove(operatorId)
         stickyHeaderSourceScrolls.remove(operatorId)
         stickyHeaderCopyScrolls.remove(operatorId)
         if (stickyHeaderOperatorId == operatorId) {
@@ -653,6 +656,7 @@ class SavedIpDesign(
         )
 
         val table = makeTable(entries).apply { tag = SAVED_TABLE_TAG }
+        stickyHeaderTables[operator.id] = table
         container.addView(table, fullWidth())
 
         // One header-only twin per rendered operator. It uses the same renderer, widths and click callbacks.
@@ -699,8 +703,9 @@ class SavedIpDesign(
         val viewportTop = viewportLocation[1]
         var activeOperatorId: String? = null
         for (operator in snapshotCache.operators) {
-            val section = operatorSections[operator.id] ?: continue
-            val table = section.findViewWithTag<View>(SAVED_TABLE_TAG) ?: continue
+            // Only expanded operators have a table entry; use the cached reference instead of
+            // traversing the section's view tree on every vertical scroll event.
+            val table = stickyHeaderTables[operator.id] ?: continue
             if (table.height <= 0) continue
             val tableLocation = IntArray(2)
             table.getLocationOnScreen(tableLocation)
