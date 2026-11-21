@@ -140,6 +140,7 @@ class IpTestView(
     private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, if (night) Color.parseColor("#1F2328") else Color.WHITE)
     private val colorHighlight = themeColor(android.R.attr.colorControlHighlight, if (night) Color.WHITE else Color.BLACK)
     private val colorStripe = Color.argb(0x14, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
+    private val colorSavedStripe = Color.argb(0x0A, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
 
     private val rowH = dp(48) // the least height of a row; a row with wrapped text is taller
     private val headH = dp(40)
@@ -620,7 +621,7 @@ class IpTestView(
         grid.addView(headRow, lp(gridWidth, headerHeight))
 
         values.forEachIndexed { rowIndex, row ->
-            val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
+            val stripe = if (rowIndex % 2 == 1) colorSavedStripe else Color.TRANSPARENT
             val fullRow = copyValues.getOrNull(rowIndex).orEmpty()
             val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true, true)
             val cells = row.drop(1).mapIndexed { index, value ->
@@ -1480,12 +1481,12 @@ class IpTestView(
                 when {
                     key == Key.SPEED -> savedSpeedCell(
                         context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, entry.speedDirectShort,
-                        speedAvailable, speedBusy, rowBackground, widths[index + 1],
+                        speedAvailable, speedBusy, widths[index + 1],
                     ) { onSpeedTest(entry.address, true) }
                         .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }.container
                     key == Key.SPEED_NODE -> savedSpeedCell(
                         context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, entry.speedNodeShort,
-                        speedAvailable, speedBusy, rowBackground, widths[index + 1],
+                        speedAvailable, speedBusy, widths[index + 1],
                     ) { onSpeedTest(entry.address, false) }
                         .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }.container
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
@@ -2033,7 +2034,6 @@ class IpTestView(
         short: Boolean,
         available: Boolean,
         busy: Boolean,
-        rowBackground: Int,
         cellWidth: Int,
         onClick: () -> Unit,
     ): SavedSpeedCell {
@@ -2053,14 +2053,13 @@ class IpTestView(
             insetTop = 0
             insetBottom = 0
             setPadding(dp(3), dp(2), dp(3), dp(2))
-            backgroundTintList = ColorStateList.valueOf(rowBackground)
+            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             strokeColor = ColorStateList.valueOf(colorMuted)
             strokeWidth = dp(1)
             isEnabled = available && !busy
             setOnClickListener { if (isEnabled) onClick() }
         }
         val container = FrameLayout(context).apply {
-            setBackgroundColor(rowBackground)
             addView(
                 button,
                 FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, buttonHeight, Gravity.CENTER).apply {
