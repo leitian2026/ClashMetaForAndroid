@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.widget.EditText
 import android.widget.Toast
+import com.github.kr328.clash.design.R
 
 /**
  * CUSTOM #99/#158: shared download-test limits used by the dialog and both app pages.
