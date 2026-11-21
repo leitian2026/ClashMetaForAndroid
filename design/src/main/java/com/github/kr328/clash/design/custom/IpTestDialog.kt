@@ -582,6 +582,50 @@ object IpTestDialog {
                     }
                 }
 
+                // CUSTOM #99/#158: limits are shared by both download-test entry points.
+                val currentDownloadLimits = IpDownloadLimit.read(prefs)
+                val maxDownloadMbInput = EditText(context).apply {
+                    inputType = InputType.TYPE_CLASS_NUMBER
+                    setSingleLine(true)
+                    setText(currentDownloadLimits.maxMb.toString())
+                }
+                val maxDownloadSecondsInput = EditText(context).apply {
+                    inputType = InputType.TYPE_CLASS_NUMBER
+                    setSingleLine(true)
+                    setText(currentDownloadLimits.maxSeconds.toString())
+                }
+                val maxDownloadMbColumn = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(TextView(context).apply {
+                        setText(R.string.iptest_download_max_mb)
+                        textSize = 13f
+                        alpha = 0.7f
+                    })
+                    addView(maxDownloadMbInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    addView(TextView(context).apply {
+                        setText(R.string.iptest_download_direct_limit_hint)
+                        textSize = 11f
+                        alpha = 0.65f
+                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                val maxDownloadSecondsColumn = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(TextView(context).apply {
+                        setText(R.string.iptest_download_max_seconds)
+                        textSize = 13f
+                        alpha = 0.7f
+                    })
+                    addView(maxDownloadSecondsInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                val downloadLimitsRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    isBaselineAligned = false
+                    addView(maxDownloadMbColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                        marginEnd = (8 * density).toInt()
+                    })
+                    addView(maxDownloadSecondsColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                }
+
                 // CUSTOM.md #66: the target address (node mode only), remembered; empty = off
                 val targetLabel = TextView(context).apply {
                     setText(R.string.iptest_target_label)
@@ -642,6 +686,7 @@ object IpTestDialog {
                 box.addView(directUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(nodeUrlLabel, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 box.addView(nodeUrlInput, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                box.addView(downloadLimitsRow, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 val scroll = ScrollView(context).apply {
                     addView(box, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -679,6 +724,10 @@ object IpTestDialog {
                             .putBoolean("ip_ext_mtu", mtuCheck.isChecked)
                             .putString("ip_ws_path", wsPath)
                             .apply()
+                        IpDownloadLimit.save(
+                            prefs,
+                            IpDownloadLimit.parse(maxDownloadMbInput.text?.toString(), maxDownloadSecondsInput.text?.toString()),
+                        )
                     } catch (_: Exception) {
                     }
 
@@ -809,4 +858,12 @@ object IpTestDialog {
     private const val DEFAULT_PORTS = "443 2053 2083 2087 2096 8443"
     private const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=31457280"
     private const val DEFAULT_URL_NODE = "https://proof.ovh.net/files/100Mb.dat"
+}
+
+/** CUSTOM #99: preserve the input-history cancellation behavior after the input UI was extracted. */
+private fun IpTestDialogInput.dismissOnCancellation(dialog: android.app.Dialog) {
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+        flush()
+        dialog.dismiss()
+    }
 }
