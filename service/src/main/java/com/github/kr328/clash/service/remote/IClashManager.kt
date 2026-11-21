@@ -26,5 +26,7 @@ interface IClashManager {
 
     // CUSTOM (CUSTOM.md #8): active connections (JSON, see ConnectionSnapshot) and closing one
     fun queryCustomConnections(sort: Int, filter: String): String
+    // CUSTOM #158: stream download progress through the existing native logcat event interface.
+    fun queryCustomConnectionsWithProgress(sort: Int, filter: String, observer: ILogObserver): String
     fun closeCustomConnection(id: String): Boolean
 }

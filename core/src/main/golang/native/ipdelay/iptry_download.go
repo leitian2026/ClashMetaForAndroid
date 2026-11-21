@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/metacubex/mihomo/log"
 	C "github.com/metacubex/mihomo/constant"
 )
 
@@ -123,6 +124,7 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 		firstByteAt   time.Time
 		cancelDownload context.CancelFunc
 		readErr        error
+		lastProgressAt time.Time
 	)
 
 	buf := make([]byte, 32*1024)
@@ -145,6 +147,15 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 			}()
 		}
 		total += int64(n)
+
+		if n > 0 && !firstByteAt.IsZero() {
+			now := time.Now()
+			elapsed := now.Sub(firstByteAt)
+			if elapsed >= 250*time.Millisecond && (lastProgressAt.IsZero() || now.Sub(lastProgressAt) >= 250*time.Millisecond) {
+				log.Infoln("[APP] IP_DOWNLOAD_PROGRESS|%d|%d", total, elapsed.Milliseconds())
+				lastProgressAt = now
+			}
+		}
 
 		if !firstByteAt.IsZero() && !skipped && time.Since(firstByteAt) >= skip {
 			skipped, atSkip, tSkip = true, total, time.Since(firstByteAt)

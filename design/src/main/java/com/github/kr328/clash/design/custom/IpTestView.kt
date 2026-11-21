@@ -9,6 +9,7 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.ClipDrawable
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
@@ -70,7 +71,9 @@ class IpTestView(
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
     private data class SavedSpeedButtons(var direct: SavedSpeedCell? = null, var node: SavedSpeedCell? = null)
-    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton, val cellWidth: Int)
+    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton, val cellWidth: Int, val fill: ClipDrawable, val label: String, var speed: Double, var short: Boolean)
+    private var activeTestSpeedButton: MaterialButton? = null
+    private var activeTestSpeedFill: ClipDrawable? = null
     private val savedSpeedButtonHeight by lazy {
         val sample = "经节点\n88.8"
         val paint = TextView(context).apply { textSize = 14f }.paint
@@ -994,7 +997,21 @@ class IpTestView(
     fun setBusy(testing: Boolean, ip: String?) {
         this.testing = testing
         speedIp = ip
+        activeTestSpeedButton = null
+        activeTestSpeedFill = null
         redraw()
+    }
+
+    fun setDownloadProgress(ip: String, direct: Boolean, percent: Int?) {
+        if (savedTable) {
+            updateSavedSpeedProgress(ip, direct, percent)
+            return
+        }
+        if (speedIp != ip) return
+        val button = activeTestSpeedButton ?: return
+        button.text = if (percent == null) context.getString(R.string.check_cancel)
+        else context.getString(R.string.check_cancel) + "\n" + percent.coerceIn(0, 100) + "%"
+        activeTestSpeedFill?.level = (percent ?: 0).coerceIn(0, 100) * 100
     }
 
     fun setOwnerLookup(ip: String?) {
@@ -1626,6 +1643,9 @@ class IpTestView(
 
     internal fun updateSavedSpeed(address: String, direct: Boolean, speed: Double, short: Boolean, available: Boolean, busy: Boolean) {
         val cell = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
+        cell.speed = speed
+        cell.short = short
+        cell.fill.level = 0
         val button = cell.button
         val showShort = speed > 0.0 && short
         val buttonHeight = if (showShort) savedSpeedShortButtonHeight else savedSpeedButtonHeight
@@ -1640,6 +1660,28 @@ class IpTestView(
         }
         button.isEnabled = available && !busy
         updateSavedRowHeight(address)
+    }
+
+    internal fun updateSavedSpeedProgress(address: String, direct: Boolean, percent: Int?) {
+        val cell = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
+        cell.fill.level = (percent ?: 0).coerceIn(0, 100) * 100
+        cell.button.text = if (percent == null) {
+            savedSpeedText(cell.label, cell.speed, cell.speed > 0.0 && cell.short, cell.cellWidth)
+        } else {
+            cell.label + "\n" + percent.coerceIn(0, 100) + "%"
+        }
+    }
+
+    private fun progressFill(): Pair<View, ClipDrawable> {
+        val fill = ClipDrawable(
+            GradientDrawable().apply {
+                cornerRadius = dp(5).toFloat()
+                setColor(Color.argb(0x35, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink)))
+            },
+            Gravity.START,
+            ClipDrawable.HORIZONTAL,
+        )
+        return View(context).apply { background = fill; isClickable = false } to fill
     }
 
     private fun updateSavedRowHeight(address: String) {
@@ -2090,18 +2132,18 @@ class IpTestView(
             isEnabled = available && !busy
             setOnClickListener { if (isEnabled) onClick() }
         }
+        val (fillView, fillDrawable) = progressFill()
         val container = FrameLayout(context).apply {
-            addView(
-                button,
-                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, buttonHeight, Gravity.CENTER).apply {
-                    leftMargin = dp(4)
-                    rightMargin = dp(4)
-                    topMargin = dp(2)
-                    bottomMargin = dp(2)
-                },
-            )
+            val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, buttonHeight, Gravity.CENTER).apply {
+                leftMargin = dp(4)
+                rightMargin = dp(4)
+                topMargin = dp(2)
+                bottomMargin = dp(2)
+            }
+            addView(fillView, FrameLayout.LayoutParams(params))
+            addView(button, FrameLayout.LayoutParams(params))
         }
-        return SavedSpeedCell(container, button, cellWidth)
+        return SavedSpeedCell(container, button, cellWidth, fillDrawable, label, speed, short)
     }
     private fun speedText(r: IpTestRow): String {
         return when {
@@ -2381,13 +2423,23 @@ class IpTestView(
             strokeColor = ColorStateList.valueOf(colorLink)
             setTextColor(colorLink)
             setPadding(dp(4), dp(2), dp(4), dp(2))
+            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             isEnabled = enabled
             alpha = if (enabled) 1f else 0.35f
 
             if (enabled) setOnClickListener { if (running) onSpeedCancel() else onSpeed(r.ip) }
         }
 
-        box.addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val (fillView, fillDrawable) = progressFill()
+        val frame = FrameLayout(context).apply {
+            addView(fillView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(button, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        }
+        if (running) {
+            activeTestSpeedButton = button
+            activeTestSpeedFill = fillDrawable
+        }
+        box.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         return box
     }

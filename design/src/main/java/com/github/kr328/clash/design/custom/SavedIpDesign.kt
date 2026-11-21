@@ -325,6 +325,11 @@ class SavedIpDesign(
         }
     }
 
+    // CUSTOM #158: update only the active download percentage in the already-bound cell.
+    fun updateSpeedProgress(operatorId: String, address: String, direct: Boolean, percent: Int?) {
+        savedTableRenderers[operatorId]?.first?.updateSavedSpeedProgress(address, direct, percent)
+    }
+
     // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
     fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) {
         val (snapshot, version) = SavedIpStore.readVersioned(context)

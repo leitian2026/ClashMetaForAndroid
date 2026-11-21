@@ -1,6 +1,7 @@
 package com.github.kr328.clash.custom
 
 import java.util.concurrent.CopyOnWriteArraySet
+import kotlin.math.max
 
 /**
  * CUSTOM #158: event-driven process-wide exclusion between the IP test page and saved-IP speed actions.
@@ -12,6 +13,17 @@ internal object IpSpeedTestCoordinator {
         private set
 
     private val listeners = CopyOnWriteArraySet<(Boolean) -> Unit>()
+
+    data class DownloadProgress(val ip: String, val direct: Boolean, val percent: Int, val savedOperatorId: String? = null)
+    @Volatile private var downloadProgress: DownloadProgress? = null
+    fun currentProgress(): DownloadProgress? = downloadProgress
+    fun updateProgress(ip: String, direct: Boolean, bytes: Long, elapsedMs: Long, savedOperatorId: String? = null): DownloadProgress {
+        val byteRatio = bytes.toDouble() / (30L * 1024L * 1024L).toDouble()
+        val timeRatio = elapsedMs.toDouble() / 6000.0
+        val percent = (max(byteRatio, timeRatio) * 100.0).toInt().coerceIn(0, 100)
+        return DownloadProgress(ip, direct, percent, savedOperatorId).also { downloadProgress = it }
+    }
+    fun clearProgress() { downloadProgress = null }
 
     @Synchronized
     fun tryAcquire(): Boolean {

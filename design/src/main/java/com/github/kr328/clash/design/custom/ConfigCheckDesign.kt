@@ -792,6 +792,10 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) { ipView?.setBusy(false, ip) }
     }
 
+    fun ipSpeedProgress(ip: String, direct: Boolean, percent: Int?) {
+        ipView?.setDownloadProgress(ip, direct, percent)
+    }
+
     suspend fun ipOwnerLookup(ip: String?) {
         withContext(Dispatchers.Main) { ipView?.setOwnerLookup(ip) }
     }

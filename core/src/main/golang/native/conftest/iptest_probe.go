@@ -32,6 +32,7 @@ import (
 	"cfa/native/ipdelay"
 
 	"github.com/metacubex/mihomo/component/dialer"
+	"github.com/metacubex/mihomo/log"
 )
 
 const (
@@ -943,6 +944,7 @@ func nodeOwner(ctx context.Context, row *IPRow, node string) {
 }
 
 func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
+	defer log.Infoln("[APP] IP_DOWNLOAD_END")
 	t, ok := firstTarget(req.IPs, rep.Node != "")
 	if !ok {
 		rep.Error = "no address"

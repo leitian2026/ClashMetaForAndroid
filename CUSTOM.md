@@ -1,7 +1,7 @@
 | 85 | 测 IP 总数和已测数量显示在测试模式标题行右侧；日志标题不再显示计数，Markdown 复制仍保留计数 | [085.md](docs/custom/085.md) |
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r351
+当前版本：2_11_46-r352
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`（开头有“动手前清单”）。每次改动都要同步更新登记，写在哪里见下面“怎么找”和 `AGENTS.md` 规则 7。
@@ -34,8 +34,8 @@
 | `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #35 #53 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/SuspendModule.kt` | #53 | 低 | 复用已有亮灭屏广播，在启动、屏幕状态变化和配置载入后通过 `SORT_ISSUES` 推送 `isInteractive`；不新增屏幕监听 |
-| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id)` 两个实现（#8 #15） |
-| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 | 低 | 末尾重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean` |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 #158 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id: String)` 两个实现（#8 #15）；#158 通过现有 `Clash.subscribeLogcat()` 和 `ILogObserver` 转发下载进度事件。
+| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 #158 | 低 | 重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean`；#158 增加带 `ILogObserver` 参数的下载进度请求，复用既有 logcat 事件接口。
 | `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 #156 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）、`.custom.SavedIpActivity`（#156，标签 `@string/saved_ip_title`）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
 | `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 #50 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(..., uuid, "", profile.type != Profile.Type.File))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
 | `design/src/main/res/layout/adapter_profile.xml` | #47 #53 #55 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
@@ -224,7 +224,7 @@
 | 154 | 勾叉改为“实心圆 + 白色勾 / 叉”的图标（r175） | [154.md](docs/custom/154.md) |
 | 155 | 勾叉图标缩小到字号的 0.6 倍（r176） | [155.md](docs/custom/155.md) |
 | 156 | 已保存 IP 清单：筛选 / 展开状态重启持久化、按数据版本判断是否刷新、Store 解析结果按版本缓存且写入即时替换缓存、首次打开先显示页面再后台读取、配置来源变化仅重建受影响运营商、批量删除撤销、大批量重测请求提示、复制为 hosts、按来源标记配置 IP、推荐和配置 IP 置顶、独立筛选搜索、标题最快 IP、测试时间及失败详情（r310、r312、r313、r315–r321、r329、r332、r336、r337；批量保存输入缓存与防抖） | [156.md](docs/custom/156.md) |
-| 158 | 已保存 IP 独立直连 / 经节点下载测速，复用测试页请求；两列位于唯一固定的 IP 列右侧滚动区开头；默认两行按钮，完整小文件增加 11sp 橙色“不足30M”第三行，过窄显示“<30M”；Short 标记与速度同次保存，行高仅更新当前行并同步左右两侧 | [158.md](docs/custom/158.md) |
+| 158 | 已保存 IP 独立直连 / 经节点下载测速；Go 端按约 250 ms 节流上报真实字节数与首字节后毫秒数，经现有 logcat / ILogObserver 通道传递；两页按钮按 max(bytes/30MiB,time/6s) 显示百分比和 ClipDrawable 填充；取消、失败、结束恢复；后台 / 息屏暂停 UI 更新并在前台补画 | [158.md](docs/custom/158.md) |
 | 159 | 已保存 IP 双测速列独立排序：直连 / 经节点表头分别按各自速度值排序；按最快降序、按最慢升序，零值置后、同值稳定；状态保存列与方向；表头显示名称 / MB/s / 排序标签三行；按钮默认 14sp 两行，Short 时增加 11sp 橙色第三行，动态计算高度并留白居中 | [159.md](docs/custom/159.md) |
 | 160 | 已保存 IP 表头按列多选筛选与自选显示列：稳定列名状态、隐藏列同步宽度 / 表头 / 单元格；IP 地址为唯一固定列，直连 / 经节点位于右侧横向滚动区最前面，其他列顺序不乱；隐藏列清筛选（r306、r320） | [160.md](docs/custom/160.md) |
 | 161 | 配置检查页测 IP 表头和下载按钮固定分行，按文字实测宽度保护列宽（r301） | [161.md](docs/custom/161.md) |

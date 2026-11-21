@@ -31,6 +31,39 @@ class ClashManager(private val context: Context) : IClashManager,
         return CustomConnections.query(sort, filter)
     }
 
+    // CUSTOM #158: forward progress through the existing native logcat subscription.
+    override fun queryCustomConnectionsWithProgress(sort: Int, filter: String, observer: ILogObserver): String {
+        val channel = Clash.subscribeLogcat()
+        val finished = CompletableDeferred<Unit>()
+        val forwarder = launch {
+            try {
+                while (isActive) {
+                    val message = channel.receive()
+                    when {
+                        message.message.startsWith("[APP] IP_DOWNLOAD_PROGRESS|") -> observer.newItem(message)
+                        message.message == "[APP] IP_DOWNLOAD_END" -> {
+                            observer.newItem(message)
+                            finished.complete(Unit)
+                            break
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                finished.complete(Unit)
+            }
+        }
+        return try {
+            val result = CustomConnections.query(sort, filter)
+            runBlocking { withTimeoutOrNull(1500L) { finished.await() } }
+            result
+        } finally {
+            forwarder.cancel()
+            channel.cancel()
+        }
+    }
+
     // CUSTOM: CUSTOM.md #8
     override fun closeCustomConnection(id: String): Boolean {
         return CustomConnections.close(id)

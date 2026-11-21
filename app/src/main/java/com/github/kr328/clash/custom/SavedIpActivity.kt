@@ -9,6 +9,7 @@ import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.custom.SavedIpDesign
 import com.github.kr328.clash.design.custom.SavedIpStore
 import android.widget.Toast
+import android.os.PowerManager
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,9 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     private var savedIpReadJob: Job? = null
     private var savedIpLoaded = false
     private var speedJob: Job? = null
+    private var pageVisible = false
+    private data class SpeedTarget(val operatorId: String, val address: String, val direct: Boolean)
+    private var activeSpeedTarget: SpeedTarget? = null
     private var removeSpeedListener: (() -> Unit)? = null
     private val speedStateListener: (Boolean) -> Unit = { busy ->
         runOnUiThread { page?.setSpeedState(clashRunning, busy) }
@@ -146,9 +150,24 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
 
     override fun onResume() {
         super.onResume()
+        pageVisible = true
         page?.setSpeedState(clashRunning, IpSpeedTestCoordinator.isBusy)
         page?.refreshIfDataChanged()
+        activeSpeedTarget?.let { target ->
+            val progress = IpSpeedTestCoordinator.currentProgress()?.takeIf {
+                it.savedOperatorId == target.operatorId && it.ip == target.address && it.direct == target.direct
+            }?.percent
+            page?.updateSpeedProgress(target.operatorId, target.address, target.direct, progress)
+        }
     }
+
+    override fun onPause() {
+        pageVisible = false
+        super.onPause()
+    }
+
+    private fun screenInteractive(): Boolean =
+        (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive == true
 
     // CUSTOM #158: reuse the existing conftest mode=download request path for saved-IP speed actions.
     private fun startSavedSpeed(operatorId: String, address: String, direct: Boolean) {
@@ -157,6 +176,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
             return
         }
         if (!IpSpeedTestCoordinator.tryAcquire()) return
+        activeSpeedTarget = SpeedTarget(operatorId, address, direct)
         page?.setSpeedState(clashRunning, true)
         speedJob = launch {
             try {
@@ -189,8 +209,16 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
                 val defaultUrl = if (direct) IpDownloadSpeed.DEFAULT_URL_DIRECT else IpDownloadSpeed.DEFAULT_URL_NODE
                 val url = prefs.getString(if (direct) "ip_url_direct" else "ip_url_node", defaultUrl)
                     .orEmpty().ifBlank { defaultUrl }
+                val progressObserver = IpDownloadProgressObserver.create { bytes, elapsedMs ->
+                    val progress = IpSpeedTestCoordinator.updateProgress(address, direct, bytes, elapsedMs, operatorId)
+                    if (pageVisible && screenInteractive()) {
+                        runOnUiThread {
+                            if (pageVisible && screenInteractive()) page?.updateSpeedProgress(operatorId, address, direct, progress.percent)
+                        }
+                    }
+                }
                 val report = IpDownloadSpeed.run(address, node, url) { request ->
-                    withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }
+                    withClash { queryCustomConnectionsWithProgress(CustomConnections.SORT_CHECK, request, progressObserver) }
                 }
                 if (report.cancelled) return@launch
                 val row = report.rows.firstOrNull()
@@ -223,6 +251,8 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
                     Toast.LENGTH_LONG,
                 ).show()
             } finally {
+                IpSpeedTestCoordinator.clearProgress()
+                if (pageVisible && screenInteractive()) page?.updateSpeedProgress(operatorId, address, direct, null)
                 IpSpeedTestCoordinator.setBusy(false)
                 page?.setSpeedState(clashRunning, IpSpeedTestCoordinator.isBusy)
             }

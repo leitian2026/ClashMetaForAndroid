@@ -1,6 +1,7 @@
 package com.github.kr328.clash.custom
 
 import android.content.Intent
+import android.os.PowerManager
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.custom.IpSpeedTestCoordinator
@@ -47,6 +48,7 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     private var ipRows = ArrayList<IpTestRow>()
     private var speedJob: Job? = null
     private var speedIp = ""
+    private var pageVisible = false
 
     // CUSTOM.md #156 step 4: intent-provided IPs are consumed by exactly one Request.IpTest.
     private var pendingSavedIpPreset: String? = null
@@ -58,6 +60,9 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         configPage = design
 
         setContentDesign(design)
+        IpSpeedTestCoordinator.currentProgress()?.takeIf { it.savedOperatorId == null }?.let {
+            design.ipSpeedProgress(it.ip, it.direct, it.percent)
+        }
 
         // CUSTOM.md #87: restore only the latest IP test round; a new round replaces this saved state.
         design.restoreIpTest()?.let { saved ->
@@ -662,8 +667,16 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         design.ipLog(getString(R.string.iptest_log_speed_start, ip))
 
         try {
+            val progressObserver = IpDownloadProgressObserver.create { bytes, elapsedMs ->
+                val progress = IpSpeedTestCoordinator.updateProgress(ip, run.direct, bytes, elapsedMs)
+                if (pageVisible && screenInteractive()) {
+                    runOnUiThread {
+                        if (pageVisible && screenInteractive()) design.ipSpeedProgress(ip, run.direct, progress.percent)
+                    }
+                }
+            }
             val report = IpDownloadSpeed.run(ip, if (run.direct) "" else run.node, run.url) { request ->
-                withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }
+                withClash { queryCustomConnectionsWithProgress(CustomConnections.SORT_CHECK, request, progressObserver) }
             }
             val row = report.rows.firstOrNull()
 
@@ -709,8 +722,27 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             setSpeedError(design, ip, error)
             design.ipLog(getString(R.string.iptest_log_speed_fail, ip, error))
         } finally {
+            IpSpeedTestCoordinator.clearProgress()
+            if (pageVisible && screenInteractive()) design.ipSpeedProgress(ip, run.direct, null)
             withContext(NonCancellable) { design.ipSpeedBusy(null) }
         }
+    }
+
+    private fun screenInteractive(): Boolean =
+        (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive == true
+
+    override fun onResume() {
+        super.onResume()
+        pageVisible = true
+        val ip = speedIp
+        val direct = lastRun?.direct ?: false
+        val progress = IpSpeedTestCoordinator.currentProgress()?.takeIf { it.savedOperatorId == null && it.ip == ip }?.percent
+        configPage?.ipSpeedProgress(ip, direct, progress)
+    }
+
+    override fun onPause() {
+        pageVisible = false
+        super.onPause()
     }
 
     private suspend fun cancelSpeed(design: ConfigCheckDesign) {
