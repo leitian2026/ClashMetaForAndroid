@@ -27,7 +27,12 @@ object IpDownloadLimit {
 
     enum class SaveStatus { UNCHANGED, SAVED, CLAMPED }
 
-    data class SaveResult(val status: SaveStatus, val limits: Limits)
+    data class SaveResult(
+        val status: SaveStatus,
+        val limits: Limits,
+        val maxMbClamped: Boolean = false,
+        val maxSecondsClamped: Boolean = false,
+    )
 
     private var lastToast: Toast? = null
 
@@ -59,12 +64,25 @@ object IpDownloadLimit {
             parsedMb?.coerceIn(MIN_MAX_MB, MAX_MAX_MB) ?: DEFAULT_MAX_MB,
             parsedSeconds?.coerceIn(MIN_MAX_SECONDS, MAX_MAX_SECONDS) ?: DEFAULT_MAX_SECONDS,
         )
-        if (limits == read(prefs)) return SaveResult(SaveStatus.UNCHANGED, limits)
+        val current = read(prefs)
+        if (limits == current) {
+            return SaveResult(
+                SaveStatus.UNCHANGED,
+                limits,
+                parsedMb != null && parsedMb !in MIN_MAX_MB..MAX_MAX_MB,
+                parsedSeconds != null && parsedSeconds !in MIN_MAX_SECONDS..MAX_MAX_SECONDS,
+            )
+        }
         prefs.edit()
             .putInt(PREF_MAX_MB, limits.maxMb)
             .putInt(PREF_MAX_SECONDS, limits.maxSeconds)
             .apply()
-        return SaveResult(if (clamped) SaveStatus.CLAMPED else SaveStatus.SAVED, limits)
+        return SaveResult(
+            if (clamped) SaveStatus.CLAMPED else SaveStatus.SAVED,
+            limits,
+            parsedMb != null && parsedMb !in MIN_MAX_MB..MAX_MAX_MB,
+            parsedSeconds != null && parsedSeconds !in MIN_MAX_SECONDS..MAX_MAX_SECONDS,
+        )
     }
 
     // CUSTOM #99: only focus-loss events trigger persistence; dismiss flushes without a Toast.
@@ -74,10 +92,9 @@ object IpDownloadLimit {
         maxMbInput: EditText,
         maxSecondsInput: EditText,
     ) {
-        fun save(showToast: Boolean) {
+        fun save(showToast: Boolean, lostFocusInput: EditText? = null) {
             val result = saveInputs(prefs, maxMbInput.text?.toString(), maxSecondsInput.text?.toString())
-            if (result.status == SaveStatus.UNCHANGED) return
-            if (showToast) {
+            if (result.status != SaveStatus.UNCHANGED && showToast) {
                 lastToast?.cancel()
                 val message = when (result.status) {
                     SaveStatus.SAVED -> context.getString(
@@ -94,13 +111,14 @@ object IpDownloadLimit {
                 }
                 lastToast = Toast.makeText(context, message, Toast.LENGTH_SHORT).also { it.show() }
             }
-            if (result.status == SaveStatus.CLAMPED) {
-                maxMbInput.setText(result.limits.maxMb.toString())
-                maxSecondsInput.setText(result.limits.maxSeconds.toString())
+            // Only rewrite the field that has just lost focus; never touch the field still being edited.
+            when (lostFocusInput) {
+                maxMbInput -> if (result.maxMbClamped) maxMbInput.setText(result.limits.maxMb.toString())
+                maxSecondsInput -> if (result.maxSecondsClamped) maxSecondsInput.setText(result.limits.maxSeconds.toString())
             }
         }
-        val listener = android.view.View.OnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) save(true)
+        val listener = android.view.View.OnFocusChangeListener { view, hasFocus ->
+            if (!hasFocus) save(true, view as? EditText)
         }
         maxMbInput.onFocusChangeListener = listener
         maxSecondsInput.onFocusChangeListener = listener
