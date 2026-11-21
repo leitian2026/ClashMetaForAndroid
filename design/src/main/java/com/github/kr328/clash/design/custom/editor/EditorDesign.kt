@@ -456,6 +456,7 @@ class EditorDesign(
             refreshStatus()
         }
         editor.onCaretChanged = { refreshStatus() }
+        editor.onEditorDetached = { cancelPendingFind() }
 
         findInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -463,7 +464,14 @@ class EditorDesign(
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
             override fun afterTextChanged(s: Editable?) {
-                findFrom(true, keepPlace = true)
+                if (s.isNullOrEmpty()) {
+                    cancelPendingFind()
+                    editor.clearMatch()
+                    countView.text = "0/0"
+                    countView.setTextColor(colorMuted)
+                } else {
+                    scheduleFind()
+                }
             }
         })
         findInput.setOnEditorActionListener { _, _, _ ->
@@ -990,6 +998,7 @@ class EditorDesign(
 
     private fun toggleFind() {
         if (findBar.visibility == View.VISIBLE) {
+            cancelPendingFind()
             findBar.visibility = View.GONE
             editor.clearMatch()
             editor.requestFocus()
@@ -999,8 +1008,34 @@ class EditorDesign(
         }
     }
 
+    private var findPending = false
+    private val findRunnable = Runnable {
+        findPending = false
+        findFrom(true, keepPlace = true)
+    }
+
+    private fun cancelPendingFind() {
+        editor.removeCallbacks(findRunnable)
+        findPending = false
+    }
+
+    private fun scheduleFind() {
+        cancelPendingFind()
+        findPending = true
+        editor.postDelayed(findRunnable, 250L)
+    }
+
+    // A replacement must use the latest query's selection, not the previous query's match.
+    private fun finishPendingFind() {
+        if (!findPending) return
+
+        cancelPendingFind()
+        findFrom(true, keepPlace = true)
+    }
+
     // [keepPlace]: look from the start of the current match, so that a match is not skipped while the word is typed
     private fun findFrom(forward: Boolean, keepPlace: Boolean = false) {
+        cancelPendingFind()
         val query = findInput.text?.toString() ?: ""
 
         if (keepPlace) editor.setSelection(editor.selectionStart.coerceAtLeast(0))
@@ -1015,6 +1050,7 @@ class EditorDesign(
     }
 
     private fun replaceOne() {
+        finishPendingFind()
         val query = findInput.text?.toString() ?: ""
 
         editor.replaceCurrent(query, replaceInput.text?.toString() ?: "", matchCase, regexMode)
@@ -1027,6 +1063,7 @@ class EditorDesign(
     }
 
     private fun replaceEvery() {
+        finishPendingFind()
         val query = findInput.text?.toString() ?: ""
         val count = editor.replaceAll(query, replaceInput.text?.toString() ?: "", matchCase, regexMode)
         if (editor.regexError) { showRegexError(); return }

@@ -170,6 +170,9 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     /** Called when the caret moved or the text changed (for the line and column shown). */
     var onCaretChanged: (() -> Unit)? = null
 
+    /** CUSTOM.md #118: cancel page-level debounced search when the editor leaves the window. */
+    var onEditorDetached: (() -> Unit)? = null
+
     /** CUSTOM.md #51: the text can be read, selected and searched, but not changed (a profile that is not a local file). */
     var readOnly: Boolean = false
         set(value) {
@@ -1336,6 +1339,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     }
 
     override fun onDetachedFromWindow() {
+        onEditorDetached?.invoke()
         flinger.abortAnimation()
         removeCallbacks(highlightRunnable)
         removeCallbacks(completionRunnable)
