@@ -69,8 +69,8 @@ class IpTestView(
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
-    private data class SavedSpeedButtons(var direct: MaterialButton? = null, var node: MaterialButton? = null)
-    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton)
+    private data class SavedSpeedButtons(var direct: SavedSpeedCell? = null, var node: SavedSpeedCell? = null)
+    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton, val cellWidth: Int)
     private val savedSpeedButtonHeight by lazy {
         val sample = "经节点\n88.8"
         val paint = TextView(context).apply { textSize = 14f }.paint
@@ -82,8 +82,26 @@ class IpTestView(
         // Include the button's vertical padding and a small safety allowance for font rendering.
         textHeight + dp(8)
     }
+    private val savedSpeedShortButtonHeight by lazy {
+        val sample = SpannableStringBuilder("经节点\n88.8\n不足30M")
+        val hintStart = sample.length - "不足30M".length
+        sample.setSpan(
+            android.text.style.AbsoluteSizeSpan(11, true),
+            hintStart,
+            sample.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        val paint = TextView(context).apply { textSize = 14f }.paint
+        val textHeight = StaticLayout.Builder.obtain(sample, 0, sample.length, paint, dp(80))
+            .setIncludePad(true)
+            .setLineSpacing(dp(2).toFloat(), 1f)
+            .build()
+            .height
+        textHeight + dp(8)
+    }
     private val savedSpeedButtons = HashMap<String, SavedSpeedButtons>()
     private val savedRowViews = LinkedHashMap<String, Pair<View, View>>()
+    private val savedRowBaseHeights = HashMap<String, Int>()
     private var savedRowsLeft: LinearLayout? = null
     private var savedRowsGrid: LinearLayout? = null
 
@@ -1277,6 +1295,7 @@ class IpTestView(
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         savedSpeedButtons.clear()
         savedRowViews.clear()
+        savedRowBaseHeights.clear()
         val leftHeader = headCell(context.getString(R.string.iptest_col_ip), ipColumnWidth)
         val headers = keys.mapIndexed { index, key ->
             val isSpeedColumn = key == Key.SPEED || key == Key.SPEED_NODE
@@ -1459,10 +1478,16 @@ class IpTestView(
                 }
                 val missingExit = key == Key.EXIT && row.country.isEmpty()
                 when {
-                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, true) }
-                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it.button }.container
-                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, false) }
-                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it.button }.container
+                    key == Key.SPEED -> savedSpeedCell(
+                        context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, entry.speedDirectShort,
+                        speedAvailable, speedBusy, rowBackground, widths[index + 1],
+                    ) { onSpeedTest(entry.address, true) }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }.container
+                    key == Key.SPEED_NODE -> savedSpeedCell(
+                        context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, entry.speedNodeShort,
+                        speedAvailable, speedBusy, rowBackground, widths[index + 1],
+                    ) { onSpeedTest(entry.address, false) }
+                        .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }.container
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
                     mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
                     mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
@@ -1476,9 +1501,17 @@ class IpTestView(
                     else -> renderer.cellOf(mapped, row, widths[index + 1])
                 }
             }
-            val height = maxOf(
+            val baseHeight = maxOf(
                 rowH,
                 heightOf(ipView, widths[0]),
+                cells.mapIndexedNotNull { index, cell ->
+                    if (keys[index] == Key.SPEED || keys[index] == Key.SPEED_NODE) null
+                    else heightOf(cell, widths[index + 1])
+                }.maxOrNull() ?: 0,
+            )
+            savedRowBaseHeights[entry.address] = baseHeight
+            val height = maxOf(
+                baseHeight,
                 cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
             ) + dp(8)
             left.addView(leftRow, lp(ipColumnWidth, height))
@@ -1554,16 +1587,42 @@ class IpTestView(
 
     internal fun setSavedSpeedAvailability(available: Boolean, busy: Boolean) {
         savedSpeedButtons.values.forEach { buttons ->
-            buttons.direct?.isEnabled = available && !busy
-            buttons.node?.isEnabled = available && !busy
+            buttons.direct?.button?.isEnabled = available && !busy
+            buttons.node?.button?.isEnabled = available && !busy
         }
     }
 
-    internal fun updateSavedSpeed(address: String, direct: Boolean, speed: Double, available: Boolean, busy: Boolean) {
-        val button = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
+    internal fun updateSavedSpeed(address: String, direct: Boolean, speed: Double, short: Boolean, available: Boolean, busy: Boolean) {
+        val cell = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
+        val button = cell.button
+        val showShort = speed > 0.0 && short
+        val buttonHeight = if (showShort) savedSpeedShortButtonHeight else savedSpeedButtonHeight
         val label = context.getString(if (direct) R.string.saved_ip_speed_direct_short else R.string.saved_ip_speed_node_short)
-        button.text = "$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " "
+        button.text = savedSpeedText(label, speed, showShort, cell.cellWidth)
+        button.maxLines = if (showShort) 3 else 2
+        button.minHeight = buttonHeight
+        button.maxHeight = buttonHeight
+        (button.layoutParams as? FrameLayout.LayoutParams)?.let {
+            it.height = buttonHeight
+            button.layoutParams = it
+        }
         button.isEnabled = available && !busy
+        updateSavedRowHeight(address)
+    }
+
+    private fun updateSavedRowHeight(address: String) {
+        val baseHeight = savedRowBaseHeights[address] ?: return
+        val buttons = savedSpeedButtons[address] ?: return
+        val speedHeight = maxOf(
+            buttons.direct?.button?.layoutParams?.height ?: 0,
+            buttons.node?.button?.layoutParams?.height ?: 0,
+        ) + dp(4)
+        val rowHeight = maxOf(baseHeight, speedHeight) + dp(8)
+        val (leftRow, gridRow) = savedRowViews[address] ?: return
+        leftRow.layoutParams = leftRow.layoutParams.apply { height = rowHeight }
+        gridRow.layoutParams = gridRow.layoutParams.apply { height = rowHeight }
+        leftRow.requestLayout()
+        gridRow.requestLayout()
     }
 
     internal fun moveSavedRow(address: String, orderedEntries: List<SavedIpEntry>) {
@@ -1953,16 +2012,41 @@ class IpTestView(
 
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
-    private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, rowBackground: Int, onClick: () -> Unit): SavedSpeedCell {
-        val value = "$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " "
-        val buttonHeight = savedSpeedButtonHeight
+    private fun savedSpeedText(label: String, speed: Double, showShort: Boolean, cellWidth: Int): CharSequence {
+        val value = SpannableStringBuilder("$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " ")
+        if (showShort) {
+            val hint = context.getString(R.string.saved_ip_speed_short)
+            val hintPaint = TextView(context).apply { textSize = 11f }.paint
+            val availableWidth = (cellWidth - dp(14)).coerceAtLeast(0)
+            val shownHint = if (hintPaint.measureText(hint) <= availableWidth) hint else "<30M"
+            val start = value.length
+            value.append("\n").append(shownHint)
+            value.setSpan(ForegroundColorSpan(colorWarn), start, value.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            value.setSpan(android.text.style.AbsoluteSizeSpan(11, true), start, value.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return value
+    }
+
+    private fun savedSpeedCell(
+        label: String,
+        speed: Double,
+        short: Boolean,
+        available: Boolean,
+        busy: Boolean,
+        rowBackground: Int,
+        cellWidth: Int,
+        onClick: () -> Unit,
+    ): SavedSpeedCell {
+        val showShort = speed > 0.0 && short
+        val buttonHeight = if (showShort) savedSpeedShortButtonHeight else savedSpeedButtonHeight
         val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = value
+            text = savedSpeedText(label, speed, showShort, cellWidth)
             textSize = 14f
             setLineSpacing(dp(2).toFloat(), 1f)
             isAllCaps = false
             gravity = Gravity.CENTER
-            maxLines = 2
+            maxLines = if (showShort) 3 else 2
+            ellipsize = TextUtils.TruncateAt.END
             minWidth = 0
             minHeight = buttonHeight
             maxHeight = buttonHeight
@@ -1987,7 +2071,7 @@ class IpTestView(
                 },
             )
         }
-        return SavedSpeedCell(container, button)
+        return SavedSpeedCell(container, button, cellWidth)
     }
     private fun speedText(r: IpTestRow): String {
         return when {

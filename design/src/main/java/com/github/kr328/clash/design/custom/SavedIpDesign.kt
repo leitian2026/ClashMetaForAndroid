@@ -326,7 +326,7 @@ class SavedIpDesign(
     }
 
     // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
-    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double) {
+    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) {
         val (snapshot, version) = SavedIpStore.readVersioned(context)
         snapshotCache = snapshot
         renderedDataVersion = version
@@ -334,7 +334,7 @@ class SavedIpDesign(
         defaultOrderCache.remove(operatorId)
         sortedEntriesCache.remove(operatorId)
         val renderer = savedTableRenderers[operatorId]?.first ?: return
-        renderer.updateSavedSpeed(address, direct, speed, speedAvailable, speedBusy)
+        renderer.updateSavedSpeed(address, direct, speed, short, speedAvailable, speedBusy)
         val updatedColumn = if (direct) "SPEED" else "SPEED_NODE"
         if ((operatorId == expandedOperatorId || operatorId == selectedOperatorId) &&
             currentSort.columnName == updatedColumn

@@ -202,8 +202,8 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
                     ).show()
                     return@launch
                 }
-                SavedIpStore.updateSpeed(this@SavedIpActivity, operatorId, address, direct, row.speed)
-                page?.updateSpeedResult(operatorId, address, direct, row.speed)
+                SavedIpStore.updateSpeed(this@SavedIpActivity, operatorId, address, direct, row.speed, row.speedShort)
+                page?.updateSpeedResult(operatorId, address, direct, row.speed, row.speedShort)
                 if (row.speedErr.isNotEmpty()) {
                     Toast.makeText(this@SavedIpActivity, getString(R.string.saved_ip_speed_failed, row.speedErr), Toast.LENGTH_LONG).show()
                 } else {

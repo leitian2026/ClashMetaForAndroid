@@ -37,6 +37,8 @@ data class SavedIpEntry(
     // CUSTOM.md #158: separate explicit download tests; negative defaults identify legacy JSON.
     val speedDirect: Double = -1.0,
     val speedNode: Double = -1.0,
+    val speedDirectShort: Boolean = false,
+    val speedNodeShort: Boolean = false,
     // CUSTOM.md #77: retain optional direct extension diagnostics in saved batches; defaults read old snapshots.
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),
@@ -327,6 +329,8 @@ object SavedIpStore {
                     ),
                     speedDirect = if (testDirect) row.speed else previousInBatch.speedDirect.coerceAtLeast(0.0),
                     speedNode = if (!testDirect) row.speed else previousInBatch.speedNode.coerceAtLeast(0.0),
+                    speedDirectShort = if (testDirect) row.speedShort else previousInBatch.speedDirectShort,
+                    speedNodeShort = if (!testDirect) row.speedShort else previousInBatch.speedNodeShort,
                     ws = row.ws,
                     h3 = row.h3,
                     mtu = row.mtu,
@@ -353,6 +357,8 @@ object SavedIpStore {
                 ),
                 speedDirect = if (testDirect) row.speed else (previous?.speedDirect ?: 0.0).coerceAtLeast(0.0),
                 speedNode = if (!testDirect) row.speed else (previous?.speedNode ?: 0.0).coerceAtLeast(0.0),
+                speedDirectShort = if (testDirect) row.speedShort else previous?.speedDirectShort ?: false,
+                speedNodeShort = if (!testDirect) row.speedShort else previous?.speedNodeShort ?: false,
                 ws = row.ws,
                 h3 = row.h3,
                 mtu = row.mtu,
@@ -457,7 +463,7 @@ object SavedIpStore {
 
     /** Update only one saved download result after an explicit user action. */
     @Synchronized
-    fun updateSpeed(context: Context, operatorId: String, address: String, direct: Boolean, speed: Double) {
+    fun updateSpeed(context: Context, operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) {
         val snapshot = readForUpdate(context)
         var changed = false
         val operators = snapshot.operators.map { operator ->
@@ -467,7 +473,15 @@ object SavedIpStore {
                         changed = true
                         val directSpeed = if (direct) speed.coerceAtLeast(0.0) else entry.speedDirect.coerceAtLeast(0.0)
                         val nodeSpeed = if (direct) entry.speedNode.coerceAtLeast(0.0) else speed.coerceAtLeast(0.0)
-                        entry.copy(speed = maxOf(directSpeed, nodeSpeed), speedDirect = directSpeed, speedNode = nodeSpeed)
+                        val directShort = if (direct) short else entry.speedDirectShort
+                        val nodeShort = if (direct) entry.speedNodeShort else short
+                        entry.copy(
+                            speed = maxOf(directSpeed, nodeSpeed),
+                            speedDirect = directSpeed,
+                            speedNode = nodeSpeed,
+                            speedDirectShort = directShort,
+                            speedNodeShort = nodeShort,
+                        )
                     }
                 },
             )

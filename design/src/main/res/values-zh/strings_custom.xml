@@ -542,6 +542,7 @@
     <string name="saved_ip_speed_direct_short">直连</string>
     <string name="saved_ip_speed_node_short">经节点</string>
     <string name="saved_ip_speed_unit">MB/s</string>
+    <string name="saved_ip_speed_short">不足30M</string>
     <string name="saved_ip_speed_not_running">请先启动 Clash，再进行下载测速。</string>
     <string name="saved_ip_speed_need_node">请先到测试 IP 页面选择一个有效节点。</string>
     <string name="saved_ip_speed_failed">下载测速失败：%1$s</string>
