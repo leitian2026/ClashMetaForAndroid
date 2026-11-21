@@ -15,6 +15,8 @@ internal object IpDownloadSpeed {
         ip: String,
         node: String,
         url: String,
+        maxBytes: Long,
+        maxSeconds: Int,
         query: suspend (String) -> String,
     ): IpTestReport {
         val request = JSONObject()
@@ -23,6 +25,8 @@ internal object IpDownloadSpeed {
             .put("node", node)
             .put("ips", ip)
             .put("url", url)
+            .put("maxBytes", maxBytes)
+            .put("maxSeconds", maxSeconds)
             .toString()
         return IpTestReport.parse(query(request))
     }
