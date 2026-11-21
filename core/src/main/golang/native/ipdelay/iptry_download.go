@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -25,9 +26,10 @@ const firstByteTimeout = 10 * time.Second
 // DownloadResult is the outcome of a download test. Err is "" when some bytes came.
 type DownloadResult struct {
 	Bytes int64
-	Ms    int     // from the first body byte to the end (or request start when no body byte came)
-	MBps  float64 // megabytes (10^6 bytes) per second after the first skip
+	Ms    int
+	MBps  float64
 	Err   string
+	Short bool // true when the completed response is smaller than maxBytes
 }
 
 // speedOf works out the sustained speed: the bytes after `skip` over the time after `skip`; when the whole download
@@ -120,6 +122,7 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 		skipped       bool
 		firstByteAt   time.Time
 		cancelDownload context.CancelFunc
+		readErr        error
 	)
 
 	buf := make([]byte, 32*1024)
@@ -148,6 +151,7 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 		}
 
 		if err != nil {
+			readErr = err
 			break // the end, the download timeout or a cut connection: what came is what counts
 		}
 	}
@@ -168,7 +172,12 @@ func measureDownload(ctx, firstByteCtx context.Context, cancelFirstByte context.
 		return DownloadResult{Err: "no data", Ms: int(elapsed.Milliseconds())}
 	}
 
-	return DownloadResult{Bytes: total, Ms: int(elapsed.Milliseconds()), MBps: speedOf(total, atSkip, elapsed, tSkip, skipped)}
+	short := total > 0 && total < maxBytes && (
+		readErr == io.EOF ||
+			(resp.ContentLength >= 0 && resp.ContentLength < maxBytes && total >= resp.ContentLength)
+	)
+
+	return DownloadResult{Bytes: total, Ms: int(elapsed.Milliseconds()), MBps: speedOf(total, atSkip, elapsed, tSkip, skipped), Short: short}
 }
 
 // DownloadVia does the download through node `name` with its `server` replaced by `server` (like TryIP): the request

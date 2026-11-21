@@ -8,7 +8,7 @@ import org.json.JSONObject
  * The caller supplies the existing Clash connection; this does not implement downloading.
  */
 internal object IpDownloadSpeed {
-    const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=10485760"
+    const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=31457280"
     const val DEFAULT_URL_NODE = "https://proof.ovh.net/files/100Mb.dat"
 
     suspend fun run(

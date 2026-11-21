@@ -72,6 +72,7 @@ data class IpTestRow(
     val speedBytes: Long = 0,
     val speedMs: Int = 0,
     val speedErr: String = "",
+    val speedShort: Boolean = false, // CUSTOM.md #99: completed download was smaller than the 30 MB limit
     // CUSTOM.md #77: optional direct-only extension diagnostics; defaults keep old saved batches readable.
     val ws: IpTestExtResult = IpTestExtResult(),
     val h3: IpTestExtResult = IpTestExtResult(),

@@ -49,7 +49,7 @@ func TestMeasureDownloadLimits(t *testing.T) {
 	start := time.Now()
 	res := MeasureDownload(context.Background(), conn, srv.URL, 10<<20, 1500*time.Millisecond, 300*time.Millisecond)
 
-	if time.Since(start) > 2500*time.Millisecond || res.Err != "" || res.Bytes < 500_000 || res.MBps < 0.3 || res.MBps > 1.2 {
+	if time.Since(start) > 2500*time.Millisecond || res.Err != "" || res.Short || res.Bytes < 500_000 || res.MBps < 0.3 || res.MBps > 1.2 {
 		t.Errorf("%+v after %v", res, time.Since(start))
 	}
 
@@ -60,7 +60,19 @@ func TestMeasureDownloadLimits(t *testing.T) {
 	conn, _ = net.Dial("tcp", srv2.Listener.Addr().String())
 	res = MeasureDownload(context.Background(), conn, srv2.URL, 256<<10, 5*time.Second, time.Second)
 
-	if res.Err != "" || res.Bytes < 256<<10 || res.Bytes > 256<<10+64<<10 {
+	if res.Err != "" || res.Short || res.Bytes < 256<<10 || res.Bytes > 256<<10+64<<10 {
+		t.Errorf("%+v", res)
+	}
+
+	// a completed file smaller than the limit is explicitly marked short
+	srv4 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("small file"))
+	}))
+	defer srv4.Close()
+
+	conn, _ = net.Dial("tcp", srv4.Listener.Addr().String())
+	res = MeasureDownload(context.Background(), conn, srv4.URL, 1<<20, 5*time.Second, time.Second)
+	if res.Err != "" || !res.Short || res.Bytes != int64(len("small file")) {
 		t.Errorf("%+v", res)
 	}
 

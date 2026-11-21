@@ -127,6 +127,7 @@ type IPRow struct {
 	SpeedBytes int64   `json:"speedBytes"` // bytes read
 	SpeedMs    int     `json:"speedMs"`    // time of the download
 	SpeedErr   string  `json:"speedErr"`   // why the download failed ("" when it worked)
+	SpeedShort bool    `json:"speedShort"` // completed download response was smaller than the byte limit
 
 	// CUSTOM.md #68: how much the tries that worked differ from each other (average distance from Avg, milliseconds), and
 	// where the time goes: direct mode TCP connect / TLS handshake (averages of the tries that worked) and the first

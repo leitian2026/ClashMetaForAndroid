@@ -42,9 +42,9 @@ const (
 	maxPorts      = 12
 
 	defaultPorts       = "443,2053,2083,2087,2096,8443"
-	defaultDownloadURL = "https://speed.cloudflare.com/__down?bytes=10485760"
-	downloadMaxBytes   = 10 << 20
-	downloadMaxTime    = 5 * time.Second
+	defaultDownloadURL = "https://speed.cloudflare.com/__down?bytes=31457280"
+	downloadMaxBytes   = 30 << 20
+	downloadMaxTime    = 6 * time.Second
 	downloadSkip       = 1 * time.Second
 
 	coloListURL = "https://speed.cloudflare.com/locations"
@@ -995,6 +995,7 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 		row.SpeedErr = res.Err
 	} else {
 		row.Speed = res.MBps
+		row.SpeedShort = res.Short
 	}
 
 	rep.Rows = []IPRow{row}

@@ -891,6 +891,6 @@ object IpTestDialog {
     }
 
     private const val DEFAULT_PORTS = "443 2053 2083 2087 2096 8443"
-    private const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=10485760"
+    private const val DEFAULT_URL_DIRECT = "https://speed.cloudflare.com/__down?bytes=31457280"
     private const val DEFAULT_URL_NODE = "https://proof.ovh.net/files/100Mb.dat"
 }
