@@ -1204,28 +1204,31 @@ class IpTestView(
         }.trim()
     }
 
-    private fun savedHeaderCell(title: String, width: Int, selected: Set<String>, summaryOverride: String? = null, onClick: (View) -> Unit): View {
+    private fun savedHeaderCell(title: String, width: Int, selected: Set<String>, summaryOverride: String? = null, showSpeedUnit: Boolean = false, onClick: (View) -> Unit): View {
         val titleView = TextView(context).apply {
             text = title; textSize = 14f; gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorMuted); setPadding(dp(4), dp(4), dp(4), dp(1))
+            setTextColor(colorMuted); setPadding(dp(4), dp(2), dp(4), 0)
+        }
+        val unitView = TextView(context).apply {
+            text = context.getString(R.string.saved_ip_speed_unit)
+            textSize = 11f; gravity = Gravity.CENTER; setTextColor(colorMuted)
+            minHeight = dp(16); setPadding(dp(3), 0, dp(3), 0)
         }
         val selectedView = TextView(context).apply {
-            // CUSTOM (CUSTOM.md #160): a readable one-line summary; show up to two selected values.
+            // CUSTOM (CUSTOM.md #160): filter summary; speed columns use this line for sort direction.
             text = summaryOverride ?: savedIpFilterSummary(selected)
-            textSize = 12f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(3))
-            minHeight = dp(18)
-            // Keep a second-line slot in every header so all column titles share one baseline.
+            textSize = 11f; gravity = Gravity.CENTER; setTextColor(colorLink); maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END; setPadding(dp(3), 0, dp(3), dp(2))
+            minHeight = dp(16)
             visibility = if (summaryOverride.isNullOrEmpty() && selected.isEmpty()) View.INVISIBLE else View.VISIBLE
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             val selectable = android.util.TypedValue()
-            if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, selectable, true) && selectable.resourceId != 0) {
-                setBackgroundResource(selectable.resourceId)
-            }
+            if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, selectable, true) && selectable.resourceId != 0) setBackgroundResource(selectable.resourceId)
             addView(titleView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            if (showSpeedUnit) addView(unitView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(selectedView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             tag = selectedView
             isClickable = true; minimumWidth = width; setOnClickListener { if (isEnabled) onClick(this) }
@@ -1264,10 +1267,11 @@ class IpTestView(
         val headers = keys.mapIndexed { index, key ->
             val isSpeedColumn = key == Key.SPEED || key == Key.SPEED_NODE
             savedHeaderCell(
-                title(key),
+                savedHeaderTitle(key),
                 widths[index + 1],
                 selectedFilters[key.name].orEmpty(),
                 if (isSpeedColumn && key.name == speedSortColumnName) speedSortLabel else null,
+                showSpeedUnit = isSpeedColumn,
             ) { anchor ->
                 if (isSavedTableFilterable(key) || isSpeedColumn) onHeaderClick(index, anchor)
             }.apply { isEnabled = isSavedTableFilterable(key) || isSpeedColumn }
@@ -1441,9 +1445,9 @@ class IpTestView(
                 }
                 val missingExit = key == Key.EXIT && row.country.isEmpty()
                 when {
-                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct), entry.speedDirect, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, true) }
+                    key == Key.SPEED -> savedSpeedCell(context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, true) }
                         .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }
-                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node), entry.speedNode, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, false) }
+                    key == Key.SPEED_NODE -> savedSpeedCell(context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, speedAvailable, speedBusy, rowBackground) { onSpeedTest(entry.address, false) }
                         .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
                     mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
@@ -1543,10 +1547,8 @@ class IpTestView(
 
     internal fun updateSavedSpeed(address: String, direct: Boolean, speed: Double, available: Boolean, busy: Boolean) {
         val button = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
-        val label = context.getString(if (direct) R.string.saved_ip_speed_direct else R.string.saved_ip_speed_node)
-        button.text = if (speed > 0.0) {
-            label + "\n" + context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", speed))
-        } else label
+        val label = context.getString(if (direct) R.string.saved_ip_speed_direct_short else R.string.saved_ip_speed_node_short)
+        button.text = "$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " "
         button.isEnabled = available && !busy
     }
 
@@ -1782,6 +1784,14 @@ class IpTestView(
         return (longest.toInt() + dp(16)).coerceIn(dp(112), dp(150))
     }
 
+    private fun savedHeaderTitle(k: Key): String {
+        return when (k) {
+            Key.SPEED -> context.getString(R.string.saved_ip_speed_direct_short)
+            Key.SPEED_NODE -> context.getString(R.string.saved_ip_speed_node_short)
+            else -> title(k)
+        }
+    }
+
     private fun title(k: Key): String {
         return context.getString(
             when (k) {
@@ -1890,9 +1900,7 @@ class IpTestView(
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
     private fun savedSpeedCell(label: String, speed: Double, available: Boolean, busy: Boolean, rowBackground: Int, onClick: () -> Unit): MaterialButton {
-        val value = if (speed > 0.0) {
-            label + "\n" + context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", speed))
-        } else label
+        val value = "$label\n" + if (speed > 0.0) String.format(Locale.US, "%.1f", speed) else " "
         return MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = value
             textSize = 12f
@@ -1900,10 +1908,12 @@ class IpTestView(
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             maxLines = 2
             minWidth = 0
-            minHeight = dp(38)
+            minHeight = dp(42)
+            maxHeight = dp(42)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42))
             insetTop = 0
             insetBottom = 0
-            setPadding(dp(3), dp(5), dp(3), dp(5))
+            setPadding(dp(3), dp(2), dp(3), dp(2))
             backgroundTintList = ColorStateList.valueOf(rowBackground)
             strokeColor = ColorStateList.valueOf(colorMuted)
             strokeWidth = dp(1)

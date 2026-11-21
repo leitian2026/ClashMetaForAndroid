@@ -539,6 +539,9 @@ The app settings and override settings will be replaced, and the subscriptions o
     <string name="saved_ip_show_columns_title">Choose visible columns</string>
     <string name="saved_ip_speed_direct">Direct speed test</string>
     <string name="saved_ip_speed_node">Via node speed test</string>
+    <string name="saved_ip_speed_direct_short">Direct</string>
+    <string name="saved_ip_speed_node_short">Via node</string>
+    <string name="saved_ip_speed_unit">MB/s</string>
     <string name="saved_ip_speed_not_running">Start Clash before testing download speed.</string>
     <string name="saved_ip_speed_need_node">Choose a valid node on the IP test page first.</string>
     <string name="saved_ip_speed_failed">Download speed test failed: %1$s</string>
