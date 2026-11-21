@@ -179,9 +179,10 @@ class IpTestView(
         ellipsize = TextUtils.TruncateAt.END
     }
     private val infoProgress = TextView(context).apply {
-        textSize = 12f
+        textSize = 14f
         setTextColor(colorMuted)
         maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.END or Gravity.CENTER_VERTICAL
     }
     private val infoHeader = LinearLayout(context).apply {
