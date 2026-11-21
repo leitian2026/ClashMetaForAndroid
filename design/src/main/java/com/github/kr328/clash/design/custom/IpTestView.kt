@@ -162,6 +162,25 @@ class IpTestView(
 
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
+    private val infoHead = TextView(context).apply {
+        textSize = 15f
+        setTextColor(colorText)
+        setTypeface(typeface, Typeface.BOLD)
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+    }
+    private val infoProgress = TextView(context).apply {
+        textSize = 12f
+        setTextColor(colorMuted)
+        maxLines = 1
+        gravity = Gravity.END or Gravity.CENTER_VERTICAL
+    }
+    private val infoHeader = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(infoHead, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(infoProgress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
     private val info = TextView(context).apply {
         textSize = 15f
         setTextColor(colorText)
@@ -292,6 +311,7 @@ class IpTestView(
             if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) diagnosticsBody.post { updateDiagnostics() }
         }
 
+        root.addView(infoHeader, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteToggle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(noteBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -314,16 +334,25 @@ class IpTestView(
         val note = if (cut >= 0) sub.substring(cut + 1) else ""
 
         add(sb, head + "\n", bold = true)
+        val details = SpannableStringBuilder()
 
-        if (shownSub.isNotEmpty()) add(sb, shownSub + "\n", colorMuted)
+        if (shownSub.isNotEmpty()) {
+            add(sb, shownSub + "\n", colorMuted)
+            add(details, shownSub + "\n", colorMuted)
+        }
 
-        for (w in warnings) add(sb, w + "\n", colorWarn)
+        for (w in warnings) {
+            add(sb, w + "\n", colorWarn)
+            add(details, w + "\n", colorWarn)
+        }
 
         // no trailing blank line: it made the gap above the note button too big
         while (sb.isNotEmpty() && sb[sb.length - 1] == '\n') sb.delete(sb.length - 1, sb.length)
+        while (details.isNotEmpty() && details[details.length - 1] == '\n') details.delete(details.length - 1, details.length)
 
         infoText = sb
-        info.text = sb
+        infoHead.text = head
+        info.text = details
         info.setPadding(0, 0, 0, if (note.isEmpty()) dp(8) else 0)
 
         noteBody.text = note
@@ -991,31 +1020,33 @@ class IpTestView(
     fun setProgress(total: Int, tested: Int) {
         totalIps = total.coerceAtLeast(0)
         testedIps = tested.coerceIn(0, totalIps)
-        val title = SpannableStringBuilder(context.getString(R.string.iptest_log_title))
-        if (totalIps > 0) {
-            // CUSTOM (CUSTOM.md #156 step 23): highlight the total and completed counts separately.
-            val progress = context.getString(R.string.iptest_log_progress, totalIps, testedIps)
-            val start = title.length
-            title.append(progress)
+        val progress = if (totalIps > 0) {
+            context.getString(R.string.iptest_log_progress, totalIps, testedIps)
+        } else ""
+        val title = SpannableStringBuilder(progress)
+        if (progress.isNotEmpty()) {
+            // CUSTOM (CUSTOM.md #156 step 23): keep the original two-part count highlighting.
             val testedAt = progress.indexOf("，已测")
             if (testedAt > 0) {
                 title.setSpan(
                     ForegroundColorSpan(if (night) Color.parseColor("#90CAF9") else Color.parseColor("#64B5F6")),
-                    start,
-                    start + testedAt,
+                    0,
+                    testedAt,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
                 title.setSpan(
                     ForegroundColorSpan(if (night) Color.parseColor("#64B5F6") else Color.parseColor("#2196F3")),
-                    start + testedAt,
+                    testedAt,
                     title.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             } else {
-                title.setSpan(ForegroundColorSpan(colorMuted), start, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                title.setSpan(ForegroundColorSpan(colorMuted), 0, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
-        logTitle.text = title
+        infoProgress.text = title
+        infoProgress.visibility = if (progress.isEmpty()) View.GONE else View.VISIBLE
+        logTitle.setText(R.string.iptest_log_title)
     }
 
     /** One line of the live status, `[HH:MM:SS] text`; at most 200 lines are kept. */
