@@ -20,6 +20,7 @@ import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
 import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -27,6 +28,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
 import kotlin.random.Random
 
@@ -434,6 +437,14 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
 
             fetchColos(design) // CUSTOM.md #63: the through-node table has the data centre column too
 
+            // Automatic ASN / registered-country lookups run sequentially beside the IP loop.
+            // The queue is unbounded (at most the parsed IP limit) so enqueueing never delays the next probe.
+            val ownerQueue = Channel<String>(Channel.UNLIMITED)
+            val ownerJob = CoroutineScope(currentCoroutineContext()).launch {
+                for (ip in ownerQueue) runAutomaticOwnerLookup(design, ip)
+            }
+
+            try {
             for ((i, t) in targets.withIndex()) {
                 if (i > 0) delay(Random.nextLong(1000, 3001)) // the random gap between two addresses
 
@@ -567,13 +578,17 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                         design.ipLog(message)
                     }
 
-                    // CUSTOM.md #52 / #72: automatically query the operator and registered country after each
-                    // successful IP test. The call is serial with this loop; domain rows are not queried.
-                    if (!row.isDomain) runAutomaticOwnerLookup(design, row.ip)
+                    // CUSTOM.md #52 / #72: queue the automatic lookup; it must not delay the next IP probe.
+                    if (!row.isDomain) ownerQueue.send(row.ip)
                 } else {
                     val rawReason = row.reason.ifBlank { row.code.ifBlank { "-" } }
                     design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, getString(R.string.iptest_handshake_failed) + rawReason, row.loss))
                 }
+            }
+            } finally {
+                // On normal completion, wait for every queued lookup; cancellation still cancels the child job.
+                ownerQueue.close()
+                ownerJob.join()
             }
 
             design.ipLog(getString(R.string.iptest_log_done, ipRows.size))
