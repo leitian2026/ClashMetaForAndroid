@@ -2,9 +2,7 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.text.Editable
 import android.text.InputType
-import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import androidx.core.widget.TextViewCompat
@@ -208,69 +206,9 @@ object IpTestDialog {
                     }
                 }
 
-                // CUSTOM.md #43 第 82 步：测试框修改时间与清除；预填重测使用独立历史，不覆盖手动输入历史。
-                val inputTimeLabel = TextView(context).apply {
-                    textSize = 11f
-                    alpha = 0.65f
-                    visibility = View.GONE
-                    setPadding(0, 0, (8 * density).toInt(), 0)
-                }
-                val clearInputButton = TextView(context).apply {
-                    setText(R.string.iptest_resolve_clear)
-                    textSize = 13f
-                    isClickable = true
-                    isFocusable = true
-                    visibility = View.GONE
-                    setPadding((12 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
-                }
-                val inputTextKey = if (presetIps == null) "ip_text" else "ip_test_preset_text"
-                val inputTimestampKey = if (presetIps == null) "ip_text_changed_at" else "ip_test_preset_changed_at"
-                var lastInputChangedAt = try {
-                    if (prefs.getString(inputTextKey, null) == input.text.toString()) prefs.getLong(inputTimestampKey, 0L) else 0L
-                } catch (_: Exception) {
-                    0L
-                }
-                fun elapsedMinutes(at: Long): Int =
-                    ((System.currentTimeMillis() - at).coerceAtLeast(0L) / 60000L).toInt()
-
-                fun updateInputHeader() {
-                    val hasText = !input.text.isNullOrEmpty()
-                    clearInputButton.visibility = if (hasText) View.VISIBLE else View.GONE
-                    if (!hasText || lastInputChangedAt <= 0L) {
-                        inputTimeLabel.visibility = View.GONE
-                    } else {
-                        inputTimeLabel.text = context.getString(R.string.reach_age_minutes, elapsedMinutes(lastInputChangedAt))
-                        inputTimeLabel.visibility = View.VISIBLE
-                    }
-                }
-
-                input.addTextChangedListener(object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-                    override fun afterTextChanged(s: Editable?) {
-                        val value = s?.toString().orEmpty()
-                        lastInputChangedAt = if (value.isEmpty()) 0L else System.currentTimeMillis()
-                        try {
-                            prefs.edit()
-                                .putString(inputTextKey, value)
-                                .putLong(inputTimestampKey, lastInputChangedAt)
-                                .apply()
-                        } catch (_: Exception) {
-                        }
-                        updateInputHeader()
-                    }
-                })
-                clearInputButton.setOnClickListener {
-                    if (!input.text.isNullOrEmpty()) input.setText("")
-                }
-                val inputHeader = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(inputLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                    addView(inputTimeLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                    addView(clearInputButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                }
-                updateInputHeader()
+                // CUSTOM.md #43: input history and its header live outside this large suspend function.
+                val inputHistory = IpTestInputHistory(context, prefs, input, inputLabel, presetIps == null, density)
+                val inputHeader = inputHistory.header
 
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -838,7 +776,7 @@ object IpTestDialog {
                     .show()
                 val dialogDecor = dialog.window?.decorView
                 val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                    if (hasFocus) updateInputHeader()
+                    if (hasFocus) inputHistory.updateHeader()
                 }
                 dialogDecor?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
                 dialog.setOnDismissListener {
