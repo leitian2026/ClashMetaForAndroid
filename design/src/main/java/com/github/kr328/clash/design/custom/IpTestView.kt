@@ -7,9 +7,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.ClipDrawable
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.text.SpannableStringBuilder
@@ -71,9 +72,8 @@ class IpTestView(
     private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
     private data class SavedSpeedButtons(var direct: SavedSpeedCell? = null, var node: SavedSpeedCell? = null)
-    private data class SavedSpeedCell(val container: FrameLayout, val button: MaterialButton, val cellWidth: Int, val fill: ClipDrawable, val label: String, var speed: Double, var short: Boolean)
-    private var activeTestSpeedButton: MaterialButton? = null
-    private var activeTestSpeedFill: ClipDrawable? = null
+    private data class SavedSpeedCell(val container: FrameLayout, val button: ProgressMaterialButton, val cellWidth: Int, val label: String, var speed: Double, var short: Boolean)
+    private var activeTestSpeedButton: ProgressMaterialButton? = null
     private val savedSpeedButtonHeight by lazy {
         val sample = "经节点\n88.8"
         val paint = TextView(context).apply { textSize = 14f }.paint
@@ -151,11 +151,17 @@ class IpTestView(
     private var rows: List<IpTestRow> = emptyList()
     private var recommendedIps: Set<String> = emptySet() // CUSTOM.md #166: calculated once per result refresh
     private var savedTableAvailableWidth: Int = 0
-    private var liveTableScrollX: Int = 0 // retain horizontal position when the table is refreshed
+    private var liveTableScrollX: Int = 0 // live position, retained across table rebuilds
+    private var redrawPending = false
+    private val redrawAction = Runnable {
+        redrawPending = false
+        redrawNow()
+    }
     private var dnsReport: DnsCheckReport? = null
     private var colos: Map<String, String> = emptyMap()
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
     private var speedIp: String? = null
+    private var downloadProgressPercent: Int? = null
     private var ownerLookupIp: String? = null
     private val ownerLookupCells = HashMap<String, TextView>()
     private var testing = false
@@ -308,7 +314,7 @@ class IpTestView(
         // the table is laid out for the width the page gives it: laid out again when that width changes (rotation,
         // split screen), and only then
         tableBox.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
-            if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) tableBox.post { redraw() }
+            if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) redraw()
         }
         diagnosticsBody.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
             if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) diagnosticsBody.post { updateDiagnostics() }
@@ -995,10 +1001,10 @@ class IpTestView(
 
     /** [testing]: the round is running (no download then); [ip]: the row whose download is running. */
     fun setBusy(testing: Boolean, ip: String?) {
+        if (speedIp != ip) downloadProgressPercent = null
         this.testing = testing
         speedIp = ip
         activeTestSpeedButton = null
-        activeTestSpeedFill = null
         redraw()
     }
 
@@ -1008,10 +1014,11 @@ class IpTestView(
             return
         }
         if (speedIp != ip) return
+        downloadProgressPercent = percent?.coerceIn(0, 100)
         val button = activeTestSpeedButton ?: return
-        button.text = if (percent == null) context.getString(R.string.check_cancel)
-        else context.getString(R.string.check_cancel) + "\n" + percent.coerceIn(0, 100) + "%"
-        activeTestSpeedFill?.level = (percent ?: 0).coerceIn(0, 100) * 100
+        button.text = if (downloadProgressPercent == null) context.getString(R.string.check_cancel)
+        else context.getString(R.string.check_cancel) + "\n" + downloadProgressPercent + "%"
+        button.progressLevel = (downloadProgressPercent ?: 0) * 100
     }
 
     fun setOwnerLookup(ip: String?) {
@@ -1150,9 +1157,14 @@ class IpTestView(
     }
 
     private fun redraw() {
-        val previousScrollX = (tableBox.getChildAt(1) as? HorizontalScrollView)?.scrollX ?: liveTableScrollX
-        liveTableScrollX = previousScrollX
+        if (redrawPending) return
+        redrawPending = true
+        tableBox.postOnAnimation(redrawAction)
+    }
+
+    private fun redrawNow() {
         ownerLookupCells.clear()
+        activeTestSpeedButton = null
         tableBox.removeAllViews()
 
         if (rows.isEmpty()) return
@@ -1216,15 +1228,17 @@ class IpTestView(
             addView(grid, ViewGroup.LayoutParams(gridW, ViewGroup.LayoutParams.WRAP_CONTENT))
             setOnScrollChangeListener { _, x, _, _, _ -> liveTableScrollX = x }
         }
-        scroll.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                val observer = scroll.viewTreeObserver
-                if (observer.isAlive) observer.removeOnPreDrawListener(this)
-                if (scroll.scrollX == previousScrollX) return true
-                scroll.scrollTo(previousScrollX, 0)
-                return false
+        val restoreScrollListener = object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                view: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+            ) {
+                if (view.width <= 0) return
+                view.removeOnLayoutChangeListener(this)
+                view.scrollTo(liveTableScrollX, 0)
             }
-        })
+        }
+        scroll.addOnLayoutChangeListener(restoreScrollListener)
 
         tableBox.addView(left, LinearLayout.LayoutParams(w[0], ViewGroup.LayoutParams.WRAP_CONTENT))
         tableBox.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -1618,15 +1632,17 @@ class IpTestView(
         }
         // CUSTOM (CUSTOM.md #165): restore the horizontal position before the first frame is drawn,
         // so a rebuilt table never shows at the far left for one frame and then jumps back.
-        scroll.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                val observer = scroll.viewTreeObserver
-                if (observer.isAlive) observer.removeOnPreDrawListener(this)
-                if (scroll.scrollX == scrollX) return true
-                scroll.scrollTo(scrollX, 0)
-                return false
+        val restoreScrollListener = object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                view: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+            ) {
+                if (view.width <= 0) return
+                view.removeOnLayoutChangeListener(this)
+                view.scrollTo(scrollX, 0)
             }
-        })
+        }
+        scroll.addOnLayoutChangeListener(restoreScrollListener)
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(left, LinearLayout.LayoutParams(ipColumnWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -1645,7 +1661,7 @@ class IpTestView(
         val cell = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
         cell.speed = speed
         cell.short = short
-        cell.fill.level = 0
+        cell.button.progressLevel = 0
         val button = cell.button
         val showShort = speed > 0.0 && short
         val buttonHeight = if (showShort) savedSpeedShortButtonHeight else savedSpeedButtonHeight
@@ -1664,7 +1680,7 @@ class IpTestView(
 
     internal fun updateSavedSpeedProgress(address: String, direct: Boolean, percent: Int?) {
         val cell = savedSpeedButtons[address]?.let { if (direct) it.direct else it.node } ?: return
-        cell.fill.level = (percent ?: 0).coerceIn(0, 100) * 100
+        cell.button.progressLevel = (percent ?: 0).coerceIn(0, 100) * 100
         cell.button.text = if (percent == null) {
             savedSpeedText(cell.label, cell.speed, cell.speed > 0.0 && cell.short, cell.cellWidth)
         } else {
@@ -1672,16 +1688,38 @@ class IpTestView(
         }
     }
 
-    private fun progressFill(): Pair<View, ClipDrawable> {
-        val fill = ClipDrawable(
-            GradientDrawable().apply {
-                cornerRadius = dp(5).toFloat()
-                setColor(Color.argb(0x35, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink)))
-            },
-            Gravity.START,
-            ClipDrawable.HORIZONTAL,
-        )
-        return View(context).apply { background = fill; isClickable = false } to fill
+    /** Draw the download fill inside the button's own rounded outline, without changing its measured size. */
+    private inner class ProgressMaterialButton : MaterialButton(
+        context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
+    ) {
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(0x35, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink))
+        }
+        private val fillPath = Path()
+        private val fillBounds = RectF()
+        var progressLevel: Int = 0
+            set(value) {
+                val next = value.coerceIn(0, 10000)
+                if (field == next) return
+                field = next
+                invalidate()
+            }
+
+        override fun onDraw(canvas: Canvas) {
+            if (progressLevel > 0 && width > 0 && height > 0) {
+                val inset = strokeWidth.coerceAtLeast(0).toFloat() / 2f
+                fillBounds.set(inset, inset, width - inset, height - inset)
+                val radius = (cornerRadius.toFloat() - inset).coerceAtLeast(0f)
+                fillPath.reset()
+                fillPath.addRoundRect(fillBounds, radius, radius, Path.Direction.CW)
+                val save = canvas.save()
+                canvas.clipPath(fillPath)
+                val right = fillBounds.left + fillBounds.width() * (progressLevel / 10000f)
+                canvas.drawRect(fillBounds.left, fillBounds.top, right, fillBounds.bottom, fillPaint)
+                canvas.restoreToCount(save)
+            }
+            super.onDraw(canvas)
+        }
     }
 
     private fun updateSavedRowHeight(address: String) {
@@ -2112,7 +2150,7 @@ class IpTestView(
     ): SavedSpeedCell {
         val showShort = speed > 0.0 && short
         val buttonHeight = if (showShort) savedSpeedShortButtonHeight else savedSpeedButtonHeight
-        val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        val button = ProgressMaterialButton().apply {
             text = savedSpeedText(label, speed, showShort, cellWidth)
             textSize = 14f
             setLineSpacing(dp(2).toFloat(), 1f)
@@ -2132,7 +2170,6 @@ class IpTestView(
             isEnabled = available && !busy
             setOnClickListener { if (isEnabled) onClick() }
         }
-        val (fillView, fillDrawable) = progressFill()
         val container = FrameLayout(context).apply {
             val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, buttonHeight, Gravity.CENTER).apply {
                 leftMargin = dp(4)
@@ -2140,10 +2177,9 @@ class IpTestView(
                 topMargin = dp(2)
                 bottomMargin = dp(2)
             }
-            addView(fillView, FrameLayout.LayoutParams(params))
             addView(button, FrameLayout.LayoutParams(params))
         }
-        return SavedSpeedCell(container, button, cellWidth, fillDrawable, label, speed, short)
+        return SavedSpeedCell(container, button, cellWidth, label, speed, short)
     }
     private fun speedText(r: IpTestRow): String {
         return when {
@@ -2408,8 +2444,11 @@ class IpTestView(
         val running = speedIp == r.ip
         val enabled = !testing && (speedIp == null || running)
 
-        val button = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = context.getString(if (running) R.string.check_cancel else speedButtonTextRes())
+        val button = ProgressMaterialButton().apply {
+            text = if (running && downloadProgressPercent != null) {
+                context.getString(R.string.check_cancel) + "\n" + downloadProgressPercent + "%"
+            } else context.getString(if (running) R.string.check_cancel else speedButtonTextRes())
+            progressLevel = if (running) (downloadProgressPercent ?: 0) * 100 else 0
             textSize = 13f
             isAllCaps = false
             gravity = Gravity.CENTER
@@ -2430,16 +2469,8 @@ class IpTestView(
             if (enabled) setOnClickListener { if (running) onSpeedCancel() else onSpeed(r.ip) }
         }
 
-        val (fillView, fillDrawable) = progressFill()
-        val frame = FrameLayout(context).apply {
-            addView(fillView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            addView(button, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        }
-        if (running) {
-            activeTestSpeedButton = button
-            activeTestSpeedFill = fillDrawable
-        }
-        box.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        if (running) activeTestSpeedButton = button
+        box.addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         return box
     }
