@@ -637,7 +637,7 @@ class IpTestView(
         }.paint
 
         return IntArray(headers.size) { column ->
-            val headerWordWidth = headers[column].split(Regex("""\s+"""))
+            val headerWordWidth = headers[column].split(HEADER_WHITESPACE_REGEX)
                 .maxOfOrNull { boldPaint.measureText(it) } ?: 0f
             val valuePaint = if (column == 0) boldPaint else normalPaint
             val valueWidth = values.maxOfOrNull { row ->
@@ -699,7 +699,7 @@ class IpTestView(
     }
 
     private fun certificateDate(value: String): String {
-        return Regex("""\d{4}-\d{2}-\d{2}""").find(value)?.value ?: value
+        return CERTIFICATE_DATE_REGEX.find(value)?.value ?: value
     }
 
     // The diagnostics table follows the IP table: one IP per vertical row; diagnostic fields are horizontal columns.
@@ -1836,7 +1836,7 @@ class IpTestView(
             speedIp == r.ip -> "…"
             r.speed > 0 -> context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", r.speed))
             r.speedErr.isNotEmpty() -> {
-                val status = Regex("\\bHTTP(?:/\\d(?:\\.\\d)?)?\\s+(\\d{3})\\b", RegexOption.IGNORE_CASE)
+                val status = HTTP_STATUS_REGEX.find(r.speedErr)?.groupValues?.get(1)
                     .find(r.speedErr)?.groupValues?.get(1)
                 val lower = r.speedErr.lowercase(Locale.US)
                 val reason = when {
@@ -2302,5 +2302,8 @@ class IpTestView(
 
     companion object {
         private const val MAX_LOG = 200
+        private val HEADER_WHITESPACE_REGEX = Regex("""\s+""")
+        private val CERTIFICATE_DATE_REGEX = Regex("""\d{4}-\d{2}-\d{2}""")
+        private val HTTP_STATUS_REGEX = Regex("\\bHTTP(?:/\\d(?:\\.\\d)?)?\\s+(\\d{3})\\b", RegexOption.IGNORE_CASE)
     }
 }
