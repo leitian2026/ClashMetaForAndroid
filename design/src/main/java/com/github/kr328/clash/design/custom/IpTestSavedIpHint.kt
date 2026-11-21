@@ -28,7 +28,7 @@ internal object IpTestSavedIpHint {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
             val container = this
-            input.addTextChangedListener(object : TextWatcher {
+            val watcher = object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
@@ -58,7 +58,9 @@ internal object IpTestSavedIpHint {
                     }
                     container.visibility = View.VISIBLE
                 }
-            })
+            }
+            input.addTextChangedListener(watcher)
+            watcher.afterTextChanged(input.text)
         }
     }
 
