@@ -2,6 +2,8 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -41,6 +43,9 @@ internal class IpTestInputHistory(
     }
     private val inputTextKey = if (useManualHistory) "ip_text" else "ip_test_preset_text"
     private val inputTimestampKey = if (useManualHistory) "ip_text_changed_at" else "ip_test_preset_changed_at"
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingWrite: Runnable? = null
+    private var lastObservedText = input.text.toString()
     private var lastInputChangedAt = try {
         if (prefs.getString(inputTextKey, null) == input.text.toString()) prefs.getLong(inputTimestampKey, 0L) else 0L
     } catch (_: Exception) {
@@ -61,13 +66,10 @@ internal class IpTestInputHistory(
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) {
                 val value = s?.toString().orEmpty()
-                lastInputChangedAt = if (value.isEmpty()) 0L else System.currentTimeMillis()
-                try {
-                    prefs.edit()
-                        .putString(inputTextKey, value)
-                        .putLong(inputTimestampKey, lastInputChangedAt)
-                        .apply()
-                } catch (_: Exception) {
+                if (value != lastObservedText) {
+                    lastObservedText = value
+                    lastInputChangedAt = if (value.isEmpty()) 0L else System.currentTimeMillis()
+                    schedulePersist()
                 }
                 updateHeader()
             }
@@ -76,6 +78,34 @@ internal class IpTestInputHistory(
             if (!input.text.isNullOrEmpty()) input.setText("")
         }
         updateHeader()
+    }
+
+    private fun schedulePersist() {
+        pendingWrite?.let(handler::removeCallbacks)
+        val task = Runnable {
+            pendingWrite = null
+            persist()
+        }
+        pendingWrite = task
+        handler.postDelayed(task, 1_000L)
+    }
+
+    /** Flush only a pending edit; an already-fired debounce has already persisted the current value. */
+    fun flush() {
+        val task = pendingWrite ?: return
+        handler.removeCallbacks(task)
+        pendingWrite = null
+        persist()
+    }
+
+    private fun persist() {
+        try {
+            prefs.edit()
+                .putString(inputTextKey, input.text.toString())
+                .putLong(inputTimestampKey, lastInputChangedAt)
+                .apply()
+        } catch (_: Exception) {
+        }
     }
 
     fun updateHeader() {

@@ -750,8 +750,7 @@ object IpTestDialog {
 
                     try {
                         val edit = prefs.edit()
-                        // CUSTOM.md #156 step 4: one-shot saved-IP prefill must not replace the next manual dialog's history.
-                        if (presetIps == null) edit.putString("ip_text", text)
+                        // The input history helper flushes its pending value on every dialog dismissal.
                         edit.putString("ip_resolve_domains", resolveInput.text.toString())
                         edit.putString("ip_node", node).putString("ip_ports", ports)
                             .putString("ip_url_direct", directUrl).putString("ip_url_node", nodeUrl)
@@ -780,6 +779,7 @@ object IpTestDialog {
                 }
                 dialogDecor?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
                 dialog.setOnDismissListener {
+                    inputHistory.flush()
                     dialogDecor?.viewTreeObserver?.let { observer ->
                         if (observer.isAlive) observer.removeOnWindowFocusChangeListener(focusListener)
                     }
