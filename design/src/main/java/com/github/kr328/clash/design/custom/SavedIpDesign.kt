@@ -320,8 +320,15 @@ class SavedIpDesign(
 
     fun setConfigIpSources(value: Map<String, Set<String>>) {
         if (configuredIpSources == value) return
+        val changedIps = (configuredIpSources.keys + value.keys).filterTo(HashSet()) { ip ->
+            configuredIpSources[ip] != value[ip]
+        }
         configuredIpSources = value
-        renderRows()
+        if (changedIps.isEmpty()) return
+        val affectedOperatorIds = snapshotCache.operators
+            .filter { operator -> operator.ips.any { it.address in changedIps } }
+            .map { it.id }
+        affectedOperatorIds.forEach { operatorId -> renderOperator(operatorId) }
     }
 
     fun refreshIfDataChanged(): Boolean {
