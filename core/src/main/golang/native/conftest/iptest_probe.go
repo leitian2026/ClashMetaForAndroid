@@ -43,10 +43,14 @@ const (
 	maxPorts      = 12
 
 	defaultPorts       = "443,2053,2083,2087,2096,8443"
-	defaultDownloadURL = "https://speed.cloudflare.com/__down?bytes=31457280"
-	downloadMaxBytes   = 30 << 20
-	downloadMaxTime    = 6 * time.Second
-	downloadSkip       = 1 * time.Second
+	defaultDownloadURL     = "https://speed.cloudflare.com/__down?bytes=31457280"
+	downloadDefaultMaxBytes = 30 << 20
+	downloadDefaultMaxTime  = 6 * time.Second
+	downloadMinBytes        = 1 << 20
+	downloadMaxBytes        = 200 << 20
+	downloadMinTime         = 1 * time.Second
+	downloadMaxTime         = 60 * time.Second
+	downloadSkip            = 1 * time.Second
 
 	coloListURL = "https://speed.cloudflare.com/locations"
 	coloTimeout = 6 * time.Second
@@ -964,12 +968,31 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
+	maxBytes := req.MaxBytes
+	if maxBytes == 0 {
+		maxBytes = downloadDefaultMaxBytes
+	} else if maxBytes < downloadMinBytes {
+		maxBytes = downloadMinBytes
+	} else if maxBytes > downloadMaxBytes {
+		maxBytes = downloadMaxBytes
+	}
+
+	maxSeconds := req.MaxSeconds
+	if maxSeconds == 0 {
+		maxSeconds = int(downloadDefaultMaxTime / time.Second)
+	} else if maxSeconds < int(downloadMinTime/time.Second) {
+		maxSeconds = int(downloadMinTime / time.Second)
+	} else if maxSeconds > int(downloadMaxTime/time.Second) {
+		maxSeconds = int(downloadMaxTime / time.Second)
+	}
+	maxTime := time.Duration(maxSeconds) * time.Second
+
 	row := IPRow{IP: t.Text, IsDomain: t.IsDomain}
 
 	var res ipdelay.DownloadResult
 
 	if rep.Node != "" {
-		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, t.IsDomain, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
+		res = ipdelay.DownloadVia(ctx, rep.Node, t.Text, t.IsDomain, raw, maxBytes, maxTime, downloadSkip)
 	} else {
 		port := u.Port()
 		if port == "" {
@@ -987,7 +1010,7 @@ func downloadOne(ctx context.Context, rep *IPReport, req IPRequest) {
 		if err != nil {
 			res = ipdelay.DownloadResult{Err: err.Error()}
 		} else {
-			res = ipdelay.MeasureDownload(ctx, conn, raw, downloadMaxBytes, downloadMaxTime, downloadSkip)
+			res = ipdelay.MeasureDownload(ctx, conn, raw, maxBytes, maxTime, downloadSkip)
 		}
 	}
 
