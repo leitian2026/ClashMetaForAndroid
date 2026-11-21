@@ -444,9 +444,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
         )
 
-        var refreshSaveAvailability: (() -> Unit)? = null
+        var refreshSaveAvailability: ((reloadStore: Boolean) -> Unit)? = null
+        var cancelPendingSaveAvailabilityAction: (() -> Unit)? = null
         val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
         var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } } ?: snapshot.lastOperatorId
+        var existingAddresses = snapshot.operators.firstOrNull { it.id == selectedId }
+            ?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
         val ids = HashMap<Int, String>()
         fun appendOperatorChoice(operator: SavedIpOperator) {
             val button = RadioButton(context).apply {
@@ -464,7 +467,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         }
         group.setOnCheckedChangeListener { _, checked ->
             selectedId = ids[checked].orEmpty()
-            refreshSaveAvailability?.invoke()
+            cancelPendingSaveAvailabilityAction?.invoke()
+            refreshSaveAvailability?.invoke(true)
         }
         content.addView(group)
 
@@ -513,6 +517,8 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                         }
                         addDialog.dismiss()
                         appendOperatorChoice(operator)
+                        // The selected operator was just created; the selection callback reloads its fresh store state.
+                        existingAddresses = emptySet()
                         group.check(group.getChildAt(group.childCount - 1).id)
                     }
                 }
@@ -624,7 +630,11 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                     Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
                 }
             }
-            refreshSaveAvailability = {
+            refreshSaveAvailability = { reloadStore ->
+                if (reloadStore) {
+                    val currentOperator = SavedIpStore.read(context).operators.firstOrNull { it.id == selectedId }
+                    existingAddresses = currentOperator?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
+                }
                 val eligibleRows = rows.filter { row ->
                     !row.isDomain && row.ip.isNotBlank()
                 }
@@ -633,22 +643,36 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 val pasted = SavedIpParser.extract(pastedInput.text.toString())
                 onlyPastedButton.isEnabled = selectedId.isNotBlank() && pasted.addresses.isNotEmpty()
                 onlyReachableButton.isEnabled = selectedId.isNotBlank() && reachableRows.isNotEmpty()
-                val currentOperator = SavedIpStore.read(context).operators.firstOrNull { it.id == selectedId }
-                val existing = currentOperator?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
-                val newPastedCount = pasted.addresses.count { it !in testAddresses && it !in existing }
+                val newPastedCount = pasted.addresses.count { it !in testAddresses && it !in existingAddresses }
                 val eligibleCount = testAddresses.size + newPastedCount
                 saveCountView.text = context.getString(R.string.saved_ip_save_count, eligibleCount)
                 positive.isEnabled = eligibleCount > 0 && selectedId.isNotBlank()
             }
+            var pendingSaveAvailability: Runnable? = null
+            fun cancelPendingSaveAvailability() {
+                pendingSaveAvailability?.let(pastedInput::removeCallbacks)
+                pendingSaveAvailability = null
+            }
+            cancelPendingSaveAvailabilityAction = ::cancelPendingSaveAvailability
             pastedInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    refreshSaveAvailability?.invoke()
+                    cancelPendingSaveAvailability()
+                    val task = Runnable {
+                        pendingSaveAvailability = null
+                        refreshSaveAvailability?.invoke(false)
+                    }
+                    pendingSaveAvailability = task
+                    pastedInput.postDelayed(task, 200L)
                 }
                 override fun afterTextChanged(s: Editable?) = Unit
             })
-            refreshSaveAvailability?.invoke()
+            refreshSaveAvailability?.invoke(false)
+            dialog.setOnDismissListener { cancelPendingSaveAvailability() }
             positive.setOnClickListener {
+                cancelPendingSaveAvailability()
+                refreshSaveAvailability?.invoke(true)
+                if (!positive.isEnabled) return@setOnClickListener
                 val operatorId = selectedId
                 if (operatorId.isBlank()) return@setOnClickListener
                 try {
