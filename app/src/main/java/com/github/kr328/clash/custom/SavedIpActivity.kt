@@ -7,6 +7,7 @@ import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.custom.SavedIpDesign
+import com.github.kr328.clash.design.custom.IpDownloadLimit
 import com.github.kr328.clash.design.custom.SavedIpStore
 import android.widget.Toast
 import android.os.PowerManager
@@ -181,6 +182,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         speedJob = launch {
             try {
                 val prefs = getSharedPreferences("custom_config_check", MODE_PRIVATE)
+                val downloadLimits = IpDownloadLimit.read(prefs)
                 val node = if (direct) "" else runCatching { prefs.getString("ip_node", "").orEmpty() }.getOrDefault("")
                 if (!direct) {
                     if (node.isBlank()) {
@@ -210,14 +212,14 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
                 val url = prefs.getString(if (direct) "ip_url_direct" else "ip_url_node", defaultUrl)
                     .orEmpty().ifBlank { defaultUrl }
                 val progressObserver = IpDownloadProgressObserver.create { bytes, elapsedMs ->
-                    val progress = IpSpeedTestCoordinator.updateProgress(address, direct, bytes, elapsedMs, operatorId)
+                    val progress = IpSpeedTestCoordinator.updateProgress(address, direct, bytes, elapsedMs, downloadLimits.maxBytes, downloadLimits.maxSeconds, operatorId)
                     if (pageVisible && screenInteractive()) {
                         runOnUiThread {
                             if (pageVisible && screenInteractive()) page?.updateSpeedProgress(operatorId, address, direct, progress.percent)
                         }
                     }
                 }
-                val report = IpDownloadSpeed.run(address, node, url) { request ->
+                val report = IpDownloadSpeed.run(address, node, url, downloadLimits.maxBytes, downloadLimits.maxSeconds) { request ->
                     withClash { queryCustomConnectionsWithProgress(CustomConnections.SORT_CHECK, request, progressObserver) }
                 }
                 if (report.cancelled) return@launch
