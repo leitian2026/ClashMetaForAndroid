@@ -538,32 +538,46 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		tcpMs   []int // CUSTOM.md #68: of the tries that worked, the TCP connect and the TLS handshake (the rest of ms)
 		tlsMs   []int
 		lastErr error
+		sent    int
 	)
 
-	forEachTry(ctx, probeTries, probeParallel, func(int) {
-		conn, ms, tcp, ech, err := handshakeECHSplit(ctx, addr, rep.Domain, echList, probeTimeout)
+	// Run the ten attempts in two event-driven batches. If all first five fail,
+	// there is no reason to open five more connections to the same address.
+	runBatch := func() {
+		forEachTry(ctx, probeTries/2, probeParallel, func(int) {
+			mu.Lock()
+			sent++
+			mu.Unlock()
 
-		mu.Lock()
-		defer mu.Unlock()
+			conn, ms, tcp, ech, err := handshakeECHSplit(ctx, addr, rep.Domain, echList, probeTimeout)
 
-		if err != nil {
-			lastErr = err
+			mu.Lock()
+			defer mu.Unlock()
 
-			return
-		}
+			if err != nil {
+				lastErr = err
 
-		okMs = append(okMs, ms)
+				return
+			}
 
-		if ms >= tcp { // CUSTOM.md #68
-			tcpMs, tlsMs = append(tcpMs, tcp), append(tlsMs, ms-tcp)
-		}
+			okMs = append(okMs, ms)
 
-		if keep == nil {
-			keep, keepECH = conn, ech
-		} else {
-			_ = conn.Close()
-		}
-	})
+			if ms >= tcp { // CUSTOM.md #68
+				tcpMs, tlsMs = append(tcpMs, tcp), append(tlsMs, ms-tcp)
+			}
+
+			if keep == nil {
+				keep, keepECH = conn, ech
+			} else {
+				_ = conn.Close()
+			}
+		})
+	}
+
+	runBatch()
+	if ctx.Err() == nil && len(okMs) > 0 {
+		runBatch()
+	}
 
 	if ctx.Err() != nil {
 		if keep != nil {
@@ -576,7 +590,7 @@ func probeDirect(ctx context.Context, rep *IPReport, req IPRequest) {
 		return
 	}
 
-	setStats(&row, summarize(okMs, probeTries))
+	setStats(&row, summarize(okMs, sent))
 
 	if keep == nil {
 		if lastErr != nil {
