@@ -1628,13 +1628,19 @@ class IpTestView(
         floor[0] = min[0]
 
         keys.forEachIndexed { i, k ->
-            val header = headerNeed(k)
-            val button = if (k == Key.TEST) speedButtonNeed() else 0
-            val requiredContentWidth = if (k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP)) {
-                contentNeed(k)
-            } else 0
+            val savedSpeedColumn = savedTable && k in setOf(Key.SPEED, Key.SPEED_NODE)
+            val header = if (savedSpeedColumn) savedSpeedHeaderNeed(k) else headerNeed(k)
+            val button = when {
+                savedSpeedColumn -> savedSpeedButtonNeed(k)
+                k == Key.TEST -> speedButtonNeed()
+                else -> 0
+            }
+            val requiredContentWidth = if (
+                k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP) &&
+                !savedSpeedColumn
+            ) contentNeed(k) else 0
             floor[i + 1] = maxOf(header, button, requiredContentWidth)
-            min[i + 1] = maxOf(width(k), floor[i + 1])
+            min[i + 1] = maxOf(if (savedSpeedColumn) 0 else width(k), floor[i + 1])
         }
 
         // CUSTOM.md #94: the time split is as wide as its longest line, so "首字节 447 ms" does not wrap
@@ -1828,6 +1834,40 @@ class IpTestView(
                 Key.SPEED_NODE -> R.string.saved_ip_speed_node
             },
         )
+    }
+
+    // CUSTOM.md #162: saved speed columns fit their actual three-line header and two-line button,
+    // without inheriting the wider live-test speed column's fixed width.
+    private fun savedSpeedHeaderNeed(k: Key): Int {
+        val title = TextView(context).apply {
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        val detail = TextView(context).apply { textSize = 11f }
+        val titleWidth = title.paint.measureText(savedHeaderTitle(k)).toInt() + dp(8)
+        val unitWidth = detail.paint.measureText(context.getString(R.string.saved_ip_speed_unit)).toInt() + dp(6)
+        val sortWidth = maxOf(
+            detail.paint.measureText("按最快"),
+            detail.paint.measureText("按最慢"),
+        ).toInt() + dp(6)
+        return maxOf(titleWidth, unitWidth, sortWidth)
+    }
+
+    private fun savedSpeedButtonNeed(k: Key): Int {
+        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            textSize = 14f
+            isAllCaps = false
+            setPadding(dp(3), dp(2), dp(3), dp(2))
+        }
+        val label = context.getString(
+            if (k == Key.SPEED) R.string.saved_ip_speed_direct_short else R.string.saved_ip_speed_node_short,
+        )
+        val longest = maxOf(
+            label.split('\n').maxOf { sample.paint.measureText(it) },
+            sample.paint.measureText("88.8"),
+        )
+        // Include the button's own horizontal padding and the cell container's two 4dp margins.
+        return longest.toInt() + dp(1) + dp(6) + dp(8)
     }
 
     private fun width(k: Key): Int {
