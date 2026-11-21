@@ -180,6 +180,7 @@ class EditorDesign(
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
     private val prefs = context.getSharedPreferences("custom_editor", Context.MODE_PRIVATE)
     private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
+    private var sizeNeedsSave = false
 
     private val sizeView = TextView(context).apply {
         textSize = 14f // CUSTOM.md #70
@@ -439,8 +440,11 @@ class EditorDesign(
         refreshSize()
 
         // CUSTOM.md #53: two fingers change the size, one size per step, as long as they stay down
-        editor.onPinchStep = { step -> changeSize(step) }
-        editor.onTouchEnded = { if (imeApplied != imeBottom) applyPadding() }
+        editor.onPinchStep = { step -> changeSize(step, saveImmediately = false) }
+        editor.onTouchEnded = {
+            flushSize()
+            if (imeApplied != imeBottom) applyPadding()
+        }
 
         editor.readOnly = readOnly
         editor.lintEnabled = lint
@@ -966,15 +970,28 @@ class EditorDesign(
             .show()
     }
 
-    private fun changeSize(delta: Int) {
+    private fun changeSize(delta: Int, saveImmediately: Boolean = true) {
         val next = (sizeSp + delta).coerceIn(MIN_SIZE, MAX_SIZE)
 
         if (next == sizeSp) return
 
         sizeSp = next
-        prefs.edit().putInt("size_sp", next).apply()
+        if (saveImmediately) {
+            prefs.edit().putInt("size_sp", next).apply()
+            sizeNeedsSave = false
+        } else {
+            sizeNeedsSave = true
+        }
         editor.setSizeSp(next.toFloat())
         refreshSize()
+    }
+
+    /** Persist the final pinch size once, on touch end or when the activity stops. */
+    fun flushSize() {
+        if (!sizeNeedsSave) return
+
+        prefs.edit().putInt("size_sp", sizeSp).apply()
+        sizeNeedsSave = false
     }
 
     private fun refreshSize() {

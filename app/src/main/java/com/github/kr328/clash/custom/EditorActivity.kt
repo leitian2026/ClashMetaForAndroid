@@ -59,6 +59,11 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         super.onCreate(savedInstanceState)
     }
 
+    override fun onStop() {
+        design?.flushSize()
+        super.onStop()
+    }
+
     override suspend fun main() {
         val id = intent.getStringExtra(EXTRA_ID) ?: return finish()
         val name = intent.getStringExtra(EXTRA_NAME) ?: id.substringAfterLast('/')
