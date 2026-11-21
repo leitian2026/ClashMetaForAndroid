@@ -77,6 +77,7 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     }
 
     override fun onStop() {
+        page?.cancelPendingSearchRender()
         page?.savePersistentUiState()
         configReadJob?.cancel()
         configReadJob = null

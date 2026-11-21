@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -18,6 +20,7 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
@@ -132,7 +135,10 @@ class SavedIpDesign(
         setTextColor(colorMuted)
         contentDescription = context.getString(R.string.saved_ip_search_clear)
         background = selectableBackground()
-        setOnClickListener { searchInput.text?.clear() }
+        setOnClickListener {
+            searchInput.text?.clear()
+            renderRows()
+        }
     }
     private val searchBox = FrameLayout(context).apply {
         visibility = View.GONE
@@ -141,6 +147,9 @@ class SavedIpDesign(
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var renderedDataVersion = -1L
+    private val searchHandler = Handler(Looper.getMainLooper())
+    private var pendingSearchRender: Runnable? = null
+    private var renderedQuery: String? = null
     private var configuredIpSources: Map<String, Set<String>> = emptyMap()
     private var expandedOperatorId: String?
         get() = filterState.expandedOperatorId
@@ -248,16 +257,25 @@ class SavedIpDesign(
         toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
 
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
+        searchInput.imeOptions = EditorInfo.IME_ACTION_SEARCH
         searchInput.setText(filterState.query)
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 filterState.query = s?.toString().orEmpty()
                 updateSearchIndicator()
-                renderRows()
+                scheduleSearchRender()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+        searchInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                    ?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+                renderRows()
+                true
+            } else false
+        }
         updateSearchUi()
 
         // CUSTOM.md #156 step 12: operator creation and IP pasting are managed from the config-check save dialog.
@@ -291,6 +309,7 @@ class SavedIpDesign(
     }
 
     fun savePersistentUiState() {
+        filterState.query = searchInput.text?.toString().orEmpty()
         val current = filterState.persistentJson()
         if (current != lastPersistedUiState) {
             savedIpUiPreferences.edit().putString(KEY_PERSISTENT_UI_STATE, current).apply()
@@ -305,9 +324,15 @@ class SavedIpDesign(
     }
 
     fun refreshIfDataChanged(): Boolean {
-        if (SavedIpStore.version() == renderedDataVersion) return false
-        refresh()
-        return true
+        if (SavedIpStore.version() != renderedDataVersion) {
+            refresh()
+            return true
+        }
+        if (searchInput.text?.toString().orEmpty() != renderedQuery) {
+            renderRows()
+            return true
+        }
+        return false
     }
 
     fun refresh() {
@@ -323,11 +348,28 @@ class SavedIpDesign(
         renderRows()
     }
 
+    private fun scheduleSearchRender() {
+        cancelPendingSearchRender()
+        val task = Runnable {
+            pendingSearchRender = null
+            renderRows()
+        }
+        pendingSearchRender = task
+        searchHandler.postDelayed(task, 300L)
+    }
+
+    fun cancelPendingSearchRender() {
+        pendingSearchRender?.let(searchHandler::removeCallbacks)
+        pendingSearchRender = null
+    }
+
     // CUSTOM.md #163: each expanded operator is rendered as one shared table. Search deliberately
     // expands every matching operator, preserving the existing search behavior.
     // CUSTOM (CUSTOM.md #165): each operator owns one section View. Local filter/selection
     // changes replace only that section; page-wide changes still call renderRows().
     private fun renderRows() {
+        cancelPendingSearchRender()
+        renderedQuery = searchInput.text?.toString().orEmpty()
         operatorContent.removeAllViews()
         operatorSections.clear()
         stickyHeaderCopies.clear()
@@ -863,6 +905,7 @@ class SavedIpDesign(
         filterState.searchExpanded = false
         searchInput.clearFocus()
         updateSearchUi()
+        renderRows()
     }
 
     private fun updateSearchUi() {
@@ -1036,6 +1079,7 @@ class SavedIpDesign(
     }
 
     fun disposeUndo() {
+        cancelPendingSearchRender()
         invalidateUndo()
     }
 
