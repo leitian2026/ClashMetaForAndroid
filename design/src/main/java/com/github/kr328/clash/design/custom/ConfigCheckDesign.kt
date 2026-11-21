@@ -289,14 +289,13 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         val versioned = withContext(Dispatchers.Main.immediate) {
             val saved = ipSaved ?: return@withContext null
             val snapshot = saved.copy(
-                logs = ipView?.savedLogs() ?: saved.logs,
+                logs = (ipView?.savedLogs() ?: saved.logs).toList(),
                 warnings = saved.warnings.toList(),
                 report = saved.report.copy(
                     rows = saved.report.rows.toList(),
                     colos = saved.report.colos.toMap(),
                     coloCountries = saved.report.coloCountries.toMap(),
                 ),
-                logs = saved.logs.toList(),
             )
             (++persistVersion) to snapshot
         } ?: return
@@ -359,7 +358,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun ipSaveContext(domain: String, node: String, ports: String, url: String) {
         withContext(Dispatchers.Main) {
             ipSaved = ipSaved?.copy(domain = domain, node = node, ports = ports, url = url)
-            persistIpTest()
+            flushIpTest()
         }
     }
 
@@ -408,7 +407,7 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                 direct, head, sub, warnings, target, "", "", "", "",
                 IpTestReport(), 0, 0, emptyList(),
             )
-            persistIpTest()
+            flushIpTest()
             shown = ipView?.plain().orEmpty()
         }
     }
@@ -724,9 +723,9 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
         withContext(Dispatchers.Main) {
             ipView?.let {
                 val current = ipSaved
-                if (current?.report?.rows != rows) {
+                if (current != null && current.report.rows != rows) {
                     it.setRows(rows)
-                    ipSaved = current?.copy(report = current.report.copy(rows = rows.toList()))
+                    ipSaved = current.copy(report = current.report.copy(rows = rows.toList()))
                     schedulePersistIpTest()
                 } else {
                     it.setRows(rows)
@@ -740,12 +739,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
     suspend fun ipColos(colos: Map<String, String>, countries: Map<String, String>) {
         withContext(Dispatchers.Main) {
             val current = ipSaved
-            if (current != null && (current.report.colos != colos || current.report.coloCountries != countries)) {
+            if (current == null) {
+                ipView?.setColos(colos, countries)
+            } else if (current.report.colos != colos || current.report.coloCountries != countries) {
                 ipView?.setColos(colos, countries)
                 ipSaved = current.copy(report = current.report.copy(colos = colos.toMap(), coloCountries = countries.toMap()))
                 schedulePersistIpTest()
-            } else {
-                ipView?.setColos(colos, countries)
             }
         }
     }
