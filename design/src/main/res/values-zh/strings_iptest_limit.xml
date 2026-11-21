@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="iptest_download_max_mb">最大下载量（MB）</string>
+    <string name="iptest_download_max_seconds">最长时间（秒）</string>
+    <string name="iptest_download_direct_limit_hint">默认直连地址只提供 30 MiB 文件；调高上限不会增加该地址实际提供的文件大小。</string>
+</resources>
