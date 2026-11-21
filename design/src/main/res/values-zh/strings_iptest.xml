@@ -60,7 +60,7 @@
     <string name="iptest_ms_short">%1$d ms</string>
     <string name="iptest_speed_cell">%1$s MB/s</string>
     <string name="iptest_speed_failed">失败</string>
-    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（最多 30 MB 或从首字节起 6 秒）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。经节点测试的落地 IP 是回显服务返回的地址，和入口 IP 的入口运营商不是同一个；落地国家也是由回显服务返回，不代表目标站自行判断的国家。</string>
+    <string name="iptest_table_hint">点 IP 复制；点端口格看端口结果；点“下载测速”只下载这一行（下载量或时间达到当前设置的上限时结束）；经节点模式的入口机房*为另连一次读取；表格可横向滑动，最右侧是“速度”。详细诊断中，“-”表示该 IP 没有响应，“无”表示响应里本来就没有这一项，“未取到”表示应该有但没有读到。证书不验证，因为核心里读不到安卓系统证书库。经节点测试的落地 IP 是回显服务返回的地址，和入口 IP 的入口运营商不是同一个；落地国家也是由回显服务返回，不代表目标站自行判断的国家。</string>
     <string name="iptest_log_title">实时状态</string>
     <string name="iptest_log_progress">（共 %1$d 个 IP，已测 %2$d 个）</string>
     <string name="iptest_port_title">端口结果：%1$s</string>
@@ -85,7 +85,7 @@
     <string name="iptest_log_land_no_node">配置里没有服务器是 %1$s 的节点，不查询落地国家（落地国家要经过节点才能查询）</string>
     <string name="iptest_log_cancelled">已取消</string>
     <string name="iptest_log_done">全部完成，共测了 %1$d 个</string>
-    <string name="iptest_log_speed_start">%1$s 开始下载测速（最多 30 MB 或从收到第一个字节起 6 秒，前 1 秒也从第一个字节起算）</string>
+    <string name="iptest_log_speed_start">%1$s 开始下载测速（达到当前设置的下载量或时间上限时结束，前 1 秒从收到首字节起算）</string>
     <string name="iptest_log_speed_done">%1$s 下载测速完成：%2$s MB/s（读了 %3$s，从首字节起用时 %4$d 毫秒）</string>
     <string name="iptest_log_speed_fail">%1$s 下载测速失败：%2$s</string>
     <string name="iptest_http_403_note">服务器拒绝访问</string>
