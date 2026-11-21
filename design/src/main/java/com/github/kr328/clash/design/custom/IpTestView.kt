@@ -1837,7 +1837,6 @@ class IpTestView(
             r.speed > 0 -> context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", r.speed))
             r.speedErr.isNotEmpty() -> {
                 val status = HTTP_STATUS_REGEX.find(r.speedErr)?.groupValues?.get(1)
-                    .find(r.speedErr)?.groupValues?.get(1)
                 val lower = r.speedErr.lowercase(Locale.US)
                 val reason = when {
                     status != null -> "HTTP $status"

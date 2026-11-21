@@ -60,6 +60,9 @@ private data class ResolvedIpSnapshot(
     val timestamp: Long = 0L,
 )
 
+private fun elapsedMinutes(at: Long): Int =
+    ((System.currentTimeMillis() - at).coerceAtLeast(0L) / 60000L).toInt()
+
 object IpTestDialog {
     private const val RESOLVED_SNAPSHOT_KEY = "ip_resolved_last"
 
