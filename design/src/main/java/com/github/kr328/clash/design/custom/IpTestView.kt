@@ -115,6 +115,7 @@ class IpTestView(
     private var coloCountries: Map<String, String> = emptyMap() // CUSTOM.md #62: data centre code -> country code
     private var speedIp: String? = null
     private var ownerLookupIp: String? = null
+    private val ownerLookupCells = HashMap<String, TextView>()
     private var testing = false
 
     private var infoText: CharSequence = ""
@@ -304,10 +305,13 @@ class IpTestView(
 
     fun setRows(list: List<IpTestRow>) {
         // Rank the original probe order so exact ties keep their original positions.
-        recommendedIps = IpRecommend.forTest(list)
-        rows = sorted(list)
+        val nextRecommended = IpRecommend.forTest(list)
+        val nextRows = sorted(list)
+        if (rows == nextRows && recommendedIps == nextRecommended) return
+        recommendedIps = nextRecommended
+        rows = nextRows
         redraw()
-        updateDiagnostics()
+        if (target || !direct) updateDiagnostics()
     }
 
     fun setDnsReport(report: DnsCheckReport) {
@@ -926,8 +930,22 @@ class IpTestView(
     }
 
     fun setOwnerLookup(ip: String?) {
+        if (ownerLookupIp == ip) return
+        val previous = ownerLookupIp
         ownerLookupIp = ip
-        redraw()
+        val affected = listOfNotNull(previous, ip).distinct()
+        val rowsByIp = rows.associateBy { it.ip }
+        val canUpdateInPlace = affected.all { address ->
+            rowsByIp[address] == null || ownerLookupCells.containsKey(address)
+        }
+        if (!canUpdateInPlace) {
+            redraw()
+            return
+        }
+        affected.forEach { address ->
+            val row = rowsByIp[address] ?: return@forEach
+            ownerLookupCells[address]?.text = ownerCellText(row)
+        }
     }
 
     /** Progress counts completed IP probes, including failed results; a cancelled in-flight probe is not counted. */
@@ -1047,6 +1065,7 @@ class IpTestView(
     private fun redraw() {
         val previousScrollX = (tableBox.getChildAt(1) as? HorizontalScrollView)?.scrollX ?: liveTableScrollX
         liveTableScrollX = previousScrollX
+        ownerLookupCells.clear()
         tableBox.removeAllViews()
 
         if (rows.isEmpty()) return
@@ -1863,16 +1882,18 @@ class IpTestView(
         }
     }
 
+    private fun ownerCellText(r: IpTestRow): String = when {
+        r.asn.isNotEmpty() -> r.asn
+        r.isDomain || !r.ok -> "-"
+        ownerLookupIp == r.ip -> "查询中…"
+        else -> "-"
+    }
+
     private fun ownerCell(r: IpTestRow): View {
-        val value = when {
-            r.asn.isNotEmpty() -> r.asn
-            r.isDomain || !r.ok -> "-"
-            ownerLookupIp == r.ip -> "查询中…"
-            else -> "-"
-        }
-        return textCell(value, colorText).apply {
+        return textCell(ownerCellText(r), colorText).apply {
             maxLines = 3
             ellipsize = TextUtils.TruncateAt.END
+            ownerLookupCells[r.ip] = this
         }
     }
     private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
