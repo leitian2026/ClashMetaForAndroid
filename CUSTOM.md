@@ -109,7 +109,7 @@
 | 40 | 构建产物名带版本号和时间（r43） | [040.md](docs/custom/040.md) |
 | 41 | 上游差异报告（手动，r43） | [041.md](docs/custom/041.md) |
 | 42 | 自动用最快的 IP（内核补丁 0003，r44） | [042.md](docs/custom/042.md) |
-| 43 | 测试其他 IP（配置检查页；输入历史、域名解析及已保存 IP 输入提示；打开时缓存已保存地址，编辑时事件驱动匹配） | [043.md](docs/custom/043.md) |
+| 43 | 测试其他 IP（配置检查页；输入历史、域名解析及测试框内逐行已保存 IP 提示；缓存 HashSet，使用 LineHeightSpan + LineBackgroundSpan 绘制） | [043.md](docs/custom/043.md) |
 | 44 | App 里的版本号带上 r 数字，关于页长版本号换行（r47） | [044.md](docs/custom/044.md) |
 | 45 | 测 IP：实测确认是不是 Cloudflare，入口运营商 / 登记国家自动查询（r48；r58 起恢复自动查询，见 #52） | [045.md](docs/custom/045.md) |
 | 46 | 内置文本编辑器：行号、YAML 高亮、撤销、查找替换、配置键补全（r49，r345 惰性读取补全行、按版本缓存名字表） | [046.md](docs/custom/046.md) |
