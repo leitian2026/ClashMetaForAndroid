@@ -659,39 +659,12 @@ object IpTestDialog {
                     }
                 }
 
-                val readButton = MaterialButton(context).apply {
-                    setText(R.string.iptest_cfg_button)
-                    isAllCaps = false
-
-                    setOnClickListener {
-                        val read = readConfig ?: return@setOnClickListener
-
-                        isEnabled = false
-                        setText(R.string.iptest_cfg_reading)
-
-                        scope.launch {
-                            val report = try {
-                                read()
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (_: Exception) {
-                                null
-                            }
-
-                            isEnabled = true
-                            setText(R.string.iptest_cfg_button)
-
-                            if (report == null) {
-                                android.widget.Toast.makeText(context, R.string.iptest_cfg_error, android.widget.Toast.LENGTH_LONG).show()
-                            } else {
-                                pickConfig(context, report) { text ->
-                                    // CUSTOM.md #71: the ticked addresses replace what the box held (they were added after it);
-                                    // nothing ticked leaves the box as it was
-                                    if (text.isNotEmpty()) {
-                                        scope.launch { fillTestBox(text) }
-                                    }
-                                }
-                            }
+                val readButton = IpTestConfigReadButton.create(context, scope, readConfig) { report ->
+                    pickConfig(context, report) { text ->
+                        // CUSTOM.md #71: the ticked addresses replace what the box held (they were added after it);
+                        // nothing ticked leaves the box as it was
+                        if (text.isNotEmpty()) {
+                            scope.launch { fillTestBox(text) }
                         }
                     }
                 }
