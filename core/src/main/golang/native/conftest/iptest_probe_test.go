@@ -104,7 +104,7 @@ func TestProbeDirectDead(t *testing.T) {
 	t.Cleanup(func() { ipPort = "443" })
 
 	rep := RunIP(`{"kind":"ip","mode":"probe","domain":"example.com","ips":"127.0.0.1"}`)
-	if len(rep.Rows) != 1 || rep.Rows[0].OK || rep.Rows[0].Loss != 100 || rep.Rows[0].Reason == "" || len(rep.Rows[0].Ports) != 0 {
+	if len(rep.Rows) != 1 || rep.Rows[0].OK || rep.Rows[0].Sent != 5 || rep.Rows[0].Loss != 100 || rep.Rows[0].Reason == "" || len(rep.Rows[0].Ports) != 0 {
 		t.Errorf("%+v", rep)
 	}
 }
