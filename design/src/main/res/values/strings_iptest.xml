@@ -162,5 +162,5 @@
     <string name="iptest_note_title">Notes</string>
     <string name="iptest_resolve_from_hosts">from hosts</string>
     <string name="iptest_resolve_cache_unsupported">DNS cache bypass unavailable</string>
-    <string name="iptest_saved_ip_exists">%1$s: already in saved IPs</string>
+    <string name="iptest_saved_ip_exists">Already in saved IPs</string>
 </resources>
