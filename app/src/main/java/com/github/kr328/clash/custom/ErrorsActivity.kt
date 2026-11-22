@@ -35,6 +35,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     // The nodes whose timeout is on screen now: what "clear" hides.
     private var shownTimeouts: List<String> = emptyList()
     private var shownTestedAt: Long = 0
+    private var subscriptionUpdate: SubscriptionUpdateDiff? = null // CUSTOM.md #170: read once when the page opens
 
     private val prefs by lazy { getSharedPreferences("custom_errors", MODE_PRIVATE) }
 
@@ -42,7 +43,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         val design = ErrorsDesign(this)
 
         setContentDesign(design)
-        val subscriptionUpdate = readSubscriptionUpdateOnce()
+        subscriptionUpdate = readSubscriptionUpdateOnce()
 
         while (isActive) {
             select<Unit> {
