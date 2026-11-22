@@ -85,11 +85,18 @@ object CarrierSwitchStore {
         return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
     }
 
-    fun isEmpty(value: CarrierSwitchConfig): Boolean =
-        listOf(value.telecom, value.unicom, value.mobile).all { it.group.isBlank() || it.node.isBlank() } &&
-            value.custom.none {
-                (it.keyword.isNotBlank() || it.region.isNotBlank()) && it.group.isNotBlank() && it.node.isNotBlank()
-            }
+    fun isEmpty(value: CarrierSwitchConfig): Boolean {
+        fun hasTarget(group: String, node: String) = group.isNotBlank() && node.isNotBlank()
+        fun hasAnyTarget(target: CarrierSwitchTarget) =
+            hasTarget(target.group, target.node) || hasTarget(target.v6Group, target.v6Node)
+
+        val fixedEmpty = listOf(value.telecom, value.unicom, value.mobile).none(::hasAnyTarget)
+        val customEmpty = value.custom.none {
+            (it.keyword.isNotBlank() || it.region.isNotBlank()) &&
+                (hasTarget(it.group, it.node) || hasTarget(it.v6Group, it.v6Node))
+        }
+        return fixedEmpty && customEmpty
+    }
 
     fun read(context: Context, uuid: UUID): CarrierSwitchConfig = synchronized(lock) {
         try {
