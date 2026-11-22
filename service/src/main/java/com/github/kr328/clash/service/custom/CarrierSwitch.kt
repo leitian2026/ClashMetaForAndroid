@@ -88,7 +88,7 @@ object CarrierSwitch {
             val keywordMatches = keyword.isEmpty() || operator.contains(keyword) || raw.contains(keyword)
             regionMatches && keywordMatches
         }
-        if (regional != null) return CarrierSwitchTarget(regional.group, regional.node)
+        if (regional != null) return CarrierSwitchTarget(regional.group, regional.node, regional.v6Group, regional.v6Node)
         when (identity.operator) {
             "电信" -> return config.telecom
             "联通" -> return config.unicom

@@ -102,27 +102,27 @@ class CarrierSwitchDesign(
             setText(title)
             textSize = 14f
         })
+        var current = target
         val defaultButton = MaterialButton(context).apply {
             isAllCaps = false
-            text = labelledTargetText(R.string.carrier_switch_default_target_label, target)
+            text = labelledTargetText(R.string.carrier_switch_default_target_label, current)
             setOnClickListener {
-                chooseTarget(target) { selected ->
-                    val updated = target.copy(group = selected.group, node = selected.node)
-                    config = updateFixedConfig(key, updated)
-                    text = labelledTargetText(R.string.carrier_switch_default_target_label, updated)
+                chooseTarget(current) { selected ->
+                    current = current.copy(group = selected.group, node = selected.node)
+                    config = updateFixedConfig(key, current)
+                    text = labelledTargetText(R.string.carrier_switch_default_target_label, current)
                 }
             }
         }
         row.addView(defaultButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        val ipv6Current = CarrierSwitchTarget(target.v6Group, target.v6Node)
         val ipv6Button = MaterialButton(context).apply {
             isAllCaps = false
-            text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, ipv6Current)
+            text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(current.v6Group, current.v6Node))
             setOnClickListener {
-                chooseTarget(ipv6Current) { selected ->
-                    val updated = target.copy(v6Group = selected.group, v6Node = selected.node)
-                    config = updateFixedConfig(key, updated)
-                    text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(updated.v6Group, updated.v6Node))
+                chooseTarget(CarrierSwitchTarget(current.v6Group, current.v6Node)) { selected ->
+                    current = current.copy(v6Group = selected.group, v6Node = selected.node)
+                    config = updateFixedConfig(key, current)
+                    text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(current.v6Group, current.v6Node))
                 }
             }
         }

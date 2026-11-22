@@ -188,15 +188,17 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
             val uuid = ServiceStore(this@ErrorsActivity).activeProfile ?: return@withContext null
             val old = ConfigUpdateSnapshot.read(this@ErrorsActivity, uuid) ?: return@withContext null
             val currentFile = importedDir.resolve("$uuid/config.yaml")
-            if (!currentFile.isFile) return@withContext null
+            if (!currentFile.isFile || currentFile.length() <= 0L ||
+                currentFile.length() > ConfigUpdateSnapshot.MAX_BYTES
+            ) return@withContext null
             val current = currentFile.readText(Charsets.UTF_8)
             if (old == current) return@withContext null
             val diff = ConfigDiff.diff(old, current)
             val added = diff.added + diff.changed
             val removed = diff.removed + diff.changed
             if (added == 0 && removed == 0) null else SubscriptionUpdateDiff(added, removed)
-        } catch (_: CancellationException) {
-            throw
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         }
