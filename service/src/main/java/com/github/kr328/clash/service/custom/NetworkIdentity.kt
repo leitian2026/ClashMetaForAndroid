@@ -168,7 +168,12 @@ object NetworkIdentity {
         val province = json.optString("pro").takeUnless { it == "null" }.orEmpty()
         val city = json.optString("city").takeUnless { it == "null" }.orEmpty()
         val address = json.optString("addr")
-        val rawOperator = address.split(Regex("[\\s,，]+")).lastOrNull().orEmpty()
+        var rawText = address.removePrefix("中国")
+        if (province.isNotEmpty()) rawText = rawText.replaceFirst(province, "")
+        if (city.isNotEmpty()) rawText = rawText.replaceFirst(city, "")
+        rawText = rawText.trim().trimStart('省', '市', '区', ' ')
+        val rawOperator = rawText.split(Regex("[\\s,，]+")).lastOrNull()?.takeIf { it.isNotBlank() }
+            ?: address.split(Regex("[\\s,，]+")).lastOrNull().orEmpty()
         val operator = classify(rawOperator) ?: "未知"
         return Answer(ip, operator, province, city, "pconline", rawOperator)
     }
