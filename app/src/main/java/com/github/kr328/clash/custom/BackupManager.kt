@@ -5,6 +5,7 @@ import android.net.Uri
 import com.github.kr328.clash.design.custom.GeoFile
 import com.github.kr328.clash.design.custom.GeoSiteDownloader
 import com.github.kr328.clash.design.custom.SavedIpStore
+import com.github.kr328.clash.common.custom.CarrierSwitchStore // CUSTOM (CUSTOM.md #17 #169)
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.model.Profile
@@ -115,6 +116,9 @@ object BackupManager {
                             put("interval", it.interval)
                             put("ageSecretKey", it.ageSecretKey ?: JSONObject.NULL)
                             pinned[it.uuid.toString()]?.let { list -> put("pinned", JSONArray(list.map { v -> v.at })) } // CUSTOM.md #70
+                            CarrierSwitchStore.read(context, it.uuid).takeUnless(CarrierSwitchStore::isEmpty)?.let {
+                                put("carrier", CarrierSwitchStore.encode(it))
+                            } // CUSTOM (CUSTOM.md #17 #169): optional profile-scoped carrier mappings
                         })
                     }
                 })
@@ -346,6 +350,20 @@ object BackupManager {
                 throw e
             } catch (e: Exception) {
                 failed.add(name)
+            }
+        }
+
+        // CUSTOM (CUSTOM.md #17 #169): restore carrier mappings only after the old backup UUIDs
+        // have been translated through idMap. Existing same-name subscriptions keep local mappings unless
+        // the local mapping is empty or this is a replace restore; newly created subscriptions take the backup.
+        for (i in 0 until backup.profiles.length()) {
+            val item = backup.profiles.getJSONObject(i)
+            val carrier = item.optJSONObject("carrier") ?: continue
+            val uuid = idMap[item.getString("uuid")] ?: continue
+            val wasAlreadyOnDevice = existing.any { it.uuid == uuid }
+            val local = CarrierSwitchStore.read(context, uuid)
+            if (!wasAlreadyOnDevice || replace || CarrierSwitchStore.isEmpty(local)) {
+                CarrierSwitchStore.write(context, uuid, CarrierSwitchStore.decode(carrier))
             }
         }
 

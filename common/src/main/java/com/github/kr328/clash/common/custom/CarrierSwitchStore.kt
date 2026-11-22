@@ -33,23 +33,47 @@ object CarrierSwitchStore {
         File(context.applicationContext.filesDir, "custom_carrier_switch_$uuid.json")
     )
 
+    fun encode(value: CarrierSwitchConfig): JSONObject = JSONObject().apply {
+        fun target(value: CarrierSwitchTarget) = JSONObject()
+            .put("group", value.group)
+            .put("node", value.node)
+        val custom = JSONArray()
+        value.custom.forEach {
+            custom.put(JSONObject()
+                .put("keyword", it.keyword)
+                .put("group", it.group)
+                .put("node", it.node))
+        }
+        put("telecom", target(value.telecom))
+        put("unicom", target(value.unicom))
+        put("mobile", target(value.mobile))
+        put("custom", custom)
+    }
+
+    fun decode(json: JSONObject): CarrierSwitchConfig {
+        fun target(name: String) = json.optJSONObject(name)?.let {
+            CarrierSwitchTarget(it.optString("group"), it.optString("node"))
+        } ?: CarrierSwitchTarget()
+        val customJson = json.optJSONArray("custom") ?: JSONArray()
+        val custom = ArrayList<CarrierSwitchKeyword>(customJson.length())
+        for (index in 0 until customJson.length()) {
+            val item = customJson.optJSONObject(index) ?: continue
+            custom += CarrierSwitchKeyword(
+                item.optString("keyword"),
+                item.optString("group"),
+                item.optString("node"),
+            )
+        }
+        return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
+    }
+
+    fun isEmpty(value: CarrierSwitchConfig): Boolean =
+        listOf(value.telecom, value.unicom, value.mobile).all { it.group.isBlank() || it.node.isBlank() } &&
+            value.custom.none { it.keyword.isNotBlank() && it.group.isNotBlank() && it.node.isNotBlank() }
+
     fun read(context: Context, uuid: UUID): CarrierSwitchConfig = synchronized(lock) {
         try {
-            val json = JSONObject(String(file(context, uuid).readFully(), Charsets.UTF_8))
-            fun target(name: String) = json.optJSONObject(name)?.let {
-                CarrierSwitchTarget(it.optString("group"), it.optString("node"))
-            } ?: CarrierSwitchTarget()
-            val customJson = json.optJSONArray("custom") ?: JSONArray()
-            val custom = ArrayList<CarrierSwitchKeyword>(customJson.length())
-            for (index in 0 until customJson.length()) {
-                val item = customJson.optJSONObject(index) ?: continue
-                custom += CarrierSwitchKeyword(
-                    item.optString("keyword"),
-                    item.optString("group"),
-                    item.optString("node"),
-                )
-            }
-            CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
+            decode(JSONObject(String(file(context, uuid).readFully(), Charsets.UTF_8)))
         } catch (_: Exception) {
             CarrierSwitchConfig()
         }
@@ -61,21 +85,7 @@ object CarrierSwitchStore {
         try {
             val output = atomic.startWrite()
             stream = output
-            fun target(value: CarrierSwitchTarget) = JSONObject()
-                .put("group", value.group)
-                .put("node", value.node)
-            val custom = JSONArray()
-            value.custom.forEach {
-                custom.put(JSONObject()
-                    .put("keyword", it.keyword)
-                    .put("group", it.group)
-                    .put("node", it.node))
-            }
-            val json = JSONObject()
-                .put("telecom", target(value.telecom))
-                .put("unicom", target(value.unicom))
-                .put("mobile", target(value.mobile))
-                .put("custom", custom)
+            val json = encode(value)
             output.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(output)
             stream = null
