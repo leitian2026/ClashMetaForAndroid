@@ -12,4 +12,6 @@
     <string name="network_identity_error_all_failed">All lookup endpoints failed or returned no public IP</string>
     <string name="network_identity_error_mismatch">The two endpoints returned different operators</string>
     <string name="network_identity_error_bind">Could not bind to the underlying network</string>
+    <string name="network_identity_error_switch">Automatic switch failed: %1$s</string>
+    <string name="network_identity_switch_success">Automatically switched to: %1$s</string>
 </resources>
