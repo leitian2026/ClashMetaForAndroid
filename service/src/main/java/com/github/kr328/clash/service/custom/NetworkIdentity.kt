@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.telephony.TelephonyManager
+import android.telephony.SubscriptionManager
+import android.os.Build
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.common.custom.NetworkIpv6
@@ -73,7 +75,13 @@ object NetworkIdentity {
 
     private fun readMobileOperator(context: Context): String? {
         return try {
-            val tm = context.getSystemService<TelephonyManager>() ?: return null
+            val base = context.getSystemService<TelephonyManager>() ?: return null
+            val tm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val subscriptionId = SubscriptionManager.getDefaultDataSubscriptionId()
+                if (subscriptionId >= 0) base.createForSubscriptionId(subscriptionId) else base
+            } else {
+                base
+            }
             val code = tm.networkOperator?.takeIf { it.length >= 5 } ?: return null
             val mccMnc = code.take(5).let { if (code.length >= 6) code.take(6) else it }
             when (mccMnc) {
@@ -137,7 +145,7 @@ object NetworkIdentity {
         val tail = body.substringAfter(ip).substringAfter("来自于", "").trim()
         if (tail.isEmpty()) return null
         val tokens = tail.split(Regex("[\\s,，]+")).filter { it.isNotBlank() }
-        val operator = classify(tokens.lastOrNull().orEmpty()) ?: return null
+        val operator = classify(tokens.lastOrNull().orEmpty()) ?: "未知"
         val locations = tokens.dropLast(1).filterNot { it in setOf("中国", "China", "CN") }
         return Answer(ip, operator, locations.firstOrNull().orEmpty(), locations.drop(1).joinToString(""), "ipip")
     }
@@ -148,7 +156,7 @@ object NetworkIdentity {
         val province = json.optString("pro").takeUnless { it == "null" }.orEmpty()
         val city = json.optString("city").takeUnless { it == "null" }.orEmpty()
         val address = json.optString("addr")
-        val operator = classify(address) ?: return null
+        val operator = classify(address) ?: "未知"
         return Answer(ip, operator, province, city, "pconline")
     }
 
