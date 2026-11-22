@@ -143,7 +143,6 @@ class IpTestView(
     private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, if (night) Color.parseColor("#1F2328") else Color.WHITE)
     private val colorHighlight = themeColor(android.R.attr.colorControlHighlight, if (night) Color.WHITE else Color.BLACK)
     private val colorStripe = Color.argb(0x14, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
-    private val colorSavedStripe = Color.argb(0x0A, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
     // Match SavedIpDesign's operator-group divider: same theme color and 1dp thickness.
     private val colorTableDivider = themeColor(android.R.attr.colorControlHighlight, 0x22000000)
 
@@ -675,7 +674,6 @@ class IpTestView(
         grid.addView(headRow, lp(gridWidth, headerHeight))
 
         values.forEachIndexed { rowIndex, row ->
-            val stripe = if (rowIndex % 2 == 1) colorSavedStripe else Color.TRANSPARENT
             val fullRow = copyValues.getOrNull(rowIndex).orEmpty()
             val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true, true)
             val cells = row.drop(1).mapIndexed { index, value ->
@@ -690,22 +688,28 @@ class IpTestView(
 
             // Fixed and scrolling portions use the same stripe and the same measured row height.
             val leftRow = FrameLayout(context).apply {
-                setBackgroundColor(stripe)
+                setBackgroundColor(colorSurface)
                 addView(first, FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 ))
             }
-            left.addView(leftRow, lp(firstWidth, height))
+            left.addView(
+                rowWithDivider(leftRow, colorSurface, rowIndex < values.lastIndex),
+                lp(firstWidth, height),
+            )
 
             val rightRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(stripe)
+                setBackgroundColor(colorSurface)
             }
             cells.forEachIndexed { index, cell ->
                 rightRow.addView(cell, lp(widths[index + 1], height))
             }
-            grid.addView(rightRow, lp(gridWidth, height))
+            grid.addView(
+                rowWithDivider(rightRow, colorSurface, rowIndex < values.lastIndex),
+                lp(gridWidth, height),
+            )
         }
 
         val scroll = HorizontalScrollView(context).apply {
@@ -1218,8 +1222,6 @@ class IpTestView(
         grid.addView(headRow, lp(gridW, hh))
 
         rows.forEachIndexed { i, r ->
-            val stripe = if (i % 2 == 1) colorStripe else Color.TRANSPARENT
-
             val ipView = ipCell(r)
             val cells = keys.mapIndexed { n, k -> cellOf(k, r, w[n + 1]) }
 
@@ -1227,16 +1229,23 @@ class IpTestView(
             // CUSTOM.md #55: a little room more than measured, so the last line of a cell (the last port) is not cut
             val h = maxOf(rowH, heightOf(ipView, w[0]), cells.mapIndexed { n, v -> heightOf(v, w[n + 1]) }.maxOrNull() ?: 0) + dp(4)
 
-            left.addView(ipView.apply { setBackgroundColor(stripe) }, lp(w[0], h))
+            ipView.setBackgroundColor(colorSurface)
+            left.addView(
+                rowWithDivider(ipView, colorSurface, i < rows.lastIndex),
+                lp(w[0], h),
+            )
 
             val line = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(stripe)
+                setBackgroundColor(colorSurface)
             }
 
             cells.forEachIndexed { n, v -> line.addView(v, lp(w[n + 1], h)) }
 
-            grid.addView(line, lp(gridW, h))
+            grid.addView(
+                rowWithDivider(line, colorSurface, i < rows.lastIndex),
+                lp(gridW, h),
+            )
         }
 
         val scroll = HorizontalScrollView(context).apply {
