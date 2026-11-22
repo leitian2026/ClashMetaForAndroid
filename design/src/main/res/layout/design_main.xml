@@ -110,17 +110,6 @@
                         android:src="@drawable/ic_baseline_more_vert" />
                 </LinearLayout>
 
-                <!-- CUSTOM (CUSTOM.md #53, #168): problems and current network identity, shown by MainCustomCards -->
-                <com.github.kr328.clash.design.view.LargeActionCard
-                    android:id="@+id/custom_issues_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_card_margin_vertical"
-                    android:visibility="visible"
-                    app:icon="@drawable/ic_baseline_info"
-                    app:subtext="@string/network_identity_pending"
-                    app:text="@string/network_identity_card_current" />
-
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -133,6 +122,17 @@
                     app:text="@{clashRunning ? @string/running : @string/stopped}">
                     <requestFocus />
                 </com.github.kr328.clash.design.view.LargeActionCard>
+
+                <!-- CUSTOM (CUSTOM.md #53, #168): problems and current network identity, shown by MainCustomCards -->
+                <com.github.kr328.clash.design.view.LargeActionCard
+                    android:id="@+id/custom_issues_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_card_margin_vertical"
+                    android:visibility="visible"
+                    app:icon="@drawable/ic_baseline_info"
+                    app:subtext="@string/network_identity_pending"
+                    app:text="@string/network_identity_card_current" />
 
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"

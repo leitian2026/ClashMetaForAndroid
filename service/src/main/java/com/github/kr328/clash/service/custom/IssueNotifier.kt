@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.github.kr328.clash.common.custom.CustomIntents
+import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.custom.IssueItem
 import com.github.kr328.clash.core.custom.IssuesSnapshot
@@ -79,6 +80,10 @@ object IssueNotifier {
         }
 
         val lines = active.take(2).map { line(app, it) }
+        // CUSTOM (CUSTOM.md #168): keep the status-bar issue notification in sync with the home IP card.
+        val operatorLine = NetworkIdentityStore.read(app)?.operator
+            ?.takeIf { it.isNotBlank() }
+            ?.let { app.getString(R.string.custom_issue_operator, it) }
         val title = app.getString(R.string.custom_issue_title, active.size)
 
         val open = PendingIntent.getActivity(
@@ -91,13 +96,14 @@ object IssueNotifier {
         val style = NotificationCompat.InboxStyle().setBigContentTitle(title)
 
         lines.forEach { style.addLine(it) }
+        operatorLine?.let { style.addLine(it) }
 
         if (active.size > lines.size) style.setSummaryText(app.getString(R.string.custom_issue_more, active.size - lines.size))
 
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_logo_service)
             .setContentTitle(title)
-            .setContentText(lines.first())
+            .setContentText(lines.firstOrNull() ?: operatorLine ?: title)
             .setStyle(style)
             .setContentIntent(open)
             .setAutoCancel(false)

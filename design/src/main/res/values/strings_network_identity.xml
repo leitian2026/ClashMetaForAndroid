@@ -3,7 +3,7 @@
     <string name="network_identity_section">Network identity</string>
     <string name="network_identity_card_current">Current IP</string>
     <string name="network_identity_card_issues">Runtime problems (%1$d)</string>
-    <string name="network_identity_current">Current IP: %1$s</string>
+    <string name="network_identity_current">Current IP %1$s</string>
     <string name="network_identity_pending">Identifying network operator…</string>
     <string name="network_identity_unknown">Operator unknown</string>
     <string name="network_identity_error_label">Network error: %1$s</string>

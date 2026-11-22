@@ -3,7 +3,7 @@
     <string name="network_identity_section">网络识别</string>
     <string name="network_identity_card_current">当前 IP</string>
     <string name="network_identity_card_issues">运行中的问题（%1$d）</string>
-    <string name="network_identity_current">当前 IP：%1$s</string>
+    <string name="network_identity_current">当前 IP %1$s</string>
     <string name="network_identity_pending">正在识别网络运营商…</string>
     <string name="network_identity_unknown">运营商未知</string>
     <string name="network_identity_error_label">网络错误：%1$s</string>
