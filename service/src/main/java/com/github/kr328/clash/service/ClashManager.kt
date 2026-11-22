@@ -6,6 +6,7 @@ import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.model.*
 import com.github.kr328.clash.service.custom.NodeIpNotifier
+import com.github.kr328.clash.service.custom.CarrierSwitch // CUSTOM (CUSTOM.md #169)
 import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.remote.IClashManager
@@ -93,6 +94,11 @@ class ClashManager(private val context: Context) : IClashManager,
 
     override fun queryOverride(slot: Clash.OverrideSlot): ConfigurationOverride {
         return Clash.queryOverride(slot)
+    }
+
+    // CUSTOM (CUSTOM.md #169): explicit save action; uses the same service-side matcher as network events.
+    override fun applyCarrierSwitch() {
+        CarrierSwitch.applyCurrent(context)
     }
 
     override fun patchSelector(group: String, name: String): Boolean {
