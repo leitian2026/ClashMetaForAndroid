@@ -14,6 +14,8 @@ interface IClashManager {
     fun queryProviders(): ProviderList
 
     fun patchSelector(group: String, name: String): Boolean
+    // CUSTOM (CUSTOM.md #169): apply the saved mapping to the cached current network.
+    fun applyCarrierSwitch()
 
     suspend fun healthCheck(group: String)
     suspend fun updateProvider(type: Provider.Type, name: String)
