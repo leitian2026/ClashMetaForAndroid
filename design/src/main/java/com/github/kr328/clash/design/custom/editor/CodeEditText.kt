@@ -274,6 +274,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             }
 
             override fun afterTextChanged(s: Editable) {
+                if (touching) caretMovedInTouch = true
+
                 // the work below may change the text again: keep what this change was
                 val atStart = start
                 val wasRemoved = removed
@@ -1189,6 +1191,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     // CUSTOM.md #53: a finger is on the text. While it is, the text is not scrolled to the caret and the keyboard's room
     // is not given to the page (that would move the text away under the finger of a long press that is selecting a word)
+    private var caretMovedInTouch = false
+
     var touching = false
         private set
 
@@ -1222,6 +1226,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                caretMovedInTouch = false
                 touching = true
                 stoppedGlide = !flinger.isFinished
 
@@ -1340,13 +1345,14 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         touching = false
 
-        // what was held back while the finger was down: show the caret now
-        if (hasFocus() && flinger.isFinished) {
+        // what was held back while the finger was down: show the caret only if this touch changed the text or selection
+        if (caretMovedInTouch && hasFocus() && flinger.isFinished) {
             val at = selectionEnd
 
             if (at >= 0) super.bringPointIntoView(at)
         }
 
+        caretMovedInTouch = false
         onTouchEnded?.invoke()
     }
 
@@ -1791,6 +1797,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
+
+        if (ready && touching) caretMovedInTouch = true
 
         if (ready && !editing) {
             dismissCompletion()
