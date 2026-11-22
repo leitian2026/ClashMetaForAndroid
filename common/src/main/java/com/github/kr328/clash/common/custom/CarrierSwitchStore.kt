@@ -10,6 +10,8 @@ import java.util.UUID
 data class CarrierSwitchTarget(
     val group: String = "",
     val node: String = "",
+    val v6Group: String = "",
+    val v6Node: String = "",
 )
 
 data class CarrierSwitchKeyword(
@@ -17,6 +19,8 @@ data class CarrierSwitchKeyword(
     val group: String,
     val node: String,
     val region: String = "",
+    val v6Group: String = "",
+    val v6Node: String = "",
 )
 
 data class CarrierSwitchConfig(
@@ -38,13 +42,17 @@ object CarrierSwitchStore {
         fun target(value: CarrierSwitchTarget) = JSONObject()
             .put("group", value.group)
             .put("node", value.node)
+            .put("v6Group", value.v6Group)
+            .put("v6Node", value.v6Node)
         val custom = JSONArray()
         value.custom.forEach {
             custom.put(JSONObject()
                 .put("keyword", it.keyword)
                 .put("group", it.group)
                 .put("node", it.node)
-                .put("region", it.region))
+                .put("region", it.region)
+                .put("v6Group", it.v6Group)
+                .put("v6Node", it.v6Node))
         }
         put("telecom", target(value.telecom))
         put("unicom", target(value.unicom))
@@ -54,7 +62,12 @@ object CarrierSwitchStore {
 
     fun decode(json: JSONObject): CarrierSwitchConfig {
         fun target(name: String) = json.optJSONObject(name)?.let {
-            CarrierSwitchTarget(it.optString("group"), it.optString("node"))
+            CarrierSwitchTarget(
+                it.optString("group"),
+                it.optString("node"),
+                it.optString("v6Group", ""),
+                it.optString("v6Node", ""),
+            )
         } ?: CarrierSwitchTarget()
         val customJson = json.optJSONArray("custom") ?: JSONArray()
         val custom = ArrayList<CarrierSwitchKeyword>(customJson.length())
@@ -65,6 +78,8 @@ object CarrierSwitchStore {
                 item.optString("group"),
                 item.optString("node"),
                 item.optString("region", ""),
+                item.optString("v6Group", ""),
+                item.optString("v6Node", ""),
             )
         }
         return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
@@ -72,7 +87,9 @@ object CarrierSwitchStore {
 
     fun isEmpty(value: CarrierSwitchConfig): Boolean =
         listOf(value.telecom, value.unicom, value.mobile).all { it.group.isBlank() || it.node.isBlank() } &&
-            value.custom.none { it.keyword.isNotBlank() && it.group.isNotBlank() && it.node.isNotBlank() }
+            value.custom.none {
+                (it.keyword.isNotBlank() || it.region.isNotBlank()) && it.group.isNotBlank() && it.node.isNotBlank()
+            }
 
     fun read(context: Context, uuid: UUID): CarrierSwitchConfig = synchronized(lock) {
         try {

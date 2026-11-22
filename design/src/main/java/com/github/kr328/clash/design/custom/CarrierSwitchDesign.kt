@@ -31,7 +31,6 @@ class CarrierSwitchDesign(
     private var config = initial
     private val content = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private val customRows = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-    private val fixedButtons = LinkedHashMap<String, MaterialButton>()
 
     override val root: View
         get() = content
@@ -96,29 +95,45 @@ class CarrierSwitchDesign(
 
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {
         val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(4), 0, dp(4))
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(8))
         }
         row.addView(TextView(context).apply {
             setText(title)
             textSize = 14f
-        }, LinearLayout.LayoutParams(dp(76), LinearLayout.LayoutParams.WRAP_CONTENT))
-        val button = MaterialButton(context).apply {
+        })
+        val defaultButton = MaterialButton(context).apply {
             isAllCaps = false
-            text = targetText(target)
-            setOnClickListener { chooseTarget(target) { selected ->
-                config = when (key) {
-                    "telecom" -> config.copy(telecom = selected)
-                    "unicom" -> config.copy(unicom = selected)
-                    else -> config.copy(mobile = selected)
+            text = labelledTargetText(R.string.carrier_switch_default_target_label, target)
+            setOnClickListener {
+                chooseTarget(target) { selected ->
+                    val updated = target.copy(group = selected.group, node = selected.node)
+                    config = updateFixedConfig(key, updated)
+                    text = labelledTargetText(R.string.carrier_switch_default_target_label, updated)
                 }
-                text = targetText(selected)
-            } }
+            }
         }
-        fixedButtons[key] = button
-        row.addView(button, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(defaultButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        val ipv6Current = CarrierSwitchTarget(target.v6Group, target.v6Node)
+        val ipv6Button = MaterialButton(context).apply {
+            isAllCaps = false
+            text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, ipv6Current)
+            setOnClickListener {
+                chooseTarget(ipv6Current) { selected ->
+                    val updated = target.copy(v6Group = selected.group, v6Node = selected.node)
+                    config = updateFixedConfig(key, updated)
+                    text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(updated.v6Group, updated.v6Node))
+                }
+            }
+        }
+        row.addView(ipv6Button, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         parent.addView(row)
+    }
+
+    private fun updateFixedConfig(key: String, target: CarrierSwitchTarget): CarrierSwitchConfig = when (key) {
+        "telecom" -> config.copy(telecom = target)
+        "unicom" -> config.copy(unicom = target)
+        else -> config.copy(mobile = target)
     }
 
     private fun chooseTarget(current: CarrierSwitchTarget, selected: (CarrierSwitchTarget) -> Unit) {
@@ -188,11 +203,15 @@ class CarrierSwitchDesign(
                     return@setPositiveButton
                 }
                 chooseTarget(CarrierSwitchTarget(old?.group.orEmpty(), old?.node.orEmpty())) { target ->
-                    val item = CarrierSwitchKeyword(keyword, target.group, target.node, region)
-                    val updated = config.custom.toMutableList()
-                    if (index == null) updated += item else if (index in updated.indices) updated[index] = item
-                    config = config.copy(custom = updated)
-                    renderCustomRows()
+                    chooseTarget(CarrierSwitchTarget(old?.v6Group.orEmpty(), old?.v6Node.orEmpty())) { ipv6Target ->
+                        val item = CarrierSwitchKeyword(
+                            keyword, target.group, target.node, region, ipv6Target.group, ipv6Target.node,
+                        )
+                        val updated = config.custom.toMutableList()
+                        if (index == null) updated += item else if (index in updated.indices) updated[index] = item
+                        config = config.copy(custom = updated)
+                        renderCustomRows()
+                    }
                 }
             }
             .show()
@@ -211,7 +230,15 @@ class CarrierSwitchDesign(
                 textSize = 15f
             })
             row.addView(TextView(context).apply {
-                text = targetText(CarrierSwitchTarget(item.group, item.node))
+                text = labelledTargetText(
+                    R.string.carrier_switch_default_target_label, CarrierSwitchTarget(item.group, item.node),
+                )
+                textSize = 12f
+            })
+            row.addView(TextView(context).apply {
+                text = labelledTargetText(
+                    R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(item.v6Group, item.v6Node),
+                )
                 textSize = 12f
             })
             val actions = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -241,6 +268,9 @@ class CarrierSwitchDesign(
         textSize = 16f
         setPadding(0, dp(16), 0, dp(8))
     }
+
+    private fun labelledTargetText(label: Int, target: CarrierSwitchTarget): String =
+        context.getString(label, targetText(target))
 
     private fun targetText(target: CarrierSwitchTarget): String {
         return if (target.group.isBlank() || target.node.isBlank()) {
