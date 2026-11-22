@@ -160,6 +160,7 @@ object NetworkRetest {
                 if (generation != identityGeneration.get()) return@post
                 if (NetworkIpv6.signature(app) != signature) return@post
                 NetworkIdentityStore.write(app, result)
+                CarrierSwitch.applyAsync(app, result) // CUSTOM (CUSTOM.md #169): apply once after a new stable identity.
                 app.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
                 refreshIssueNotification() // CUSTOM #168: refresh operator text without blocking the main thread.
             }
