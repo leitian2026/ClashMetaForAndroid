@@ -34,12 +34,7 @@ class MainCustomCards(
     }
 
     private val issuesCard: com.github.kr328.clash.design.view.LargeActionCard? =
-        root.findViewById<com.github.kr328.clash.design.view.LargeActionCard>(R.id.custom_issues_card)?.apply {
-            // the page lives in the app module, so address it by name
-            setOnClickListener {
-                context.startActivity(Intent().setClassName(context, "com.github.kr328.clash.custom.ErrorsActivity"))
-            }
-        }
+        root.findViewById(R.id.custom_issues_card)
 
     // CUSTOM #168: this card stays visible even when Clash is stopped or there are no problems.
     fun setIssues(state: IssuesDisplayState) {
@@ -49,14 +44,28 @@ class MainCustomCards(
         val identity = summary.identity
         val networkError = identity?.takeIf { it.hasNetworkError }
         val total = active.size + (if (networkError != null) 1 else 0)
+        val switchResult = identity?.switchResult.orEmpty()
+        val showSwitchEntry = total == 0 && summary.readFailed == null && switchResult.isNotEmpty()
+        card.setOnClickListener {
+            val target = if (showSwitchEntry) {
+                "com.github.kr328.clash.custom.CarrierSwitchActivity"
+            } else {
+                "com.github.kr328.clash.custom.ErrorsActivity"
+            }
+            context.startActivity(Intent().setClassName(context, target))
+        }
         val identityLine = identity?.takeIf { it.hasIdentity }?.let {
             context.getString(R.string.network_identity_current, NetworkIdentityText.location(it))
         }
 
         if (total == 0 && summary.readFailed == null) {
             card.text = context.getString(R.string.network_identity_card_current)
-            card.subtext = identity?.takeIf { it.hasIdentity }?.let { NetworkIdentityText.location(it) }
+            val location = identity?.takeIf { it.hasIdentity }?.let { NetworkIdentityText.location(it) }
                 ?: context.getString(if (identity == null) R.string.network_identity_pending else R.string.network_identity_unknown)
+            card.subtext = buildList {
+                add(location)
+                if (switchResult.isNotEmpty()) add(context.getString(R.string.carrier_switch_home_result, switchResult))
+            }.joinToString("\n")
         } else {
             card.text = if (summary.readFailed != null && total == 0) {
                 context.getString(R.string.issues_card_read_failed_title)
