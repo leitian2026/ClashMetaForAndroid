@@ -23,6 +23,12 @@ object ErrorsText {
             if (identity.error.isNotEmpty()) lines += context.getString(
                 R.string.network_identity_error_label, NetworkIdentityText.error(context, identity.error),
             )
+            if (identity.switchError.isNotEmpty()) lines += context.getString(
+                R.string.network_identity_error_switch, identity.switchError,
+            )
+            if (identity.switchResult.isNotEmpty()) lines += context.getString(
+                R.string.network_identity_switch_success, identity.switchResult,
+            )
             if (identity.hasIdentity) lines += context.getString(
                 R.string.network_identity_current, NetworkIdentityText.location(identity),
             )
