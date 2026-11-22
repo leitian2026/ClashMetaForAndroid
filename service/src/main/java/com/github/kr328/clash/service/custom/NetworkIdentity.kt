@@ -29,6 +29,7 @@ object NetworkIdentity {
         val province: String = "",
         val city: String = "",
         val source: String,
+        val rawOperator: String = "",
     )
     private data class RequestResult(val answer: Answer?, val timedOut: Boolean, val bindFailed: Boolean = false)
 
@@ -65,6 +66,7 @@ object NetworkIdentity {
                 province = answer.province,
                 city = answer.city,
                 source = answer.source,
+                rawOperator = answer.rawOperator,
                 checkedAt = System.currentTimeMillis(),
             )
         }
@@ -157,7 +159,7 @@ object NetworkIdentity {
         val tokens = tail.split(Regex("[\\s,，]+")).filter { it.isNotBlank() }
         val operator = classify(tokens.lastOrNull().orEmpty()) ?: "未知"
         val locations = tokens.dropLast(1).filterNot { it in setOf("中国", "China", "CN") }
-        return Answer(ip, operator, locations.firstOrNull().orEmpty(), locations.drop(1).joinToString(""), "ipip")
+        return Answer(ip, operator, locations.firstOrNull().orEmpty(), locations.drop(1).joinToString(""), "ipip", tokens.lastOrNull().orEmpty())
     }
 
     private fun parsePconline(body: String): Answer? {
@@ -166,8 +168,9 @@ object NetworkIdentity {
         val province = json.optString("pro").takeUnless { it == "null" }.orEmpty()
         val city = json.optString("city").takeUnless { it == "null" }.orEmpty()
         val address = json.optString("addr")
-        val operator = classify(address) ?: "未知"
-        return Answer(ip, operator, province, city, "pconline")
+        val rawOperator = address.split(Regex("[\\s,，]+")).lastOrNull().orEmpty()
+        val operator = classify(rawOperator) ?: "未知"
+        return Answer(ip, operator, province, city, "pconline", rawOperator)
     }
 
     private fun classify(raw: String): String? {
