@@ -50,7 +50,22 @@
                         android:layout_height="wrap_content"
                         android:layout_alignParentStart="true"
                         android:layout_centerVertical="true"
-                        android:layout_toStartOf="@id/url_test_layout" />
+                        android:layout_toStartOf="@id/carrier_switch_view" />
+
+                    <!-- CUSTOM (CUSTOM.md #169): carrier-to-proxy selector mappings. -->
+                    <ImageView
+                        android:id="@+id/carrier_switch_view"
+                        android:layout_width="@dimen/item_tailing_component_size"
+                        android:layout_height="@dimen/item_tailing_component_size"
+                        android:layout_centerVertical="true"
+                        android:layout_marginStart="@dimen/item_tailing_margin"
+                        android:layout_toStartOf="@id/url_test_layout"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:contentDescription="@string/carrier_switch_title"
+                        android:focusable="true"
+                        android:padding="@dimen/toolbar_image_action_padding"
+                        android:src="@drawable/ic_baseline_carrier_switch" />
 
                     <FrameLayout
                         android:id="@+id/url_test_layout"
