@@ -49,7 +49,6 @@ class CarrierSwitchDesign(
                     setOnClickListener { (context as? Activity)?.finish() }
                 }, LinearLayout.LayoutParams(dp(44), dp(48)))
                 addView(TextView(context).apply {
-                    text = R.string.carrier_switch_title
                     setText(R.string.carrier_switch_title)
                     textSize = 20f
                 })
