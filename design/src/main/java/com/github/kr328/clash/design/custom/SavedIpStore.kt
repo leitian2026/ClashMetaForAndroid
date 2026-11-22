@@ -205,10 +205,59 @@ object SavedIpStore {
         // Backups may contain legacy lists above today's new-save limit; preserve them intact.
     }
 
-    /** Restore a previously validated snapshot through the normal storage path. */
-    fun restoreBackup(context: Context, raw: String) {
-        val snapshot = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
-        write(context, snapshot)
+    /**
+     * Restore a previously validated snapshot. Ordinary restores merge user data; replace restores
+     * deliberately overwrite it so a cloud safety-copy rollback can remove everything added meanwhile.
+     */
+    @Synchronized
+    fun restoreBackup(context: Context, raw: String, merge: Boolean = false) {
+        val restored = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
+        if (!merge) {
+            write(context, restored)
+            return
+        }
+        val local = readForUpdate(context)
+        val restoredById = restored.operators.associateBy { it.id }
+        val localById = local.operators.associateBy { it.id }
+        val ids = LinkedHashSet<String>().apply {
+            local.operators.forEach { add(it.id) }
+            restored.operators.forEach { add(it.id) }
+        }
+        val mergedOperators = ids.map { id ->
+            val here = localById[id]
+            val backup = restoredById[id]
+            when {
+                here == null -> backup!!
+                backup == null -> here
+                else -> {
+                    val backupEntries = backup.ips.associateBy { it.address }
+                    val localEntries = here.ips.associateBy { it.address }
+                    val addresses = LinkedHashSet<String>().apply {
+                        here.ips.forEach { add(it.address) }
+                        backup.ips.forEach { add(it.address) }
+                    }
+                    val entries = addresses.map { address ->
+                        val localEntry = localEntries[address]
+                        val backupEntry = backupEntries[address]
+                        when {
+                            localEntry == null -> backupEntry!!
+                            backupEntry == null -> localEntry
+                            backupEntry.lastTestedAt > localEntry.lastTestedAt -> backupEntry
+                            backupEntry.lastTestedAt < localEntry.lastTestedAt -> localEntry
+                            backupEntry.addedAt > localEntry.addedAt -> backupEntry
+                            else -> localEntry
+                        }
+                    }
+                    here.copy(
+                        name = here.name.ifBlank { backup.name },
+                        ips = entries,
+                        colos = backup.colos + here.colos,
+                        coloCountries = backup.coloCountries + here.coloCountries,
+                    )
+                }
+            }
+        }
+        write(context, local.copy(operators = mergedOperators, lastOperatorId = local.lastOperatorId))
     }
 
     /**

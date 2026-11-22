@@ -405,7 +405,7 @@ object BackupManager {
         }
 
         // Saved IPs are user data, so restore them even when cloud restore keeps device settings.
-        savedIps?.let { SavedIpStore.restoreBackup(context, it) }
+        savedIps?.let { SavedIpStore.restoreBackup(context, it, merge = !replace) } // CUSTOM (CUSTOM.md #156 #17): ordinary restore merges; replace rollback overwrites
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
