@@ -139,7 +139,7 @@ object NetworkRetest {
             ),
         )
         app.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
-        IssueNotifier.update(app) // CUSTOM #168: refresh operator text in the status-bar notification.
+        refreshIssueNotification() // CUSTOM #168: refresh operator text without blocking the main thread.
     }
 
     private fun identify(signature: String) {
@@ -161,8 +161,14 @@ object NetworkRetest {
                 if (NetworkIpv6.signature(app) != signature) return@post
                 NetworkIdentityStore.write(app, result)
                 app.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
-                IssueNotifier.update(app) // CUSTOM #168: refresh operator text in the status-bar notification.
+                refreshIssueNotification() // CUSTOM #168: refresh operator text without blocking the main thread.
             }
+        }
+    }
+
+    private fun refreshIssueNotification() {
+        thread(name = "network-identity-notification") {
+            IssueNotifier.update(app)
         }
     }
 

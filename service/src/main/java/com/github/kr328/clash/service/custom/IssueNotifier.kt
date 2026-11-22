@@ -103,7 +103,7 @@ object IssueNotifier {
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_logo_service)
             .setContentTitle(title)
-            .setContentText(lines.firstOrNull() ?: operatorLine ?: title)
+            .setContentText(operatorLine ?: lines.firstOrNull() ?: title)
             .setStyle(style)
             .setContentIntent(open)
             .setAutoCancel(false)
