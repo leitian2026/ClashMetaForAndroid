@@ -1,5 +1,5 @@
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r364
+当前版本：2_11_46-r365
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`（开头有“动手前清单”）。每次改动都要同步更新登记，写在哪里见下面“怎么找”和 `AGENTS.md` 规则 7。
@@ -27,14 +27,16 @@
 | `core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt` | #7 #37 #147 | 低 | 重加 `current*` 参数（`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`）、`CurrentIp` 和 `ipsText()`，以及 `reach: Int = 0`（#37）、`reachReason` / `reachAt`（#147） |
 | `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt` | #1 #12 #55 #151 | **高**（改了 `onMeasure` / `onDraw`） | 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合 |
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #53 #168 | #168：运行中状态卡片置于当前 IP / 问题卡片上方 **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
+| `design/src/main/res/layout/design_proxy.xml` | #169 | 低 | 顶部工具栏新增 `carrier_switch_view`，位于 ⚡ 左侧；返回栏的 `layout_toStartOf` 改为指向新图标；底部悬浮测速按钮不变。
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #53 #146 | 低 | 重加 `customCards`、`setCustomCards()`；#146 `setCustomIssues(IssuesDisplayState)`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
+| `design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt` | #169 | 低 | 仅增加 `carrier_switch_view` 点击挂钩，通过 `setClassName` 打开运营商映射设置页；业务逻辑放在新建的 `CarrierSwitchActivity` / `CarrierSwitchDesign` / 服务侧 `CarrierSwitch`。
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
 | `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #35 #53 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/SuspendModule.kt` | #53 | 低 | 复用已有亮灭屏广播，在启动、屏幕状态变化和配置载入后通过 `SORT_ISSUES` 推送 `isInteractive`；不新增屏幕监听 |
-| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 #158 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id: String)` 两个实现（#8 #15）；#158 通过现有 `Clash.subscribeLogcat()` 和 `ILogObserver` 转发下载进度事件。
-| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 #158 | 低 | 重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean`；#158 增加带 `ILogObserver` 参数的下载进度请求，复用既有 logcat 事件接口。
-| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 #156 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）、`.custom.SavedIpActivity`（#156，标签 `@string/saved_ip_title`）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>` |
+| `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt` | #7 #8 #15 #158 #169 | 低 | `queryTunnelState()` 开头加 `NodeIpNotifier.start(context)`；加 `queryCustomConnections(sort: Int, filter: String)` / `closeCustomConnection(id: String)` 两个实现（#8 #15）；#158 通过现有 `Clash.subscribeLogcat()` 和 `ILogObserver` 转发下载进度事件；#169 增加 `applyCarrierSwitch()`，调用服务侧同一套运营商映射逻辑。
+| `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt` | #8 #15 #158 #169 | 低 | 重加 `queryCustomConnections(sort: Int, filter: String): String` 和 `closeCustomConnection(id: String): Boolean`；#158 增加带 `ILogObserver` 参数的下载进度请求，复用既有 logcat 事件接口；#169 增加设置保存后应用当前缓存映射的远程方法。
+| `app/src/main/AndroidManifest.xml` | #8 #17 #20 #21 #22 #46 #156 #169 | 低 | 在 `LogsActivity` 前重加 `.custom.ConnectionsActivity`（#8）、`.custom.BackupActivity`（#17，**必须带** `android:theme="@style/BackupTranslucentTheme"`，否则页面不透明，对话框后面是黑的）、`.custom.MuxActivity`（#20）、`.custom.ErrorsActivity`（#21）、`.custom.ConfigCheckActivity`（#22）、`.custom.SavedIpActivity`（#156，标签 `@string/saved_ip_title`）和 `.custom.EditorActivity`（#46，**必须带** `configChanges` 里的 `orientation|screenSize|...`，否则转一下屏页面就重建，没保存的文字丢了）的 `<activity>`；#169 登记 `.custom.CarrierSwitchActivity` |
 | `app/src/main/java/com/github/kr328/clash/FilesActivity.kt` | #46 #50 | 低 | `OpenFile` 分支：`EditorActivity.canOpen(...)` 为真就 `startActivity(EditorActivity.intent(..., uuid, "", profile.type != Profile.Type.File))`，否则还是原来的外部编辑器；顶部 `import ...custom.EditorActivity` |
 | `design/src/main/res/layout/adapter_profile.xml` | #47 #53 #55 | 中（改了时间那个 `TextView` 的位置） | 以上游新版为底：`<data>` 里加变量 `edit`；时间 `TextView`（`elapsed_view`）`layout_marginEnd` 改 20dp、`layout_toStartOf` 改成 `@id/edit_view`；在它和那条 2dp 竖线之间加 `FrameLayout`（`@+id/edit_view`，铅笔图标 `ic_baseline_edit`，`onClick="@{edit}"`） |
 | `design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt` | #47 | 低 | 构造函数末尾加带默认值的 `onEditClicked`，`onBindViewHolder` 里加 `binding.setEdit { onEditClicked(current) }` |
@@ -61,7 +63,7 @@
 - 无法本地编译，只能手动触发 Actions 验证；`build-release.yaml`、`update-dependencies.yaml` 没有改动。
 
 ## 本版没做的（决定不做）
-网络切换自动改模式、按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。
+网络切换自动改模式仍不做，按运营商切节点见 #169；按应用统计流量排行、节点历史用量与延迟趋势、GeoSite 只在不计费网络下更新：不做。网络切换后自动重测（#24）本来就有。
 
 ## 功能一览（每个编号一行；详情文件见最后一列）
 
@@ -232,7 +234,8 @@
 | 165 | 表格横向滚动恢复：主表格实时缓存 liveTableScrollX，同帧多次刷新合并为一次重建，新表布局完成后通过一次性 OnLayoutChangeListener 恢复；已保存页也改用布局回调，不再使用会取消绘制帧的 OnPreDrawListener；保留按运营商局部重建与筛选优化（r308、r311、r330、r334、r353） | [165.md](docs/custom/165.md) |
 | 166 | 测 IP 表与已保存 IP 表按综合指标标出前三名推荐 IP（橙色“推荐”标签；测 IP 页标签置于 IP 第二行，已保存页置于已测时间前） | [166.md](docs/custom/166.md) |
 | 167 | 配置检查页测 IP 表移除精简 / 完整显示列切换，始终显示完整列 | [167.md](docs/custom/167.md) |
-| 168 | 网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口；结果跨进程缓存，息屏延后，首页当前 IP / 问题卡片常显（位于运行中状态卡片下方），当前 IP 文案不带冒号；状态栏问题通知同步显示当前运营商，错误诊断页纳入识别结果 | [168.md](docs/custom/168.md) |
+| 168 | 网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口；结果跨进程缓存，息屏延后，首页当前 IP / 问题卡片常显（位于运行中状态卡片下方），当前 IP 文案不带冒号；状态栏问题通知同步显示当前运营商，错误诊断页纳入识别结果；#169 扩展原始运营商文字与切换结果字段 | [168.md](docs/custom/168.md) |
+| 169 | 按运营商自动切换节点：电信 / 联通 / 移动固定映射，自定义关键词映射按配置 UUID 保存；网络识别完成或设置页保存命中当前网络时触发，代理页顶部提供入口 | [169.md](docs/custom/169.md) |
 | 157 | 文档分层：CUSTOM.md 改成索引，详情按编号拆开，加大小和引用检查（r282；提交方式见 `AGENTS.md`） | [157.md](docs/custom/157.md) |
 
 ## 修改记录（#156 起的分步流水，按原文顺序，只读）
