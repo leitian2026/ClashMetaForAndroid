@@ -44,7 +44,8 @@ object NetworkIdentityStore {
         val atomic = file(context)
         var stream: java.io.FileOutputStream? = null
         try {
-            stream = atomic.startWrite()
+            val output = atomic.startWrite()
+            stream = output
             val json = JSONObject()
                 .put("signature", value.signature)
                 .put("operator", value.operator)
@@ -53,8 +54,8 @@ object NetworkIdentityStore {
                 .put("error", value.error)
                 .put("source", value.source)
                 .put("checkedAt", value.checkedAt)
-            stream.write(json.toString().toByteArray(Charsets.UTF_8))
-            atomic.finishWrite(stream)
+            output.write(json.toString().toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(output)
             stream = null
         } catch (_: Exception) {
             if (stream != null) atomic.failWrite(stream)

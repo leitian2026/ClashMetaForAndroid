@@ -110,15 +110,16 @@ object NetworkIdentity {
             } catch (_: Exception) {
                 return RequestResult(null, false, true)
             }
-            connection = opened as? HttpURLConnection ?: return RequestResult(null, false, true)
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            connection.instanceFollowRedirects = false
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept", "text/plain,application/json")
-            connection.connect()
-            if (connection.responseCode !in 200..299) return RequestResult(null, false)
-            val body = connection.inputStream.use { input ->
+            val http = opened as? HttpURLConnection ?: return RequestResult(null, false, true)
+            connection = http
+            http.connectTimeout = TIMEOUT_MS
+            http.readTimeout = TIMEOUT_MS
+            http.instanceFollowRedirects = false
+            http.setRequestProperty("User-Agent", USER_AGENT)
+            http.setRequestProperty("Accept", "text/plain,application/json")
+            http.connect()
+            if (http.responseCode !in 200..299) return RequestResult(null, false)
+            val body = http.inputStream.use { input ->
                 val out = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(1024)
                 var total = 0
@@ -129,7 +130,7 @@ object NetworkIdentity {
                     if (total > MAX_BODY) return RequestResult(null, false)
                     out.write(buffer, 0, count)
                 }
-                decode(out.toByteArray(), connection.contentType)
+                decode(out.toByteArray(), http.contentType)
             }
             RequestResult(parse(body), false)
         } catch (_: SocketTimeoutException) {
