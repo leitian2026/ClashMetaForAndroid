@@ -184,8 +184,7 @@ class EditorDesign(
 
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
     private val prefs = context.getSharedPreferences("custom_editor", Context.MODE_PRIVATE)
-    private var symbolsOpen = prefs.getBoolean("symbols_open", false)
-    private val symbolToggleButton = action(context.getString(R.string.editor_symbols), null) { toggleSymbols() }
+    private val symbolToggleButton = action(context.getString(R.string.editor_symbols), null) { showSymbols() }
     private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
     private var sizeNeedsSave = false
 
@@ -249,14 +248,19 @@ class EditorDesign(
         visibility = View.GONE
     }
 
+    // CUSTOM.md #70: both modes share the original symbol-row slot; only one row is visible at a time.
     private val symbols = HorizontalScrollView(context).apply {
         setBackgroundColor(colorBar)
         isHorizontalScrollBarEnabled = false
-        visibility = View.GONE
     }
-    private val operationRow = HorizontalScrollView(context).apply {
-        setBackgroundColor(colorBar)
-        isHorizontalScrollBarEnabled = false
+    private val operationContent = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    private val symbolContent = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        visibility = View.GONE
     }
 
     override val root: View = LinearLayout(context).apply {
@@ -327,8 +331,7 @@ class EditorDesign(
 
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))) // CUSTOM.md #70: symbol row
-        addView(operationRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
+        addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44))) // CUSTOM.md #70: shared operation / symbol row
         addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -407,33 +410,28 @@ class EditorDesign(
             }
         })
 
-        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        if (!readOnly) {
+            symbolContent.addView(action("←", context.getString(R.string.editor_symbols_back)) { showOperations() })
+            symbolContent.addView(symbol("⇥", false) { editor.shiftLines(true) })
+            symbolContent.addView(symbol("⇤", false) { editor.shiftLines(false) })
 
-        row.addView(symbol("⇥", false) { editor.shiftLines(true) })
-        row.addView(symbol("⇤", false) { editor.shiftLines(false) })
-
-        for ((shown, what, back) in listOf(
-            Triple("-", "- ", 0),
-            Triple(":", ": ", 0),
-            Triple("#", "# ", 0),
-            Triple("\"\"", "\"\"", 1),
-            Triple("''", "''", 1),
-            Triple("[]", "[]", 1),
-            Triple("{}", "{}", 1),
-            Triple(",", ", ", 0),
-            Triple("|", "|", 0),
-            Triple("&", "&", 0),
-            Triple("*", "*", 0),
-        )) {
-            row.addView(symbol(shown, true) { editor.insertText(what, back) })
+            for ((shown, what, back) in listOf(
+                Triple("-", "- ", 0),
+                Triple(":", ": ", 0),
+                Triple("#", "# ", 0),
+                Triple("\"\"", "\"\"", 1),
+                Triple("''", "''", 1),
+                Triple("[]", "[]", 1),
+                Triple("{}", "{}", 1),
+                Triple(",", ", ", 0),
+                Triple("|", "|", 0),
+                Triple("&", "&", 0),
+                Triple("*", "*", 0),
+            )) {
+                symbolContent.addView(symbol(shown, true) { editor.insertText(what, back) })
+            }
         }
 
-        symbols.addView(row)
-
-        val operations = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
         fun addOperation(view: View) {
             view.isFocusable = false
             view.isFocusableInTouchMode = false
@@ -442,7 +440,7 @@ class EditorDesign(
                 val horizontal = (dp(if (split) 40 else 44) - dp(24)) / 2
                 view.setPadding(horizontal, dp(10), horizontal, dp(10))
             }
-            operations.addView(view, LinearLayout.LayoutParams(width, dp(44)))
+            operationContent.addView(view, LinearLayout.LayoutParams(width, dp(44)))
         }
         if (!readOnly) {
             addOperation(symbolToggleButton)
@@ -452,13 +450,15 @@ class EditorDesign(
         addOperation(findButton)
         if (canCheck) addOperation(checkButton)
         if (!readOnly) addOperation(saveButton)
-        operationRow.addView(
-            operations,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT),
+
+        symbols.addView(
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(operationContent, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)))
+                addView(symbolContent, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)))
+            },
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT),
         )
-        operationRow.visibility = if (operations.childCount > 0) View.VISIBLE else View.GONE
-        symbols.visibility = if (!readOnly && symbolsOpen) View.VISIBLE else View.GONE
-        refreshSymbolToggle()
 
         if (useSchema) {
             // the schema (about 60 KB) is read once, off the main thread; until it is there the words of the text are suggested
@@ -1050,17 +1050,17 @@ class EditorDesign(
         countView.setTextColor(colorBad)
     }
 
-    private fun refreshSymbolToggle() {
-        symbolToggleButton.text = context.getString(R.string.editor_symbols) + if (symbolsOpen) " ▴" else " ▾"
-        symbolToggleButton.setTextColor(if (symbolsOpen) colorAccent else colorMuted)
+    private fun showSymbols() {
+        if (readOnly) return
+        operationContent.visibility = View.GONE
+        symbolContent.visibility = View.VISIBLE
+        symbols.scrollTo(0, 0)
     }
 
-    private fun toggleSymbols() {
-        if (readOnly) return
-        symbolsOpen = !symbolsOpen
-        symbols.visibility = if (symbolsOpen) View.VISIBLE else View.GONE
-        prefs.edit().putBoolean("symbols_open", symbolsOpen).apply()
-        refreshSymbolToggle()
+    private fun showOperations() {
+        symbolContent.visibility = View.GONE
+        operationContent.visibility = View.VISIBLE
+        symbols.scrollTo(0, 0)
     }
 
     private fun copyText() {

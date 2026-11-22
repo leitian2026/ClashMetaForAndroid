@@ -119,4 +119,5 @@
     <string name="editor_copied">Copied %1$d lines</string>
     <string name="editor_copy_failed">Could not copy the text</string>
     <string name="editor_symbols">Symbols</string>
+    <string name="editor_symbols_back">Back to actions</string>
 </resources>
