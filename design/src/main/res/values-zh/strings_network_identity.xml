@@ -14,4 +14,23 @@
     <string name="network_identity_error_bind">绑定底层网络失败</string>
     <string name="network_identity_error_switch">自动切换失败：%1$s</string>
     <string name="network_identity_switch_success">已自动切到：%1$s</string>
+    <string name="carrier_switch_title">运营商自动切换</string>
+    <string name="carrier_switch_fixed_section">固定运营商</string>
+    <string name="carrier_switch_telecom">电信</string>
+    <string name="carrier_switch_unicom">联通</string>
+    <string name="carrier_switch_mobile">移动</string>
+    <string name="carrier_switch_custom_section">自定义运营商</string>
+    <string name="carrier_switch_add">新增自定义项</string>
+    <string name="carrier_switch_save">保存</string>
+    <string name="carrier_switch_keyword">关键词</string>
+    <string name="carrier_switch_choose_group">选择代理组</string>
+    <string name="carrier_switch_choose_node">选择节点</string>
+    <string name="carrier_switch_clear">清除映射</string>
+    <string name="carrier_switch_not_set">未设置</string>
+    <string name="carrier_switch_group_node">%1$s / %2$s</string>
+    <string name="carrier_switch_edit">修改</string>
+    <string name="carrier_switch_delete">删除</string>
+    <string name="carrier_switch_saved">已保存</string>
+    <string name="carrier_switch_keyword_required">请输入关键词</string>
+    <string name="carrier_switch_node_empty">该组没有可选择的节点</string>
 </resources>
