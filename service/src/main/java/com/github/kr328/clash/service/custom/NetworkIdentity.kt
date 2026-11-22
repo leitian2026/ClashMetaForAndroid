@@ -153,7 +153,7 @@ object NetworkIdentity {
     private fun parseIpip(body: String): Answer? {
         val ip = findPublicIp(body) ?: return null
         val tail = body.substringAfter(ip).substringAfter("来自于", "").trim()
-        if (tail.isEmpty()) return null
+        if (tail.isEmpty()) return Answer(ip, "未知", source = "ipip")
         val tokens = tail.split(Regex("[\\s,，]+")).filter { it.isNotBlank() }
         val operator = classify(tokens.lastOrNull().orEmpty()) ?: "未知"
         val locations = tokens.dropLast(1).filterNot { it in setOf("中国", "China", "CN") }
