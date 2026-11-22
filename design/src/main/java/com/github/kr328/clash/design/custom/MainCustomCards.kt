@@ -47,7 +47,7 @@ class MainCustomCards(
         val summary = state as? IssuesDisplayState.Summary ?: return
         val active = summary.snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
         val identity = summary.identity
-        val networkError = identity?.error?.takeIf { it.isNotEmpty() }
+        val networkError = identity?.takeIf { it.hasNetworkError }
         val total = active.size + (if (networkError != null) 1 else 0)
         val identityLine = identity?.takeIf { it.hasIdentity }?.let {
             context.getString(R.string.network_identity_current, NetworkIdentityText.location(it))
@@ -64,7 +64,11 @@ class MainCustomCards(
                 context.getString(R.string.network_identity_card_issues, total)
             }
             val lines = ArrayList<String>()
-            if (networkError != null) lines += NetworkIdentityText.error(context, networkError)
+            if (networkError != null) lines += if (networkError.switchError.isNotEmpty()) {
+                context.getString(R.string.network_identity_error_switch, networkError.switchError)
+            } else {
+                NetworkIdentityText.error(context, networkError.error)
+            }
             active.take(2 - lines.size).forEach {
                 lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
             }
