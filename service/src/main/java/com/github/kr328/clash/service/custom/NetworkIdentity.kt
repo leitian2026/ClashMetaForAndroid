@@ -30,7 +30,7 @@ object NetworkIdentity {
         val city: String = "",
         val source: String,
     )
-    private data class RequestResult(val answer: Answer?, val timedOut: Boolean)
+    private data class RequestResult(val answer: Answer?, val timedOut: Boolean, val bindFailed: Boolean = false)
 
     fun identify(context: Context, signature: String): NetworkIdentitySnapshot {
         val network = NetworkIpv6.bestNetwork(context)
@@ -69,7 +69,11 @@ object NetworkIdentity {
             )
         }
 
-        val error = if (ipip.timedOut || pconline.timedOut) "timeout" else "all_failed"
+        val error = when {
+            ipip.bindFailed && pconline.bindFailed -> "bind_failed"
+            ipip.timedOut || pconline.timedOut -> "timeout"
+            else -> "all_failed"
+        }
         return failed(signature, error, if (cellular) "online_fallback" else "online")
     }
 
@@ -83,7 +87,7 @@ object NetworkIdentity {
                 base
             }
             val code = tm.networkOperator?.takeIf { it.length >= 5 } ?: return null
-            val mccMnc = code.take(5).let { if (code.length >= 6) code.take(6) else it }
+            val mccMnc = code.take(5)
             when (mccMnc) {
                 "46000", "46002", "46004", "46007", "46008" -> "移动"
                 "46001", "46006", "46009", "46010" -> "联通"
@@ -101,7 +105,12 @@ object NetworkIdentity {
     private fun request(network: Network, address: String, parse: (String) -> Answer?): RequestResult {
         var connection: HttpURLConnection? = null
         return try {
-            connection = network.openConnection(URL(address)) as? HttpURLConnection ?: return RequestResult(null, false)
+            val opened = try {
+                network.openConnection(URL(address))
+            } catch (_: Exception) {
+                return RequestResult(null, false, true)
+            }
+            connection = opened as? HttpURLConnection ?: return RequestResult(null, false, true)
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
             connection.instanceFollowRedirects = false
