@@ -28,6 +28,7 @@ object NetworkIdentity {
         val city: String = "",
         val source: String,
     )
+    private data class RequestResult(val answer: Answer?, val timedOut: Boolean)
 
     fun identify(context: Context, signature: String): NetworkIdentitySnapshot {
         val network = NetworkIpv6.bestNetwork(context)
@@ -47,18 +48,14 @@ object NetworkIdentity {
             }
         }
 
-        val ipip = request(network, "https://myip.ipip.net") { body ->
-            parseIpip(body)
-        }
-        val pconline = request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body ->
-            parsePconline(body)
-        }
+        val ipip = request(network, "https://myip.ipip.net") { body -> parseIpip(body) }
+        val pconline = request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body -> parsePconline(body) }
 
-        if (ipip != null && pconline != null && ipip.operator != pconline.operator) {
+        if (ipip.answer != null && pconline.answer != null && ipip.answer.operator != pconline.answer.operator) {
             return failed(signature, "operator_mismatch", "online")
         }
 
-        val answer = ipip ?: pconline
+        val answer = ipip.answer ?: pconline.answer
         if (answer != null) {
             return NetworkIdentitySnapshot(
                 signature = signature,
@@ -70,11 +67,9 @@ object NetworkIdentity {
             )
         }
 
-        val error = if (lastTimedOut) "timeout" else "all_failed"
+        val error = if (ipip.timedOut || pconline.timedOut) "timeout" else "all_failed"
         return failed(signature, error, if (cellular) "online_fallback" else "online")
     }
-
-    @Volatile private var lastTimedOut = false
 
     private fun readMobileOperator(context: Context): String? {
         return try {
@@ -95,18 +90,17 @@ object NetworkIdentity {
         }
     }
 
-    private fun request(network: Network, address: String, parse: (String) -> Answer?): Answer? {
+    private fun request(network: Network, address: String, parse: (String) -> Answer?): RequestResult {
         var connection: HttpURLConnection? = null
         return try {
-            lastTimedOut = false
-            connection = network.openConnection(URL(address)) as? HttpURLConnection ?: return null
+            connection = network.openConnection(URL(address)) as? HttpURLConnection ?: return RequestResult(null, false)
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept", "text/plain,application/json")
             connection.connect()
-            if (connection.responseCode !in 200..299) return null
+            if (connection.responseCode !in 200..299) return RequestResult(null, false)
             val body = connection.inputStream.use { input ->
                 val out = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(1024)
@@ -115,17 +109,16 @@ object NetworkIdentity {
                     val count = input.read(buffer)
                     if (count < 0) break
                     total += count
-                    if (total > MAX_BODY) return null
+                    if (total > MAX_BODY) return RequestResult(null, false)
                     out.write(buffer, 0, count)
                 }
                 decode(out.toByteArray(), connection.contentType)
             }
-            parse(body)
+            RequestResult(parse(body), false)
         } catch (_: SocketTimeoutException) {
-            lastTimedOut = true
-            null
+            RequestResult(null, true)
         } catch (_: Exception) {
-            null
+            RequestResult(null, false)
         } finally {
             connection?.disconnect()
         }

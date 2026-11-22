@@ -55,8 +55,7 @@ class MainCustomCards(
 
         if (total == 0 && summary.readFailed == null) {
             card.text = context.getString(R.string.network_identity_card_current)
-            card.subtext = identityLine?.removePrefix(context.getString(R.string.network_identity_current, ""))?.trim()
-                ?.takeIf { it.isNotEmpty() }
+            card.subtext = identity?.takeIf { it.hasIdentity }?.let { NetworkIdentityText.location(it) }
                 ?: context.getString(if (identity == null) R.string.network_identity_pending else R.string.network_identity_unknown)
         } else {
             card.text = if (summary.readFailed != null && total == 0) {
@@ -70,7 +69,7 @@ class MainCustomCards(
                 lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
             }
             if (summary.readFailed != null && lines.isEmpty()) lines += summary.readFailed
-            if (active.size + if (networkError != null) 1 else 0 > lines.size) {
+            if (active.size + (if (networkError != null) 1 else 0) > lines.size) {
                 lines += context.getString(R.string.main_issues_card_more)
             }
             identityLine?.let { lines += it }
