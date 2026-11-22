@@ -20,4 +20,6 @@
     <string name="carrier_switch_keyword_required">Enter a keyword</string>
     <string name="carrier_switch_node_empty">This group has no selectable nodes</string>
     <string name="carrier_switch_home_result">Automatically switched to: %1$s</string>
+    <string name="carrier_switch_region_hint">Province / city (optional, as recognized)</string>
+    <string name="carrier_switch_keyword_required">Enter a keyword or a region</string>
 </resources>

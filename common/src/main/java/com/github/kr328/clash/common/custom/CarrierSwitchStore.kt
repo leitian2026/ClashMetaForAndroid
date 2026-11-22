@@ -16,6 +16,7 @@ data class CarrierSwitchKeyword(
     val keyword: String,
     val group: String,
     val node: String,
+    val region: String = "",
 )
 
 data class CarrierSwitchConfig(
@@ -42,7 +43,8 @@ object CarrierSwitchStore {
             custom.put(JSONObject()
                 .put("keyword", it.keyword)
                 .put("group", it.group)
-                .put("node", it.node))
+                .put("node", it.node)
+                .put("region", it.region))
         }
         put("telecom", target(value.telecom))
         put("unicom", target(value.unicom))
@@ -62,6 +64,7 @@ object CarrierSwitchStore {
                 item.optString("keyword"),
                 item.optString("group"),
                 item.optString("node"),
+                item.optString("region", ""),
             )
         }
         return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)

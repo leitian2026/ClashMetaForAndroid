@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="carrier_switch_region_hint">省 / 市（可选，按识别结果原文填写，如广东、东莞）</string>
+    <string name="carrier_switch_keyword_required">关键词和省市至少填写一项</string>
+</resources>
