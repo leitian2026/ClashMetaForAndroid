@@ -12,4 +12,6 @@
     <string name="network_identity_error_all_failed">所有接口失败或未返回公网 IP</string>
     <string name="network_identity_error_mismatch">两个接口返回的运营商不一致</string>
     <string name="network_identity_error_bind">绑定底层网络失败</string>
+    <string name="network_identity_error_switch">自动切换失败：%1$s</string>
+    <string name="network_identity_switch_success">已自动切到：%1$s</string>
 </resources>
