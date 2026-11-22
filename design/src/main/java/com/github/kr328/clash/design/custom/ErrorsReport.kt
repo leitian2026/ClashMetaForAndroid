@@ -13,6 +13,8 @@ import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
  * no IPv6 (expected, not counted as timeouts); [testedAt] / [networkChangedAt] (unix ms, 0 = unknown) tell how
  * old the speed-test result is and whether the network changed after it.
  */
+data class SubscriptionUpdateDiff(val addedLines: Int, val removedLines: Int)
+
 data class ErrorsReport(
     val running: Boolean,
     val snapshot: ErrorSnapshot?,

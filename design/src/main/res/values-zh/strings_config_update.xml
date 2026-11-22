@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subscription_update_diff">订阅更新：新增 %1$d 行、删除 %2$d 行</string>
+</resources>

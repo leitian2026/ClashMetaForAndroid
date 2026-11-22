@@ -12,6 +12,7 @@ import com.github.kr328.clash.service.data.PendingDao
 import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.custom.ConfigErrorText
 import com.github.kr328.clash.service.custom.ConfigHistory
+import com.github.kr328.clash.service.custom.ConfigUpdateSnapshot // CUSTOM (CUSTOM.md #170)
 import com.github.kr328.clash.service.remote.IFetchObserver
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.importedDir
@@ -60,6 +61,7 @@ object ProfileProcessor {
                 profileLock.withLock {
                     if (PendingDao().queryByUUID(snapshot.uuid) == snapshot) {
                         if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #28 #56): keep the version being replaced and the new one (only self-edited profiles have a history)
+                        else ConfigUpdateSnapshot.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #170): one previous subscription config
                         context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()
                         context.processingDir.copyRecursively(context.importedDir.resolve(snapshot.uuid.toString()))
 
@@ -120,6 +122,7 @@ object ProfileProcessor {
                 profileLock.withLock {
                     val imported = ImportedDao().queryByUUID(snapshot.uuid)
                     if (imported != null) {
+                        if (snapshot.type != Profile.Type.File) ConfigUpdateSnapshot.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #170)
                         context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()
                         context.processingDir.copyRecursively(context.importedDir.resolve(snapshot.uuid.toString()))
 
@@ -181,6 +184,7 @@ object ProfileProcessor {
                 pending.deleteRecursively()
                 imported.deleteRecursively()
                 ConfigHistory.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #56): its history goes with it
+                ConfigUpdateSnapshot.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #170)
 
                 context.sendProfileChanged(uuid)
             }

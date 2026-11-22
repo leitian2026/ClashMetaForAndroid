@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subscription_update_diff">Subscription update: %1$d lines added, %2$d lines removed</string>
+</resources>

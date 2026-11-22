@@ -35,6 +35,15 @@ object ErrorsText {
             if (lines.isNotEmpty()) blocks += section(context.getString(R.string.network_identity_section), lines)
         }
 
+        // CUSTOM (CUSTOM.md #170): one on-demand, line-based summary; informational, not an issue count.
+        report.subscriptionUpdate?.let { update ->
+            blocks += context.getString(
+                R.string.subscription_update_diff,
+                update.addedLines,
+                update.removedLines,
+            )
+        }
+
         // 1. the app itself
         val crashLines = ArrayList<String>()
         for (c in report.crashes) {

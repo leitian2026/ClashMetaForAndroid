@@ -46,7 +46,7 @@
 | `core/src/main/golang/go.mod` | #79 #80 | **中**（HTTP/3 / MTU 依赖由间接依赖提升为直接依赖） | 以上游版本的依赖选择为准，将 `github.com/metacubex/http`、`github.com/metacubex/quic-go`、`github.com/metacubex/tls` 和 `golang.org/x/sys` 从间接依赖提升到直接 `require`；保持已核对的版本（`http v0.1.8`、项目锁定的 `quic-go`、`tls v0.1.9`、`x/sys v0.30.0`），不擅自升级。若上游更新这些依赖，先重新核对 `http3` API 和模块版本，再同步调整 `go.sum`。 |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
-| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
+| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 #170 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
 | `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
 | `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view`（r34 起是显示当前级别文字的 `TextView`，原来是图标 `ImageView`）；标题栏的 `layout_toStartOf` 改指向它 |
 | `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
@@ -236,6 +236,7 @@
 | 167 | 配置检查页测 IP 表移除精简 / 完整显示列切换，始终显示完整列 | [167.md](docs/custom/167.md) |
 | 168 | 网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口；结果跨进程缓存，息屏延后，首页当前 IP / 问题卡片常显；无问题时显示最近一次自动切换结果并提供映射页入口；状态栏问题通知同步显示当前运营商，错误诊断页纳入识别结果 | [168.md](docs/custom/168.md) |
 | 169 | 按运营商自动切换节点：电信 / 联通 / 移动固定映射，自定义项支持关键词与省市组合匹配；网络识别完成或设置页保存命中当前网络时触发，代理页顶部提供入口；首页显示最近一次成功切换结果；映射随订阅备份恢复 | [169.md](docs/custom/169.md) |
+| 170 | 订阅更新后显示变更摘要：仅保留非 File 订阅上一份 config.yaml，打开错误与诊断页时按需比较并显示新增 / 删除行数 | [170.md](docs/custom/170.md) |
 | 157 | 文档分层：CUSTOM.md 改成索引，详情按编号拆开，加大小和引用检查（r282；提交方式见 `AGENTS.md`） | [157.md](docs/custom/157.md) |
 
 ## 修改记录（#156 起的分步流水，按原文顺序，只读）

@@ -13,6 +13,11 @@ import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.design.custom.CrashRecorder
 import com.github.kr328.clash.design.custom.ErrorsDesign
 import com.github.kr328.clash.design.custom.ErrorsReport
+import com.github.kr328.clash.design.custom.SubscriptionUpdateDiff
+import com.github.kr328.clash.design.custom.ConfigDiff
+import com.github.kr328.clash.service.custom.ConfigUpdateSnapshot
+import com.github.kr328.clash.service.store.ServiceStore
+import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +42,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
         val design = ErrorsDesign(this)
 
         setContentDesign(design)
+        val subscriptionUpdate = readSubscriptionUpdateOnce()
 
         while (isActive) {
             select<Unit> {
@@ -171,8 +177,29 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 networkChangedAt = info?.networkChangedAt ?: 0,
                 issues = issues,
                 networkIdentity = NetworkIdentityStore.read(this@ErrorsActivity), // CUSTOM (CUSTOM.md #168)
+                subscriptionUpdate = subscriptionUpdate,
             ),
         )
+    }
+
+    /** CUSTOM (CUSTOM.md #170): compare once when this diagnostics page is opened, never on update/background. */
+    private suspend fun readSubscriptionUpdateOnce(): SubscriptionUpdateDiff? = withContext(Dispatchers.IO) {
+        try {
+            val uuid = ServiceStore(this@ErrorsActivity).activeProfile ?: return@withContext null
+            val old = ConfigUpdateSnapshot.read(this@ErrorsActivity, uuid) ?: return@withContext null
+            val currentFile = importedDir.resolve("$uuid/config.yaml")
+            if (!currentFile.isFile) return@withContext null
+            val current = currentFile.readText(Charsets.UTF_8)
+            if (old == current) return@withContext null
+            val diff = ConfigDiff.diff(old, current)
+            val added = diff.added + diff.changed
+            val removed = diff.removed + diff.changed
+            if (added == 0 && removed == 0) null else SubscriptionUpdateDiff(added, removed)
+        } catch (_: CancellationException) {
+            throw
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // NodeInfo.testedAt is one timestamp for the latest completed batch, not a per-node timestamp. Store it
