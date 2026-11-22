@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.view.View
 import android.widget.Toast
@@ -96,6 +97,13 @@ class ProxyDesign(
 
         binding.menuView.setOnClickListener {
             menu.show()
+        }
+
+        // CUSTOM (CUSTOM.md #169): open the carrier-to-selector mapping page.
+        binding.carrierSwitchView.setOnClickListener {
+            context.startActivity(
+                Intent().setClassName(context, "com.github.kr328.clash.custom.CarrierSwitchActivity")
+            )
         }
 
         if (groupNames.isEmpty()) {
