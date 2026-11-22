@@ -41,7 +41,11 @@ object CarrierSwitch {
         if (target.group.isBlank() || target.node.isBlank()) return
 
         val switched = if (StatusProvider.serviceRunning) {
-            Clash.patchSelector(target.group, target.node)
+            val success = Clash.patchSelector(target.group, target.node)
+            if (success) {
+                SelectionDao().setSelected(Selection(uuid, target.group, target.node))
+            }
+            success
         } else {
             SelectionDao().setSelected(Selection(uuid, target.group, target.node))
             true
