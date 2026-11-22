@@ -32,8 +32,13 @@ object CarrierSwitch {
 
     private fun apply(context: Context, identity: NetworkIdentitySnapshot) {
         if (identity.signature.isEmpty() || identity.error.isNotEmpty()) return
-        if (identity.operator.isBlank()) return
-        if (identity.operator == "未知" && identity.rawOperator.isBlank()) return
+        val operator = identity.operator.trim()
+        val rawOperator = identity.rawOperator.trim()
+        val knownOperator = operator.isNotEmpty() &&
+            !operator.equals("未知", ignoreCase = true) && !operator.equals("unknown", ignoreCase = true)
+        val knownRawOperator = rawOperator.isNotEmpty() &&
+            !rawOperator.equals("未知", ignoreCase = true) && !rawOperator.equals("unknown", ignoreCase = true)
+        if (!knownOperator && !knownRawOperator) return
 
         val uuid = ServiceStore(context).activeProfile ?: return
         val config = CarrierSwitchStore.read(context, uuid)
@@ -76,8 +81,8 @@ object CarrierSwitch {
     }
 
     private fun match(config: CarrierSwitchConfig, identity: NetworkIdentitySnapshot): CarrierSwitchTarget? {
-        val operator = identity.operator.lowercase(Locale.ROOT)
-        val raw = identity.rawOperator.lowercase(Locale.ROOT)
+        val operator = identity.operator.trim().lowercase(Locale.ROOT)
+        val raw = identity.rawOperator.trim().lowercase(Locale.ROOT)
         val province = identity.province.lowercase(Locale.ROOT)
         val city = identity.city.lowercase(Locale.ROOT)
         val regional = config.custom.firstOrNull { item ->
