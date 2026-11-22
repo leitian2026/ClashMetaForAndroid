@@ -19,6 +19,7 @@ suspend fun MainDesign.refreshCustom(running: Boolean) {
 
     // CUSTOM.md #147: only mark a reachable node when the issues snapshot confirms no active problems
     if (running && state.reach > 0 && issues is IssuesDisplayState.Summary &&
+        issues.identity?.hasNetworkError != true &&
         issues.snapshot?.items?.none { !it.ignored && !it.resolved } == true
     ) ConfigVerified.mark(context)
 }
