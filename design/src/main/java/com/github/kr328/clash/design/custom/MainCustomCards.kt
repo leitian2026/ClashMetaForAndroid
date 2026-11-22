@@ -48,7 +48,7 @@ class MainCustomCards(
         val active = summary.snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
         val identity = summary.identity
         val networkError = identity?.error?.takeIf { it.isNotEmpty() }
-        val total = active.size + if (networkError != null) 1 else 0
+        val total = active.size + (if (networkError != null) 1 else 0)
         val identityLine = identity?.takeIf { it.hasIdentity }?.let {
             context.getString(R.string.network_identity_current, NetworkIdentityText.location(it))
         }

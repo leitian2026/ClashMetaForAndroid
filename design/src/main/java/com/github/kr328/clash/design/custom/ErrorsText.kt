@@ -17,7 +17,7 @@ object ErrorsText {
         val time = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
         val blocks = ArrayList<String>()
 
-        // CUSTOM #168: the last network identity result and any lookup error, available even when Clash is stopped.
+        // CUSTOM (CUSTOM.md #168): the last network identity result and any lookup error, available even when Clash is stopped.
         report.networkIdentity?.let { identity ->
             val lines = ArrayList<String>()
             if (identity.error.isNotEmpty()) lines += context.getString(

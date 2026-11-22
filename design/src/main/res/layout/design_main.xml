@@ -110,7 +110,7 @@
                         android:src="@drawable/ic_baseline_more_vert" />
                 </LinearLayout>
 
-                <!-- CUSTOM (CUSTOM.md #53): problems of the running config, shown by MainCustomCards -->
+                <!-- CUSTOM (CUSTOM.md #53, #168): problems and current network identity, shown by MainCustomCards -->
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:id="@+id/custom_issues_card"
                     android:layout_width="match_parent"

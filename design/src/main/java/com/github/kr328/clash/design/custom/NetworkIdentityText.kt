@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.design.R
 
+// CUSTOM (CUSTOM.md #168): shared formatting for the home card and diagnostic report.
 object NetworkIdentityText {
     fun location(identity: NetworkIdentitySnapshot): String {
         val province = clean(identity.province)

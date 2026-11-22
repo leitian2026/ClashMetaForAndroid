@@ -170,7 +170,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 testedAt = info?.testedAt ?: 0,
                 networkChangedAt = info?.networkChangedAt ?: 0,
                 issues = issues,
-                networkIdentity = NetworkIdentityStore.read(this@ErrorsActivity),
+                networkIdentity = NetworkIdentityStore.read(this@ErrorsActivity), // CUSTOM (CUSTOM.md #168)
             ),
         )
     }

@@ -107,6 +107,7 @@ object NetworkRetest {
 
         if (now.isEmpty()) {
             pendingIdentitySignature = ""
+            pendingTest = false
             identityGeneration.incrementAndGet()
             saveNoNetwork()
             return

@@ -194,9 +194,14 @@ object NetworkIdentity {
                 if (b[0] == 172 && b[1] in 16..31) continue
                 if (b[0] == 192 && b[1] == 168) continue
                 if (b[0] == 100 && b[1] in 64..127) continue
+                if (b[0] == 192 && b[1] == 0 && b[2] == 2) continue
+                if (b[0] == 198 && b[1] == 51 && b[2] == 100) continue
+                if (b[0] == 203 && b[1] == 0 && b[2] == 113) continue
+                if (b[0] == 198 && b[1] in 18..19) continue
             } else {
                 val first = address.address[0].toInt() and 0xff
                 if (first and 0xfe == 0xfc || first == 0xff) continue
+                if (value.lowercase(Locale.ROOT).startsWith("2001:db8:")) continue
             }
             return value
         }

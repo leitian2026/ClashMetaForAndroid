@@ -37,6 +37,7 @@ suspend fun MainDesign.refreshIssues(running: Boolean): IssuesDisplayState {
             readFailed = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
         }
     }
+    // CUSTOM (CUSTOM.md #168): read the service process' atomic network identity snapshot, including when stopped.
     val result = IssuesDisplayState.Summary(
         running = running,
         snapshot = snapshot,
