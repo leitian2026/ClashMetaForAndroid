@@ -40,7 +40,8 @@ object CarrierSwitch {
         val target = match(config, identity) ?: return
         if (target.group.isBlank() || target.node.isBlank()) return
 
-        val switched = if (StatusProvider.serviceRunning) {
+        val running = StatusProvider.serviceRunning
+        val switched = if (running) {
             val success = Clash.patchSelector(target.group, target.node)
             if (success) {
                 SelectionDao().setSelected(Selection(uuid, target.group, target.node))
@@ -48,18 +49,18 @@ object CarrierSwitch {
             success
         } else {
             SelectionDao().setSelected(Selection(uuid, target.group, target.node))
-            true
+            false
         }
 
         val latest = NetworkIdentityStore.read(context) ?: identity
         if (latest.signature != identity.signature) return
-        val updated = if (switched) {
-            latest.copy(
+        val updated = when {
+            !running -> latest.copy(switchResult = "", switchError = "")
+            switched -> latest.copy(
                 switchResult = "${target.group} / ${target.node}",
                 switchError = "",
             )
-        } else {
-            latest.copy(
+            else -> latest.copy(
                 switchResult = "",
                 switchError = "${target.group} / ${target.node}",
             )
