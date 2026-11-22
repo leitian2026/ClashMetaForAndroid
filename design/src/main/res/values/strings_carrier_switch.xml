@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="carrier_switch_title">Carrier switch</string>
+    <string name="carrier_switch_fixed_section">Built-in carriers</string>
+    <string name="carrier_switch_telecom">China Telecom</string>
+    <string name="carrier_switch_unicom">China Unicom</string>
+    <string name="carrier_switch_mobile">China Mobile</string>
+    <string name="carrier_switch_custom_section">Custom carriers</string>
+    <string name="carrier_switch_add">Add custom carrier</string>
+    <string name="carrier_switch_save">Save</string>
+    <string name="carrier_switch_keyword">Keyword</string>
+    <string name="carrier_switch_choose_group">Choose proxy group</string>
+    <string name="carrier_switch_choose_node">Choose node</string>
+    <string name="carrier_switch_clear">Clear mapping</string>
+    <string name="carrier_switch_not_set">Not set</string>
+    <string name="carrier_switch_group_node">%1$s / %2$s</string>
+    <string name="carrier_switch_edit">Edit</string>
+    <string name="carrier_switch_delete">Delete</string>
+    <string name="carrier_switch_saved">Saved</string>
+    <string name="carrier_switch_keyword_required">Enter a keyword</string>
+    <string name="carrier_switch_node_empty">This group has no selectable nodes</string>
+</resources>
