@@ -9,11 +9,18 @@ import org.json.JSONObject
 internal class SavedIpFilterState private constructor(
     val selectedStatuses: LinkedHashMap<String, LinkedHashSet<SavedIpStatus>>,
     val selectedTableFilters: LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>,
-    var sort: SavedIpSort,
+    val sorts: LinkedHashMap<String, SavedIpSort>,
+    var legacySort: SavedIpSort?,
     var query: String,
     var searchExpanded: Boolean,
     var expandedOperatorId: String?,
 ) {
+    fun sortFor(operatorId: String): SavedIpSort = sorts[operatorId] ?: legacySort ?: SavedIpSort.DEFAULT
+
+    fun setSort(operatorId: String, value: SavedIpSort) {
+        sorts[operatorId] = value
+    }
+
     // CUSTOM.md #156: persistent state intentionally excludes search text and search visibility.
     fun persistentJson(): String {
         val statuses = JSONArray()
@@ -26,8 +33,13 @@ internal class SavedIpFilterState private constructor(
                 filters.put(JSONObject().put("operatorId", operatorId).put("column", columnName).put("values", JSONArray(values.toList())))
             }
         }
+        val sortItems = JSONArray()
+        sorts.forEach { (operatorId, sort) ->
+            sortItems.put(JSONObject().put("operatorId", operatorId).put("sort", sort.name))
+        }
         return JSONObject()
-            .put("sort", sort.name)
+            .put("sort", legacySort?.name ?: SavedIpSort.DEFAULT.name)
+            .put("operatorSorts", sortItems)
             .put("expandedOperatorId", expandedOperatorId ?: JSONObject.NULL)
             .put("statuses", statuses)
             .put("tableFilters", filters)
@@ -43,7 +55,8 @@ internal class SavedIpFilterState private constructor(
                 outState.putStringArrayList(KEY_TABLE_FILTER_PREFIX + operatorId + "__" + column, ArrayList(values))
             }
         }
-        outState.putString(KEY_SORT, sort.name)
+        sorts.forEach { (operatorId, sort) -> outState.putString(KEY_SORT_PREFIX + operatorId, sort.name) }
+        outState.putString(KEY_SORT, legacySort?.name ?: SavedIpSort.DEFAULT.name)
         outState.putString(KEY_QUERY, query)
         outState.putBoolean(KEY_SEARCH_EXPANDED, searchExpanded)
         outState.putString(KEY_EXPANDED_OPERATOR, expandedOperatorId)
@@ -53,6 +66,7 @@ internal class SavedIpFilterState private constructor(
         private const val KEY_STATUS_PREFIX = "saved_ip_statuses_"
         private const val KEY_TABLE_FILTER_PREFIX = "saved_ip_table_filter_"
         private const val KEY_SORT = "saved_ip_filter_sort"
+        private const val KEY_SORT_PREFIX = "saved_ip_filter_sort_"
         private const val KEY_QUERY = "saved_ip_filter_query"
         private const val KEY_SEARCH_EXPANDED = "saved_ip_filter_search_expanded"
         private const val KEY_EXPANDED_OPERATOR = "saved_ip_filter_expanded_operator"
@@ -85,9 +99,18 @@ internal class SavedIpFilterState private constructor(
                     for (j in 0 until values.length()) values.optString(j).takeIf { it.isNotEmpty() }?.let(selected::add)
                     if (selected.isNotEmpty()) filters.getOrPut(id) { LinkedHashMap() }[column] = selected
                 }
-                val sort = runCatching { SavedIpSort.valueOf(root.optString("sort")) }.getOrNull() ?: SavedIpSort.DEFAULT
+                val legacySort = runCatching { SavedIpSort.valueOf(root.optString("sort")) }
+                    .getOrNull()?.takeIf { it != SavedIpSort.DEFAULT }
+                val sorts = LinkedHashMap<String, SavedIpSort>()
+                val sortItems = root.optJSONArray("operatorSorts") ?: JSONArray()
+                for (i in 0 until sortItems.length()) {
+                    val item = sortItems.optJSONObject(i) ?: continue
+                    val id = item.optString("operatorId")
+                    val sort = runCatching { SavedIpSort.valueOf(item.optString("sort")) }.getOrNull() ?: continue
+                    if (id.isNotBlank()) sorts[id] = sort
+                }
                 val expanded = if (root.isNull("expandedOperatorId")) null else root.optString("expandedOperatorId").takeIf { it.isNotEmpty() }
-                SavedIpFilterState(statuses, filters, sort, "", false, expanded)
+                SavedIpFilterState(statuses, filters, sorts, legacySort, "", false, expanded)
             } catch (_: Exception) {
                 restore(null)
             }
@@ -119,12 +142,19 @@ internal class SavedIpFilterState private constructor(
                     }
                 }
             }
-            val sort = state?.getString(KEY_SORT)?.let { runCatching { SavedIpSort.valueOf(it) }.getOrNull() }
-                ?: SavedIpSort.DEFAULT
+            val legacySort = state?.getString(KEY_SORT)?.let { runCatching { SavedIpSort.valueOf(it) }.getOrNull() }
+                ?.takeIf { it != SavedIpSort.DEFAULT }
+            val sorts = LinkedHashMap<String, SavedIpSort>()
+            state?.keySet().orEmpty().filter { it.startsWith(KEY_SORT_PREFIX) }.forEach { key ->
+                val id = key.removePrefix(KEY_SORT_PREFIX)
+                val sort = state?.getString(key)?.let { runCatching { SavedIpSort.valueOf(it) }.getOrNull() }
+                if (id.isNotBlank() && sort != null) sorts[id] = sort
+            }
             return SavedIpFilterState(
                 selectedStatuses = statuses,
                 selectedTableFilters = tableFilters,
-                sort = sort,
+                sorts = sorts,
+                legacySort = legacySort,
                 query = state?.getString(KEY_QUERY).orEmpty(),
                 searchExpanded = state?.getBoolean(KEY_SEARCH_EXPANDED) ?: false,
                 expandedOperatorId = state?.getString(KEY_EXPANDED_OPERATOR),
