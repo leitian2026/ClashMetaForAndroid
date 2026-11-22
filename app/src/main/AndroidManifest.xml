@@ -156,6 +156,12 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/mux_title" />
+        <!-- CUSTOM (CUSTOM.md #169): carrier-to-selector mapping page. -->
+        <activity
+            android:name=".custom.CarrierSwitchActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/carrier_switch_title" />
         <!-- CUSTOM (CUSTOM.md #21) -->
         <activity
             android:name=".custom.ErrorsActivity"
