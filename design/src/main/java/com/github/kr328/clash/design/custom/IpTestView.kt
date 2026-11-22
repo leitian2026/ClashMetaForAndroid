@@ -144,6 +144,21 @@ class IpTestView(
     private val colorHighlight = themeColor(android.R.attr.colorControlHighlight, if (night) Color.WHITE else Color.BLACK)
     private val colorStripe = Color.argb(0x14, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
     private val colorSavedStripe = Color.argb(0x0A, Color.red(colorHighlight), Color.green(colorHighlight), Color.blue(colorHighlight))
+    // Match SavedIpDesign's operator-group divider: same theme color and 1dp thickness.
+    private val colorTableDivider = themeColor(android.R.attr.colorControlHighlight, 0x22000000)
+
+    private fun rowWithDivider(content: View, backgroundColor: Int, showDivider: Boolean): FrameLayout =
+        FrameLayout(context).apply {
+            setBackgroundColor(backgroundColor)
+            addView(content, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ))
+            if (showDivider) {
+                addView(View(context).apply { setBackgroundColor(colorTableDivider) },
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1), Gravity.BOTTOM))
+            }
+        }
 
     private val rowH = dp(48) // the least height of a row; a row with wrapped text is taller
     private val headH = dp(40)
@@ -1497,12 +1512,11 @@ class IpTestView(
                 )
             }
 
-            val stripe = if (rowIndex % 2 == 1) colorStripe else Color.TRANSPARENT
             val selected = isSelected(entry.address)
             val selectedBackground = Color.argb(
                 36, Color.red(colorLink), Color.green(colorLink), Color.blue(colorLink),
             )
-            val rowBackground = if (selected) selectedBackground else stripe
+            val rowBackground = if (selected) selectedBackground else colorSurface
             var selectionCheckBox: CheckBox? = null
             val leftRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1578,14 +1592,16 @@ class IpTestView(
                 baseHeight,
                 cells.mapIndexed { index, cell -> heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
             ) + dp(8)
-            left.addView(leftRow, lp(ipColumnWidth, height))
             val line = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(rowBackground)
             }
             cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
-            grid.addView(line, lp(gridWidth, height))
-            savedRowViews[entry.address] = leftRow to line
+            val leftRowContainer = rowWithDivider(leftRow, rowBackground, rowIndex < entries.lastIndex)
+            val gridRowContainer = rowWithDivider(line, rowBackground, rowIndex < entries.lastIndex)
+            left.addView(leftRowContainer, lp(ipColumnWidth, height))
+            grid.addView(gridRowContainer, lp(gridWidth, height))
+            savedRowViews[entry.address] = leftRowContainer to gridRowContainer
 
             // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
             // click handlers so a tap cannot open a port / detail dialog or copy the IP.
@@ -1594,9 +1610,11 @@ class IpTestView(
             fun toggleRowSelection() {
                 val nowSelected = onLongPress(entry.address)
                 if (isSelectionMode()) {
-                    val background = if (nowSelected) selectedBackground else stripe
+                    val background = if (nowSelected) selectedBackground else colorSurface
                     leftRow.setBackgroundColor(background)
                     line.setBackgroundColor(background)
+                    leftRowContainer.setBackgroundColor(background)
+                    gridRowContainer.setBackgroundColor(background)
                     selectionCheckBox?.isChecked = nowSelected
                 }
             }
