@@ -118,7 +118,8 @@
                     android:layout_marginVertical="@dimen/main_card_margin_vertical"
                     android:visibility="visible"
                     app:icon="@drawable/ic_baseline_info"
-                    app:text="@string/issues_title" />
+                    app:subtext="@string/network_identity_pending"
+                    app:text="@string/network_identity_card_current" />
 
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"
