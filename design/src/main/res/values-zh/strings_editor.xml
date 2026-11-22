@@ -115,4 +115,8 @@
     <string name="editor_goto_none">光标所在行没有可跳转的名字</string>
     <string name="editor_goto_builtin">%1$s 是内置名称，没有定义行</string>
     <string name="editor_goto_missing">没有找到 %1$s 的定义</string>
+    <string name="editor_copy">复制</string>
+    <string name="editor_copied">已复制（%1$d 行）</string>
+    <string name="editor_copy_failed">复制失败</string>
+    <string name="editor_symbols">符号</string>
 </resources>

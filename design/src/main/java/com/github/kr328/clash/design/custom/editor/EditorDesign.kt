@@ -1,10 +1,14 @@
 package com.github.kr328.clash.design.custom.editor
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
+import android.os.PersistableBundle
 import android.text.Editable
 import android.text.InputType
 import android.text.SpannableStringBuilder
@@ -128,6 +132,7 @@ class EditorDesign(
         context.getString(if (split) R.string.editor_save_history else if (fileName != "config.yaml") R.string.editor_save_apply else R.string.editor_save),
     ) { requests.trySend(Request.Save) }
     private val applyButton = action(context.getString(R.string.editor_apply), null) { requests.trySend(Request.Apply) }
+    private val copyButton = action(context.getString(R.string.editor_copy), null) { copyText() }
     // CUSTOM.md #71: three big filled dots (the text "⋮" was small and thin); iconAction gives it a 44dp touch area
     private val moreButton = iconAction(R.drawable.ic_editor_more, context.getString(R.string.editor_more)) { showMore(it) }.apply {
         // CUSTOM: keep the three-dot icon visible on both light and dark editor toolbars.
@@ -179,6 +184,8 @@ class EditorDesign(
 
     // CUSTOM.md #47: the size of the text, 2 sp at a tap, kept for the next time; nothing runs on its own
     private val prefs = context.getSharedPreferences("custom_editor", Context.MODE_PRIVATE)
+    private var symbolsOpen = prefs.getBoolean("symbols_open", false)
+    private val symbolToggleButton = action(context.getString(R.string.editor_symbols), null) { toggleSymbols() }
     private var sizeSp = prefs.getInt("size_sp", DEFAULT_SIZE).coerceIn(MIN_SIZE, MAX_SIZE)
     private var sizeNeedsSave = false
 
@@ -245,6 +252,11 @@ class EditorDesign(
     private val symbols = HorizontalScrollView(context).apply {
         setBackgroundColor(colorBar)
         isHorizontalScrollBarEnabled = false
+        visibility = View.GONE
+    }
+    private val operationRow = HorizontalScrollView(context).apply {
+        setBackgroundColor(colorBar)
+        isHorizontalScrollBarEnabled = false
     }
 
     override val root: View = LinearLayout(context).apply {
@@ -261,13 +273,7 @@ class EditorDesign(
                         setPadding(dp(14), 0, dp(4), 0)
 
                         addView(titleView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                        if (!readOnly) addView(undoButton)
-                        if (!readOnly) addView(redoButton)
-                        addView(findButton)
-
-                        if (canCheck) addView(checkButton)
-
-                        if (!readOnly) addView(saveButton)
+                        addView(copyButton)
                         if (split) addView(applyButton)
                         addView(moreButton)
                     },
@@ -321,7 +327,8 @@ class EditorDesign(
 
         addView(findBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))) // CUSTOM.md #70: was 34
+        if (!readOnly) addView(symbols, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))) // CUSTOM.md #70: symbol row
+        addView(operationRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
         addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -422,6 +429,36 @@ class EditorDesign(
         }
 
         symbols.addView(row)
+
+        val operations = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        fun addOperation(view: View) {
+            view.isFocusable = false
+            view.isFocusableInTouchMode = false
+            val width = view.layoutParams?.width ?: LinearLayout.LayoutParams.WRAP_CONTENT
+            if (view === undoButton || view === redoButton) {
+                val horizontal = (dp(if (split) 40 else 44) - dp(24)) / 2
+                view.setPadding(horizontal, dp(10), horizontal, dp(10))
+            }
+            operations.addView(view, LinearLayout.LayoutParams(width, dp(44)))
+        }
+        if (!readOnly) {
+            addOperation(symbolToggleButton)
+            addOperation(undoButton)
+            addOperation(redoButton)
+        }
+        addOperation(findButton)
+        if (canCheck) addOperation(checkButton)
+        if (!readOnly) addOperation(saveButton)
+        operationRow.addView(
+            operations,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT),
+        )
+        operationRow.visibility = if (operations.childCount > 0) View.VISIBLE else View.GONE
+        symbols.visibility = if (!readOnly && symbolsOpen) View.VISIBLE else View.GONE
+        refreshSymbolToggle()
 
         if (useSchema) {
             // the schema (about 60 KB) is read once, off the main thread; until it is there the words of the text are suggested
@@ -1011,6 +1048,36 @@ class EditorDesign(
     private fun showRegexError() {
         countView.text = context.getString(if (editor.regexTimedOut) R.string.editor_regex_slow else R.string.editor_regex_invalid)
         countView.setTextColor(colorBad)
+    }
+
+    private fun refreshSymbolToggle() {
+        symbolToggleButton.text = context.getString(R.string.editor_symbols) + if (symbolsOpen) " ▴" else " ▾"
+        symbolToggleButton.setTextColor(if (symbolsOpen) colorAccent else colorMuted)
+    }
+
+    private fun toggleSymbols() {
+        if (readOnly) return
+        symbolsOpen = !symbolsOpen
+        symbols.visibility = if (symbolsOpen) View.VISIBLE else View.GONE
+        prefs.edit().putBoolean("symbols_open", symbolsOpen).apply()
+        refreshSymbolToggle()
+    }
+
+    private fun copyText() {
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                ?: throw IllegalStateException("Clipboard service unavailable")
+            val clip = ClipData.newPlainText("config", currentText())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                clip.description.extras = PersistableBundle().apply {
+                    putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                }
+            }
+            clipboard.setPrimaryClip(clip)
+            launch { toast(context.getString(R.string.editor_copied, editor.logicalLineCount)) }
+        } catch (_: Exception) {
+            launch { toast(context.getString(R.string.editor_copy_failed)) }
+        }
     }
 
     private fun toggleFind() {
