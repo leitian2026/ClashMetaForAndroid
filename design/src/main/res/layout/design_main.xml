@@ -116,7 +116,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginVertical="@dimen/main_card_margin_vertical"
-                    android:visibility="gone"
+                    android:visibility="visible"
                     app:icon="@drawable/ic_baseline_info"
                     app:text="@string/issues_title" />
 

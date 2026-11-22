@@ -5,13 +5,17 @@ import android.content.Intent
 import android.view.View
 import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
+import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
+import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.design.R
 
 sealed class IssuesDisplayState {
-    object NotRunning : IssuesDisplayState()
-    object NoIssues : IssuesDisplayState()
-    data class Loaded(val snapshot: com.github.kr328.clash.core.custom.IssuesSnapshot) : IssuesDisplayState()
-    data class ReadFailed(val reason: String) : IssuesDisplayState()
+    data class Summary(
+        val running: Boolean,
+        val snapshot: IssuesSnapshot?,
+        val identity: NetworkIdentitySnapshot?,
+        val readFailed: String? = null,
+    ) : IssuesDisplayState()
 }
 
 // CUSTOM (CUSTOM.md #6, #7) on the home page:
@@ -37,25 +41,42 @@ class MainCustomCards(
             }
         }
 
-    // CUSTOM.md #53: one line per problem; what does not fit is behind the tap (the list page)
+    // CUSTOM #168: this card stays visible even when Clash is stopped or there are no problems.
     fun setIssues(state: IssuesDisplayState) {
         val card = issuesCard ?: return
-        when (state) {
-            IssuesDisplayState.NotRunning, IssuesDisplayState.NoIssues -> card.visibility = View.GONE
-            is IssuesDisplayState.ReadFailed -> {
-                card.text = context.getString(R.string.issues_card_read_failed_title)
-                card.subtext = state.reason
-                card.visibility = View.VISIBLE
-            }
-            is IssuesDisplayState.Loaded -> {
-                val active = state.snapshot.items.filter { !it.ignored && !it.resolved }
-                card.text = context.getString(R.string.issues_card_title, active.size)
-                val lines = active.take(2).map { context.getString(IssueText.kindRes(it.kind), IssueText.subject(it)) }
-                val more = if (active.size > lines.size) listOf(context.getString(R.string.main_issues_card_more)) else emptyList()
-                card.subtext = (lines + more).joinToString("\n")
-                card.visibility = View.VISIBLE
-            }
+        val summary = state as? IssuesDisplayState.Summary ?: return
+        val active = summary.snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
+        val identity = summary.identity
+        val networkError = identity?.error?.takeIf { it.isNotEmpty() }
+        val total = active.size + if (networkError != null) 1 else 0
+        val identityLine = identity?.takeIf { it.hasIdentity }?.let {
+            context.getString(R.string.network_identity_current, NetworkIdentityText.location(it))
         }
+
+        if (total == 0 && summary.readFailed == null) {
+            card.text = context.getString(R.string.network_identity_card_current)
+            card.subtext = identityLine?.removePrefix(context.getString(R.string.network_identity_current, ""))?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?: context.getString(if (identity == null) R.string.network_identity_pending else R.string.network_identity_unknown)
+        } else {
+            card.text = if (summary.readFailed != null && total == 0) {
+                context.getString(R.string.issues_card_read_failed_title)
+            } else {
+                context.getString(R.string.network_identity_card_issues, total)
+            }
+            val lines = ArrayList<String>()
+            if (networkError != null) lines += NetworkIdentityText.error(context, networkError)
+            active.take(2 - lines.size).forEach {
+                lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
+            }
+            if (summary.readFailed != null && lines.isEmpty()) lines += summary.readFailed
+            if (active.size + if (networkError != null) 1 else 0 > lines.size) {
+                lines += context.getString(R.string.main_issues_card_more)
+            }
+            identityLine?.let { lines += it }
+            card.subtext = lines.joinToString("\n")
+        }
+        card.visibility = View.VISIBLE
     }
 
     fun update(running: Boolean, state: TunnelState): String? {

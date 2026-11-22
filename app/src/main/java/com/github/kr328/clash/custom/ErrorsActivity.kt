@@ -6,6 +6,7 @@ import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.service.remote.IClashManager
 import com.github.kr328.clash.common.custom.NetworkIpv6
+import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.core.model.ErrorSnapshot
 import com.github.kr328.clash.core.model.NodeInfo
 import com.github.kr328.clash.core.model.ProxySort
@@ -169,6 +170,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 testedAt = info?.testedAt ?: 0,
                 networkChangedAt = info?.networkChangedAt ?: 0,
                 issues = issues,
+                networkIdentity = NetworkIdentityStore.read(this@ErrorsActivity),
             ),
         )
     }

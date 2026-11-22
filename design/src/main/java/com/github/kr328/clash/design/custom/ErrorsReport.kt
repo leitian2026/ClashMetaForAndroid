@@ -3,6 +3,7 @@ package com.github.kr328.clash.design.custom
 import com.github.kr328.clash.core.model.CrashRecord
 import com.github.kr328.clash.core.model.ErrorSnapshot
 import com.github.kr328.clash.core.model.ExitRecord
+import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 
 /**
  * CUSTOM (CUSTOM.md #21): everything the errors page shows. [snapshot] / [timeouts] are null while the
@@ -22,4 +23,5 @@ data class ErrorsReport(
     val testedAt: Long = 0,
     val networkChangedAt: Long = 0,
     val issues: com.github.kr328.clash.core.custom.IssuesSnapshot? = null, // CUSTOM.md #53
+    val networkIdentity: NetworkIdentitySnapshot? = null, // CUSTOM.md #168
 )

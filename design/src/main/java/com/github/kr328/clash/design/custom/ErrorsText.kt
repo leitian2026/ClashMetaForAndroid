@@ -17,6 +17,18 @@ object ErrorsText {
         val time = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
         val blocks = ArrayList<String>()
 
+        // CUSTOM #168: the last network identity result and any lookup error, available even when Clash is stopped.
+        report.networkIdentity?.let { identity ->
+            val lines = ArrayList<String>()
+            if (identity.error.isNotEmpty()) lines += context.getString(
+                R.string.network_identity_error_label, NetworkIdentityText.error(context, identity.error),
+            )
+            if (identity.hasIdentity) lines += context.getString(
+                R.string.network_identity_current, NetworkIdentityText.location(identity),
+            )
+            if (lines.isNotEmpty()) blocks += section(context.getString(R.string.network_identity_section), lines)
+        }
+
         // 1. the app itself
         val crashLines = ArrayList<String>()
         for (c in report.crashes) {

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="network_identity_section">网络识别</string>
+    <string name="network_identity_card_current">当前 IP</string>
+    <string name="network_identity_card_issues">运行中的问题（%1$d）</string>
+    <string name="network_identity_current">当前 IP：%1$s</string>
+    <string name="network_identity_pending">正在识别网络运营商…</string>
+    <string name="network_identity_unknown">运营商未知</string>
+    <string name="network_identity_error_label">网络错误：%1$s</string>
+    <string name="network_identity_error_no_network">切换后无网络</string>
+    <string name="network_identity_error_timeout">请求超时</string>
+    <string name="network_identity_error_all_failed">所有接口失败或未返回公网 IP</string>
+    <string name="network_identity_error_mismatch">两个接口返回的运营商不一致</string>
+    <string name="network_identity_error_bind">绑定底层网络失败</string>
+</resources>

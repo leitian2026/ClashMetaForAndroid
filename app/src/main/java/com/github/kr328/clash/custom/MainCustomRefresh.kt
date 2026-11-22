@@ -2,6 +2,7 @@ package com.github.kr328.clash.custom
 
 import com.github.kr328.clash.core.custom.CustomConnections
 import com.github.kr328.clash.core.custom.IssuesSnapshot
+import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.design.custom.IssuesDisplayState
 import com.github.kr328.clash.design.MainDesign
 import kotlinx.coroutines.CancellationException
@@ -17,24 +18,31 @@ suspend fun MainDesign.refreshCustom(running: Boolean) {
     val issues = refreshIssues(running) // CUSTOM.md #53
 
     // CUSTOM.md #147: only mark a reachable node when the issues snapshot confirms no active problems
-    if (running && state.reach > 0 && issues is IssuesDisplayState.NoIssues) ConfigVerified.mark(context)
+    if (running && state.reach > 0 && issues is IssuesDisplayState.Summary &&
+        issues.snapshot?.items?.none { !it.ignored && !it.resolved } == true
+    ) ConfigVerified.mark(context)
 }
 
 // CUSTOM (CUSTOM.md #53): the card for problems of the running config. Asked whenever the home page is fetched or
 // refreshed by an event; nothing here runs on its own.
 suspend fun MainDesign.refreshIssues(running: Boolean): IssuesDisplayState {
-    val result = if (!running) {
-        IssuesDisplayState.NotRunning
-    } else {
+    var snapshot: IssuesSnapshot? = null
+    var readFailed: String? = null
+    if (running) {
         try {
-            val snapshot = IssuesSnapshot.parse(withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") })
-            if (snapshot.items.none { !it.ignored && !it.resolved }) IssuesDisplayState.NoIssues else IssuesDisplayState.Loaded(snapshot)
+            snapshot = IssuesSnapshot.parse(withClash { queryCustomConnections(CustomConnections.SORT_ISSUES, "") })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            IssuesDisplayState.ReadFailed(e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName)
+            readFailed = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
         }
     }
+    val result = IssuesDisplayState.Summary(
+        running = running,
+        snapshot = snapshot,
+        identity = NetworkIdentityStore.read(context),
+        readFailed = readFailed,
+    )
     setCustomIssues(result)
     return result
 }

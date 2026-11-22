@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="network_identity_section">Network identity</string>
+    <string name="network_identity_card_current">Current IP</string>
+    <string name="network_identity_card_issues">Runtime problems (%1$d)</string>
+    <string name="network_identity_current">Current IP: %1$s</string>
+    <string name="network_identity_pending">Identifying network operator…</string>
+    <string name="network_identity_unknown">Operator unknown</string>
+    <string name="network_identity_error_label">Network error: %1$s</string>
+    <string name="network_identity_error_no_network">No network after switching</string>
+    <string name="network_identity_error_timeout">Request timed out</string>
+    <string name="network_identity_error_all_failed">All lookup endpoints failed or returned no public IP</string>
+    <string name="network_identity_error_mismatch">The two endpoints returned different operators</string>
+    <string name="network_identity_error_bind">Could not bind to the underlying network</string>
+</resources>
