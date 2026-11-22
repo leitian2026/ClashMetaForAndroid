@@ -26,4 +26,5 @@ data class ErrorsReport(
     val networkChangedAt: Long = 0,
     val issues: com.github.kr328.clash.core.custom.IssuesSnapshot? = null, // CUSTOM.md #53
     val networkIdentity: NetworkIdentitySnapshot? = null, // CUSTOM.md #168
+    val subscriptionUpdate: SubscriptionUpdateDiff? = null, // CUSTOM.md #170
 )
