@@ -14,9 +14,12 @@ data class NetworkIdentitySnapshot(
     val error: String = "",
     val source: String = "",
     val checkedAt: Long = 0L,
+    val rawOperator: String = "",
+    val switchResult: String = "",
+    val switchError: String = "",
 ) {
     val hasIdentity: Boolean get() = operator.isNotEmpty() || province.isNotEmpty() || city.isNotEmpty()
-    val hasNetworkError: Boolean get() = error.isNotEmpty()
+    val hasNetworkError: Boolean get() = error.isNotEmpty() || switchError.isNotEmpty()
 }
 
 /** CUSTOM (CUSTOM.md #168): no polling and no multi-process SharedPreferences. */
@@ -36,6 +39,9 @@ object NetworkIdentityStore {
                 error = json.optString("error"),
                 source = json.optString("source"),
                 checkedAt = json.optLong("checkedAt"),
+                rawOperator = json.optString("rawOperator", ""),
+                switchResult = json.optString("switchResult", ""),
+                switchError = json.optString("switchError", ""),
             )
         } catch (_: Exception) { null }
     }
@@ -54,6 +60,9 @@ object NetworkIdentityStore {
                 .put("error", value.error)
                 .put("source", value.source)
                 .put("checkedAt", value.checkedAt)
+                .put("rawOperator", value.rawOperator)
+                .put("switchResult", value.switchResult)
+                .put("switchError", value.switchError)
             output.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(output)
             stream = null
