@@ -234,6 +234,19 @@ object SavedIpStore {
         cachedDataVersion = dataVersion
     }
 
+    /** Delete one operator and all its IPs in a single storage write. */
+    @Synchronized
+    fun deleteOperator(context: Context, operatorId: String): Int {
+        val snapshot = readForUpdate(context)
+        val operator = snapshot.operators.firstOrNull { it.id == operatorId } ?: return 0
+        val operators = snapshot.operators.filterNot { it.id == operatorId }
+        val lastOperatorId = if (snapshot.lastOperatorId == operatorId) {
+            operators.firstOrNull()?.id.orEmpty()
+        } else snapshot.lastOperatorId
+        write(context, snapshot.copy(operators = operators, lastOperatorId = lastOperatorId))
+        return operator.ips.size
+    }
+
     /** Atomically read, transform, and persist a snapshot for an explicit list mutation. */
     @Synchronized
     fun update(context: Context, transform: (SavedIpSnapshot) -> SavedIpSnapshot) {
@@ -410,31 +423,23 @@ object SavedIpStore {
     }
 
     private fun normalize(snapshot: SavedIpSnapshot): SavedIpSnapshot {
-        val builtIns = listOf(
-            SavedIpOperator(OPERATOR_TELECOM),
-            SavedIpOperator(OPERATOR_UNICOM),
-            SavedIpOperator(OPERATOR_MOBILE),
-        )
-        val byId = snapshot.operators
+        // The initial empty snapshot contains the three built-in operators. Once explicitly deleted,
+        // a missing built-in must stay deleted instead of being recreated during every read / write.
+        val operators = snapshot.operators
             .filter { it.id.isNotBlank() }
-            .associateBy { it.id }
-
-        val operators = ArrayList<SavedIpOperator>()
-        for (default in builtIns) {
-            val stored = byId[default.id]
-            operators += normalizeOperator(stored ?: default, default.name)
-        }
-
-        for (stored in snapshot.operators) {
-            if (stored.id in builtInOperatorIds || stored.id.isBlank()) continue
-            operators += normalizeOperator(stored, stored.name)
-        }
+            .distinctBy { it.id }
+            .map { operator ->
+                normalizeOperator(
+                    operator,
+                    if (operator.id in builtInOperatorIds) "" else operator.name,
+                )
+            }
 
         return SavedIpSnapshot(
             version = DATA_VERSION,
             operators = operators,
             lastOperatorId = snapshot.lastOperatorId.takeIf { id -> operators.any { it.id == id } }
-                ?: OPERATOR_TELECOM,
+                ?: operators.firstOrNull()?.id.orEmpty(),
         )
     }
 

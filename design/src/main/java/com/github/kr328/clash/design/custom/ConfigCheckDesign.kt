@@ -16,7 +16,6 @@ import android.text.InputType
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.core.content.getSystemService
 import com.github.kr328.clash.core.model.IpTestReport
@@ -446,31 +445,89 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
 
         var refreshSaveAvailability: ((reloadStore: Boolean) -> Unit)? = null
         var cancelPendingSaveAvailabilityAction: (() -> Unit)? = null
-        val group = RadioGroup(context).apply { orientation = RadioGroup.VERTICAL }
-        var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } } ?: snapshot.lastOperatorId
+        val group = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        var selectedId = preferredOperatorId?.takeIf { id -> snapshot.operators.any { it.id == id } }
+            ?: snapshot.lastOperatorId.takeIf { id -> snapshot.operators.any { it.id == id } }
+            ?: snapshot.operators.firstOrNull()?.id.orEmpty()
         var existingAddresses = snapshot.operators.firstOrNull { it.id == selectedId }
             ?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
-        val ids = HashMap<Int, String>()
+        val radioButtons = LinkedHashMap<String, RadioButton>()
+        val operatorRows = LinkedHashMap<String, View>()
+        lateinit var confirmDeleteOperator: (SavedIpOperator) -> Unit
+
         fun appendOperatorChoice(operator: SavedIpOperator) {
-            val button = RadioButton(context).apply {
-                id = View.generateViewId()
-                text = savedIpOperatorDisplayName(context, operator).ifBlank { operator.id }
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
             }
-            ids[button.id] = operator.id
-            group.addView(button)
-            if (operator.id == selectedId) group.check(button.id)
+            val radio = RadioButton(context).apply {
+                text = savedIpOperatorDisplayName(context, operator).ifBlank { operator.id }
+                isChecked = operator.id == selectedId
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                setOnClickListener {
+                    selectedId = operator.id
+                    radioButtons.forEach { (id, button) -> button.isChecked = id == selectedId }
+                    cancelPendingSaveAvailabilityAction?.invoke()
+                    refreshSaveAvailability?.invoke(true)
+                }
+            }
+            val deleteButton = TextView(context).apply {
+                text = context.getString(R.string.saved_ip_delete)
+                textSize = 13f
+                setTextColor(android.graphics.Color.RED)
+                gravity = android.view.Gravity.CENTER
+                setPadding((12 * density + 0.5f).toInt(), (8 * density + 0.5f).toInt(),
+                    (8 * density + 0.5f).toInt(), (8 * density + 0.5f).toInt())
+                val backgroundValue = android.util.TypedValue()
+                context.theme.resolveAttribute(android.R.attr.selectableItemBackground, backgroundValue, true)
+                if (backgroundValue.resourceId != 0) background = context.getDrawable(backgroundValue.resourceId)
+                contentDescription = context.getString(R.string.saved_ip_operator_delete_title)
+                setOnClickListener { confirmDeleteOperator(operator) }
+            }
+            row.addView(radio)
+            row.addView(deleteButton, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ))
+            radioButtons[operator.id] = radio
+            operatorRows[operator.id] = row
+            group.addView(row)
         }
+
         snapshot.operators.forEach { appendOperatorChoice(it) }
-        if (group.checkedRadioButtonId == -1 && group.childCount > 0) {
-            group.check(group.getChildAt(0).id)
-            selectedId = ids[group.checkedRadioButtonId].orEmpty()
-        }
-        group.setOnCheckedChangeListener { _, checked ->
-            selectedId = ids[checked].orEmpty()
-            cancelPendingSaveAvailabilityAction?.invoke()
-            refreshSaveAvailability?.invoke(true)
-        }
         content.addView(group)
+
+        confirmDeleteOperator = { operator ->
+            val current = SavedIpStore.read(context).operators.firstOrNull { it.id == operator.id }
+            if (current != null) {
+                MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.saved_ip_operator_delete_title)
+                    .apply {
+                        if (current.ips.isNotEmpty()) {
+                            setMessage(context.getString(R.string.saved_ip_operator_delete_message, current.ips.size))
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        try {
+                            SavedIpStore.deleteOperator(context, current.id)
+                            val latest = SavedIpStore.read(context)
+                            operatorRows.remove(current.id)?.let(group::removeView)
+                            radioButtons.remove(current.id)
+                            if (selectedId == current.id) {
+                                selectedId = latest.operators.firstOrNull()?.id.orEmpty()
+                                radioButtons.forEach { (id, button) -> button.isChecked = id == selectedId }
+                            }
+                            existingAddresses = latest.operators.firstOrNull { it.id == selectedId }
+                                ?.ips?.mapTo(HashSet()) { it.address }.orEmpty()
+                            refreshSaveAvailability?.invoke(false)
+                        } catch (e: Exception) {
+                            Log.e("ConfigCheckDesign", "Failed to delete saved-IP operator", e)
+                            Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    .show()
+            }
+        }
 
         // CUSTOM.md #156 step 11: multiline pasted IPs share the same operator and save transaction as test rows.
         val pastedInput = EditText(context).apply {
@@ -516,10 +573,12 @@ class ConfigCheckDesign(context: Context) : Design<ConfigCheckDesign.Request>(co
                             return@setOnClickListener
                         }
                         addDialog.dismiss()
+                        selectedId = operator.id
                         appendOperatorChoice(operator)
-                        // The selected operator was just created; the selection callback reloads its fresh store state.
+                        // The selected operator was just created; reload its fresh store state.
                         existingAddresses = emptySet()
-                        group.check(group.getChildAt(group.childCount - 1).id)
+                        radioButtons.forEach { (id, button) -> button.isChecked = id == selectedId }
+                        refreshSaveAvailability?.invoke(true)
                     }
                 }
                 addDialog.show()
