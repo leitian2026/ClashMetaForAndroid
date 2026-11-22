@@ -27,6 +27,7 @@ object NetworkIdentityText {
             "timeout" -> R.string.network_identity_error_timeout
             "operator_mismatch" -> R.string.network_identity_error_mismatch
             "bind_failed" -> R.string.network_identity_error_bind
+            "switch_failed" -> R.string.network_identity_error_all_failed
             else -> R.string.network_identity_error_all_failed
         }
     )
