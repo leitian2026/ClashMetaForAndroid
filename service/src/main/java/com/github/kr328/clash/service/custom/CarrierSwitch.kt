@@ -17,7 +17,6 @@ import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.sendBroadcastSelf
-import java.util.Locale
 import kotlin.concurrent.thread
 
 /** CUSTOM (CUSTOM.md #169): event-driven carrier-to-selector switching. */
@@ -75,7 +74,7 @@ object CarrierSwitch {
 
         val uuid = ServiceStore(context).activeProfile ?: return
         val config = CarrierSwitchStore.read(context, uuid)
-        val matched = match(config, identity)
+        val matched = CarrierSwitchMatcher.match(config, identity)
         val knownCarrier = operator in setOf("电信", "联通", "移动")
         if (matched == null || matched.group.isBlank() || matched.node.isBlank()) {
             if (knownCarrier) {
@@ -122,29 +121,4 @@ object CarrierSwitch {
         context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
     }
 
-    private fun match(config: CarrierSwitchConfig, identity: NetworkIdentitySnapshot): CarrierSwitchTarget? {
-        val operator = identity.operator.trim().lowercase(Locale.ROOT)
-        val raw = identity.rawOperator.trim().lowercase(Locale.ROOT)
-        val province = identity.province.lowercase(Locale.ROOT)
-        val city = identity.city.lowercase(Locale.ROOT)
-        val regional = config.custom.firstOrNull { item ->
-            val region = item.region.trim().lowercase(Locale.ROOT)
-            if (region.isEmpty()) return@firstOrNull false
-            val regionMatches = province.contains(region) || city.contains(region)
-            val keyword = item.keyword.trim().lowercase(Locale.ROOT)
-            val keywordMatches = keyword.isEmpty() || operator.contains(keyword) || raw.contains(keyword)
-            regionMatches && keywordMatches
-        }
-        if (regional != null) return CarrierSwitchTarget(regional.group, regional.node)
-        when (identity.operator) {
-            "电信" -> return config.telecom
-            "联通" -> return config.unicom
-            "移动" -> return config.mobile
-        }
-        return config.custom.firstOrNull { item ->
-            if (item.region.isNotBlank()) return@firstOrNull false
-            val keyword = item.keyword.trim().lowercase(Locale.ROOT)
-            keyword.isNotEmpty() && (operator.contains(keyword) || raw.contains(keyword))
-        }?.let { CarrierSwitchTarget(it.group, it.node) }
-    }
 }
