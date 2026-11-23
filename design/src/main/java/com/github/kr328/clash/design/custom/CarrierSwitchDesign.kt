@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.github.kr328.clash.common.custom.CarrierSwitchConfig
@@ -25,14 +26,18 @@ class CarrierSwitchDesign(
     initial: CarrierSwitchConfig,
     private val groups: List<String>,
     private val nodes: Map<String, List<String>>,
+    initialAutomaticEnabled: Boolean,
 ) : Design<CarrierSwitchDesign.Request>(context) {
     sealed class Request {
+        data class SetEnabled(val enabled: Boolean) : Request()
         data class Save(val config: CarrierSwitchConfig) : Request()
     }
 
     private var config = initial
     private val content = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private val customRows = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+    private var automaticSwitch: Switch? = null
+    private var automaticEnabled = initialAutomaticEnabled
 
     override val root: View
         get() = content
@@ -67,6 +72,24 @@ class CarrierSwitchDesign(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f,
         ))
 
+        body.addView(LinearLayout(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            addView(TextView(context).apply {
+                setText(R.string.carrier_switch_enabled_label)
+                textSize = 15f
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            automaticSwitch = Switch(context).apply {
+                isChecked = automaticEnabled
+                setOnCheckedChangeListener { _, checked ->
+                    requests.trySend(Request.SetEnabled(checked))
+                }
+            }
+            addView(automaticSwitch)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(0, dp(4), 0, dp(8))
+        })
+
         body.addView(sectionTitle(R.string.carrier_switch_fixed_section))
         fixedRow(body, "telecom", R.string.carrier_switch_telecom, config.telecom)
         fixedRow(body, "unicom", R.string.carrier_switch_unicom, config.unicom)
@@ -96,6 +119,21 @@ class CarrierSwitchDesign(
 
     fun showSaveFailed() {
         Toast.makeText(context, R.string.carrier_switch_save_failed, Toast.LENGTH_LONG).show()
+    }
+
+    fun setAutomaticEnabled(enabled: Boolean) {
+        automaticEnabled = enabled
+        automaticSwitch?.apply {
+            setOnCheckedChangeListener(null)
+            isChecked = enabled
+            setOnCheckedChangeListener { _, checked ->
+                requests.trySend(Request.SetEnabled(checked))
+            }
+        }
+    }
+
+    fun showEnableSaveFailed() {
+        Toast.makeText(context, R.string.carrier_switch_enabled_save_failed, Toast.LENGTH_LONG).show()
     }
 
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {

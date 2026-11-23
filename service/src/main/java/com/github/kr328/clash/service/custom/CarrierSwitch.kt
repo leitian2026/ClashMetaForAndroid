@@ -3,7 +3,9 @@ package com.github.kr328.clash.service.custom
 import android.content.Context
 import android.content.Intent
 import com.github.kr328.clash.common.custom.CarrierSwitchConfig
+import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.CarrierSwitchStore
+import com.github.kr328.clash.common.custom.CarrierSwitchTogglePolicy
 import com.github.kr328.clash.common.custom.CarrierSwitchTarget
 import com.github.kr328.clash.common.custom.CustomIntents
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
@@ -22,18 +24,23 @@ import kotlin.concurrent.thread
 object CarrierSwitch {
     fun applyAsync(context: Context, identity: NetworkIdentitySnapshot) {
         thread(name = "carrier-switch") {
-            apply(context.applicationContext, identity)
+            val app = context.applicationContext
+            if (!CarrierSwitchTogglePolicy.shouldApply(CarrierSwitchEnabledStore.read(app))) return@thread
+            apply(app, identity)
         }
     }
 
     fun applyCurrent(context: Context) {
-        val identity = NetworkIdentityStore.read(context) ?: return
-        apply(context.applicationContext, identity)
+        val app = context.applicationContext
+        if (!CarrierSwitchTogglePolicy.shouldApply(CarrierSwitchEnabledStore.read(app))) return
+        val identity = NetworkIdentityStore.read(app) ?: return
+        apply(app, identity)
     }
 
     fun applyAfterProfileLoaded(context: Context) {
         thread(name = "carrier-switch-profile-loaded") {
             val app = context.applicationContext
+            if (!CarrierSwitchTogglePolicy.shouldApply(CarrierSwitchEnabledStore.read(app))) return@thread
             val identity = clearSwitchStatus(app) ?: return@thread
             apply(app, identity)
         }

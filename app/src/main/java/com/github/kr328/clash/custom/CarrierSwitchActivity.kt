@@ -1,7 +1,10 @@
 package com.github.kr328.clash.custom
 
+import android.content.Intent
 import com.github.kr328.clash.BaseActivity
+import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.CarrierSwitchStore
+import com.github.kr328.clash.common.custom.CustomIntents
 import com.github.kr328.clash.design.custom.CarrierSwitchDesign
 import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.util.withClash
@@ -27,7 +30,10 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
         val initial = withContext(Dispatchers.IO) {
             CarrierSwitchStore.read(this@CarrierSwitchActivity, profile.uuid)
         }
-        val design = CarrierSwitchDesign(this, initial, nodes.keys.toList(), nodes)
+        var automaticEnabled = withContext(Dispatchers.IO) {
+            CarrierSwitchEnabledStore.read(this@CarrierSwitchActivity)
+        }
+        val design = CarrierSwitchDesign(this, initial, nodes.keys.toList(), nodes, automaticEnabled)
         setContentDesign(design)
 
         while (isActive) {
@@ -40,6 +46,23 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
                 }
                 design.requests.onReceive {
                     when (it) {
+                        is CarrierSwitchDesign.Request.SetEnabled -> {
+                            if (it.enabled == automaticEnabled) return@onReceive
+                            val saved = withContext(Dispatchers.IO) {
+                                CarrierSwitchEnabledStore.write(this@CarrierSwitchActivity, it.enabled)
+                            }
+                            if (saved) {
+                                automaticEnabled = it.enabled
+                                design.setAutomaticEnabled(automaticEnabled)
+                                sendBroadcast(Intent(CustomIntents.ACTION_ISSUES_CHANGED).setPackage(packageName))
+                                if (automaticEnabled) {
+                                    withClash { applyCarrierSwitch() }
+                                }
+                            } else {
+                                design.setAutomaticEnabled(automaticEnabled)
+                                design.showEnableSaveFailed()
+                            }
+                        }
                         is CarrierSwitchDesign.Request.Save -> {
                             val saved = withContext(Dispatchers.IO) {
                                 CarrierSwitchStore.write(this@CarrierSwitchActivity, profile.uuid, it.config)

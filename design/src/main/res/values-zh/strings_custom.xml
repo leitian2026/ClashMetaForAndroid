@@ -547,4 +547,7 @@
     <string name="saved_ip_speed_need_node">请先到测试 IP 页面选择一个有效节点。</string>
     <string name="saved_ip_speed_failed">下载测速失败：%1$s</string>
     <string name="saved_ip_speed_done">%1$s完成：%2$s MB/s</string>
+    <string name="carrier_switch_enabled_label">自动切换运营商</string>
+    <string name="carrier_switch_enabled_save_failed">自动切换开关保存失败</string>
+    <string name="carrier_switch_home_disabled">自动切换运营商：已关闭</string>
 </resources>

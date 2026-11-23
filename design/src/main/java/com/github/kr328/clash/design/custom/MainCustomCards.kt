@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.View
 import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
+import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.design.R
@@ -45,7 +46,8 @@ class MainCustomCards(
         val networkError = identity?.takeIf { it.hasNetworkError }
         val total = active.size + (if (networkError != null) 1 else 0)
         val switchResult = identity?.switchResult.orEmpty()
-        val showSwitchEntry = total == 0 && summary.readFailed == null && switchResult.isNotEmpty()
+        val automaticEnabled = CarrierSwitchEnabledStore.read(context)
+        val showSwitchEntry = !automaticEnabled || (total == 0 && summary.readFailed == null && switchResult.isNotEmpty())
         card.setOnClickListener {
             val target = if (showSwitchEntry) {
                 "com.github.kr328.clash.custom.CarrierSwitchActivity"
@@ -64,8 +66,12 @@ class MainCustomCards(
                 ?: context.getString(if (identity == null) R.string.network_identity_pending else R.string.network_identity_unknown)
             card.subtext = buildList {
                 add(location)
-                if (switchResult.isNotEmpty()) add(context.getString(R.string.carrier_switch_home_result, switchResult))
-                identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { add(it) }
+                if (!automaticEnabled) {
+                    add(context.getString(R.string.carrier_switch_home_disabled))
+                } else {
+                    if (switchResult.isNotEmpty()) add(context.getString(R.string.carrier_switch_home_result, switchResult))
+                    identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { add(it) }
+                }
             }.joinToString("\n")
         } else {
             card.text = if (summary.readFailed != null && total == 0) {
@@ -87,7 +93,7 @@ class MainCustomCards(
                 lines += context.getString(R.string.main_issues_card_more)
             }
             identityLine?.let { lines += it }
-            identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { lines += it }
+            if (automaticEnabled) identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { lines += it }
             card.subtext = lines.joinToString("\n")
         }
         card.visibility = View.VISIBLE
