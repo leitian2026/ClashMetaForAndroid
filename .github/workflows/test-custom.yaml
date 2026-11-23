@@ -1,0 +1,28 @@
+name: Custom Logic Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - custom
+    paths:
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt'
+      - 'tests/custom/**'
+      - 'scripts/run-custom-tests.sh'
+      - '.github/workflows/test-custom.yaml'
+
+jobs:
+  custom-logic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Run custom logic tests
+        run: bash scripts/run-custom-tests.sh

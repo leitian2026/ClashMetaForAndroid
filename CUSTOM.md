@@ -1,5 +1,5 @@
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r372
+当前版本：2_11_46-r373
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`（开头有“动手前清单”）。每次改动都要同步更新登记，写在哪里见下面“怎么找”和 `AGENTS.md` 规则 7。
@@ -29,7 +29,7 @@
 | `design/src/main/res/layout/design_main.xml` | #7 #8 #20 #21 #22 #32 #53 #168 | #168：运行中状态卡片置于当前 IP / 问题卡片上方 **高**（App 名字 `TextView` 外包了一层 `LinearLayout`；代理卡片改了 `subtext` 并去掉 `visibility`） | 以上游新版为底，按 #7 重做：新增变量 `customIp`、包住 App 名字并加红字 `custom_geosite_notice`、代理卡片 `subtext` 改成带 `customIp`、删掉代理卡片的 `visibility`；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（`Request.OpenMux`），#21 在"日志"标签前再加"错误与诊断"标签（`Request.OpenErrors`），#22 在"错误与诊断"标签前再加"配置检查"标签（`Request.OpenConfigCheck`）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 `ImageView`（`@+id/custom_more`，三点图标，48dp）；同时把包住 App 名字的 `LinearLayout`（#7 加的那层）改成 `layout_width=0dp` + `layout_weight=1`（r38，原来是 `wrap_content`，窄屏上名字占满宽度，三点被挤出屏幕） |
 | `design/src/main/res/layout/design_proxy.xml` | #169 | 低 | 顶部工具栏新增 `carrier_switch_view`，位于 ⚡ 左侧；返回栏的 `layout_toStartOf` 改为指向新图标；底部悬浮测速按钮不变。
 | `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt` | #7 #8 #20 #21 #22 #32 #53 #146 | 低 | 重加 `customCards`、`setCustomCards()`；#146 `setCustomIssues(IssuesDisplayState)`；`Request` 枚举加 `OpenConnections`（#8）、`OpenMux`（#20）、`OpenErrors`（#21）、`OpenConfigCheck`（#22）；#32 重加 `customMenu = MainCustomMenu(context, binding.root)` 和它的 import |
-| `design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt` | #169 | 低 | 仅增加 `carrier_switch_view` 点击挂钩，通过 `setClassName` 打开运营商映射设置页；业务逻辑放在新建的 `CarrierSwitchActivity` / `CarrierSwitchDesign` / 服务侧 `CarrierSwitch`。
+| `design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt` | #169 | 低 | 增加 `carrier_switch_view` 点击挂钩，通过 `setClassName` 打开运营商映射设置页；运营商入口、测速入口和更多菜单另有三处长按提示。业务逻辑放在新建的 `CarrierSwitchActivity` / `CarrierSwitchDesign` / 服务侧 `CarrierSwitch`。
 | `design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt` | #6 #16 | 低 | 重加 `geoSiteDownload()` 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里） |
 | `app/src/main/java/com/github/kr328/clash/MainActivity.kt` | #6 #7 #8 #20 #21 #22 #35 #53 | 低 | 重加 `fetch()` 里的 `setCustomCards(...)`、`customNodeIpEvents()` 和 `select` 里的 `customNodeIp.onReceive` 分支；`OpenConnections` 分支（#8）、`OpenMux` 分支和 import（#20）、`OpenErrors` 分支和 import（#21）、`OpenConfigCheck` 分支和 import（#22）；#35 流量定时器那一支的条件由 `clashRunning` 改成 `clashRunning && activityStarted` |
 | `service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt` | #7 #35 | 低 | 通知正文改用 `NodeIpText.get(service)`（原来是上传/下载速度），去掉不再用的 `queryTrafficNow`；加 `nodeIpChanged` 通道、`NodeIpNotifier.start`、一个 `select` 分支；#35 加属性 `lastPosted`，`update()` 里文字没变就不 `notify`，定时器 1 秒改 5 秒，亮屏和换配置时清 `lastPosted` |
@@ -46,7 +46,7 @@
 | `core/src/main/golang/go.mod` | #79 #80 | **中**（HTTP/3 / MTU 依赖由间接依赖提升为直接依赖） | 以上游版本的依赖选择为准，将 `github.com/metacubex/http`、`github.com/metacubex/quic-go`、`github.com/metacubex/tls` 和 `golang.org/x/sys` 从间接依赖提升到直接 `require`；保持已核对的版本（`http v0.1.8`、项目锁定的 `quic-go`、`tls v0.1.9`、`x/sys v0.30.0`），不擅自升级。若上游更新这些依赖，先重新核对 `http3` API 和模块版本，再同步调整 `go.sum`。 |
 | `app/src/main/java/com/github/kr328/clash/MainApplication.kt` | #16 #21 | 低 | `onCreate()` 里 `extractGeoFiles()` 后重加一行 `GeoFileKeeper.restoreAfterUpdate(this)`（#16），在 `onCreate()` 里 `val processName` 之前重加 `CrashRecorder.install(this)`（#21）（及 import） |
 | `design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt` | #17 | 低 | `preferenceScreen` 块末尾（"服务"那个开关之后）重加一行 `customBackup()` |
-| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 #170 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里 `imported.deleteRecursively()` 后一行加 `ConfigHistory.deleteAll(context, uuid)`（#56，配置删了，历史一起删）；加两个 import |
+| `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt` | #27 #28 #56 #169 #170 | 低 | `apply()` 里两处：① `fetchProfile(...)` 外面包 `try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }`（#27，保存失败时报出是哪一行）；② 在 `context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively()` 前一行加 `if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)`（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；`delete()` 里清理 `ConfigHistory`（#56）、`ConfigUpdateSnapshot`（#170）后调用 `CarrierSwitchStore.delete(context, uuid)` 清理同 UUID 的运营商映射（#169）；加对应 import |
 | `app/src/main/java/com/github/kr328/clash/LogsActivity.kt` | #31 | 低 | `setContentDesign(design)` 后加一行 `LogLevelControl.attach(this, design)`；加一个 import |
 | `design/src/main/res/layout/design_logs.xml` | #31 | 低 | 在 `delete_view`（三横线）左边加 `log_level_view`（r34 起是显示当前级别文字的 `TextView`，原来是图标 `ImageView`）；标题栏的 `layout_toStartOf` 改指向它 |
 | `design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt` | #31 | 低 | 删掉"日志级别"那一个 `selectableList`（换成一行 CUSTOM 注释）；入口搬到日志页 |
@@ -85,9 +85,9 @@
 | 14 | 构建前带重试地预下载 geo 文件（仅 build-debug） | [014.md](docs/custom/014.md) |
 | 15 | 连接页：搜索、排序、全部关闭、少做无用功（r12） | [015.md](docs/custom/015.md) |
 | 16 | 下载的 geo 文件更新应用后自动恢复；GeoIP / ASN 也能按地址下载（r12） | [016.md](docs/custom/016.md) |
-| 17 | 备份与恢复（r12；订阅备份保存运营商映射并按 UUID 恢复；普通恢复合并已保存 IP，replace 恢复整体覆盖） | [017.md](docs/custom/017.md) |
+| 17 | 备份与恢复（r12；订阅备份保存运营商映射并按 UUID 恢复；普通恢复合并已保存 IP，replace 恢复整体覆盖；恢复结果显示 IP 合并和运营商映射摘要） | [017.md](docs/custom/017.md) |
 | 18 | 构建时的下载：缓存和重试（仅 build-debug） | [018.md](docs/custom/018.md) |
-| 19 | 自检脚本 `scripts/check-custom.sh` | [019.md](docs/custom/019.md) |
+| 19 | 自检脚本 `scripts/check-custom.sh`（含超大 Kotlin 文件告警，默认 2500 行，可用 BIG_FILE_LINES 调整；只告警不影响退出码） | [019.md](docs/custom/019.md) |
 | 20 | 底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16，r27 加每个 IP 的开始时间，r156 完善说明与截断提示，r211 改成分组布局并限宽，r327 列表字号缩小 2sp、说明文字不变） | [020.md](docs/custom/020.md) |
 | 21 | 错误与诊断页（r18，r23 加折叠，r24 修折叠和清除） | [021.md](docs/custom/021.md) |
 | 22 | 配置检查页（r20，r22 改为同配置只测一次） | [022.md](docs/custom/022.md) |
@@ -100,7 +100,7 @@
 | 29 | 导出诊断包（r26） | [029.md](docs/custom/029.md) |
 | 30 | 推算最终配置：你的配置上直接标出内核和 App 改了什么（r28，r29 修正归属和锚点，r31 改排序和颜色） | [030.md](docs/custom/030.md) |
 | 31 | 日志级别搬到日志页（r30） | [031.md](docs/custom/031.md) |
-| 32 | 首页右上角菜单：备份到坚果云 / 从坚果云恢复（多设备共用）（r35，r36 改） | [032.md](docs/custom/032.md) |
+| 32 | 首页右上角菜单：备份到坚果云 / 从坚果云恢复（多设备共用）（r35，r36 改；WebDAV 响应头、响应体和请求读取时间均有限制，上传上限 32 MiB） | [032.md](docs/custom/032.md) |
 | 33 | 首页"网络状况"卡（r39，**r42 取消**） | [033.md](docs/custom/033.md) |
 | 34 | 推送 custom 分支时的快速检查（r39） | [034.md](docs/custom/034.md) |
 | 35 | 省电：通知栏、首页后台、noteUse（r40） | [035.md](docs/custom/035.md) |
@@ -237,6 +237,7 @@
 | 168 | 网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口；结果跨进程缓存，息屏延后，首页当前 IP / 问题卡片常显；无问题时显示最近一次自动切换结果并提供映射页入口；状态栏问题通知同步显示当前运营商，错误诊断页纳入识别结果 | [168.md](docs/custom/168.md) |
 | 169 | 按运营商自动切换节点：每个运营商只配置一个节点；自定义项支持关键词与省市组合匹配；节点选择和新增按钮为细边框，修改 / 删除为无边框文字按钮，保存为实心主按钮；网络识别完成或设置页保存命中当前网络时触发，代理页顶部提供入口；首页显示最近一次成功切换结果；映射随订阅备份恢复 | [169.md](docs/custom/169.md) |
 | 170 | 订阅更新后显示变更摘要：仅保留非 File 订阅上一份 config.yaml，打开错误与诊断页时按需比较并显示新增 / 删除行数 | [170.md](docs/custom/170.md) |
+| 171 | 编辑器纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug | [171.md](docs/custom/171.md) |
 | 157 | 文档分层：CUSTOM.md 改成索引，详情按编号拆开，加大小和引用检查（r282；提交方式见 `AGENTS.md`） | [157.md](docs/custom/157.md) |
 
 ## 修改记录（#156 起的分步流水，按原文顺序，只读）
