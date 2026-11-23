@@ -65,6 +65,7 @@ class MainCustomCards(
             card.subtext = buildList {
                 add(location)
                 if (switchResult.isNotEmpty()) add(context.getString(R.string.carrier_switch_home_result, switchResult))
+                if (identity?.switchNotice?.isNotEmpty() == true) add(identity.switchNotice)
             }.joinToString("\n")
         } else {
             card.text = if (summary.readFailed != null && total == 0) {
@@ -86,6 +87,7 @@ class MainCustomCards(
                 lines += context.getString(R.string.main_issues_card_more)
             }
             identityLine?.let { lines += it }
+            identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { lines += it }
             card.subtext = lines.joinToString("\n")
         }
         card.visibility = View.VISIBLE
