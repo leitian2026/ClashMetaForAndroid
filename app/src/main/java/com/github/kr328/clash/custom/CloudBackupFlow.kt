@@ -184,7 +184,7 @@ object CloudBackupFlow {
         }
 
         // subscriptions are added (nothing is deleted); a file subscription gets the backup's content
-        val result = RestoreCarrierSwitch.restoreAndApply(context, scope, clashRunning) {
+        val result = RestoreCarrierSwitch.restoreAndApply {
             BackupManager.restore(
                 context,
                 backup,
