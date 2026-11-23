@@ -292,6 +292,7 @@ object CloudBackupFlow {
         val lines = ArrayList<String>()
 
         lines.add(context.getString(DesignR.string.backup_result_profiles, result.restored, result.skipped))
+        lines.addAll(RestoreSummary.extraLines(context, result))
 
         if (result.deleted.isNotEmpty()) {
             lines.add(context.getString(DesignR.string.cloud_result_deleted, result.deleted.joinToString("、")))

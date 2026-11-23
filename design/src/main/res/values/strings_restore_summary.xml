@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #17): local and cloud restore summary strings. -->
+<resources>
+    <string name="restore_summary_saved_ips_merged">Saved IPs: %1$d added, %2$d updated, %3$d in total</string>
+    <string name="restore_summary_saved_ips_replaced">Saved IPs: replaced from backup, %1$d in total</string>
+    <string name="restore_summary_carrier">Carrier mappings: %1$d restored, %2$d kept as they are on this device</string>
+    <string name="restore_summary_carrier_failed">Carrier mappings: %1$d failed to save</string>
+</resources>

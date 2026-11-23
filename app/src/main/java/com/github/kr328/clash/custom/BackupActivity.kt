@@ -156,6 +156,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
         val lines = ArrayList<String>()
 
         lines.add(getString(DesignR.string.backup_result_profiles, result.restored, result.skipped))
+        lines.addAll(RestoreSummary.extraLines(this, result))
 
         if (result.failed.isNotEmpty()) {
             lines.add(getString(DesignR.string.backup_result_failed, result.failed.joinToString("、")))

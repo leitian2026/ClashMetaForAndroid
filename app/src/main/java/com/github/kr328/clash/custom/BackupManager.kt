@@ -5,6 +5,7 @@ import android.net.Uri
 import com.github.kr328.clash.design.custom.GeoFile
 import com.github.kr328.clash.design.custom.GeoSiteDownloader
 import com.github.kr328.clash.design.custom.SavedIpStore
+import com.github.kr328.clash.design.custom.SavedIpRestoreStat
 import com.github.kr328.clash.common.custom.CarrierSwitchStore // CUSTOM (CUSTOM.md #17 #169)
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.custom.ConfigHistory
@@ -62,6 +63,10 @@ object BackupManager {
         val settings: Boolean,
         val override: Boolean,
         val deleted: List<String> = emptyList(), // CUSTOM.md #32: removed by a replace
+        val savedIps: SavedIpRestoreStat? = null,
+        val carrierRestored: Int = 0,
+        val carrierKept: Int = 0,
+        val carrierFailed: Int = 0,
     )
 
     // ---- export -------------------------------------------------------------------------------
@@ -274,6 +279,9 @@ object BackupManager {
         val deleted = ArrayList<String>()
         var restored = 0
         var skipped = 0
+        var carrierRestored = 0
+        var carrierKept = 0
+        var carrierFailed = 0
 
         // CUSTOM.md #32: a replace makes this device look like the backup: subscriptions that are not
         // in the backup are removed (the user was told in the confirmation, and a safety copy was made)
@@ -363,7 +371,13 @@ object BackupManager {
             val wasAlreadyOnDevice = existing.any { it.uuid == uuid }
             val local = CarrierSwitchStore.read(context, uuid)
             if (!wasAlreadyOnDevice || replace || CarrierSwitchStore.isEmpty(local)) {
-                CarrierSwitchStore.write(context, uuid, CarrierSwitchStore.decode(carrier))
+                if (CarrierSwitchStore.write(context, uuid, CarrierSwitchStore.decode(carrier))) {
+                    carrierRestored++
+                } else {
+                    carrierFailed++
+                }
+            } else {
+                carrierKept++
             }
         }
 
@@ -405,11 +419,11 @@ object BackupManager {
         }
 
         // Saved IPs are user data, so restore them even when cloud restore keeps device settings.
-        savedIps?.let { SavedIpStore.restoreBackup(context, it, merge = !replace) } // CUSTOM (CUSTOM.md #156 #17): ordinary restore merges; replace rollback overwrites
+        val savedIpStat = savedIps?.let { SavedIpStore.restoreBackup(context, it, merge = !replace) } // CUSTOM (CUSTOM.md #156 #17): ordinary restore merges; replace rollback overwrites
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
-        return RestoreResult(restored, skipped, failed, settings, override, deleted)
+        return RestoreResult(restored, skipped, failed, settings, override, deleted, savedIpStat, carrierRestored, carrierKept, carrierFailed)
     }
 
     /** CUSTOM.md #32: the names of the subscriptions on this device that a replace would remove. */

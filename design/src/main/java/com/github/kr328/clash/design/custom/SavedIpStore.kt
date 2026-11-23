@@ -73,6 +73,8 @@ data class SavedIpSaveResult(
     val ignoredPasted: Int,
 )
 
+data class SavedIpRestoreStat(val added: Int, val updated: Int, val total: Int, val merged: Boolean)
+
 /** Persisted state for the saved-IP feature. */
 @Serializable
 data class SavedIpSnapshot(
@@ -210,11 +212,13 @@ object SavedIpStore {
      * deliberately overwrite it so a cloud safety-copy rollback can remove everything added meanwhile.
      */
     @Synchronized
-    fun restoreBackup(context: Context, raw: String, merge: Boolean = false) {
+    fun restoreBackup(context: Context, raw: String, merge: Boolean = false): SavedIpRestoreStat {
         val restored = json.decodeFromString(SavedIpSnapshot.serializer(), raw)
         if (!merge) {
-            write(context, restored)
-            return
+            val normalized = normalize(restored)
+            write(context, normalized)
+            val total = normalized.operators.sumOf { it.ips.size }
+            return SavedIpRestoreStat(added = total, updated = 0, total = total, merged = false)
         }
         val local = readForUpdate(context)
         val restoredById = restored.operators.associateBy { it.id }
@@ -223,11 +227,13 @@ object SavedIpStore {
             local.operators.forEach { add(it.id) }
             restored.operators.forEach { add(it.id) }
         }
+        var added = 0
+        var updated = 0
         val mergedOperators = ids.map { id ->
             val here = localById[id]
             val backup = restoredById[id]
             when {
-                here == null -> backup!!
+                here == null -> backup!!.also { added += it.ips.size }
                 backup == null -> here
                 else -> {
                     val backupEntries = backup.ips.associateBy { it.address }
@@ -240,11 +246,15 @@ object SavedIpStore {
                         val localEntry = localEntries[address]
                         val backupEntry = backupEntries[address]
                         when {
-                            localEntry == null -> backupEntry!!
+                            localEntry == null -> backupEntry!!.also { added++ }
                             backupEntry == null -> localEntry
-                            backupEntry.lastTestedAt > localEntry.lastTestedAt -> backupEntry
+                            backupEntry.lastTestedAt > localEntry.lastTestedAt -> backupEntry.also {
+                                if (it != localEntry) updated++
+                            }
                             backupEntry.lastTestedAt < localEntry.lastTestedAt -> localEntry
-                            backupEntry.addedAt > localEntry.addedAt -> backupEntry
+                            backupEntry.addedAt > localEntry.addedAt -> backupEntry.also {
+                                if (it != localEntry) updated++
+                            }
                             else -> localEntry
                         }
                     }
@@ -258,6 +268,12 @@ object SavedIpStore {
             }
         }
         write(context, local.copy(operators = mergedOperators, lastOperatorId = local.lastOperatorId))
+        return SavedIpRestoreStat(
+            added = added,
+            updated = updated,
+            total = mergedOperators.sumOf { it.ips.size },
+            merged = true,
+        )
     }
 
     /**

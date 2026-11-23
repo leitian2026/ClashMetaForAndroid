@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CUSTOM (CUSTOM.md #17): local and cloud restore summary strings. -->
+<resources>
+    <string name="restore_summary_saved_ips_merged">已保存 IP：新增 %1$d 个，更新 %2$d 个，现共 %3$d 个</string>
+    <string name="restore_summary_saved_ips_replaced">已保存 IP：已用备份整体覆盖，共 %1$d 个</string>
+    <string name="restore_summary_carrier">运营商映射：恢复 %1$d 个订阅，保留本机 %2$d 个</string>
+    <string name="restore_summary_carrier_failed">运营商映射：%1$d 个保存失败</string>
+</resources>
