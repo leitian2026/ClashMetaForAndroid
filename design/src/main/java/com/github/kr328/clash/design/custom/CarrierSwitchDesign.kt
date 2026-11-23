@@ -15,7 +15,6 @@ import android.widget.Toast
 import com.github.kr328.clash.common.custom.CarrierSwitchConfig
 import com.github.kr328.clash.common.custom.CarrierSwitchKeyword
 import com.github.kr328.clash.common.custom.CarrierSwitchTarget
-import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.google.android.material.button.MaterialButton
@@ -28,7 +27,6 @@ class CarrierSwitchDesign(
     private val groups: List<String>,
     private val nodes: Map<String, List<String>>,
     initialAutomaticEnabled: Boolean,
-    private val identity: NetworkIdentitySnapshot?,
 ) : Design<CarrierSwitchDesign.Request>(context) {
     sealed class Request {
         data class SetEnabled(val enabled: Boolean) : Request()
@@ -104,14 +102,6 @@ class CarrierSwitchDesign(
             setOnClickListener { addCustom() }
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
-        body.addView(sectionTitle(R.string.carrier_switch_identity_section))
-        body.addView(TextView(context).apply {
-            text = identitySummary()
-            textSize = 13f
-            setLineSpacing(dp(3).toFloat(), 1f)
-            setPadding(0, 0, 0, dp(8))
-        })
-
         content.addView(MaterialButton(context).apply {
             setText(R.string.carrier_switch_save)
             isAllCaps = false
@@ -146,35 +136,6 @@ class CarrierSwitchDesign(
         Toast.makeText(context, R.string.carrier_switch_enabled_save_failed, Toast.LENGTH_LONG).show()
     }
 
-
-    private fun identitySummary(): String {
-        val current = identity ?: return context.getString(R.string.carrier_switch_identity_pending)
-        val lines = mutableListOf<String>()
-        lines += when {
-            current.error.isNotEmpty() -> context.getString(R.string.carrier_switch_identity_failed)
-            current.operator.isNotEmpty() -> context.getString(R.string.carrier_switch_identity_result, current.operator)
-            else -> context.getString(R.string.carrier_switch_identity_unknown)
-        }
-        if (current.source.startsWith("online_consensus:")) {
-            val sources = current.source.removePrefix("online_consensus:").split("+").joinToString("、")
-            lines += context.getString(R.string.carrier_switch_identity_sources, sources)
-        } else if (current.source == "mobile_mcc_mnc") {
-            lines += context.getString(R.string.carrier_switch_identity_sim)
-        }
-        if (current.diagnostic.isNotBlank()) lines += current.diagnostic
-        lines += when {
-            current.switchResult.isNotBlank() ->
-                context.getString(R.string.carrier_switch_identity_switched, current.switchResult)
-            current.switchNotice.isNotBlank() ->
-                context.getString(R.string.carrier_switch_identity_missing_target)
-            current.switchError.isNotBlank() ->
-                context.getString(R.string.carrier_switch_identity_switch_failed, current.switchError)
-            current.error.isNotEmpty() ->
-                context.getString(R.string.carrier_switch_identity_not_run)
-            else -> context.getString(R.string.carrier_switch_identity_no_switch)
-        }
-        return lines.joinToString("\\n")
-    }
 
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {
         val row = LinearLayout(context).apply {
