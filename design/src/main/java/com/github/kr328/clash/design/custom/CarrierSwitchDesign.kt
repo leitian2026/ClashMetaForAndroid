@@ -91,14 +91,6 @@ class CarrierSwitchDesign(
             setMargins(0, dp(4), 0, dp(8))
         })
 
-        body.addView(sectionTitle(R.string.carrier_switch_identity_section))
-        body.addView(TextView(context).apply {
-            text = identityDiagnostic.ifBlank { context.getString(R.string.carrier_switch_identity_empty) }
-            textSize = 12f
-            setTextIsSelectable(true)
-            setPadding(0, 0, 0, dp(8))
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-
         body.addView(sectionTitle(R.string.carrier_switch_fixed_section))
         fixedRow(body, "telecom", R.string.carrier_switch_telecom, config.telecom)
         fixedRow(body, "unicom", R.string.carrier_switch_unicom, config.unicom)
@@ -109,6 +101,14 @@ class CarrierSwitchDesign(
         body.addView(outlinedButton().apply {
             setText(R.string.carrier_switch_add)
             setOnClickListener { addCustom() }
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        body.addView(sectionTitle(R.string.carrier_switch_identity_section))
+        body.addView(TextView(context).apply {
+            text = identityDiagnostic.ifBlank { context.getString(R.string.carrier_switch_identity_empty) }
+            textSize = 14f
+            setTextIsSelectable(true)
+            setPadding(0, 0, 0, dp(8))
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
         content.addView(MaterialButton(context).apply {
