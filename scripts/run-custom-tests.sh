@@ -23,7 +23,7 @@ fi
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt" \
-  "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt"
+  "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt" \
   "$ROOT"/tests/custom/*.kt \
   -include-runtime -d "$OUT_DIR/custom-logic-tests.jar"
 
