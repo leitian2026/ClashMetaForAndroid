@@ -164,14 +164,7 @@ while IFS= read -r f; do
   [ -f "$f" ] || continue
   line_count=$(wc -l < "$f" | tr -d '[:space:]')
   if [ "$line_count" -gt "$big_limit" ]; then
-    big_files="$big_files$f: $line_count"
-  mode="no '$UPSTREAM_REF' ref: loose check"
-  $have_upstream && mode="against $UPSTREAM_REF"
-  echo "OK ($mode): $(printf '%s\n' "$listed" | grep -c .) upstream files in the table, all hooks present, sizes and references fine."
-fi
-
-exit $status
-\n'
+    printf -v big_files '%s%s: %s\n' "$big_files" "$f" "$line_count"
   fi
 done <<< "$files"
 if [ -n "$big_files" ]; then
