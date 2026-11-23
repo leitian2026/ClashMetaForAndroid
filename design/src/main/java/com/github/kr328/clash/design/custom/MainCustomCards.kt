@@ -65,7 +65,7 @@ class MainCustomCards(
             card.subtext = buildList {
                 add(location)
                 if (switchResult.isNotEmpty()) add(context.getString(R.string.carrier_switch_home_result, switchResult))
-                if (identity?.switchNotice?.isNotEmpty() == true) add(identity.switchNotice)
+                identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { add(it) }
             }.joinToString("\n")
         } else {
             card.text = if (summary.readFailed != null && total == 0) {
