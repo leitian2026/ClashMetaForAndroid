@@ -32,16 +32,23 @@ object CarrierSwitchMatcherTests {
 
         val emptyNode = CarrierSwitchTarget("运营商组", "")
         val emptyGroup = CarrierSwitchTarget("", "运营商节点")
+        val keywordTarget = CarrierSwitchTarget("关键词组", "关键词节点")
         check(
-            CarrierSwitchMatcher.match(config.copy(telecom = emptyNode), identity(operator = "电信")) == emptyNode,
-            "fixed mapping returns target with empty node",
+            CarrierSwitchMatcher.match(config.copy(telecom = emptyNode), identity(operator = "电信")) == null,
+            "fixed mapping with empty node is skipped",
         )
         check(
-            CarrierSwitchMatcher.match(config.copy(telecom = emptyGroup), identity(operator = "电信")) == emptyGroup,
-            "fixed mapping returns target with empty group",
+            CarrierSwitchMatcher.match(config.copy(telecom = emptyGroup), identity(operator = "电信")) == null,
+            "fixed mapping with empty group is skipped",
+        )
+        check(
+            CarrierSwitchMatcher.match(
+                config.copy(telecom = emptyNode, custom = listOf(CarrierSwitchKeyword("电信", keywordTarget.group, keywordTarget.node))),
+                identity(operator = "电信"),
+            ) == keywordTarget,
+            "invalid fixed mapping does not block a valid keyword mapping",
         )
 
-        val keywordTarget = CarrierSwitchTarget("关键词组", "关键词节点")
         val keywordConfig = config.copy(custom = listOf(CarrierSwitchKeyword("电信", keywordTarget.group, keywordTarget.node)))
         check(
             CarrierSwitchMatcher.match(keywordConfig, identity(operator = "中国电信运营商")) == keywordTarget,
@@ -51,6 +58,16 @@ object CarrierSwitchMatcherTests {
         check(
             CarrierSwitchMatcher.match(rawKeywordConfig, identity(rawOperator = "carrier")) == keywordTarget,
             "custom keyword matches raw operator case-insensitively",
+        )
+        check(
+            CarrierSwitchMatcher.match(
+                config.copy(custom = listOf(
+                    CarrierSwitchKeyword("电信", "无效组", ""),
+                    CarrierSwitchKeyword("电信", keywordTarget.group, keywordTarget.node),
+                )),
+                identity(operator = "电信"),
+            ) == keywordTarget,
+            "invalid keyword mapping does not block the next valid mapping",
         )
 
         val unicomCustom = CarrierSwitchTarget("自定义联通组", "自定义联通节点")
@@ -80,6 +97,16 @@ object CarrierSwitchMatcherTests {
                 identity(operator = "联通", province = "广东", city = "东莞"),
             ) == regionalTarget,
             "region match takes precedence over fixed mapping",
+        )
+        check(
+            CarrierSwitchMatcher.match(
+                config.copy(custom = listOf(
+                    CarrierSwitchKeyword("", "地区组", "", "东莞"),
+                    CarrierSwitchKeyword("", regionalTarget.group, regionalTarget.node, "东莞"),
+                )),
+                identity(operator = "联通", city = "东莞"),
+            ) == regionalTarget,
+            "invalid regional mapping does not block the next valid regional mapping",
         )
 
         val regionAndKeywordTarget = CarrierSwitchTarget("地区关键词组", "地区关键词节点")
