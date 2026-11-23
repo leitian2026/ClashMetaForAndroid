@@ -21,6 +21,5 @@
     <string name="carrier_switch_home_result">已自动切到：%1$s</string>
     <string name="carrier_switch_region_hint">省 / 市（可选，按识别结果原文填写，如广东、东莞）</string>
     <string name="carrier_switch_keyword_required">关键词和省市至少填写一项</string>
-    <string name="carrier_switch_default_target_label">无 IPv6 或未设置时用：%1$s</string>
-    <string name="carrier_switch_ipv6_target_label">有 IPv6 时用：%1$s</string>
+    <string name="carrier_switch_default_target_label">节点：%1$s</string>
 </resources>

@@ -43,12 +43,7 @@ object CarrierSwitch {
         val uuid = ServiceStore(context).activeProfile ?: return
         val config = CarrierSwitchStore.read(context, uuid)
         val matched = match(config, identity) ?: return
-        val hasIpv6 = identity.signature.contains("ipv6=true")
-        val target = if (hasIpv6 && matched.v6Group.isNotBlank() && matched.v6Node.isNotBlank()) {
-            CarrierSwitchTarget(matched.v6Group, matched.v6Node)
-        } else {
-            CarrierSwitchTarget(matched.group, matched.node)
-        }
+        val target = CarrierSwitchTarget(matched.group, matched.node)
         if (target.group.isBlank() || target.node.isBlank()) return
 
         val running = StatusProvider.serviceRunning
@@ -93,7 +88,7 @@ object CarrierSwitch {
             val keywordMatches = keyword.isEmpty() || operator.contains(keyword) || raw.contains(keyword)
             regionMatches && keywordMatches
         }
-        if (regional != null) return CarrierSwitchTarget(regional.group, regional.node, regional.v6Group, regional.v6Node)
+        if (regional != null) return CarrierSwitchTarget(regional.group, regional.node)
         when (identity.operator) {
             "电信" -> return config.telecom
             "联通" -> return config.unicom
@@ -103,6 +98,6 @@ object CarrierSwitch {
             if (item.region.isNotBlank()) return@firstOrNull false
             val keyword = item.keyword.trim().lowercase(Locale.ROOT)
             keyword.isNotEmpty() && (operator.contains(keyword) || raw.contains(keyword))
-        }?.let { CarrierSwitchTarget(it.group, it.node, it.v6Group, it.v6Node) }
+        }?.let { CarrierSwitchTarget(it.group, it.node) }
     }
 }

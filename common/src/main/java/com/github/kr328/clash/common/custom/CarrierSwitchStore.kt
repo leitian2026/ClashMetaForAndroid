@@ -10,8 +10,6 @@ import java.util.UUID
 data class CarrierSwitchTarget(
     val group: String = "",
     val node: String = "",
-    val v6Group: String = "",
-    val v6Node: String = "",
 )
 
 data class CarrierSwitchKeyword(
@@ -19,8 +17,6 @@ data class CarrierSwitchKeyword(
     val group: String,
     val node: String,
     val region: String = "",
-    val v6Group: String = "",
-    val v6Node: String = "",
 )
 
 data class CarrierSwitchConfig(
@@ -42,8 +38,6 @@ object CarrierSwitchStore {
         fun target(value: CarrierSwitchTarget) = JSONObject()
             .put("group", value.group)
             .put("node", value.node)
-            .put("v6Group", value.v6Group)
-            .put("v6Node", value.v6Node)
         val custom = JSONArray()
         value.custom.forEach {
             custom.put(JSONObject()
@@ -51,8 +45,7 @@ object CarrierSwitchStore {
                 .put("group", it.group)
                 .put("node", it.node)
                 .put("region", it.region)
-                .put("v6Group", it.v6Group)
-                .put("v6Node", it.v6Node))
+                .put("region", it.region))
         }
         put("telecom", target(value.telecom))
         put("unicom", target(value.unicom))
@@ -65,8 +58,6 @@ object CarrierSwitchStore {
             CarrierSwitchTarget(
                 it.optString("group"),
                 it.optString("node"),
-                it.optString("v6Group", ""),
-                it.optString("v6Node", ""),
             )
         } ?: CarrierSwitchTarget()
         val customJson = json.optJSONArray("custom") ?: JSONArray()
@@ -78,8 +69,6 @@ object CarrierSwitchStore {
                 item.optString("group"),
                 item.optString("node"),
                 item.optString("region", ""),
-                item.optString("v6Group", ""),
-                item.optString("v6Node", ""),
             )
         }
         return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
@@ -88,12 +77,12 @@ object CarrierSwitchStore {
     fun isEmpty(value: CarrierSwitchConfig): Boolean {
         fun hasTarget(group: String, node: String) = group.isNotBlank() && node.isNotBlank()
         fun hasAnyTarget(target: CarrierSwitchTarget) =
-            hasTarget(target.group, target.node) || hasTarget(target.v6Group, target.v6Node)
+            hasTarget(target.group, target.node)
 
         val fixedEmpty = listOf(value.telecom, value.unicom, value.mobile).none(::hasAnyTarget)
         val customEmpty = value.custom.none {
             (it.keyword.isNotBlank() || it.region.isNotBlank()) &&
-                (hasTarget(it.group, it.node) || hasTarget(it.v6Group, it.v6Node))
+                hasTarget(it.group, it.node)
         }
         return fixedEmpty && customEmpty
     }

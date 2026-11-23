@@ -21,6 +21,5 @@
     <string name="carrier_switch_home_result">Automatically switched to: %1$s</string>
     <string name="carrier_switch_region_hint">Province / city (optional, as recognized)</string>
     <string name="carrier_switch_keyword_required">Enter a keyword or a region</string>
-    <string name="carrier_switch_default_target_label">No IPv6 / not set: %1$s</string>
-    <string name="carrier_switch_ipv6_target_label">With IPv6: %1$s</string>
+    <string name="carrier_switch_default_target_label">Node: %1$s</string>
 </resources>

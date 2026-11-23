@@ -115,18 +115,6 @@ class CarrierSwitchDesign(
             }
         }
         row.addView(defaultButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        val ipv6Button = MaterialButton(context).apply {
-            isAllCaps = false
-            text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(current.v6Group, current.v6Node))
-            setOnClickListener {
-                chooseTarget(CarrierSwitchTarget(current.v6Group, current.v6Node)) { selected ->
-                    current = current.copy(v6Group = selected.group, v6Node = selected.node)
-                    config = updateFixedConfig(key, current)
-                    text = labelledTargetText(R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(current.v6Group, current.v6Node))
-                }
-            }
-        }
-        row.addView(ipv6Button, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         parent.addView(row)
     }
 
@@ -203,15 +191,11 @@ class CarrierSwitchDesign(
                     return@setPositiveButton
                 }
                 chooseTarget(CarrierSwitchTarget(old?.group.orEmpty(), old?.node.orEmpty())) { target ->
-                    chooseTarget(CarrierSwitchTarget(old?.v6Group.orEmpty(), old?.v6Node.orEmpty())) { ipv6Target ->
-                        val item = CarrierSwitchKeyword(
-                            keyword, target.group, target.node, region, ipv6Target.group, ipv6Target.node,
-                        )
-                        val updated = config.custom.toMutableList()
-                        if (index == null) updated += item else if (index in updated.indices) updated[index] = item
-                        config = config.copy(custom = updated)
-                        renderCustomRows()
-                    }
+                    val item = CarrierSwitchKeyword(keyword, target.group, target.node, region)
+                    val updated = config.custom.toMutableList()
+                    if (index == null) updated += item else if (index in updated.indices) updated[index] = item
+                    config = config.copy(custom = updated)
+                    renderCustomRows()
                 }
             }
             .show()
@@ -232,12 +216,6 @@ class CarrierSwitchDesign(
             row.addView(TextView(context).apply {
                 text = labelledTargetText(
                     R.string.carrier_switch_default_target_label, CarrierSwitchTarget(item.group, item.node),
-                )
-                textSize = 12f
-            })
-            row.addView(TextView(context).apply {
-                text = labelledTargetText(
-                    R.string.carrier_switch_ipv6_target_label, CarrierSwitchTarget(item.v6Group, item.v6Node),
                 )
                 textSize = 12f
             })
