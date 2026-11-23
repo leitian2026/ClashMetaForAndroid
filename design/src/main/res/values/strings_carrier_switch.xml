@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="carrier_switch_title">Carrier switch</string>
+    <string name="carrier_switch_identity_section">Latest network identification</string>
+    <string name="carrier_switch_identity_empty">No identification details available yet</string>
     <string name="carrier_switch_fixed_section">Built-in carriers</string>
     <string name="carrier_switch_telecom">China Telecom</string>
     <string name="carrier_switch_unicom">China Unicom</string>
