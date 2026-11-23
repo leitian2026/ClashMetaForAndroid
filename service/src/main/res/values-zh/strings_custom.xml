@@ -5,4 +5,5 @@
     <!-- CUSTOM.md #27 -->
     <string name="custom_config_error">config.yaml 第 %1$d 行附近有错误（没有保存）：%2$s</string>
     <string name="custom_ips_more">等 %d 个</string>
+    <string name="carrier_switch_missing_target">当前运营商：%1$s，未设置对应节点，没有自动切换</string>
 </resources>
