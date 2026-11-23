@@ -45,6 +45,7 @@ object NetworkIdentityStore {
                 source = json.optString("source"),
                 checkedAt = json.optLong("checkedAt"),
                 rawOperator = json.optString("rawOperator", ""),
+                diagnostic = json.optString("diagnostic", ""),
                 switchResult = json.optString("switchResult", ""),
                 switchError = json.optString("switchError", ""),
                 switchNotice = json.optString("switchNotice", ""),
@@ -67,6 +68,7 @@ object NetworkIdentityStore {
                 .put("source", value.source)
                 .put("checkedAt", value.checkedAt)
                 .put("rawOperator", value.rawOperator)
+                .put("diagnostic", value.diagnostic)
                 .put("switchResult", value.switchResult)
                 .put("switchError", value.switchError)
                 .put("switchNotice", value.switchNotice)
