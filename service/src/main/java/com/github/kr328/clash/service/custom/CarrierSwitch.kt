@@ -20,6 +20,7 @@ import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.sendBroadcastSelf
 import kotlin.concurrent.thread
+import kotlinx.coroutines.runBlocking
 
 /** CUSTOM (CUSTOM.md #169): event-driven carrier-to-selector switching. */
 object CarrierSwitch {
@@ -104,7 +105,7 @@ object CarrierSwitch {
         val uuid = ServiceStore(context).activeProfile ?: return
         val config = CarrierSwitchStore.read(context, uuid)
         val matched = CarrierSwitchMatcher.match(config, identity)
-        val knownCarrier = operator in setOf("电信", "联通", "移动")
+        val knownCarrier = operator in setOf("电信", "联通", "移动", "广电")
         if (matched == null || matched.group.isBlank() || matched.node.isBlank()) {
             if (knownCarrier && NetworkIdentityStore.writeIfSignature(
                     context,
@@ -121,6 +122,16 @@ object CarrierSwitch {
             return
         }
         val target = CarrierSwitchTarget(matched.group, matched.node)
+
+        // Avoid a redundant core selector patch and database write when already selected.
+        val selectedNode = try {
+            runBlocking { SelectionDao().querySelections(uuid) }
+                .firstOrNull { it.proxy == target.group }
+                ?.selected
+        } catch (_: Exception) {
+            null
+        }
+        if (selectedNode == target.node) return
 
         if (!isCurrentIdentity(context, identity.signature)) return
         val running = StatusProvider.serviceRunning
