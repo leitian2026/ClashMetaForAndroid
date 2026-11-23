@@ -17,6 +17,7 @@ data class NetworkIdentitySnapshot(
     val rawOperator: String = "",
     val switchResult: String = "",
     val switchError: String = "",
+    val switchNotice: String = "",
 ) {
     val hasIdentity: Boolean get() = operator.isNotEmpty() || province.isNotEmpty() || city.isNotEmpty()
     val hasNetworkError: Boolean get() = error.isNotEmpty() || switchError.isNotEmpty()
@@ -42,6 +43,7 @@ object NetworkIdentityStore {
                 rawOperator = json.optString("rawOperator", ""),
                 switchResult = json.optString("switchResult", ""),
                 switchError = json.optString("switchError", ""),
+                switchNotice = json.optString("switchNotice", ""),
             )
         } catch (_: Exception) { null }
     }
@@ -63,6 +65,7 @@ object NetworkIdentityStore {
                 .put("rawOperator", value.rawOperator)
                 .put("switchResult", value.switchResult)
                 .put("switchError", value.switchError)
+                .put("switchNotice", value.switchNotice)
             output.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(output)
             stream = null
