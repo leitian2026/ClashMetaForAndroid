@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.github.kr328.clash.common.custom.CarrierSwitchConfig
 import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
+import com.github.kr328.clash.common.custom.CarrierSwitchMatcher
 import com.github.kr328.clash.common.custom.CarrierSwitchStore
 import com.github.kr328.clash.common.custom.CarrierSwitchTogglePolicy
 import com.github.kr328.clash.common.custom.CarrierSwitchTarget
