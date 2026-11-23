@@ -7,17 +7,12 @@ import com.github.kr328.clash.common.custom.CarrierSwitchTarget
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 
 object CarrierSwitchMatcherTests {
-    private fun identity(
-        operator: String = "",
-        rawOperator: String = "",
-        province: String = "",
-        city: String = "",
-    ) = NetworkIdentitySnapshot(
+    private fun identity(operator: String = "", rawOperator: String = "") = NetworkIdentitySnapshot(
         signature = "test",
         operator = operator,
         rawOperator = rawOperator,
-        province = province,
-        city = city,
+        province = "",
+        city = "",
     )
 
     fun run() {
@@ -84,104 +79,12 @@ object CarrierSwitchMatcherTests {
                 config.copy(custom = listOf(CarrierSwitchKeyword("", "空关键词组", "空关键词节点"))),
                 identity(operator = "未知"),
             ) == null,
-            "custom item without keyword and region never matches",
-        )
-
-        val regionalTarget = CarrierSwitchTarget("地区组", "地区节点")
-        val regionOnlyConfig = config.copy(
-            custom = listOf(CarrierSwitchKeyword("", regionalTarget.group, regionalTarget.node, "东莞")),
-        )
-        check(
-            CarrierSwitchMatcher.match(
-                regionOnlyConfig,
-                identity(operator = "联通", province = "广东", city = "东莞"),
-            ) == regionalTarget,
-            "region match takes precedence over fixed mapping",
-        )
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(
-                    CarrierSwitchKeyword("", "地区组", "", "东莞"),
-                    CarrierSwitchKeyword("", regionalTarget.group, regionalTarget.node, "东莞"),
-                )),
-                identity(operator = "联通", city = "东莞"),
-            ) == regionalTarget,
-            "invalid regional mapping does not block the next valid regional mapping",
-        )
-
-        val regionAndKeywordTarget = CarrierSwitchTarget("地区关键词组", "地区关键词节点")
-        val regionAndKeywordConfig = config.copy(
-            custom = listOf(CarrierSwitchKeyword("电信", regionAndKeywordTarget.group, regionAndKeywordTarget.node, "东莞")),
-        )
-        check(
-            CarrierSwitchMatcher.match(
-                regionAndKeywordConfig,
-                identity(operator = "联通", city = "东莞"),
-            ) == unicom,
-            "region and keyword must both match",
-        )
-        check(
-            CarrierSwitchMatcher.match(
-                regionAndKeywordConfig,
-                identity(operator = "电信", city = "东莞"),
-            ) == regionAndKeywordTarget,
-            "region and keyword match together",
-        )
-
-        val provinceTarget = CarrierSwitchTarget("省份组", "省份节点")
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(CarrierSwitchKeyword("", provinceTarget.group, provinceTarget.node, "广东"))),
-                identity(province = "广东省"),
-            ) == provinceTarget,
-            "region matches province by containment",
-        )
-        val cityTarget = CarrierSwitchTarget("城市组", "城市节点")
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(CarrierSwitchKeyword("", cityTarget.group, cityTarget.node, "东莞"))),
-                identity(city = "东莞市"),
-            ) == cityTarget,
-            "region matches city by containment",
-        )
-        val caseTarget = CarrierSwitchTarget("大小写组", "大小写节点")
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(CarrierSwitchKeyword("", caseTarget.group, caseTarget.node, "dongguan"))),
-                identity(city = "DONGGUAN CITY"),
-            ) == caseTarget,
-            "region matching is case-insensitive",
+            "custom item without keyword never matches",
         )
 
         check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(CarrierSwitchKeyword("广电", "广电组", "广电节点", "深圳"))),
-                identity(operator = "中国广电", city = "东莞"),
-            ) == null,
-            "regional item is excluded from final keyword matching",
-        )
-
-        val firstRegionTarget = CarrierSwitchTarget("靠前组", "靠前节点")
-        val secondRegionTarget = CarrierSwitchTarget("靠后组", "靠后节点")
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(
-                    CarrierSwitchKeyword("", firstRegionTarget.group, firstRegionTarget.node, "东莞"),
-                    CarrierSwitchKeyword("", secondRegionTarget.group, secondRegionTarget.node, "东莞"),
-                )),
-                identity(city = "东莞市"),
-            ) == firstRegionTarget,
-            "first matching regional item wins",
-        )
-
-        check(CarrierSwitchMatcher.match(config, identity(operator = "未知")) == null, "unknown operator without custom mapping returns null")
-
-        check(
-            CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(CarrierSwitchKeyword("", "地区组", "地区节点", "东莞"))),
-                identity(operator = "移动"),
-            ) == mobile,
-            "region does not match without province or city",
+            CarrierSwitchMatcher.match(config, identity(operator = "未知")) == null,
+            "unknown operator without custom mapping returns null",
         )
     }
 }

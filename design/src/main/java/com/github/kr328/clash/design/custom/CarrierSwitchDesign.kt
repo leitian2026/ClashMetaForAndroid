@@ -210,30 +210,18 @@ class CarrierSwitchDesign(
             setSingleLine(true)
             setText(old?.keyword.orEmpty())
         }
-        val regionInput = EditText(context).apply {
-            hint = context.getString(R.string.carrier_switch_region_hint)
-            inputType = InputType.TYPE_CLASS_TEXT
-            setSingleLine(true)
-            setText(old?.region.orEmpty())
-        }
-        val inputs = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(keywordInput)
-            addView(regionInput)
-        }
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.carrier_switch_custom_section)
-            .setView(inputs)
+            .setView(keywordInput)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.ok) { _, _ ->
                 val keyword = keywordInput.text.toString().trim()
-                val region = regionInput.text.toString().trim()
-                if (keyword.isEmpty() && region.isEmpty()) {
+                if (keyword.isEmpty()) {
                     Toast.makeText(context, R.string.carrier_switch_keyword_required, Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 chooseTarget(CarrierSwitchTarget(old?.group.orEmpty(), old?.node.orEmpty())) { target ->
-                    val item = CarrierSwitchKeyword(keyword, target.group, target.node, region)
+                    val item = CarrierSwitchKeyword(keyword, target.group, target.node)
                     val updated = config.custom.toMutableList()
                     if (index == null) updated += item else if (index in updated.indices) updated[index] = item
                     config = config.copy(custom = updated)
@@ -251,8 +239,7 @@ class CarrierSwitchDesign(
                 setPadding(0, dp(8), 0, dp(8))
             }
             row.addView(TextView(context).apply {
-                text = listOf(item.keyword, item.region.takeIf { it.isNotBlank() }?.let { "[$it]" })
-                    .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ")
+                text = item.keyword
                 textSize = 15f
             })
             row.addView(TextView(context).apply {

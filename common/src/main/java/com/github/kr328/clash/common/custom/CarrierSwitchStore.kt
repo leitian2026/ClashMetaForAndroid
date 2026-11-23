@@ -24,8 +24,7 @@ object CarrierSwitchStore {
             custom.put(JSONObject()
                 .put("keyword", it.keyword)
                 .put("group", it.group)
-                .put("node", it.node)
-                .put("region", it.region))
+                .put("node", it.node))
         }
         put("telecom", target(value.telecom))
         put("unicom", target(value.unicom))
@@ -48,7 +47,6 @@ object CarrierSwitchStore {
                 item.optString("keyword"),
                 item.optString("group"),
                 item.optString("node"),
-                item.optString("region", ""),
             )
         }
         return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
@@ -61,7 +59,7 @@ object CarrierSwitchStore {
 
         val fixedEmpty = listOf(value.telecom, value.unicom, value.mobile).none(::hasAnyTarget)
         val customEmpty = value.custom.none {
-            (it.keyword.isNotBlank() || it.region.isNotBlank()) &&
+            it.keyword.isNotBlank() &&
                 hasTarget(it.group, it.node)
         }
         return fixedEmpty && customEmpty

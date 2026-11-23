@@ -9,7 +9,6 @@ data class CarrierSwitchKeyword(
     val keyword: String,
     val group: String,
     val node: String,
-    val region: String = "",
 )
 
 data class CarrierSwitchConfig(
