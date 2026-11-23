@@ -19,6 +19,7 @@ fun main() {
     YamlLintTests.run()
     RestoreCarrierSwitchTests.run()
     CarrierSwitchMatcherTests.run()
+    CarrierOperatorConsensusTests.run()
     println("Custom logic tests: $testPassed passed, $testFailed failed")
     if (testFailed > 0) kotlin.system.exitProcess(1)
 }

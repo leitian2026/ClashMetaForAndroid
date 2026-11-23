@@ -7,6 +7,8 @@ import android.telephony.TelephonyManager
 import android.telephony.SubscriptionManager
 import android.os.Build
 import androidx.core.content.getSystemService
+import com.github.kr328.clash.common.custom.CarrierOperatorConsensus
+import com.github.kr328.clash.common.custom.CarrierOperatorVote
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.common.custom.NetworkIpv6
 import org.json.JSONObject
@@ -53,27 +55,31 @@ object NetworkIdentity {
 
         val ipip = request(network, "https://myip.ipip.net") { body -> parseIpip(body) }
         val pconline = request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body -> parsePconline(body) }
+        val bilibili = request(network, "https://api.bilibili.com/x/web-interface/zone") { body -> parseBilibili(body) }
+        val requests = listOf(ipip, pconline, bilibili)
+        val answers = requests.mapNotNull { it.answer }
+        val votes = answers.map { CarrierOperatorVote(it.source, it.operator) }
+        val consensus = CarrierOperatorConsensus.resolve(votes)
 
-        if (ipip.answer != null && pconline.answer != null && ipip.answer.operator != pconline.answer.operator) {
-            return failed(signature, "operator_mismatch", "online")
-        }
-
-        val answer = ipip.answer ?: pconline.answer
-        if (answer != null) {
+        if (consensus != null) {
+            val answer = answers.firstOrNull {
+                it.operator == consensus.operator && (it.province.isNotEmpty() || it.city.isNotEmpty())
+            } ?: answers.first { it.operator == consensus.operator }
             return NetworkIdentitySnapshot(
                 signature = signature,
-                operator = answer.operator,
+                operator = consensus.operator,
                 province = answer.province,
                 city = answer.city,
-                source = answer.source,
+                source = "online_consensus:${consensus.sources.joinToString("+")}",
                 rawOperator = answer.rawOperator,
                 checkedAt = System.currentTimeMillis(),
             )
         }
 
         val error = when {
-            ipip.bindFailed && pconline.bindFailed -> "bind_failed"
-            ipip.timedOut || pconline.timedOut -> "timeout"
+            CarrierOperatorConsensus.hasDisagreement(votes) -> "operator_mismatch"
+            requests.all { it.bindFailed } -> "bind_failed"
+            requests.any { it.timedOut } -> "timeout"
             else -> "all_failed"
         }
         return failed(signature, error, if (cellular) "online_fallback" else "online")
@@ -176,6 +182,18 @@ object NetworkIdentity {
             ?: address.split(Regex("[\\s,，]+")).lastOrNull().orEmpty()
         val operator = classify(rawOperator) ?: "未知"
         return Answer(ip, operator, province, city, "pconline", rawOperator)
+    }
+
+    private fun parseBilibili(body: String): Answer? {
+        val json = try { JSONObject(body) } catch (_: Exception) { return null }
+        if (json.optInt("code", -1) != 0) return null
+        val data = json.optJSONObject("data") ?: return null
+        val ip = findPublicIp(data.optString("addr")) ?: return null
+        val province = data.optString("province").takeUnless { it == "null" }.orEmpty()
+        val city = data.optString("city").takeUnless { it == "null" }.orEmpty()
+        val rawOperator = data.optString("isp").takeUnless { it == "null" }.orEmpty()
+        val operator = classify(rawOperator) ?: "未知"
+        return Answer(ip, operator, province, city, "bilibili", rawOperator)
     }
 
     private fun classify(raw: String): String? {
