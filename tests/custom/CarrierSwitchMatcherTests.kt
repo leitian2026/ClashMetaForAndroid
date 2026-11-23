@@ -86,5 +86,18 @@ object CarrierSwitchMatcherTests {
             CarrierSwitchMatcher.match(config, identity(operator = "未知")) == null,
             "unknown operator without custom mapping returns null",
         )
+
+        check(
+            !CarrierSwitchMatcher.needsSwitch("目标节点", "目标节点"),
+            "already selected target does not trigger another switch",
+        )
+        check(
+            CarrierSwitchMatcher.needsSwitch("其他节点", "目标节点"),
+            "different selected node triggers a switch",
+        )
+        check(
+            CarrierSwitchMatcher.needsSwitch(null, "目标节点"),
+            "missing selection triggers a switch",
+        )
     }
 }
