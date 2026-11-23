@@ -321,12 +321,12 @@ object BackupManager {
                         pending.deleteRecursively()
                         from.copyRecursively(pending, overwrite = true)
                     } else if (uuid == null && from.isDirectory) {
-                        from.copyRecursively(context.pendingDir.resolve(target.toString()), overwrite = true)
+                        from.copyRecursively(context.pendingDir.resolve(targetId.toString()), overwrite = true)
                     }
                 }
 
-                withProfile { commit(target, null) }
-                idMap[oldId] = target
+                withProfile { commit(targetId, null) }
+                idMap[oldId] = targetId
                 restored++
                 if (same != null && active?.uuid == targetId) activeContentReplaced = true
             } catch (e: kotlinx.coroutines.CancellationException) {
