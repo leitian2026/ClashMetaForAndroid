@@ -269,7 +269,7 @@ object CloudBackupFlow {
 
         design.setStatus(context.getString(DesignR.string.backup_working))
 
-        val result = RestoreCarrierSwitch.restoreAndApply(context, scope, clashRunning) {
+        val result = RestoreCarrierSwitch.restoreAndApply {
             BackupManager.restore(context, backup, replace = true)
         }
 
