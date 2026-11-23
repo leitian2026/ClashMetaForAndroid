@@ -1,6 +1,8 @@
 package com.github.kr328.clash.design.custom
 
 import android.app.Activity
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -72,9 +74,8 @@ class CarrierSwitchDesign(
 
         body.addView(sectionTitle(R.string.carrier_switch_custom_section))
         body.addView(customRows)
-        body.addView(MaterialButton(context).apply {
+        body.addView(outlinedButton().apply {
             setText(R.string.carrier_switch_add)
-            isAllCaps = false
             setOnClickListener { addCustom() }
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
@@ -103,8 +104,7 @@ class CarrierSwitchDesign(
             textSize = 14f
         })
         var current = target
-        val defaultButton = MaterialButton(context).apply {
-            isAllCaps = false
+        val defaultButton = outlinedButton().apply {
             text = labelledTargetText(R.string.carrier_switch_default_target_label, current)
             setOnClickListener {
                 chooseTarget(current) { selected ->
@@ -220,14 +220,12 @@ class CarrierSwitchDesign(
                 textSize = 12f
             })
             val actions = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-            actions.addView(MaterialButton(context).apply {
+            actions.addView(borderlessButton().apply {
                 setText(R.string.carrier_switch_edit)
-                isAllCaps = false
                 setOnClickListener { editCustom(index) }
             })
-            actions.addView(MaterialButton(context).apply {
+            actions.addView(borderlessButton().apply {
                 setText(R.string.carrier_switch_delete)
-                isAllCaps = false
                 setOnClickListener {
                     config = config.copy(custom = config.custom.filterIndexed { i, _ -> i != index })
                     renderCustomRows()
@@ -238,6 +236,35 @@ class CarrierSwitchDesign(
             if (index < config.custom.lastIndex) customRows.addView(View(context).apply {
                 setBackgroundColor(0x22000000)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)))
+        }
+    }
+
+    private fun outlinedButton() = MaterialButton(
+        context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
+    ).apply {
+        isAllCaps = false
+        val color = primaryTextColor()
+        setTextColor(color)
+        strokeColor = ColorStateList.valueOf(
+            Color.argb((Color.alpha(color) * 0.36f).toInt(), Color.red(color), Color.green(color), Color.blue(color)),
+        )
+        strokeWidth = dp(1)
+        backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+    }
+
+    private fun borderlessButton() = MaterialButton(
+        context, null, com.google.android.material.R.attr.borderlessButtonStyle,
+    ).apply {
+        isAllCaps = false
+        setTextColor(primaryTextColor())
+    }
+
+    private fun primaryTextColor(): Int {
+        val values = context.obtainStyledAttributes(intArrayOf(android.R.attr.textColorPrimary))
+        return try {
+            values.getColor(0, Color.BLACK)
+        } finally {
+            values.recycle()
         }
     }
 
