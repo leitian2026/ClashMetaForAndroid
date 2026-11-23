@@ -20,4 +20,6 @@ object CarrierSwitchMatcher {
             keyword.isNotEmpty() && (operator.contains(keyword) || raw.contains(keyword))
         }?.let { CarrierSwitchTarget(it.group, it.node) }
     }
+    fun needsSwitch(currentNode: String?, targetNode: String): Boolean =
+        currentNode != targetNode
 }
