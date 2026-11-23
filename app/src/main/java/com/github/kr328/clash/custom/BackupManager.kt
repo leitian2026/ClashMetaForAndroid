@@ -67,6 +67,8 @@ object BackupManager {
         val carrierRestored: Int = 0,
         val carrierKept: Int = 0,
         val carrierFailed: Int = 0,
+        val activeProfileChanged: Boolean = false,
+        val activeProfileUuid: String? = null,
     )
 
     // ---- export -------------------------------------------------------------------------------
@@ -404,11 +406,15 @@ object BackupManager {
 
         // the profile that was active gets active again, but only when none is active on this device
         // (a replace, CUSTOM.md #32, also takes the backup's choice when one is active here)
+        var restoredActiveUuid = active?.uuid?.takeUnless { it in removed }
         if ((replace || active == null || active.uuid in removed) && !backup.manifest.isNull("activeProfile")) {
             idMap[backup.manifest.getString("activeProfile")]?.let { id ->
                 try {
                     withProfile {
-                        queryByUUID(id)?.takeIf { it.imported }?.let { setActive(it) }
+                        queryByUUID(id)?.takeIf { it.imported }?.let {
+                            setActive(it)
+                            restoredActiveUuid = it.uuid
+                        }
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -417,13 +423,18 @@ object BackupManager {
                 }
             }
         }
+        val activeProfileChanged = active?.uuid != restoredActiveUuid
 
         // Saved IPs are user data, so restore them even when cloud restore keeps device settings.
         val savedIpStat = savedIps?.let { SavedIpStore.restoreBackup(context, it, merge = !replace) } // CUSTOM (CUSTOM.md #156 #17): ordinary restore merges; replace rollback overwrites
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
-        return RestoreResult(restored, skipped, failed, settings, override, deleted, savedIpStat, carrierRestored, carrierKept, carrierFailed)
+        return RestoreResult(
+            restored, skipped, failed, settings, override, deleted, savedIpStat,
+            carrierRestored, carrierKept, carrierFailed,
+            activeProfileChanged, restoredActiveUuid?.toString(),
+        )
     }
 
     /** CUSTOM.md #32: the names of the subscriptions on this device that a replace would remove. */

@@ -31,10 +31,10 @@ class BackupActivity : BaseActivity<BackupDesign>() {
                 ACTION_IMPORT -> importBackup(design)
                 ACTION_DIAG -> exportDiagnostics(design) // CUSTOM.md #29
                 ACTION_CLOUD_PUSH -> CloudBackupFlow.push(this, design) // CUSTOM.md #32
-                ACTION_CLOUD_PULL -> CloudBackupFlow.pull(this, design)
+                ACTION_CLOUD_PULL -> CloudBackupFlow.pull(this, this, clashRunning, design)
                 ACTION_CLOUD_SETTINGS -> CloudBackupFlow.settings(this, design)
                 ACTION_CLOUD_DELETE -> CloudBackupFlow.delete(this, design) // CUSTOM.md #36
-                ACTION_RESTORE_UNDO -> CloudBackupFlow.undo(this, design)
+                ACTION_RESTORE_UNDO -> CloudBackupFlow.undo(this, this, clashRunning, design)
             }
         } catch (e: CancellationException) {
             throw e
@@ -151,7 +151,9 @@ class BackupActivity : BaseActivity<BackupDesign>() {
             return
         }
 
-        val result = BackupManager.restore(this, backup)
+        val result = RestoreCarrierSwitch.restoreAndApply(this, this, clashRunning) {
+            BackupManager.restore(this, backup)
+        }
 
         val lines = ArrayList<String>()
 

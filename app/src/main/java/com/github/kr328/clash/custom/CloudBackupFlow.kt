@@ -3,6 +3,7 @@ package com.github.kr328.clash.custom
 import android.content.Context
 import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.custom.BackupDesign
+import kotlinx.coroutines.CoroutineScope
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -78,7 +79,7 @@ object CloudBackupFlow {
         )
     }
 
-    suspend fun pull(context: Context, design: BackupDesign) {
+    suspend fun pull(context: Context, scope: CoroutineScope, clashRunning: Boolean, design: BackupDesign) {
         val settings = ready(context, design) ?: return
 
         design.setStatus(context.getString(DesignR.string.cloud_pulling))
@@ -183,13 +184,15 @@ object CloudBackupFlow {
         }
 
         // subscriptions are added (nothing is deleted); a file subscription gets the backup's content
-        val result = BackupManager.restore(
-            context,
-            backup,
-            replace = false,
-            applySettings = withSettings,
-            replaceFiles = true,
-        )
+        val result = RestoreCarrierSwitch.restoreAndApply(context, scope, clashRunning) {
+            BackupManager.restore(
+                context,
+                backup,
+                replace = false,
+                applySettings = withSettings,
+                replaceFiles = true,
+            )
+        }
 
         showResult(context, design, DesignR.string.backup_import_done_title, result, withSettings)
     }
@@ -235,7 +238,7 @@ object CloudBackupFlow {
     }
 
     /** "Undo last restore": goes back to the safety copy that was made before the last cloud restore. */
-    suspend fun undo(context: Context, design: BackupDesign) {
+    suspend fun undo(context: Context, scope: CoroutineScope, clashRunning: Boolean, design: BackupDesign) {
         val file = CloudBackup.lastSnapshot(context)
 
         if (file == null) {
@@ -266,7 +269,9 @@ object CloudBackupFlow {
 
         design.setStatus(context.getString(DesignR.string.backup_working))
 
-        val result = BackupManager.restore(context, backup, replace = true)
+        val result = RestoreCarrierSwitch.restoreAndApply(context, scope, clashRunning) {
+            BackupManager.restore(context, backup, replace = true)
+        }
 
         file.delete() // used once
 
