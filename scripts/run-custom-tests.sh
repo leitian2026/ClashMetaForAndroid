@@ -19,12 +19,16 @@ else
   fi
 fi
 
+# 源文件列表和触发路径要保持一致
 "$compiler" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt" \
   "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTogglePolicy.kt" \
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchModel.kt" \
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/NetworkIdentitySnapshot.kt" \
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchMatcher.kt" \
   "$ROOT"/tests/custom/*.kt \
   -include-runtime -d "$OUT_DIR/custom-logic-tests.jar"
 
