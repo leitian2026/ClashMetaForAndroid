@@ -15,6 +15,7 @@ import android.widget.Toast
 import com.github.kr328.clash.common.custom.CarrierSwitchConfig
 import com.github.kr328.clash.common.custom.CarrierSwitchKeyword
 import com.github.kr328.clash.common.custom.CarrierSwitchTarget
+import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.google.android.material.button.MaterialButton
@@ -27,6 +28,7 @@ class CarrierSwitchDesign(
     private val groups: List<String>,
     private val nodes: Map<String, List<String>>,
     initialAutomaticEnabled: Boolean,
+    private val identity: NetworkIdentitySnapshot?,
 ) : Design<CarrierSwitchDesign.Request>(context) {
     sealed class Request {
         data class SetEnabled(val enabled: Boolean) : Request()
@@ -102,6 +104,14 @@ class CarrierSwitchDesign(
             setOnClickListener { addCustom() }
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
+        body.addView(sectionTitle(R.string.carrier_switch_identity_section))
+        body.addView(TextView(context).apply {
+            text = identitySummary()
+            textSize = 13f
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(0, 0, 0, dp(8))
+        })
+
         content.addView(MaterialButton(context).apply {
             setText(R.string.carrier_switch_save)
             isAllCaps = false
@@ -134,6 +144,33 @@ class CarrierSwitchDesign(
 
     fun showEnableSaveFailed() {
         Toast.makeText(context, R.string.carrier_switch_enabled_save_failed, Toast.LENGTH_LONG).show()
+    }
+
+
+    private fun identitySummary(): String {
+        val current = identity ?: return context.getString(R.string.carrier_switch_identity_pending)
+        val lines = mutableListOf<String>()
+        val result = when {
+            current.error.isNotEmpty() -> "识别失败"
+            current.operator.isNotEmpty() -> "识别结果：${current.operator}"
+            else -> "运营商未知"
+        }
+        lines += result
+        if (current.source.startsWith("online_consensus:")) {
+            val sources = current.source.removePrefix("online_consensus:").split("+").joinToString("、")
+            lines += "多数判定来源：$sources"
+        } else if (current.source == "mobile_mcc_mnc") {
+            lines += "识别来源：SIM 卡 MCC/MNC"
+        }
+        if (current.diagnostic.isNotBlank()) lines += current.diagnostic
+        when {
+            current.switchResult.isNotBlank() -> lines += "切换结果：已切换到 ${current.switchResult}"
+            current.switchNotice.isNotBlank() -> lines += "切换结果：未配置对应节点"
+            current.switchError.isNotBlank() -> lines += "切换失败：${current.switchError}"
+            current.error.isNotEmpty() -> lines += "切换结果：未执行"
+            else -> lines += "切换结果：尚无自动切换记录"
+        }
+        return lines.joinToString("\n")
     }
 
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {
