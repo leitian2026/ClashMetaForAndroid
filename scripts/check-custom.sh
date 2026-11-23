@@ -212,7 +212,7 @@ fi
 TEST_RUNNER=scripts/run-custom-tests.sh
 TEST_WORKFLOW=.github/workflows/test-custom.yaml
 if [ -f "$TEST_RUNNER" ] && [ -f "$TEST_WORKFLOW" ]; then
-  test_sources=$(grep -E '^[[:space:]]*"\$ROOT/[^"]+\.kt"[[:space:]]*\\?$' "$TEST_RUNNER" \
+  test_sources=$(grep -E '^[[:space:]]*"\$ROOT/.*\.kt"' "$TEST_RUNNER" \
     | sed -E 's|^[[:space:]]*"\$ROOT/||; s|".*$||' | sort -u)
   workflow_sources=$(grep -E "^[[:space:]]*-[[:space:]]*'[^']+\.kt'[[:space:]]*$" "$TEST_WORKFLOW" \
     | sed -E "s|^[[:space:]]*-[[:space:]]*'([^']+)'[[:space:]]*$|\\1|" | sort -u)
