@@ -10,6 +10,7 @@ data class NetworkIdentitySnapshot(
     val source: String = "",
     val checkedAt: Long = 0L,
     val rawOperator: String = "",
+    val diagnostic: String = "",
     val switchResult: String = "",
     val switchError: String = "",
     val switchNotice: String = "",
