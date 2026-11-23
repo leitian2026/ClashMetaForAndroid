@@ -18,6 +18,7 @@ import java.net.URL
 import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.Locale
+import java.util.concurrent.Executors
 
 /** CUSTOM (CUSTOM.md #168): one lookup for the selected network below the VPN. */
 object NetworkIdentity {
@@ -48,16 +49,47 @@ object NetworkIdentity {
             val local = readMobileOperator(context)
             if (local != null) {
                 return NetworkIdentitySnapshot(
-                    signature = signature, operator = local, source = "mobile_mcc_mnc", checkedAt = System.currentTimeMillis(),
+                    signature = signature,
+                    operator = local,
+                    source = "mobile_mcc_mnc",
+                    diagnostic = "SIM/MCC-MNC：$local；IPIP：未查询；PConline：未查询；Bilibili：未查询",
+                    checkedAt = System.currentTimeMillis(),
                 )
             }
         }
 
-        val ipip = request(network, "https://myip.ipip.net") { body -> parseIpip(body) }
-        val pconline = request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body -> parsePconline(body) }
-        val bilibili = request(network, "https://api.bilibili.com/x/web-interface/zone") { body -> parseBilibili(body) }
-        val requests = listOf(ipip, pconline, bilibili)
+        // Run the providers together; total wait is bounded by one timeout window.
+        val executor = Executors.newFixedThreadPool(3)
+        val requests = try {
+            val ipip = executor.submit<RequestResult> {
+                request(network, "https://myip.ipip.net") { body -> parseIpip(body) }
+            }
+            val pconline = executor.submit<RequestResult> {
+                request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body -> parsePconline(body) }
+            }
+            val bilibili = executor.submit<RequestResult> {
+                request(network, "https://api.bilibili.com/x/web-interface/zone") { body -> parseBilibili(body) }
+            }
+            listOf(ipip.get(), pconline.get(), bilibili.get())
+        } finally {
+            executor.shutdownNow()
+        }
         val answers = requests.mapNotNull { it.answer }
+        val sourceNames = listOf("IPIP", "PConline", "Bilibili")
+        val diagnostic = requests.mapIndexed { index, result ->
+            val outcome = result.answer?.let { answer ->
+                buildString {
+                    append(answer.operator)
+                    if (answer.ip.isNotEmpty()) append(" · ").append(answer.ip)
+                    if (answer.rawOperator.isNotEmpty()) append("（").append(answer.rawOperator).append("）")
+                }
+            } ?: when {
+                result.timedOut -> "超时"
+                result.bindFailed -> "网络绑定失败"
+                else -> "无有效结果"
+            }
+            "${sourceNames[index]}：$outcome"
+        }.joinToString("\n")
         val votes = answers.map { CarrierOperatorVote(it.source, it.operator) }
         val consensus = CarrierOperatorConsensus.resolve(votes)
 
@@ -72,6 +104,7 @@ object NetworkIdentity {
                 city = answer.city,
                 source = "online_consensus:${consensus.sources.joinToString("+")}",
                 rawOperator = answer.rawOperator,
+                diagnostic = diagnostic,
                 checkedAt = System.currentTimeMillis(),
             )
         }
@@ -82,7 +115,7 @@ object NetworkIdentity {
             requests.any { it.timedOut } -> "timeout"
             else -> "all_failed"
         }
-        return failed(signature, error, if (cellular) "online_fallback" else "online")
+        return failed(signature, error, if (cellular) "online_fallback" else "online", diagnostic)
     }
 
     private fun readMobileOperator(context: Context): String? {
@@ -235,6 +268,12 @@ object NetworkIdentity {
         return null
     }
 
-    private fun failed(signature: String, error: String, source: String = "") =
-        NetworkIdentitySnapshot(signature = signature, error = error, source = source, checkedAt = System.currentTimeMillis())
+    private fun failed(signature: String, error: String, source: String = "", diagnostic: String = "") =
+        NetworkIdentitySnapshot(
+            signature = signature,
+            error = error,
+            source = source,
+            diagnostic = diagnostic,
+            checkedAt = System.currentTimeMillis(),
+        )
 }
