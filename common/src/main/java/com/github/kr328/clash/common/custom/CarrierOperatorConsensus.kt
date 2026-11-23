@@ -7,7 +7,7 @@ data class CarrierOperatorVote(
 )
 
 /** A carrier is accepted only when at least two providers agree. */
-data class CarrierOperatorConsensus(
+data class CarrierOperatorAgreement(
     val operator: String,
     val sources: List<String>,
 )
@@ -15,12 +15,12 @@ data class CarrierOperatorConsensus(
 object CarrierOperatorConsensus {
     private val supportedOperators = setOf("电信", "联通", "移动", "广电")
 
-    fun resolve(votes: List<CarrierOperatorVote>): CarrierOperatorConsensus? {
+    fun resolve(votes: List<CarrierOperatorVote>): CarrierOperatorAgreement? {
         val valid = votes.filter { it.operator in supportedOperators }
         val winners = valid.groupBy { it.operator }.filterValues { it.size >= 2 }
         if (winners.size != 1) return null
         val (operator, agreeing) = winners.entries.first()
-        return CarrierOperatorConsensus(operator, agreeing.map { it.source })
+        return CarrierOperatorAgreement(operator, agreeing.map { it.source })
     }
 
     fun hasDisagreement(votes: List<CarrierOperatorVote>): Boolean =
