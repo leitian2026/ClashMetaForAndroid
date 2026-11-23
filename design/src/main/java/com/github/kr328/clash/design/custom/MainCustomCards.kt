@@ -66,7 +66,6 @@ class MainCustomCards(
                 ?: context.getString(if (identity == null) R.string.network_identity_pending else R.string.network_identity_unknown)
             card.subtext = buildList {
                 add(location)
-                identity?.diagnostic?.takeIf { it.isNotBlank() }?.let { add(it) }
                 if (!automaticEnabled) {
                     add(context.getString(R.string.carrier_switch_home_disabled))
                 } else {
@@ -94,7 +93,6 @@ class MainCustomCards(
                 lines += context.getString(R.string.main_issues_card_more)
             }
             identityLine?.let { lines += it }
-            identity?.diagnostic?.takeIf { it.isNotBlank() }?.let { lines += it }
             if (automaticEnabled) identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { lines += it }
             card.subtext = lines.joinToString("\n")
         }
