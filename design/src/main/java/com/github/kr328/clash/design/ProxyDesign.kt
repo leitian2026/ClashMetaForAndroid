@@ -100,6 +100,9 @@ class ProxyDesign(
         }
 
         // CUSTOM (CUSTOM.md #169): open the carrier-to-selector mapping page.
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(binding.carrierSwitchView, context.getString(R.string.carrier_switch_title))
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(binding.urlTestView, context.getString(R.string.delay_test))
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(binding.menuView, context.getString(R.string.more))
         binding.carrierSwitchView.setOnClickListener {
             context.startActivity(
                 Intent().setClassName(context, "com.github.kr328.clash.custom.CarrierSwitchActivity")

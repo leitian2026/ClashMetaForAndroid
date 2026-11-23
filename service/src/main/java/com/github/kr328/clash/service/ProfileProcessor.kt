@@ -3,6 +3,7 @@ package com.github.kr328.clash.service
 import android.content.Context
 import android.net.Uri
 import com.github.kr328.clash.common.log.Log
+import com.github.kr328.clash.common.custom.CarrierSwitchStore // CUSTOM (CUSTOM.md #169)
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.model.FetchStatus
 import com.github.kr328.clash.service.data.Imported
@@ -185,6 +186,7 @@ object ProfileProcessor {
                 imported.deleteRecursively()
                 ConfigHistory.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #56): its history goes with it
                 ConfigUpdateSnapshot.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #170)
+                CarrierSwitchStore.delete(context, uuid) // CUSTOM (CUSTOM.md #169): its carrier mapping goes with it
 
                 context.sendProfileChanged(uuid)
             }

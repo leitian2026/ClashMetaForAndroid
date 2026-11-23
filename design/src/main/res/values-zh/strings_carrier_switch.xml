@@ -17,6 +17,7 @@
     <string name="carrier_switch_edit">修改</string>
     <string name="carrier_switch_delete">删除</string>
     <string name="carrier_switch_saved">已保存</string>
+    <string name="carrier_switch_save_failed">保存失败，原来的映射没有改变。</string>
     <string name="carrier_switch_node_empty">该组没有可选择的节点</string>
     <string name="carrier_switch_home_result">已自动切到：%1$s</string>
     <string name="carrier_switch_region_hint">省 / 市（可选，按识别结果原文填写，如广东、东莞）</string>

@@ -26,7 +26,7 @@ data class CarrierSwitchConfig(
     val custom: List<CarrierSwitchKeyword> = emptyList(),
 )
 
-/** Per-profile mappings. The app process is the only writer; the service only reads on a switch trigger. */
+/** Per-profile mappings. The app process writes; the service process deletes the file when its profile is deleted. */
 object CarrierSwitchStore {
     private val lock = Any()
 
@@ -94,7 +94,11 @@ object CarrierSwitchStore {
         }
     }
 
-    fun write(context: Context, uuid: UUID, value: CarrierSwitchConfig) = synchronized(lock) {
+    fun delete(context: Context, uuid: UUID) = synchronized(lock) {
+        try { file(context, uuid).delete() } catch (_: Exception) { /* Best-effort cleanup. */ }
+    }
+
+    fun write(context: Context, uuid: UUID, value: CarrierSwitchConfig): Boolean = synchronized(lock) {
         val atomic = file(context, uuid)
         var stream: java.io.FileOutputStream? = null
         try {
@@ -104,8 +108,10 @@ object CarrierSwitchStore {
             output.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(output)
             stream = null
+            true
         } catch (_: Exception) {
             if (stream != null) atomic.failWrite(stream)
+            false
         }
     }
 }

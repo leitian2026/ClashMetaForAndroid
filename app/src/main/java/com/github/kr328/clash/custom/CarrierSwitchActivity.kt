@@ -41,12 +41,16 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
                 design.requests.onReceive {
                     when (it) {
                         is CarrierSwitchDesign.Request.Save -> {
-                            withContext(Dispatchers.IO) {
+                            val saved = withContext(Dispatchers.IO) {
                                 CarrierSwitchStore.write(this@CarrierSwitchActivity, profile.uuid, it.config)
                             }
-                            // The service applies the same matcher used after a fresh network identification.
-                            withClash { applyCarrierSwitch() }
-                            design.showSaved()
+                            if (saved) {
+                                // The service applies the same matcher used after a fresh network identification.
+                                withClash { applyCarrierSwitch() }
+                                design.showSaved()
+                            } else {
+                                design.showSaveFailed()
+                            }
                         }
                     }
                 }

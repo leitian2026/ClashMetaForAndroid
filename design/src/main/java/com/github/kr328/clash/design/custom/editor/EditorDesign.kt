@@ -30,6 +30,7 @@ import android.widget.ImageView
 import android.widget.ListView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.PopupMenu
+import androidx.appcompat.widget.TooltipCompat
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -1230,6 +1231,7 @@ class EditorDesign(
             }
             isClickable = true
             contentDescription = description
+            TooltipCompat.setTooltipText(this, description)
             setBackgroundResource(context.resolveThemedResourceId(android.R.attr.selectableItemBackground))
             setOnClickListener { onClick(it) }
         }

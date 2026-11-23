@@ -17,6 +17,7 @@
     <string name="carrier_switch_edit">Edit</string>
     <string name="carrier_switch_delete">Delete</string>
     <string name="carrier_switch_saved">Saved</string>
+    <string name="carrier_switch_save_failed">Could not save the mapping. The previous mapping is unchanged.</string>
     <string name="carrier_switch_node_empty">This group has no selectable nodes</string>
     <string name="carrier_switch_home_result">Automatically switched to: %1$s</string>
     <string name="carrier_switch_region_hint">Province / city (optional, as recognized)</string>

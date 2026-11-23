@@ -94,6 +94,10 @@ class CarrierSwitchDesign(
         Toast.makeText(context, R.string.carrier_switch_saved, Toast.LENGTH_SHORT).show()
     }
 
+    fun showSaveFailed() {
+        Toast.makeText(context, R.string.carrier_switch_save_failed, Toast.LENGTH_LONG).show()
+    }
+
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
