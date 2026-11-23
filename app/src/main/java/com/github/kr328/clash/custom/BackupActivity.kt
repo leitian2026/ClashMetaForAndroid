@@ -151,7 +151,7 @@ class BackupActivity : BaseActivity<BackupDesign>() {
             return
         }
 
-        val result = RestoreCarrierSwitch.restoreAndApply(this, this, clashRunning) {
+        val result = RestoreCarrierSwitch.restoreAndApply {
             BackupManager.restore(this, backup)
         }
 
