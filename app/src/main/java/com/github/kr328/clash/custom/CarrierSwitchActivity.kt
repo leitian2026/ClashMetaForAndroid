@@ -5,6 +5,7 @@ import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.CarrierSwitchStore
 import com.github.kr328.clash.common.custom.CustomIntents
+import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.design.custom.CarrierSwitchDesign
 import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.util.withClash
@@ -30,10 +31,13 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
         val initial = withContext(Dispatchers.IO) {
             CarrierSwitchStore.read(this@CarrierSwitchActivity, profile.uuid)
         }
+        val identityDiagnostic = withContext(Dispatchers.IO) {
+            NetworkIdentityStore.read(this@CarrierSwitchActivity)?.diagnostic.orEmpty()
+        }
         var automaticEnabled = withContext(Dispatchers.IO) {
             CarrierSwitchEnabledStore.read(this@CarrierSwitchActivity)
         }
-        val design = CarrierSwitchDesign(this, initial, nodes.keys.toList(), nodes, automaticEnabled)
+        val design = CarrierSwitchDesign(this, initial, nodes.keys.toList(), nodes, automaticEnabled, identityDiagnostic)
         setContentDesign(design)
 
         while (isActive) {
