@@ -33,8 +33,9 @@ object CarrierSwitch {
 
     fun applyAfterProfileLoaded(context: Context) {
         thread(name = "carrier-switch-profile-loaded") {
-            clearSwitchStatus(context.applicationContext)
-            applyCurrent(context.applicationContext)
+            val app = context.applicationContext
+            val identity = clearSwitchStatus(app) ?: return@thread
+            apply(app, identity)
         }
     }
 
@@ -45,11 +46,14 @@ object CarrierSwitch {
         context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
     }
 
-    private fun clearSwitchStatus(context: Context) {
-        val latest = NetworkIdentityStore.read(context) ?: return
-        if (latest.switchResult.isEmpty() && latest.switchError.isEmpty() && latest.switchNotice.isEmpty()) return
-        NetworkIdentityStore.write(context, latest.copy(switchResult = "", switchError = "", switchNotice = ""))
-        context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
+    private fun clearSwitchStatus(context: Context): NetworkIdentitySnapshot? {
+        val latest = NetworkIdentityStore.read(context) ?: return null
+        val cleared = latest.copy(switchResult = "", switchError = "", switchNotice = "")
+        if (cleared != latest) {
+            NetworkIdentityStore.write(context, cleared)
+            context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
+        }
+        return cleared
     }
 
     private fun apply(context: Context, identity: NetworkIdentitySnapshot) {
@@ -68,18 +72,15 @@ object CarrierSwitch {
         val knownCarrier = operator in setOf("电信", "联通", "移动")
         if (matched == null || matched.group.isBlank() || matched.node.isBlank()) {
             if (knownCarrier) {
-                val latest = NetworkIdentityStore.read(context) ?: identity
-                if (latest.signature == identity.signature) {
-                    NetworkIdentityStore.write(
-                        context,
-                        latest.copy(
-                            switchResult = "",
-                            switchError = "",
-                            switchNotice = context.getString(R.string.carrier_switch_missing_target, operator),
-                        ),
-                    )
-                    context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
-                }
+                NetworkIdentityStore.write(
+                    context,
+                    identity.copy(
+                        switchResult = "",
+                        switchError = "",
+                        switchNotice = context.getString(R.string.carrier_switch_missing_target, operator),
+                    ),
+                )
+                context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
             }
             return
         }
@@ -97,16 +98,14 @@ object CarrierSwitch {
             false
         }
 
-        val latest = NetworkIdentityStore.read(context) ?: identity
-        if (latest.signature != identity.signature) return
         val updated = when {
-            !running -> latest.copy(switchResult = "", switchError = "", switchNotice = "")
-            switched -> latest.copy(
+            !running -> identity.copy(switchResult = "", switchError = "", switchNotice = "")
+            switched -> identity.copy(
                 switchResult = "${target.group} / ${target.node}",
                 switchError = "",
                 switchNotice = "",
             )
-            else -> latest.copy(
+            else -> identity.copy(
                 switchResult = "",
                 switchError = "${target.group} / ${target.node}",
                 switchNotice = "",
