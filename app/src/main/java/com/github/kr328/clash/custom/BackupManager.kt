@@ -307,19 +307,19 @@ object BackupManager {
             }
 
             val uuid = same?.uuid
+            var target: UUID? = null
             try {
-                val target = uuid ?: withProfile { create(type, name, source, ageKey) }
-                withProfile { patch(target, name, source, interval, ageKey) }
+                target = uuid ?: withProfile { create(type, name, source, ageKey) }
+                val targetId = target ?: throw BackupException("cannot create subscription: $name")
+                withProfile { patch(targetId, name, source, interval, ageKey) }
 
                 withContext(Dispatchers.IO) {
                     val from = File(backup.root, PROFILES + oldId)
                     if (type == Profile.Type.File) {
                         if (!from.isDirectory) throw BackupException("missing file subscription data: $name")
-                        val pending = context.pendingDir.resolve(target.toString())
+                        val pending = context.pendingDir.resolve(targetId.toString())
                         pending.deleteRecursively()
-                        if (!from.copyRecursively(pending, overwrite = true)) {
-                            throw BackupException("cannot stage file subscription: $name")
-                        }
+                        from.copyRecursively(pending, overwrite = true)
                     } else if (uuid == null && from.isDirectory) {
                         from.copyRecursively(context.pendingDir.resolve(target.toString()), overwrite = true)
                     }
@@ -328,16 +328,11 @@ object BackupManager {
                 withProfile { commit(target, null) }
                 idMap[oldId] = target
                 restored++
-                if (same != null && active?.uuid == target) activeContentReplaced = true
+                if (same != null && active?.uuid == targetId) activeContentReplaced = true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (uuid == null) {
-                    // A failed new import must not leave an unusable pending profile behind.
-                    runCatching { withProfile { release(idMap[oldId] ?: UUID.fromString(oldId)) } }
-                } else {
-                    runCatching { withProfile { release(uuid) } }
-                }
+                target?.let { failedUuid -> runCatching { withProfile { release(failedUuid) } } }
                 failed.add(name)
             }
         }
@@ -372,7 +367,7 @@ object BackupManager {
         if (replace) {
             val currentActive = withProfile { queryActive() }?.uuid
             for (profile in deleteCandidates) {
-                if (profile.uuid == currentActive && replacementActive == null) {
+                if (profile.uuid == currentActive) {
                     failed.add("${profile.name}（当前启用且没有替代订阅，未删除）")
                     continue
                 }
