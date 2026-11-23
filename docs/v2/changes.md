@@ -19,7 +19,7 @@
 #16｜下载的 geo 文件更新应用后自动恢复
 #17｜备份与恢复：本地导入、云端拉取和撤销恢复先保证有效启用订阅；同名文件订阅原地替换，恢复后按当前运营商套用（配置载入时由载入完成事件负责）。
 #18｜构建时的下载：缓存和重试（仅 build-debug）
-#19｜自检脚本 scripts/check-custom.sh（含超大 Kotlin 文件告警，默认 2500 行，可用 BIG_FILE_LINES 调整
+#19｜自检脚本 scripts/check-custom.sh：检查 CUSTOM 登记、文档引用与大小限制；告警超大 Kotlin 文件（默认 2500 行，可用 BIG_FILE_LINES 调整）；检查测试源文件列表与 test-custom.yaml 触发路径双向一致。
 #20｜底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16，r27 加每个 IP 的开始时间，r156 完善说明与截断提示，r211 改成分组布局并限宽，r3…
 #21｜错误与诊断页（r18，r23 加折叠，r24 修折叠和清除）
 #22｜配置检查页（r20，r22 改为同配置只测一次）
@@ -172,4 +172,4 @@
 #168｜网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口
 #169｜按运营商自动切换节点：每次配置载入完成及恢复完成（未触发载入时）按当前运营商套用；手动换节点和载入时清除旧切换记录；已识别运营商但未配置节点时在首页和诊断页提示，不计错误；增加默认开启、跨进程持久化的全局开关，关闭后跳过所有自动套用。
 #170｜订阅更新后显示变更摘要：仅保留非 File 订阅上一份 config.yaml，打开错误与诊断页时按需比较并显示新增 / 删除行数
-#171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商匹配；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug
+#171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商匹配；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug。测试：YamlLintTests.kt、YamlPairsTests.kt、TextSearchTests.kt、RestoreCarrierSwitchTests.kt、CarrierSwitchMatcherTests.kt
