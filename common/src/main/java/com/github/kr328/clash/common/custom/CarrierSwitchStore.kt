@@ -7,25 +7,6 @@ import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 
-data class CarrierSwitchTarget(
-    val group: String = "",
-    val node: String = "",
-)
-
-data class CarrierSwitchKeyword(
-    val keyword: String,
-    val group: String,
-    val node: String,
-    val region: String = "",
-)
-
-data class CarrierSwitchConfig(
-    val telecom: CarrierSwitchTarget = CarrierSwitchTarget(),
-    val unicom: CarrierSwitchTarget = CarrierSwitchTarget(),
-    val mobile: CarrierSwitchTarget = CarrierSwitchTarget(),
-    val custom: List<CarrierSwitchKeyword> = emptyList(),
-)
-
 /** Per-profile mappings. The app process writes; the service process deletes the file when its profile is deleted. */
 object CarrierSwitchStore {
     private val lock = Any()
