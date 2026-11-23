@@ -8,6 +8,7 @@ import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.service.custom.CarrierSwitch // CUSTOM #169
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,7 @@ class SuspendModule(service: Service) : Module<Unit>(service) {
                     profileLoaded.onReceive {
                         val current = service.getSystemService<PowerManager>()?.isInteractive ?: true
                         sendScreenState(current)
+                        CarrierSwitch.applyAfterProfileLoaded(service) // CUSTOM #169: reapply after each loaded profile
                     }
                 }
             }
