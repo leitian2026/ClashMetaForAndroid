@@ -23,16 +23,4 @@
     <string name="carrier_switch_default_target_label">节点：%1$s</string>
     <string name="carrier_switch_keyword_required">请输入关键词</string>
 
-    <string name="carrier_switch_identity_section">最近一次识别结果</string>
-    <string name="carrier_switch_identity_pending">尚未取得运营商识别结果。</string>
-    <string name="carrier_switch_identity_failed">运营商识别失败</string>
-    <string name="carrier_switch_identity_result">识别结果：%1$s</string>
-    <string name="carrier_switch_identity_unknown">运营商未知</string>
-    <string name="carrier_switch_identity_sources">多数判定来源：%1$s</string>
-    <string name="carrier_switch_identity_sim">识别来源：SIM 卡 MCC/MNC</string>
-    <string name="carrier_switch_identity_switched">切换结果：已切换到 %1$s</string>
-    <string name="carrier_switch_identity_missing_target">切换结果：未配置对应节点</string>
-    <string name="carrier_switch_identity_switch_failed">切换失败：%1$s</string>
-    <string name="carrier_switch_identity_not_run">切换结果：未执行</string>
-    <string name="carrier_switch_identity_no_switch">切换结果：尚无自动切换记录</string>
 </resources>
