@@ -6,7 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** CUSTOM (#17/#169): restore mappings are applied after restore, unless profile loading will do it. */
+/** Restore mappings after completion when a profile load will not apply them. */
 internal object RestoreCarrierSwitch {
     suspend fun restoreAndApply(
         context: Context,
