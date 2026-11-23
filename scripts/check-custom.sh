@@ -187,7 +187,6 @@ if [ -n "$noindex" ]; then
 fi
 
 # 7. Warn about very large Kotlin files; this is informational and never changes status.
-# 8. test sources vs workflow paths: compiled Kotlin sources and push-trigger paths must agree.
 big_limit=${BIG_FILE_LINES:-2500}
 case "$big_limit" in
   ''|*[!0-9]*) big_limit=2500 ;;
@@ -209,23 +208,16 @@ if [ -n "$big_files" ]; then
   echo "要改这些文件时，先沿现有分界拆出一块再加功能（AGENTS.md）。"
 fi
 
-# 8. test sources vs workflow paths
+# 8. Test sources vs workflow paths
 TEST_RUNNER=scripts/run-custom-tests.sh
 TEST_WORKFLOW=.github/workflows/test-custom.yaml
 if [ -f "$TEST_RUNNER" ] && [ -f "$TEST_WORKFLOW" ]; then
-  test_sources=$(grep -E '^[[:space:]]*"\$ROOT/.*\.kt"[[:space:]]*\\?if [ $status -eq 0 ]; then
-  mode="no '$UPSTREAM_REF' ref: loose check"
-  $have_upstream && mode="against $UPSTREAM_REF"
-  echo "OK ($mode): $(printf '%s\n' "$listed" | grep -c .) upstream files in the table, all hooks present, sizes and references fine."
-fi
-
-exit $status
- "$TEST_RUNNER" \
+  test_sources=$(grep -E '^[[:space:]]*"\$ROOT/[^"]+\.kt"[[:space:]]*\\?$' "$TEST_RUNNER" \
     | sed -E 's|^[[:space:]]*"\$ROOT/||; s|".*$||' | sort -u)
   workflow_sources=$(grep -E "^[[:space:]]*-[[:space:]]*'[^']+\.kt'[[:space:]]*$" "$TEST_WORKFLOW" \
     | sed -E "s|^[[:space:]]*-[[:space:]]*'([^']+)'[[:space:]]*$|\\1|" | sort -u)
-  missing_from_workflow=$(comm -23 <(printf '%s\\n' "$test_sources") <(printf '%s\\n' "$workflow_sources"))
-  not_compiled=$(comm -13 <(printf '%s\\n' "$test_sources") <(printf '%s\\n' "$workflow_sources"))
+  missing_from_workflow=$(comm -23 <(printf '%s\n' "$test_sources") <(printf '%s\n' "$workflow_sources"))
+  not_compiled=$(comm -13 <(printf '%s\n' "$test_sources") <(printf '%s\n' "$workflow_sources"))
   if [ -n "$missing_from_workflow" ] || [ -n "$not_compiled" ]; then
     echo "== test sources and test-custom.yaml paths disagree =="
     while IFS= read -r f; do
@@ -238,10 +230,10 @@ exit $status
   fi
 fi
 
-if [ $status -eq 0 ]; then
+if [ "$status" -eq 0 ]; then
   mode="no '$UPSTREAM_REF' ref: loose check"
   $have_upstream && mode="against $UPSTREAM_REF"
   echo "OK ($mode): $(printf '%s\n' "$listed" | grep -c .) upstream files in the table, all hooks present, sizes and references fine."
 fi
 
-exit $status
+exit "$status"
