@@ -29,6 +29,7 @@ object ErrorsText {
             if (identity.switchResult.isNotEmpty()) lines += context.getString(
                 R.string.network_identity_switch_success, identity.switchResult,
             )
+            if (identity.switchNotice.isNotEmpty()) lines += identity.switchNotice
             if (identity.hasIdentity) lines += context.getString(
                 R.string.network_identity_current, NetworkIdentityText.location(identity),
             )
