@@ -170,6 +170,6 @@
 #166｜测 IP 表与已保存 IP 表按综合指标标出前三名推荐 IP（橙色“推荐”标签
 #167｜配置检查页测 IP 表移除精简 / 完整显示列切换，始终显示完整列
 #168｜网络运营商识别：移动卡优先读取 MCC/MNC，其他情况绑定底层网络查询双接口
-#169｜按运营商自动切换节点：每次配置载入完成及恢复完成（未触发载入时）按当前运营商套用；手动换节点和载入时清除旧切换记录；已识别运营商但未配置节点时在首页和诊断页提示，不计错误；增加默认开启、跨进程持久化的全局开关，关闭后跳过所有自动套用。
+#169｜按运营商自动切换节点：每次配置载入完成及恢复完成（未触发载入时）按当前运营商套用；手动换节点和载入时清除旧切换记录；已识别运营商但未配置节点时在首页和诊断页提示，不计错误；增加默认开启、跨进程持久化的全局开关；自动任务串行执行并校验当前网络签名，旧任务不能覆盖新网络快照；匹配时跳过组名或节点名为空的规则。测试：CarrierSwitchMatcherTests.kt。
 #170｜订阅更新后显示变更摘要：仅保留非 File 订阅上一份 config.yaml，打开错误与诊断页时按需比较并显示新增 / 删除行数
-#171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商匹配；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug。测试：YamlLintTests.kt、YamlPairsTests.kt、TextSearchTests.kt、RestoreCarrierSwitchTests.kt、CarrierSwitchMatcherTests.kt
+#171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商匹配（含无效映射跳过及后续有效规则）；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug。测试：YamlLintTests.kt、YamlPairsTests.kt、TextSearchTests.kt、RestoreCarrierSwitchTests.kt、CarrierSwitchMatcherTests.kt
