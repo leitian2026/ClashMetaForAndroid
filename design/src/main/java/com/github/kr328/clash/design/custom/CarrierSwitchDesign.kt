@@ -150,27 +150,30 @@ class CarrierSwitchDesign(
     private fun identitySummary(): String {
         val current = identity ?: return context.getString(R.string.carrier_switch_identity_pending)
         val lines = mutableListOf<String>()
-        val result = when {
-            current.error.isNotEmpty() -> "识别失败"
-            current.operator.isNotEmpty() -> "识别结果：${current.operator}"
-            else -> "运营商未知"
+        lines += when {
+            current.error.isNotEmpty() -> context.getString(R.string.carrier_switch_identity_failed)
+            current.operator.isNotEmpty() -> context.getString(R.string.carrier_switch_identity_result, current.operator)
+            else -> context.getString(R.string.carrier_switch_identity_unknown)
         }
-        lines += result
         if (current.source.startsWith("online_consensus:")) {
             val sources = current.source.removePrefix("online_consensus:").split("+").joinToString("、")
-            lines += "多数判定来源：$sources"
+            lines += context.getString(R.string.carrier_switch_identity_sources, sources)
         } else if (current.source == "mobile_mcc_mnc") {
-            lines += "识别来源：SIM 卡 MCC/MNC"
+            lines += context.getString(R.string.carrier_switch_identity_sim)
         }
         if (current.diagnostic.isNotBlank()) lines += current.diagnostic
-        when {
-            current.switchResult.isNotBlank() -> lines += "切换结果：已切换到 ${current.switchResult}"
-            current.switchNotice.isNotBlank() -> lines += "切换结果：未配置对应节点"
-            current.switchError.isNotBlank() -> lines += "切换失败：${current.switchError}"
-            current.error.isNotEmpty() -> lines += "切换结果：未执行"
-            else -> lines += "切换结果：尚无自动切换记录"
+        lines += when {
+            current.switchResult.isNotBlank() ->
+                context.getString(R.string.carrier_switch_identity_switched, current.switchResult)
+            current.switchNotice.isNotBlank() ->
+                context.getString(R.string.carrier_switch_identity_missing_target)
+            current.switchError.isNotBlank() ->
+                context.getString(R.string.carrier_switch_identity_switch_failed, current.switchError)
+            current.error.isNotEmpty() ->
+                context.getString(R.string.carrier_switch_identity_not_run)
+            else -> context.getString(R.string.carrier_switch_identity_no_switch)
         }
-        return lines.joinToString("\n")
+        return lines.joinToString("\\n")
     }
 
     private fun fixedRow(parent: LinearLayout, key: String, title: Int, target: CarrierSwitchTarget) {
