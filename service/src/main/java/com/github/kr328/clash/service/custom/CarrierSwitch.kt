@@ -131,7 +131,7 @@ object CarrierSwitch {
         } catch (_: Exception) {
             null
         }
-        if (selectedNode == target.node) return
+        if (!CarrierSwitchMatcher.needsSwitch(selectedNode, target.node)) return
 
         if (!isCurrentIdentity(context, identity.signature)) return
         val running = StatusProvider.serviceRunning
