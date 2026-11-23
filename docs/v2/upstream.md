@@ -46,7 +46,6 @@
 |`design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt`|#57|低|subtext 的 setter 里，binding.subtextView.text = value 改成 binding.subtextView.text = com.github…|
 |`design/build.gradle.kts`|#87|低|增加 libs.kotlin.serialization.json 依赖，供配置检查页将最近一轮 IpTestReport 编码 / 解码为本地 JSON；不改插件、构建任务或其他依赖|
 
-|`service/src/main/java/com/github/kr328/clash/service/clash/module/ConfigurationModule.kt`|#169|低|配置成功并发送 ACTION_PROFILE_LOADED 后调用 CarrierSwitch.applyAfterProfileLoaded(service)；只恢复事件挂钩，不改上游载入失败即停止服务的逻辑。|
 
 ## 细节
 ### `.github/workflows/build-debug.yaml`
