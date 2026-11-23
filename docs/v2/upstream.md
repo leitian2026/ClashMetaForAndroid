@@ -1,7 +1,7 @@
 > 合并上游时，如果这里没写清楚，可以查旧文档 docs/custom/ 里对应编号的文件；查到的事实补回这里，写短。改代码、写文档不要照着旧文档做。
 # 上游文件合并清单
 
-只记录合并时需要恢复的上游挂钩。始终以上游新文件为底，按本表重新加挂钩；不确定时查对应旧详情核实，再把必要事实补回本文件。
+合并只记恢复挂钩；以上游新文件为底按表恢复。
 
 | 上游文件 | 对应功能编号 | 风险 | 冲突时怎么办 |
 |---|---|---|---|
@@ -47,55 +47,38 @@
 | `design/build.gradle.kts` | #87 | 低 | 增加 libs.kotlin.serialization.json 依赖，供配置检查页将最近一轮 IpTestReport 编码 / 解码为本地 JSON；不改插件、构建任务或其他依赖 |
 
 ## 细节
-
 ### `.github/workflows/build-debug.yaml`
 以上游为底，重加：只留 workflow_dispatch、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 -x :app:downloadGeoFiles）与上传、Checkout submodules 之后的 Apply mihomo patches 步骤（#20）、上传前的 Artifact name 步骤和上传步骤里的 name:（#40）、Apply mihomo patches 前的 Remove deleted custom files 步骤（#54）
-
 ### `core/src/main/golang/native/tunnel.go`
 重加 ipdelay.TestGroup(name) 和 queryTunnelState 里的 current 字段（CurrentSet()、currentNode / currentIp / currentCountry / currentIps / currentMore），以及 reach 字段（ipdelay.Reach(node)，#37）；#147 追加 reachReason / reachAt 两个 JSON 字段
-
 ### `design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt`
 以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合
-
 ### `design/src/main/res/layout/design_main.xml`
 以上游新版为底，按 #7 重做：新增变量 customIp、包住 App 名字并加红字 custom_geosite_notice、代理卡片 subtext 改成带 customIp、删掉代理卡片的 visibility；#8 在"日志"标签前加"连接"标签，#20 在它后面再加"底层连接"标签（Request.OpenMux），#21 在"日志"标签前再加"错误与诊断"标签（Request.OpenErrors），#22 在"错误与诊断"标签前再加"配置检查"标签（Request.OpenConfigCheck）；#32 在顶部（logo + App 名字）那一行末尾加右上角的 ImageView（@+id/custom_more，三点图标，48dp）；同时把包住 App 名字的 LinearLayout（#7 加的那层）改成 layout_width=0dp + layout_weight=1（，原来是 wrap_content，窄屏上名字占满宽度，三点被挤出屏幕）
-
 ### `design/src/main/res/layout/design_proxy.xml`
 顶部工具栏新增 carrier_switch_view，位于 ⚡ 左侧；返回栏的 layout_toStartOf 改为指向新图标；底部悬浮测速按钮不变。
-
 ### `design/src/main/java/com/github/kr328/clash/design/MainDesign.kt`
 重加 customCards、setCustomCards()；#146 setCustomIssues(IssuesDisplayState)；Request 枚举加 OpenConnections（#8）、OpenMux（#20）、OpenErrors（#21）、OpenConfigCheck（#22）；#32 重加 customMenu = MainCustomMenu(context, binding.root) 和它的 import
-
 ### `design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt`
 增加 carrier_switch_view 点击挂钩，通过 setClassName 打开运营商映射设置页；运营商入口、测速入口和更多菜单另有三处长按提示。业务逻辑放在新建的 CarrierSwitchActivity / CarrierSwitchDesign / 服务侧 CarrierSwitch。
-
 ### `app/src/main/java/com/github/kr328/clash/MainActivity.kt`
 重加 fetch() 里的 setCustomCards(...)、customNodeIpEvents() 和 select 里的 customNodeIp.onReceive 分支；OpenConnections 分支（#8）、OpenMux 分支和 import（#20）、OpenErrors 分支和 import（#21）、OpenConfigCheck 分支和 import（#22）；#35 流量定时器那一支的条件由 clashRunning 改成 clashRunning && activityStarted
-
 ### `service/src/main/java/com/github/kr328/clash/service/clash/module/SuspendModule.kt`
 复用已有亮灭屏广播，在启动、屏幕状态变化和配置载入后通过 SORT_ISSUES 推送 isInteractive；不新增屏幕监听
-
 ### `service/src/main/java/com/github/kr328/clash/service/ClashManager.kt`
 queryTunnelState() 开头加 NodeIpNotifier.start(context)；加 queryCustomConnections(sort: Int, filter: String) / closeCustomConnection(id: String) 两个实现（#8 #15）；#158 通过现有 Clash.subscribeLogcat() 和 ILogObserver 转发下载进度事件；#169 增加 applyCarrierSwitch()，调用服务侧同一套运营商映射逻辑。
-
 ### `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt`
 重加 queryCustomConnections(sort: Int, filter: String): String 和 closeCustomConnection(id: String): Boolean；#158 增加带 ILogObserver 参数的下载进度请求，复用既有 logcat 事件接口；#169 增加设置保存后应用当前缓存映射的远程方法。
-
 ### `app/src/main/AndroidManifest.xml`
 在 LogsActivity 前重加 .custom.ConnectionsActivity（#8）、.custom.BackupActivity（#17，必须带 android:theme="@style/BackupTranslucentTheme"，否则页面不透明，对话框后面是黑的）、.custom.MuxActivity（#20）、.custom.ErrorsActivity（#21）、.custom.ConfigCheckActivity（#22）、.custom.SavedIpActivity（#156，标签 @string/saved_ip_title）和 .custom.EditorActivity（#46，必须带 configChanges 里的 orientation|screenSize|...，否则转一下屏页面就重建，没保存的文字丢了）的 <activity>；#169 登记 .custom.CarrierSwitchActivity
-
 ### `design/src/main/res/layout/adapter_profile.xml`
 以上游新版为底：<data> 里加变量 edit；时间 TextView（elapsed_view）layout_marginEnd 改 20dp、layout_toStartOf 改成 @id/edit_view；在它和那条 2dp 竖线之间加 FrameLayout（@+id/edit_view，铅笔图标 ic_baseline_edit，onClick="@{edit}"）
-
 ### `core/src/main/golang/go.mod`
 以上游版本的依赖选择为准，将 github.com/metacubex/http、github.com/metacubex/quic-go、github.com/metacubex/tls 和 golang.org/x/sys 从间接依赖提升到直接 require；保持已核对的版本（http v0.1.8、项目锁定的 quic-go、tls v0.1.9、x/sys v0.30.0），不擅自升级。若上游更新这些依赖，先重新核对 http3 API 和模块版本，再同步调整 go.sum。
-
 ### `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`
 apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }（#27，保存失败时报出是哪一行）；② 在 context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively() 前一行加 if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；delete() 里清理 ConfigHistory（#56）、ConfigUpdateSnapshot（#170）后调用 CarrierSwitchStore.delete(context, uuid) 清理同 UUID 的运营商映射（#169）；加对应 import
-
 ### `build.gradle.kts`
 重加 queryConfigProperty 后面的 customRev（读 CUSTOM.md 的"当前版本："那一行，取最后的 r<数字>），release 构建类型里的 versionNameSuffix = customRev，debug 构建类型里的 versionNameSuffix 改成 ".debug$customRev"（后缀必须放在构建类型里，才会排在变体后缀 .Alpha / .Meta 的后面）
-
 ### `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt`
 subtext 的 setter 里，binding.subtextView.text = value 改成 binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)（首页代理卡片的 ✓ 绿 / ✗ 红）
 
