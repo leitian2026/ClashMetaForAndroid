@@ -151,6 +151,35 @@ if [ -n "$noindex" ]; then
   status=1
 fi
 
+# 7. Warn about very large Kotlin files; this is informational and never changes status.
+big_limit=${BIG_FILE_LINES:-2500}
+case "$big_limit" in
+  ''|*[!0-9]*) big_limit=2500 ;;
+esac
+big_files=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [[ "$f" == *.kt ]] || continue
+  [[ "$f" == core/src/foss/* ]] && continue
+  [ -f "$f" ] || continue
+  line_count=$(wc -l < "$f" | tr -d '[:space:]')
+  if [ "$line_count" -gt "$big_limit" ]; then
+    big_files="$big_files$f: $line_count"
+  mode="no '$UPSTREAM_REF' ref: loose check"
+  $have_upstream && mode="against $UPSTREAM_REF"
+  echo "OK ($mode): $(printf '%s\n' "$listed" | grep -c .) upstream files in the table, all hooks present, sizes and references fine."
+fi
+
+exit $status
+\n'
+  fi
+done <<< "$files"
+if [ -n "$big_files" ]; then
+  echo "== warning: Kotlin file over $big_limit lines (not an error) =="
+  printf '%s' "$big_files"
+  echo "要改这些文件时，先沿现有分界拆出一块再加功能（AGENTS.md）。"
+fi
+
 if [ $status -eq 0 ]; then
   mode="no '$UPSTREAM_REF' ref: loose check"
   $have_upstream && mode="against $UPSTREAM_REF"
