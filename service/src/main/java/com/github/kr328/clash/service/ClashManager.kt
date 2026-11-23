@@ -107,6 +107,7 @@ class ClashManager(private val context: Context) : IClashManager,
 
             if (it) {
                 SelectionDao().setSelected(Selection(current, group, name))
+                CarrierSwitch.clearSwitchResult(context) // CUSTOM #169: manual selection invalidates the old auto result
             } else {
                 SelectionDao().removeSelected(current, group)
             }
