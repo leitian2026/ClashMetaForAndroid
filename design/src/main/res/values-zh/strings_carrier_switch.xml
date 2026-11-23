@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="carrier_switch_title">运营商自动切换</string>
+    <string name="carrier_switch_identity_section">最近一次识别结果</string>
+    <string name="carrier_switch_identity_empty">暂无识别明细</string>
     <string name="carrier_switch_fixed_section">固定运营商</string>
     <string name="carrier_switch_telecom">电信</string>
     <string name="carrier_switch_unicom">联通</string>
