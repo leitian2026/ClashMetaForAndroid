@@ -12,7 +12,29 @@ object NetworkIdentityStore {
     private fun file(context: Context) = AtomicFile(File(context.applicationContext.filesDir, FILE_NAME))
 
     fun read(context: Context): NetworkIdentitySnapshot? = synchronized(lock) {
-        try {
+        readUnlocked(context)
+    }
+
+    fun write(context: Context, value: NetworkIdentitySnapshot) = synchronized(lock) {
+        writeUnlocked(context, value)
+    }
+
+    /** Write a switch result only while the stored identity still belongs to the same network. */
+    fun writeIfSignature(
+        context: Context,
+        expectedSignature: String,
+        value: NetworkIdentitySnapshot,
+    ): Boolean = synchronized(lock) {
+        val current = readUnlocked(context) ?: return@synchronized false
+        if (current.signature != expectedSignature || value.signature != expectedSignature) {
+            return@synchronized false
+        }
+        writeUnlocked(context, value)
+        true
+    }
+
+    private fun readUnlocked(context: Context): NetworkIdentitySnapshot? {
+        return try {
             val json = JSONObject(String(file(context).readFully(), Charsets.UTF_8))
             NetworkIdentitySnapshot(
                 signature = json.optString("signature"),
@@ -30,7 +52,7 @@ object NetworkIdentityStore {
         } catch (_: Exception) { null }
     }
 
-    fun write(context: Context, value: NetworkIdentitySnapshot) = synchronized(lock) {
+    private fun writeUnlocked(context: Context, value: NetworkIdentitySnapshot) {
         val atomic = file(context)
         var stream: java.io.FileOutputStream? = null
         try {
