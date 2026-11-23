@@ -5,7 +5,6 @@ import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.service.StatusProvider
-import com.github.kr328.clash.service.custom.CarrierSwitch // CUSTOM #169
 import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
@@ -69,7 +68,6 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
                 StatusProvider.currentProfile = active.name
 
                 service.sendProfileLoaded(current)
-                CarrierSwitch.applyAfterProfileLoaded(service) // CUSTOM #169: reapply after every successful load
 
                 Log.d("Profile ${active.name} loaded")
             } catch (e: Exception) {
