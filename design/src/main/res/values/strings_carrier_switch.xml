@@ -22,4 +22,17 @@
     <string name="carrier_switch_home_result">Automatically switched to: %1$s</string>
     <string name="carrier_switch_default_target_label">Node: %1$s</string>
     <string name="carrier_switch_keyword_required">Enter a keyword</string>
+
+    <string name="carrier_switch_identity_section">Latest identification</string>
+    <string name="carrier_switch_identity_pending">No carrier identification result yet.</string>
+    <string name="carrier_switch_identity_failed">Carrier identification failed</string>
+    <string name="carrier_switch_identity_result">Identified carrier: %1$s</string>
+    <string name="carrier_switch_identity_unknown">Carrier unknown</string>
+    <string name="carrier_switch_identity_sources">Consensus sources: %1$s</string>
+    <string name="carrier_switch_identity_sim">Source: SIM MCC/MNC</string>
+    <string name="carrier_switch_identity_switched">Switch result: switched to %1$s</string>
+    <string name="carrier_switch_identity_missing_target">Switch result: no node is configured</string>
+    <string name="carrier_switch_identity_switch_failed">Switch failed: %1$s</string>
+    <string name="carrier_switch_identity_not_run">Switch result: not run</string>
+    <string name="carrier_switch_identity_no_switch">Switch result: no automatic switch recorded</string>
 </resources>
