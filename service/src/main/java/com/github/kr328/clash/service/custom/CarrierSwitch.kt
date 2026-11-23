@@ -10,6 +10,7 @@ import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.service.StatusProvider
+import com.github.kr328.clash.service.R
 import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
