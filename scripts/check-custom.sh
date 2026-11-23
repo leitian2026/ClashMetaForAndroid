@@ -112,6 +112,41 @@ if [ -n "$toobig" ]; then
   status=1
 fi
 
+# docs/v2 limits and cross-reference check
+v2_status=0
+for f in docs/v2/upstream.md docs/v2/rules.md docs/v2/changes.md; do
+  if [ ! -f "$f" ]; then
+    echo "== required document missing: $f =="
+    v2_status=1
+  fi
+done
+if [ -f docs/v2/upstream.md ] && [ -f docs/v2/rules.md ] && [ -f docs/v2/changes.md ]; then
+  check_v2_size() {
+    local f="$1" limit="$2" size
+    size=$(wc -c < "$f" | tr -d '[:space:]')
+    if [ "$size" -gt "$limit" ]; then
+      echo "== docs/v2 file over target size: $f: $size bytes (limit $limit) =="
+      v2_status=1
+    fi
+  }
+  check_v2_size docs/v2/upstream.md 15360
+  check_v2_size docs/v2/rules.md 8192
+  check_v2_size docs/v2/changes.md 20480
+  missing_v2=""
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    if ! grep -q "^#$n｜" docs/v2/changes.md; then
+      missing_v2="$missing_v2#$n (missing from docs/v2/changes.md); "
+    fi
+  done < <(grep -oE '#[0-9]+[a-z]?' docs/v2/upstream.md | sed 's/^#//' | sort -u)
+  if [ -n "$missing_v2" ]; then
+    echo "== upstream feature references missing from changes.md =="
+    printf '%s\n' "$missing_v2"
+    v2_status=1
+  fi
+fi
+if [ "$v2_status" -ne 0 ]; then status=1; fi
+
 # 5. every CUSTOM.md #N reference in the code has a detail file
 nocode=""
 refs=$(printf '%s\n' "$files" \

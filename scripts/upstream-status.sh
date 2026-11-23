@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# CUSTOM (CUSTOM.md #41): how far the custom branch is behind the upstream project, and which of the new
-# upstream changes touch files that CUSTOM.md lists (those are where a merge can conflict).
+# CUSTOM (docs/v2/changes.md #41): how far the custom branch is behind the upstream project, and which of the new
+# upstream changes touch files listed in docs/v2/upstream.md (those are where a merge can conflict).
 #
 #   bash scripts/upstream-status.sh
 #
@@ -12,11 +12,13 @@ set -u
 
 cd "$(dirname "$0")/.." || exit 2
 
-DOC=CUSTOM.md
+DOC=docs/v2/upstream.md
+BASELINE_DOC=CUSTOM.md
 UPSTREAM_URL=${UPSTREAM_URL:-https://github.com/MetaCubeX/ClashMetaForAndroid.git}
 UPSTREAM_BRANCH=${UPSTREAM_BRANCH:-main}
 
-[ -f "$DOC" ] || { echo "CUSTOM.md not found"; exit 2; }
+[ -f "$BASELINE_DOC" ] || { echo "CUSTOM.md not found"; exit 2; }
+[ -f "$DOC" ] || { echo "docs/v2/upstream.md not found"; exit 2; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git checkout"; exit 2; }
 
 if [ -n "${UPSTREAM_REF:-}" ]; then
@@ -32,9 +34,9 @@ fi
 base=$(git merge-base HEAD "$target" 2>/dev/null) || { echo "no common history with $label (fetch the full history)"; exit 2; }
 
 behind=$(git rev-list --count "$base..$target")
-baseline=$(grep -m1 -oE '[0-9a-f]{40}' "$DOC")
+baseline=$(grep -m1 -oE '[0-9a-f]{40}' "$BASELINE_DOC")
 
-# files of the table of CUSTOM.md (first backticked item of every row that starts with "| `")
+# files of the table of docs/v2/upstream.md (first backticked item of every row that starts with "| `")
 listed=$(grep -E '^\| `' "$DOC" | sed -E 's/^\| `([^`]+)`.*/\1/' | sort -u)
 changed=$(git diff --name-only "$base" "$target" | sort -u)
 touched=$(comm -12 <(printf '%s\n' "$listed") <(printf '%s\n' "$changed"))
@@ -58,7 +60,7 @@ report() {
   fi
 
   echo "- files they change: $(printf '%s\n' "$changed" | grep -c .)"
-  echo "- of those, files listed in the table of CUSTOM.md: **$(printf '%s\n' "$touched" | grep -c .)**"
+  echo "- of those, files listed in the table of docs/v2/upstream.md: **$(printf '%s\n' "$touched" | grep -c .)**"
 
   if [ -n "$core_moved" ]; then
     echo "- the mihomo core (submodule) moves: run \"Check Custom\" after the merge, the patches in patches/mihomo may need a rebase"
