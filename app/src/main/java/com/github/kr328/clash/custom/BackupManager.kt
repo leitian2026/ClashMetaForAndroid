@@ -278,7 +278,6 @@ object BackupManager {
 
         val idMap = HashMap<String, UUID>()
         val failed = ArrayList<String>()
-        val removed = HashSet<UUID>()
         val deleted = ArrayList<String>()
         var restored = 0
         var skipped = 0
@@ -299,7 +298,7 @@ object BackupManager {
             val interval = item.optLong("interval")
             val ageKey = if (item.isNull("ageSecretKey")) null else item.getString("ageSecretKey")
             val same = existing.firstOrNull {
-                it.uuid !in removed && it.name == name && it.type == type && it.source == source
+                it.name == name && it.type == type && it.source == source
             }
 
             if (same != null && !(replaceFiles && type == Profile.Type.File)) {
@@ -371,7 +370,7 @@ object BackupManager {
             backupActive
         } else null
 
-        if (replacementActive != null && (replace || active == null || active.uuid in candidateIds)) {
+        if (replacementActive != null && replacementActive != active?.uuid && (replace || active == null || active.uuid in candidateIds)) {
             try {
                 withProfile {
                     queryByUUID(replacementActive)?.takeIf { it.imported }?.let { setActive(it) }
@@ -394,7 +393,6 @@ object BackupManager {
                 }
                 try {
                     withProfile { delete(profile.uuid) }
-                    removed.add(profile.uuid)
                     deleted.add(profile.name)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
