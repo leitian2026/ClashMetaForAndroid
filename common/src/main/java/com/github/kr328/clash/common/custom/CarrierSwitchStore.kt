@@ -44,7 +44,6 @@ object CarrierSwitchStore {
                 .put("keyword", it.keyword)
                 .put("group", it.group)
                 .put("node", it.node)
-                .put("region", it.region)
                 .put("region", it.region))
         }
         put("telecom", target(value.telecom))
