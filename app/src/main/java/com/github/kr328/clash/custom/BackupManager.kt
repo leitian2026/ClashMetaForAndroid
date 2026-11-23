@@ -7,6 +7,7 @@ import com.github.kr328.clash.design.custom.GeoSiteDownloader
 import com.github.kr328.clash.design.custom.SavedIpStore
 import com.github.kr328.clash.design.custom.SavedIpRestoreStat
 import com.github.kr328.clash.common.custom.CarrierSwitchStore // CUSTOM (CUSTOM.md #17 #169)
+import com.github.kr328.clash.common.custom.CarrierSwitchConfig
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.model.Profile
@@ -285,6 +286,7 @@ object BackupManager {
         var carrierKept = 0
         var carrierFailed = 0
         var activeContentReplaced = false
+        val carrierHandled = HashSet<String>()
 
         // Import or update every backup profile before deleting anything. The currently active
         // imported directory remains intact until ProfileProcessor has validated the replacement.
@@ -307,6 +309,12 @@ object BackupManager {
             }
 
             val uuid = same?.uuid
+            val carrierJson = item.optJSONObject("carrier")
+            val previousCarrier = if (same != null && carrierJson != null) CarrierSwitchStore.read(context, same.uuid) else CarrierSwitchConfig()
+            val shouldWriteCarrier = carrierJson != null &&
+                (same == null || replace || CarrierSwitchStore.isEmpty(previousCarrier))
+            var carrierWritten = false
+            if (carrierJson != null) carrierHandled.add(oldId)
             var target: UUID? = null
             try {
                 target = uuid ?: withProfile { create(type, name, source, ageKey) }
@@ -325,13 +333,26 @@ object BackupManager {
                     }
                 }
 
+                if (shouldWriteCarrier) {
+                    carrierWritten = CarrierSwitchStore.write(context, targetId, CarrierSwitchStore.decode(carrierJson!!))
+                    if (!carrierWritten) carrierFailed++
+                }
                 withProfile { commit(targetId, null) }
+                if (carrierWritten) carrierRestored++
+                else if (carrierJson != null && same != null && !shouldWriteCarrier) carrierKept++
                 idMap[oldId] = targetId
                 restored++
                 if (same != null && active?.uuid == targetId) activeContentReplaced = true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (carrierWritten) {
+                    if (same != null && !CarrierSwitchStore.isEmpty(previousCarrier)) {
+                        CarrierSwitchStore.write(context, same.uuid, previousCarrier)
+                    } else {
+                        target?.let { CarrierSwitchStore.delete(context, it) }
+                    }
+                }
                 target?.let { failedUuid -> runCatching { withProfile { release(failedUuid) } } }
                 failed.add(name)
             }
@@ -386,8 +407,10 @@ object BackupManager {
         // Map UUIDs only after the subscription outcomes are known; same-name local mappings are preserved.
         for (i in 0 until backup.profiles.length()) {
             val item = backup.profiles.getJSONObject(i)
+            val oldId = item.getString("uuid")
+            if (oldId in carrierHandled) continue
             val carrier = item.optJSONObject("carrier") ?: continue
-            val uuid = idMap[item.getString("uuid")] ?: continue
+            val uuid = idMap[oldId] ?: continue
             val wasAlreadyOnDevice = existing.any { it.uuid == uuid }
             val local = CarrierSwitchStore.read(context, uuid)
             if (!wasAlreadyOnDevice || replace || CarrierSwitchStore.isEmpty(local)) {
