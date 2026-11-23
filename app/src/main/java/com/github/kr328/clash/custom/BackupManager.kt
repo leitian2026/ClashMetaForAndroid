@@ -69,6 +69,7 @@ object BackupManager {
         val carrierFailed: Int = 0,
         val activeProfileChanged: Boolean = false,
         val activeProfileUuid: String? = null,
+        val configurationReloadRequested: Boolean = false,
     )
 
     // ---- export -------------------------------------------------------------------------------
@@ -257,7 +258,6 @@ object BackupManager {
         applySettings: Boolean = true,
         replaceFiles: Boolean = replace,
     ): RestoreResult {
-        // Validate optional saved-IP data before changing subscriptions or settings. Older backups omit it.
         val savedIps = backup.manifest.optJSONObject("savedIps")?.toString()
         savedIps?.let { SavedIpStore.validateBackup(it) }
 
@@ -265,43 +265,29 @@ object BackupManager {
             applySettings && restoreSettings(context, backup.manifest)
         }
         val override = withContext(Dispatchers.IO) {
-            if (!applySettings || backup.manifest.isNull("override")) {
-                false
-            } else {
-                writeOverride(context, backup.manifest.getString("override"))
-            }
+            if (!applySettings || backup.manifest.isNull("override")) false
+            else writeOverride(context, backup.manifest.getString("override"))
         }
 
         val existing = withProfile { queryAll() }
         val active = withProfile { queryActive() }
+        val deleteCandidates = if (replace) existing.filter {
+            it.imported && it.type != Profile.Type.External && !inBackup(backup, it)
+        } else emptyList()
 
-        val idMap = HashMap<String, UUID>() // uuid in the backup -> uuid on this device
+        val idMap = HashMap<String, UUID>()
         val failed = ArrayList<String>()
-        val removed = HashSet<UUID>() // CUSTOM.md #32: deleted from this device by a replace
+        val removed = HashSet<UUID>()
         val deleted = ArrayList<String>()
         var restored = 0
         var skipped = 0
         var carrierRestored = 0
         var carrierKept = 0
         var carrierFailed = 0
+        var activeContentReplaced = false
 
-        // CUSTOM.md #32: a replace makes this device look like the backup: subscriptions that are not
-        // in the backup are removed (the user was told in the confirmation, and a safety copy was made)
-        if (replace) {
-            existing.filter { it.imported && it.type != Profile.Type.External && !inBackup(backup, it) }
-                .forEach {
-                    try {
-                        withProfile { delete(it.uuid) }
-                        removed.add(it.uuid)
-                        deleted.add(it.name)
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        failed.add(it.name)
-                    }
-                }
-        }
-
+        // Import or update every backup profile before deleting anything. The currently active
+        // imported directory remains intact until ProfileProcessor has validated the replacement.
         for (i in 0 until backup.profiles.length()) {
             val item = backup.profiles.getJSONObject(i)
             val oldId = item.getString("uuid")
@@ -310,62 +296,99 @@ object BackupManager {
             val source = item.getString("source")
             val interval = item.optLong("interval")
             val ageKey = if (item.isNull("ageSecretKey")) null else item.getString("ageSecretKey")
-
-            var same = existing.firstOrNull {
+            val same = existing.firstOrNull {
                 it.uuid !in removed && it.name == name && it.type == type && it.source == source
             }
 
-            // a replace: a file subscription has no address to download from again, so the backup's copy wins
-            if (same != null && replaceFiles && type == Profile.Type.File) {
-                val sameId = same.uuid
-
-                try {
-                    withProfile { delete(sameId) }
-                    removed.add(sameId)
-                    same = null
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // cannot delete it: keep the one on this device
-                }
-            }
-
-            if (same != null) {
+            if (same != null && !(replaceFiles && type == Profile.Type.File)) {
                 idMap[oldId] = same.uuid
                 skipped++
                 continue
             }
 
+            val uuid = same?.uuid
             try {
-                val uuid = withProfile { create(type, name, source, ageKey) }
+                val target = uuid ?: withProfile { create(type, name, source, ageKey) }
+                withProfile { patch(target, name, source, interval, ageKey) }
 
                 withContext(Dispatchers.IO) {
                     val from = File(backup.root, PROFILES + oldId)
-
-                    if (from.isDirectory) {
-                        from.copyRecursively(context.pendingDir.resolve(uuid.toString()), overwrite = true)
+                    if (type == Profile.Type.File) {
+                        if (!from.isDirectory) throw BackupException("missing file subscription data: $name")
+                        val pending = context.pendingDir.resolve(target.toString())
+                        pending.deleteRecursively()
+                        if (!from.copyRecursively(pending, overwrite = true)) {
+                            throw BackupException("cannot stage file subscription: $name")
+                        }
+                    } else if (uuid == null && from.isDirectory) {
+                        from.copyRecursively(context.pendingDir.resolve(target.toString()), overwrite = true)
                     }
                 }
 
-                withProfile {
-                    patch(uuid, name, source, interval, ageKey)
-                    // a subscription is downloaded again here, so this needs network; when it fails
-                    // the profile stays pending and can be updated by hand on the profiles page
-                    commit(uuid, null)
-                }
-
-                idMap[oldId] = uuid
+                withProfile { commit(target, null) }
+                idMap[oldId] = target
                 restored++
+                if (same != null && active?.uuid == target) activeContentReplaced = true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (uuid == null) {
+                    // A failed new import must not leave an unusable pending profile behind.
+                    runCatching { withProfile { release(idMap[oldId] ?: UUID.fromString(oldId)) } }
+                } else {
+                    runCatching { withProfile { release(uuid) } }
+                }
                 failed.add(name)
             }
         }
 
-        // CUSTOM (CUSTOM.md #17 #169): restore carrier mappings only after the old backup UUIDs
-        // have been translated through idMap. Existing same-name subscriptions keep local mappings unless
-        // the local mapping is empty or this is a replace restore; newly created subscriptions take the backup.
+        // Resolve the replacement active profile before removing old profiles. Prefer the backup's
+        // active choice; otherwise retain the current active profile or choose another surviving one.
+        val backupActive = if (!backup.manifest.isNull("activeProfile")) {
+            idMap[backup.manifest.getString("activeProfile")]
+        } else null
+        val candidateIds = deleteCandidates.mapTo(HashSet()) { it.uuid }
+        val survivingCurrent = active?.uuid?.takeUnless { it in candidateIds }
+        val replacementActive = if (replace) {
+            backupActive ?: survivingCurrent ?: idMap.values.firstOrNull { it !in candidateIds }
+        } else if (active == null) {
+            backupActive
+        } else null
+
+        if (replacementActive != null && (replace || active == null || active.uuid in candidateIds)) {
+            try {
+                withProfile {
+                    queryByUUID(replacementActive)?.takeIf { it.imported }?.let { setActive(it) }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep the existing active subscription; deletion below will protect it if needed.
+            }
+        }
+
+        // Only now remove subscriptions absent from the backup. Never delete the active profile
+        // unless another imported profile has already been made active.
+        if (replace) {
+            val currentActive = withProfile { queryActive() }?.uuid
+            for (profile in deleteCandidates) {
+                if (profile.uuid == currentActive && replacementActive == null) {
+                    failed.add("${profile.name}（当前启用且没有替代订阅，未删除）")
+                    continue
+                }
+                try {
+                    withProfile { delete(profile.uuid) }
+                    removed.add(profile.uuid)
+                    deleted.add(profile.name)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    failed.add(profile.name)
+                }
+            }
+        }
+
+        // Map UUIDs only after the subscription outcomes are known; same-name local mappings are preserved.
         for (i in 0 until backup.profiles.length()) {
             val item = backup.profiles.getJSONObject(i)
             val carrier = item.optJSONObject("carrier") ?: continue
@@ -373,18 +396,12 @@ object BackupManager {
             val wasAlreadyOnDevice = existing.any { it.uuid == uuid }
             val local = CarrierSwitchStore.read(context, uuid)
             if (!wasAlreadyOnDevice || replace || CarrierSwitchStore.isEmpty(local)) {
-                if (CarrierSwitchStore.write(context, uuid, CarrierSwitchStore.decode(carrier))) {
-                    carrierRestored++
-                } else {
-                    carrierFailed++
-                }
-            } else {
-                carrierKept++
-            }
+                if (CarrierSwitchStore.write(context, uuid, CarrierSwitchStore.decode(carrier))) carrierRestored++
+                else carrierFailed++
+            } else carrierKept++
         }
 
-        // CUSTOM.md #70: the pinned history versions: what the backup has replaces what is pinned on this device (no
-        // merge). A backup without the "pinned" key (made before this existed) leaves the device's pins alone.
+        // Pinned history is restored after UUID translation and after profile replacement succeeds.
         withContext(Dispatchers.IO) {
             for (i in 0 until backup.profiles.length()) {
                 val item = backup.profiles.getJSONObject(i)
@@ -392,41 +409,20 @@ object BackupManager {
                 val uuid = idMap[item.getString("uuid")] ?: continue
                 val oldId = item.getString("uuid")
                 val versions = ArrayList<Pair<Long, ByteArray>>()
-
                 for (k in 0 until ids.length()) {
                     val at = ids.optLong(k)
                     val file = File(backup.root, "history/$oldId/$at.yaml")
-
                     if (at > 0 && file.isFile) versions.add(at to file.readBytes())
                 }
-
                 ConfigHistory.replacePinned(context, uuid, versions)
             }
         }
 
-        // the profile that was active gets active again, but only when none is active on this device
-        // (a replace, CUSTOM.md #32, also takes the backup's choice when one is active here)
-        var restoredActiveUuid = active?.uuid?.takeUnless { it in removed }
-        if ((replace || active == null || active.uuid in removed) && !backup.manifest.isNull("activeProfile")) {
-            idMap[backup.manifest.getString("activeProfile")]?.let { id ->
-                try {
-                    withProfile {
-                        queryByUUID(id)?.takeIf { it.imported }?.let {
-                            setActive(it)
-                            restoredActiveUuid = it.uuid
-                        }
-                    }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // not fatal: the user can pick it
-                }
-            }
-        }
+        val restoredActiveUuid = withProfile { queryActive()?.uuid }
         val activeProfileChanged = active?.uuid != restoredActiveUuid
-
-        // Saved IPs are user data, so restore them even when cloud restore keeps device settings.
-        val savedIpStat = savedIps?.let { SavedIpStore.restoreBackup(context, it, merge = !replace) } // CUSTOM (CUSTOM.md #156 #17): ordinary restore merges; replace rollback overwrites
+        val savedIpStat = savedIps?.let {
+            SavedIpStore.restoreBackup(context, it, merge = !replace)
+        }
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
@@ -434,6 +430,7 @@ object BackupManager {
             restored, skipped, failed, settings, override, deleted, savedIpStat,
             carrierRestored, carrierKept, carrierFailed,
             activeProfileChanged, restoredActiveUuid?.toString(),
+            activeProfileChanged || activeContentReplaced,
         )
     }
 
