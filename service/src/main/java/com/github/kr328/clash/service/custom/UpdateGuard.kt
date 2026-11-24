@@ -17,7 +17,6 @@ object UpdateGuard {
                 if (previous == null || !currentFile.isFile ||
                     currentFile.length() <= 0L || currentFile.length() > ConfigUpdateSnapshot.MAX_BYTES
                 ) {
-                    UpdateGuardStore.delete(context, uuid)
                     return@Thread
                 }
 
