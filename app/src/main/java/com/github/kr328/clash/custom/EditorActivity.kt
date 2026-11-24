@@ -116,7 +116,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
                 EditorDesign.Request.Rename -> {
                     val (text, offset) = design.renameContext()
-                    if (!design.replaceWholeText(text)) {
+                    if (text.length > 150_000 || text.count { it == '\\n' } >= 3000) {
                         design.toast(getString(R.string.editor_rename_large_unsupported))
                     } else {
                         EditorRenameFlow.show(this, text, offset) { replacement, plan ->
