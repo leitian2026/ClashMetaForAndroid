@@ -14,7 +14,8 @@ data class NetworkIdentitySnapshot(
     val switchResult: String = "",
     val switchError: String = "",
     val switchNotice: String = "",
+    val switchMissing: String = "",
 ) {
     val hasIdentity: Boolean get() = operator.isNotEmpty() || province.isNotEmpty() || city.isNotEmpty()
-    val hasNetworkError: Boolean get() = error.isNotEmpty() || switchError.isNotEmpty()
+    val hasNetworkError: Boolean get() = error.isNotEmpty() || switchError.isNotEmpty() || switchMissing.isNotEmpty()
 }
