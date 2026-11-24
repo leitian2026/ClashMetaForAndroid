@@ -17,9 +17,11 @@ data class UpdateGuardRecord(
 object UpdateGuardStore {
     private val lock = Any()
 
-    private fun file(context: Context, uuid: UUID) = AtomicFile(
-        File(context.applicationContext.filesDir, "custom/update_guard/$uuid.json"),
-    )
+    private fun file(context: Context, uuid: UUID): AtomicFile {
+        val directory = File(context.applicationContext.filesDir, "custom/update_guard")
+        directory.mkdirs()
+        return AtomicFile(File(directory, "$uuid.json"))
+    }
 
     fun read(context: Context, uuid: UUID): UpdateGuardRecord? = synchronized(lock) {
         try {
