@@ -82,12 +82,12 @@ class SavedIpDesign(
         SavedIpFilterState.restore(savedState)
     }
     private val density = context.resources.displayMetrics.density
-    private val colorText = themeColor(android.R.attr.textColorPrimary, Color.BLACK)
+    private val colorText = savedIpThemeColor(context, android.R.attr.textColorPrimary, Color.BLACK)
     // Match the explicit color source used by the config-check page's Material text buttons.
-    private val colorLink = themeColor(com.google.android.material.R.attr.colorPrimary, Color.BLUE)
-    private val colorMuted = themeColor(android.R.attr.textColorSecondary, Color.GRAY)
-    private val colorSurface = themeColor(com.google.android.material.R.attr.colorSurface, Color.WHITE)
-    private val colorDivider = themeColor(android.R.attr.colorControlHighlight, 0x22000000)
+    private val colorLink = savedIpThemeColor(context, com.google.android.material.R.attr.colorPrimary, Color.BLUE)
+    private val colorMuted = savedIpThemeColor(context, android.R.attr.textColorSecondary, Color.GRAY)
+    private val colorSurface = savedIpThemeColor(context, com.google.android.material.R.attr.colorSurface, Color.WHITE)
+    private val colorDivider = savedIpThemeColor(context, android.R.attr.colorControlHighlight, 0x22000000)
 
     override val root = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -104,7 +104,7 @@ class SavedIpDesign(
     // CUSTOM.md #163: render one complete table per expanded operator (maximum 300 newly saved IPs).
     private val operatorContent = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private val operatorList = ScrollView(context).apply {
-        setPadding(dp(16), dp(8), dp(16), dp(24))
+        setPadding(savedIpDp(density, 16), savedIpDp(density, 8), savedIpDp(density, 16), savedIpDp(density, 24))
         clipToPadding = false
         addView(operatorContent, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
@@ -113,7 +113,7 @@ class SavedIpDesign(
         orientation = LinearLayout.VERTICAL
         visibility = View.GONE
         setBackgroundColor(colorSurface)
-        elevation = dp(4).toFloat()
+        elevation = savedIpDp(density, 4).toFloat()
     }
     private val operatorListFrame = FrameLayout(context).apply {
         addView(operatorList, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -125,12 +125,12 @@ class SavedIpDesign(
         textSize = 14f
         setHint(R.string.saved_ip_search_hint)
         inputType = InputType.TYPE_CLASS_TEXT
-        setPadding(dp(12), dp(8), dp(42), dp(8))
+        setPadding(savedIpDp(density, 12), savedIpDp(density, 8), savedIpDp(density, 42), savedIpDp(density, 8))
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(8).toFloat()
+            cornerRadius = savedIpDp(density, 8).toFloat()
             setColor(colorSurface)
-            setStroke(dp(1), colorDivider)
+            setStroke(savedIpDp(density, 1), colorDivider)
         }
     }
     private val searchClearButton = TextView(context).apply {
@@ -139,7 +139,7 @@ class SavedIpDesign(
         gravity = Gravity.CENTER
         setTextColor(colorMuted)
         contentDescription = context.getString(R.string.saved_ip_search_clear)
-        background = selectableBackground()
+        background = savedIpSelectableBackground(context)
         setOnClickListener {
             searchInput.text?.clear()
             renderRows()
@@ -147,8 +147,8 @@ class SavedIpDesign(
     }
     private val searchBox = FrameLayout(context).apply {
         visibility = View.GONE
-        addView(searchInput, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
-        addView(searchClearButton, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.END or Gravity.CENTER_VERTICAL))
+        addView(searchInput, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, savedIpDp(density, 40)))
+        addView(searchClearButton, FrameLayout.LayoutParams(savedIpDp(density, 40), savedIpDp(density, 40), Gravity.END or Gravity.CENTER_VERTICAL))
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var renderedDataVersion = -1L
@@ -195,7 +195,7 @@ class SavedIpDesign(
     // CUSTOM (CUSTOM.md #164): the former filter toolbar is removed; search moves into the title row.
     private val selectionActions = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(8), dp(4), dp(8), dp(4))
+        setPadding(savedIpDp(density, 8), savedIpDp(density, 4), savedIpDp(density, 8), savedIpDp(density, 4))
         visibility = View.GONE
     }
     private val selectionMainActions = LinearLayout(context).apply {
@@ -211,12 +211,12 @@ class SavedIpDesign(
         setTextColor(colorMuted)
         gravity = Gravity.CENTER
     }
-    private val retestButton = actionButton(R.string.saved_ip_retest) { retestSelected() }
-    private val deleteSelectedButton = actionButton(R.string.saved_ip_delete_selected) { deleteSelected() }
-    private val cancelSelectionButton = actionButton(R.string.saved_ip_cancel_selection) { clearSelection() }
-    private val selectUnreachableButton = actionButton(R.string.saved_ip_select_unreachable) { selectUnreachable() }
-    private val selectOldestButton = actionButton(R.string.saved_ip_select_oldest_20) { selectOldest20() }
-    private val copyHostsButton = actionButton(R.string.saved_ip_copy_hosts) { copySelectedHosts() }
+    private val retestButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_retest) { retestSelected() }
+    private val deleteSelectedButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_delete_selected) { deleteSelected() }
+    private val cancelSelectionButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_cancel_selection) { clearSelection() }
+    private val selectUnreachableButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_select_unreachable) { selectUnreachable() }
+    private val selectOldestButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_select_oldest_20) { selectOldest20() }
+    private val copyHostsButton = savedIpActionButton(context, colorLink, density, R.string.saved_ip_copy_hosts) { copySelectedHosts() }
 
     private val searchIndicator = View(context).apply {
         background = GradientDrawable().apply {
@@ -228,12 +228,12 @@ class SavedIpDesign(
     private val moreButton = ImageView(context).apply {
         setImageResource(R.drawable.ic_baseline_more_vert)
         contentDescription = context.getString(R.string.saved_ip_show_direct_speed)
-        background = selectableBackground()
-        setPadding(dp(10), dp(10), dp(10), dp(10))
+        background = savedIpSelectableBackground(context)
+        setPadding(savedIpDp(density, 10), savedIpDp(density, 10), savedIpDp(density, 10), savedIpDp(density, 10))
         setOnClickListener { showSavedIpMoreMenu() }
     }
     private val searchIconButton = FrameLayout(context).apply {
-        background = selectableBackground()
+        background = savedIpSelectableBackground(context)
         contentDescription = context.getString(R.string.saved_ip_search_hint)
         addView(TextView(context).apply {
             text = "🔍"
@@ -241,9 +241,9 @@ class SavedIpDesign(
             gravity = Gravity.CENTER
             isClickable = false
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(searchIndicator, FrameLayout.LayoutParams(dp(6), dp(6), Gravity.TOP or Gravity.END).apply {
-            topMargin = dp(7)
-            marginEnd = dp(7)
+        addView(searchIndicator, FrameLayout.LayoutParams(savedIpDp(density, 6), savedIpDp(density, 6), Gravity.TOP or Gravity.END).apply {
+            topMargin = savedIpDp(density, 7)
+            marginEnd = savedIpDp(density, 7)
         })
         setOnClickListener { expandSearch() }
     }
@@ -253,7 +253,7 @@ class SavedIpDesign(
         gravity = Gravity.CENTER
         setTextColor(colorLink)
         contentDescription = context.getString(R.string.saved_ip_search_close)
-        background = selectableBackground()
+        background = savedIpSelectableBackground(context)
         visibility = View.GONE
         setOnClickListener { collapseSearch() }
     }
@@ -274,12 +274,12 @@ class SavedIpDesign(
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         // CUSTOM (CUSTOM.md #164): keep search on the same title row at the toolbar's end.
-        toolbar.addView(moreButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
-        toolbar.addView(searchIconButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END).apply { marginEnd = dp(40) })
-        toolbar.addView(searchBox, androidx.appcompat.widget.Toolbar.LayoutParams(dp(180), dp(40), Gravity.END).apply { marginEnd = dp(80) })
-        toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END).apply { marginEnd = dp(40) })
+        toolbar.addView(moreButton, androidx.appcompat.widget.Toolbar.LayoutParams(savedIpDp(density, 40), savedIpDp(density, 48), Gravity.END))
+        toolbar.addView(searchIconButton, androidx.appcompat.widget.Toolbar.LayoutParams(savedIpDp(density, 40), savedIpDp(density, 48), Gravity.END).apply { marginEnd = savedIpDp(density, 40) })
+        toolbar.addView(searchBox, androidx.appcompat.widget.Toolbar.LayoutParams(savedIpDp(density, 180), savedIpDp(density, 40), Gravity.END).apply { marginEnd = savedIpDp(density, 80) })
+        toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(savedIpDp(density, 40), savedIpDp(density, 48), Gravity.END).apply { marginEnd = savedIpDp(density, 40) })
 
-        searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
+        searchInput.setPadding(savedIpDp(density, 12), savedIpDp(density, 8), savedIpDp(density, 12), savedIpDp(density, 8))
         searchInput.imeOptions = EditorInfo.IME_ACTION_SEARCH
         searchInput.setText(filterState.query)
         searchInput.addTextChangedListener(object : TextWatcher {
@@ -303,15 +303,15 @@ class SavedIpDesign(
 
         // CUSTOM.md #156 step 12: operator creation and IP pasting are managed from the config-check save dialog.
 
-        selectionMainActions.addView(selectedCountView, weighted())
-        selectionMainActions.addView(retestButton, weighted(2))
-        selectionMainActions.addView(deleteSelectedButton, weighted(2))
-        selectionMainActions.addView(cancelSelectionButton, weighted(2))
-        selectionQuickActions.addView(selectUnreachableButton, weighted(2))
-        selectionQuickActions.addView(selectOldestButton, weighted(2))
-        selectionQuickActions.addView(copyHostsButton, weighted(2))
-        selectionActions.addView(selectionMainActions, fullWidth())
-        selectionActions.addView(selectionQuickActions, fullWidth())
+        selectionMainActions.addView(selectedCountView, savedIpWeighted(density))
+        selectionMainActions.addView(retestButton, savedIpWeighted(density, 2))
+        selectionMainActions.addView(deleteSelectedButton, savedIpWeighted(density, 2))
+        selectionMainActions.addView(cancelSelectionButton, savedIpWeighted(density, 2))
+        selectionQuickActions.addView(selectUnreachableButton, savedIpWeighted(density, 2))
+        selectionQuickActions.addView(selectOldestButton, savedIpWeighted(density, 2))
+        selectionQuickActions.addView(copyHostsButton, savedIpWeighted(density, 2))
+        selectionActions.addView(selectionMainActions, savedIpFullWidth())
+        selectionActions.addView(selectionQuickActions, savedIpFullWidth())
         root.addView(selectionActions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(operatorListFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -485,8 +485,8 @@ class SavedIpDesign(
             setText(if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
             textSize = 14f
             setTextColor(colorMuted)
-            setPadding(0, dp(12), 0, dp(16))
-        }, fullWidth())
+            setPadding(0, savedIpDp(density, 12), 0, savedIpDp(density, 16))
+        }, savedIpFullWidth())
     }
 
     private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
@@ -528,10 +528,10 @@ class SavedIpDesign(
             }
             val group = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(10), 0, dp(8))
+                setPadding(0, savedIpDp(density, 10), 0, savedIpDp(density, 8))
             }
             bindOperatorRow(group, operator, entries, expanded)
-            section.addView(group, fullWidth())
+            section.addView(group, savedIpFullWidth())
             if (expanded) {
                 if (entries.isNotEmpty()) {
                     bindSavedTable(section, operator, entries)
@@ -541,8 +541,8 @@ class SavedIpDesign(
                         setText(R.string.saved_ip_filter_no_match)
                         textSize = 13f
                         setTextColor(colorMuted)
-                        setPadding(dp(48), dp(8), 0, dp(12))
-                    }, fullWidth())
+                        setPadding(savedIpDp(density, 48), savedIpDp(density, 8), 0, savedIpDp(density, 12))
+                    }, savedIpFullWidth())
                 }
             }
             val targetOrder = snapshotCache.operators.indexOfFirst { it.id == operatorId }
@@ -552,7 +552,7 @@ class SavedIpDesign(
                 val childOrder = snapshotCache.operators.indexOfFirst { it.id == childId }
                 if (childOrder > targetOrder) { insertAt = i; break }
             }
-            operatorContent.addView(section, insertAt, fullWidth())
+            operatorContent.addView(section, insertAt, savedIpFullWidth())
             operatorSections[operatorId] = section
         }
         if (showEmptyState && operatorContent.childCount == 0) addEmptyState()
@@ -583,7 +583,7 @@ class SavedIpDesign(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(56)
+            minimumHeight = savedIpDp(density, 56)
         }
         val arrow = TextView(context).apply {
             text = if (expanded) "▾" else "▸"
@@ -591,13 +591,13 @@ class SavedIpDesign(
             setTextColor(colorLink)
             gravity = Gravity.CENTER
         }
-        header.addView(arrow, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(arrow, LinearLayout.LayoutParams(savedIpDp(density, 48), savedIpDp(density, 48)))
         val title = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
         title.addView(TextView(context).apply {
-            text = context.getString(R.string.saved_ip_group_title, displayName(operator), entries.size)
+            text = context.getString(R.string.saved_ip_group_title, savedIpDisplayName(context, operator), entries.size)
             textSize = 15f
             setTextColor(colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -618,7 +618,7 @@ class SavedIpDesign(
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(colorLink)
-            background = selectableBackground()
+            background = savedIpSelectableBackground(context)
             contentDescription = context.getString(R.string.saved_ip_group_menu)
             setOnClickListener { anchor ->
                 PopupMenu(context, anchor).apply {
@@ -645,13 +645,13 @@ class SavedIpDesign(
                 }
             }
         }
-        header.addView(menuButton, LinearLayout.LayoutParams(dp(48), dp(48)))
-        container.addView(header, fullWidth())
+        header.addView(menuButton, LinearLayout.LayoutParams(savedIpDp(density, 48), savedIpDp(density, 48)))
+        container.addView(header, savedIpFullWidth())
         container.setOnClickListener {
             expandedOperatorId = if (expandedOperatorId == operator.id) null else operator.id
             renderRows()
         }
-        container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+        container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, savedIpDp(density, 1)))
     }
 
     // CUSTOM (CUSTOM.md #164): one mutually exclusive status choice per operator; "全部" clears it.
@@ -667,10 +667,10 @@ class SavedIpDesign(
         val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
         val selected = if (status == null) selectedStatuses.isEmpty() else selectedStatuses.singleOrNull() == status
         setTextColor(if (selected) Color.WHITE else color)
-        setPadding(dp(7), dp(4), dp(7), dp(4))
+        setPadding(savedIpDp(density, 7), savedIpDp(density, 4), savedIpDp(density, 7), savedIpDp(density, 4))
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(8).toFloat()
+            cornerRadius = savedIpDp(density, 8).toFloat()
             setColor(if (selected) color else Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
         }
         setOnClickListener {
@@ -694,7 +694,7 @@ class SavedIpDesign(
                 showDirectSpeed = showDirectSpeed,
             )
             val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
-                .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(32))
+                .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - savedIpDp(density, 32))
             val widths = renderer.savedTableWidths(
                 width,
                 operator.ips.map { it.result ?: com.github.kr328.clash.core.model.IpTestRow(ip = it.address, ok = true) },
@@ -740,7 +740,7 @@ class SavedIpDesign(
                     textSize = 14f
                     setTextColor(colorText)
                     setTextIsSelectable(true)
-                    setPadding(dp(16), dp(8), dp(16), dp(8))
+                    setPadding(savedIpDp(density, 16), savedIpDp(density, 8), savedIpDp(density, 16), savedIpDp(density, 8))
                 }
                 val scroll = ScrollView(context).apply {
                     isVerticalScrollBarEnabled = true
@@ -749,10 +749,10 @@ class SavedIpDesign(
                 dismissFailureDetailDialog()
                 val dialog = MaterialAlertDialogBuilder(context).setTitle(title).setView(
                     scroll,
-                    dp(12),
-                    dp(8),
-                    dp(12),
-                    dp(8),
+                    savedIpDp(density, 12),
+                    savedIpDp(density, 8),
+                    savedIpDp(density, 12),
+                    savedIpDp(density, 8),
                 ).setPositiveButton(R.string.close, null).create()
                 failureDetailDialog = dialog
                 dialog.setOnDismissListener {
@@ -773,7 +773,7 @@ class SavedIpDesign(
 
         val table = makeTable(entries, renderer).apply { tag = SAVED_TABLE_TAG }
         stickyHeaderTables[operator.id] = table
-        container.addView(table, fullWidth())
+        container.addView(table, savedIpFullWidth())
 
         // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
         val stickyRenderer = IpTestView(
@@ -845,7 +845,7 @@ class SavedIpDesign(
         if (stickyHeaderOperatorId != activeOperatorId || stickyHeaderContainer.childCount == 0) {
             stickyHeaderContainer.removeAllViews()
             (copy.parent as? ViewGroup)?.removeView(copy)
-            stickyHeaderContainer.addView(copy, fullWidth())
+            stickyHeaderContainer.addView(copy, savedIpFullWidth())
             stickyHeaderOperatorId = activeOperatorId
         }
         stickyHeaderContainer.visibility = View.VISIBLE
@@ -963,12 +963,12 @@ class SavedIpDesign(
         val selected = operatorFilters.getOrPut(columnName) { LinkedHashSet() }
         var selectionChanged = false
         var selectionClearedOperatorId: String? = null
-        val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(savedIpDp(density, 8), savedIpDp(density, 4), savedIpDp(density, 8), savedIpDp(density, 4)) }
         options.forEach { value ->
             choices.addView(CheckBox(context).apply {
                 tag = value
                 text = context.getString(R.string.saved_filter_count, value, counts[value] ?: 0)
-                textSize = 14f; isChecked = value in selected; minHeight = dp(44)
+                textSize = 14f; isChecked = value in selected; minHeight = savedIpDp(density, 44)
                 setOnCheckedChangeListener { _, checked ->
                     selectionChanged = true
                     if (checked) selected.add(value) else selected.remove(value)
@@ -984,10 +984,10 @@ class SavedIpDesign(
             isFillViewport = true; isVerticalScrollBarEnabled = true
             addView(choices, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        val popupWidth = maxOf(anchor.width, dp(220)).coerceAtMost(context.resources.displayMetrics.widthPixels - dp(24))
-        val popupHeight = minOf(dp(280), dp(48 * options.size.coerceAtLeast(1)))
+        val popupWidth = maxOf(anchor.width, savedIpDp(density, 220)).coerceAtMost(context.resources.displayMetrics.widthPixels - savedIpDp(density, 24))
+        val popupHeight = minOf(savedIpDp(density, 280), dp(48 * options.size.coerceAtLeast(1)))
         val popup = PopupWindow(scroll, popupWidth, popupHeight, true).apply {
-            setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = dp(8).toFloat(); isOutsideTouchable = true
+            setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = savedIpDp(density, 8).toFloat(); isOutsideTouchable = true
             setOnDismissListener {
                 if (selected.isEmpty()) {
                     operatorFilters.remove(columnName)
@@ -1439,7 +1439,7 @@ class SavedIpDesign(
         val count = current.ips.count { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.saved_ip_delete_older_confirm_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_older_message, displayName(operator), count, days))
+            .setMessage(context.getString(R.string.saved_ip_delete_older_message, savedIpDisplayName(context, operator), count, days))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
                 var deletedEntries = emptyList<SavedIpEntry>()
@@ -1516,7 +1516,7 @@ class SavedIpDesign(
         if (count == 0) return
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.saved_ip_delete_unreachable_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_unreachable_message, displayName(operator), count))
+            .setMessage(context.getString(R.string.saved_ip_delete_unreachable_message, savedIpDisplayName(context, operator), count))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
                 var deletedEntries = emptyList<SavedIpEntry>()
@@ -1591,55 +1591,5 @@ class SavedIpDesign(
         Toast.makeText(context, R.string.saved_ip_copied, Toast.LENGTH_SHORT).show()
     }
 
-    private fun displayName(operator: SavedIpOperator): String = savedIpOperatorDisplayName(context, operator)
 
-    private fun actionButton(text: Int, click: () -> Unit) = TextView(context).apply {
-        setText(text)
-        textSize = 14f
-        setTextColor(colorLink)
-        gravity = Gravity.CENTER
-        minHeight = dp(40)
-        setPadding(dp(4), 0, dp(4), 0)
-        background = selectableBackground()
-        setOnClickListener { click() }
-    }
-
-    private fun actionText(text: Int, click: (View) -> Unit) = TextView(context).apply {
-        setText(text)
-        textSize = 13f
-        setTextColor(colorLink)
-        gravity = Gravity.CENTER
-        minHeight = dp(40)
-        background = selectableBackground()
-        setPadding(dp(8), dp(4), dp(8), dp(4))
-        setOnClickListener { click(it) }
-    }
-
-    private fun addDivider(parent: LinearLayout) {
-        parent.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
-        parent.addView(View(context), LinearLayout.LayoutParams(1, dp(10)))
-    }
-
-    private fun selectableBackground() = android.util.TypedValue().let { value ->
-        context.theme.resolveAttribute(android.R.attr.selectableItemBackground, value, true)
-        context.getDrawable(value.resourceId)
-    }
-
-    private fun themeColor(attribute: Int, fallback: Int): Int {
-        val values = context.obtainStyledAttributes(intArrayOf(attribute))
-        return try {
-            values.getColor(0, fallback)
-        } finally {
-            values.recycle()
-        }
-    }
-
-    private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
-    private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    private fun weighted(gap: Int = 0) = LinearLayout.LayoutParams(0, dp(40), 1f).apply {
-        if (gap > 0) {
-            marginStart = dp(gap)
-            marginEnd = dp(gap)
-        }
-    }
 }
