@@ -197,8 +197,8 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 subscriptionUpdate = subscriptionUpdate,
             ),
         )
-        design.setUpdateGuard(updateGuardRecord) {
-            design.requests.trySend(ErrorsDesign.Request.IgnoreUpdateGuard)
+        this.setUpdateGuard(updateGuardRecord) {
+            this.requests.trySend(ErrorsDesign.Request.IgnoreUpdateGuard)
         }
     }
 
