@@ -33,10 +33,12 @@ fi
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/NetworkIdentitySnapshot.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierOperatorConsensus.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTargetCheck.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/SavedIpSortVisibility.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchMatcher.kt" \
   "$ROOT/tests/custom/CarrierOperatorConsensusTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchRenameTests.kt" \
   "$ROOT/tests/custom/ConfigProxyCountTests.kt" \
+  "$ROOT/tests/custom/SavedIpSortVisibilityTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchMatcherTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchTargetCheckTests.kt" \
   "$ROOT/tests/custom/RestoreCarrierSwitchTests.kt" \

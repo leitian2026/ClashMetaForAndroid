@@ -163,7 +163,10 @@ class SavedIpDesign(
         set(value) { filterState.expandedOperatorId = value }
 
     // CUSTOM (CUSTOM.md #159): speed sorting is isolated and persisted by operator ID.
-    private fun currentSort(operatorId: String): SavedIpSort = filterState.sortFor(operatorId)
+    // CUSTOM #156: hide direct-speed sorting without rewriting the persisted choice.
+    private fun currentSort(operatorId: String): SavedIpSort = SavedIpSort.valueOf(
+        effectiveSavedIpSortName(filterState.sortFor(operatorId).name, showDirectSpeed),
+    )
     private fun setCurrentSort(operatorId: String, value: SavedIpSort) = filterState.setSort(operatorId, value)
     private data class OrderedEntriesCache(val version: Long, val entries: List<SavedIpEntry>)
     private data class SortedEntriesCache(val version: Long, val sort: SavedIpSort, val entries: List<SavedIpEntry>)
@@ -702,6 +705,7 @@ class SavedIpDesign(
             val renderer = IpTestView(
                 context, direct = false, target = false, savedTable = true,
                 visibleSavedColumns = visibleSavedColumns,
+                showDirectSpeed = showDirectSpeed,
             )
             val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
                 .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(32))
@@ -716,7 +720,9 @@ class SavedIpDesign(
 
     private fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: List<SavedIpEntry>) {
         val (renderer, widths) = savedTableFor(operator)
+        // CUSTOM #156: hidden direct-speed filter state remains stored but is not shown in the table header.
         val selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty()
+            .filterKeys { showDirectSpeed || it != "SPEED" }
         // CUSTOM.md #166: calculate from the complete operator list, before UI filters are applied.
         val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
         val speedSortLabel = when {
@@ -784,7 +790,10 @@ class SavedIpDesign(
         container.addView(table, fullWidth())
 
         // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
-        val stickyRenderer = IpTestView(context, direct = false, target = false, savedTable = true, visibleSavedColumns = visibleSavedColumns)
+        val stickyRenderer = IpTestView(
+            context, direct = false, target = false, savedTable = true,
+            visibleSavedColumns = visibleSavedColumns, showDirectSpeed = showDirectSpeed,
+        )
         val stickyCopy = makeTable(emptyList(), stickyRenderer)
         stickyHeaderCopies[operator.id] = stickyCopy
         val sourceScroll = findHorizontalScroll(table)
@@ -880,7 +889,7 @@ class SavedIpDesign(
                     .apply()
                 filterState.selectedTableFilters.keys.toList().forEach { operatorId ->
                     val filters = filterState.selectedTableFilters[operatorId] ?: return@forEach
-                    filters.keys.retainAll(next)
+                    filters.keys.retainAll(next + "SPEED") // CUSTOM #156: preserve the direct-speed filter state.
                     if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
                 }
                 filterState.sorts.keys.toList().forEach { operatorId ->
@@ -1020,6 +1029,8 @@ class SavedIpDesign(
             }
             val renderer = savedTableFor(operator).first
             for (columnName in filters.keys.toList()) {
+                // CUSTOM #156: do not reconcile away the direct-speed filter while its column is hidden.
+                if (columnName == "SPEED") continue
                 filters[columnName]?.retainAll(renderer.savedTableFilterOptions(operator.ips, columnName).toSet())
                 if (filters[columnName].isNullOrEmpty()) filters.remove(columnName)
             }
@@ -1031,6 +1042,7 @@ class SavedIpDesign(
 
     private fun filterSavedIpEntriesByColumns(operator: SavedIpOperator, entries: List<SavedIpEntry>): List<SavedIpEntry> {
         val filters = filterState.selectedTableFilters[operator.id].orEmpty()
+            .filterKeys { showDirectSpeed || it != "SPEED" }
         if (filters.isEmpty()) return entries
         val renderer = savedTableFor(operator).first
         return entries.filter { entry -> filters.all { (columnName, values) ->

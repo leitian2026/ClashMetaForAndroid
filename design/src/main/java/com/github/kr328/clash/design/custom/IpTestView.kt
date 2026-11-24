@@ -62,6 +62,7 @@ class IpTestView(
     private val target: Boolean = false,
     private val savedTable: Boolean = false,
     private val visibleSavedColumns: Set<String>? = null,
+    private val showDirectSpeed: Boolean = true,
 ) {
     var onCopy: (String) -> Unit = {}
     var onSpeed: (String) -> Unit = {} // a tap on "下载测速" of a row
@@ -127,7 +128,7 @@ class IpTestView(
     }
     private var keys = if (savedTable) {
         // CUSTOM.md #162/#160: filter only the saved-table instance; the IP column remains fixed outside this list.
-        savedTableKeys.filter { visibleSavedColumns == null || it.name in visibleSavedColumns }
+        savedTableKeys.filter { (showDirectSpeed || it != Key.SPEED) && (visibleSavedColumns == null || it.name in visibleSavedColumns) }
     } else liveKeys
 
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
