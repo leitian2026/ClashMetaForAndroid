@@ -171,8 +171,6 @@ class SavedIpDesign(
     private data class SortedEntriesCache(val version: Long, val sort: SavedIpSort, val entries: List<SavedIpEntry>)
     private val defaultOrderCache = HashMap<String, OrderedEntriesCache>()
     private val sortedEntriesCache = HashMap<String, SortedEntriesCache>()
-    private var selectedOperatorId: String? = null
-    private val selectedAddresses = LinkedHashSet<String>()
     private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
     private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
@@ -261,14 +259,34 @@ class SavedIpDesign(
         override val context: Context get() = this@SavedIpDesign.context
         override val root: View get() = this@SavedIpDesign.root
         override val snapshotCache: SavedIpSnapshot get() = this@SavedIpDesign.snapshotCache
-        override val selectedOperatorId: String? get() = this@SavedIpDesign.selectedOperatorId
-        override val selectedAddresses: Set<String> get() = this@SavedIpDesign.selectedAddresses
+        override var selectedOperatorId: String?
+            get() = selection.selectedOperatorId
+            set(value) { selection.selectedOperatorId = value }
+        override val selectedAddresses: MutableSet<String> get() = selection.selectedAddresses
+        override val filterState: SavedIpFilterState get() = this@SavedIpDesign.filterState
+        override val expandedOperatorId: String? get() = this@SavedIpDesign.expandedOperatorId
+        override val canRetest: Boolean get() = this@SavedIpDesign.canRetest
+        override val selectionActions: LinearLayout get() = this@SavedIpDesign.selectionActions
+        override val selectedCountView: TextView get() =    private val selection = SavedIpSelection(env)
+    private var selectedOperatorId: String?
+        get() = selection.selectedOperatorId
+        set(value) { selection.selectedOperatorId = value }
+    private val selectedAddresses: LinkedHashSet<String>
+        get() = selection.selectedAddresses
+     this@SavedIpDesign.selectedCountView
+        override val retestButton: TextView get() = this@SavedIpDesign.retestButton
+        override val deleteSelectedButton: TextView get() = this@SavedIpDesign.deleteSelectedButton
+        override val selectUnreachableButton: TextView get() = this@SavedIpDesign.selectUnreachableButton
+        override val selectOldestButton: TextView get() = this@SavedIpDesign.selectOldestButton
+        override val copyHostsButton: TextView get() = this@SavedIpDesign.copyHostsButton
         override var failureDetailDialog: android.app.Dialog?
             get() = deleteUndo.failureDetailDialog
             set(value) { deleteUndo.failureDetailDialog = value }
 
         override fun refresh() = this@SavedIpDesign.refresh()
-        override fun clearSelectionState() = this@SavedIpDesign.clearSelectionState()
+        override fun renderOperator(operatorId: String, showEmptyState: Boolean) = this@SavedIpDesign.renderOperator(operatorId, showEmptyState)
+        override fun visibleEntries(operator: SavedIpOperator, applySort: Boolean) = this@SavedIpDesign.visibleEntries(operator, applySort)
+        override fun clearSelectionState() = selection.clearSelectionState()
         override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean =
             deleteUndo.writeSnapshot(transform)
     }
@@ -1134,116 +1152,42 @@ class SavedIpDesign(
             collapseSearch()
             return true
         }
-        return false
+        return selection.handleBackPressed()
     }
 
     // CUSTOM.md #156 step 4: enter / toggle selection only inside one operator group.
     // CUSTOM (CUSTOM.md #163 r330): keep active row toggles synchronous; rebuild only when
     // the checkbox column must appear on entry or disappear after the final item is cleared.
-    private fun toggleSelection(operatorId: String, address: String): Boolean {
-        val currentOperator = selectedOperatorId
-        if (currentOperator != null && currentOperator != operatorId) return false
-        val enteringSelectionMode = currentOperator == null
-        if (enteringSelectionMode) {
-            selectedOperatorId = operatorId
-            expandedOperatorId = operatorId
-        }
-
-        if (address in selectedAddresses) {
-            selectedAddresses.remove(address)
-        } else {
-            if (selectedAddresses.size >= 20) {
-                Toast.makeText(context, R.string.saved_ip_max_20, Toast.LENGTH_SHORT).show()
-                return false
-            }
-            selectedAddresses.add(address)
-        }
-
-        val leavingSelectionMode = selectedAddresses.isEmpty()
-        if (leavingSelectionMode) selectedOperatorId = null
-        updateSelectionActions()
-        if (enteringSelectionMode || leavingSelectionMode) renderOperator(operatorId)
-        return address in selectedAddresses
-    }
-
-    private fun reconcileSelection(snapshot: SavedIpSnapshot) {
-        val operatorId = selectedOperatorId ?: run {
-            updateSelectionActions()
-            return
-        }
-        val operator = snapshot.operators.firstOrNull { it.id == operatorId }
-        if (operator == null) {
-            clearSelectionState()
-            return
-        }
-        val existing = operator.ips.mapTo(HashSet()) { it.address }
-        selectedAddresses.retainAll(existing)
-        if (selectedAddresses.isEmpty()) clearSelectionState() else updateSelectionActions()
-    }
-
-    private fun updateSelectionActions() {
-        val active = selectedOperatorId != null
-        selectionActions.visibility = if (active) View.VISIBLE else View.GONE
-        selectedCountView.text = context.getString(R.string.saved_ip_selected_count, selectedAddresses.size)
-        retestButton.isEnabled = canRetest && selectedAddresses.isNotEmpty()
-        retestButton.alpha = if (retestButton.isEnabled) 1f else 0.35f
-        deleteSelectedButton.isEnabled = selectedAddresses.isNotEmpty()
-        deleteSelectedButton.alpha = if (deleteSelectedButton.isEnabled) 1f else 0.35f
-        val operator = selectedOperatorId?.let { id ->
-            snapshotCache.operators.firstOrNull { it.id == id }
-        }
-        val visible = operator?.let { visibleEntries(it, applySort = true) }.orEmpty()
-        selectUnreachableButton.isEnabled = visible.any { it.status == SavedIpStatus.UNREACHABLE }
-        selectUnreachableButton.alpha = if (selectUnreachableButton.isEnabled) 1f else 0.35f
-        selectOldestButton.isEnabled = visible.isNotEmpty()
-        selectOldestButton.alpha = if (selectOldestButton.isEnabled) 1f else 0.35f
-        copyHostsButton.isEnabled = selectedAddresses.isNotEmpty()
-        copyHostsButton.alpha = if (copyHostsButton.isEnabled) 1f else 0.35f
-    }
-
-    private fun selectUnreachable() {
-        val operatorId = selectedOperatorId ?: return
-        val operator = SavedIpStore.read(context).operators.firstOrNull { it.id == operatorId } ?: return
-        val unreachable = visibleEntries(operator, applySort = true).filter { it.status == SavedIpStatus.UNREACHABLE }
-        if (unreachable.isEmpty()) return
-        val selected = unreachable.sortedBy { it.lastTestedAt }.take(20)
-        selectedAddresses.clear()
-        selectedAddresses.addAll(selected.map { it.address })
-        if (selectedAddresses.isEmpty()) selectedOperatorId = null
-        if (unreachable.size > 20) {
-            Toast.makeText(context, context.getString(R.string.saved_ip_select_unreachable_overflow, unreachable.size), Toast.LENGTH_LONG).show()
-        }
-        refresh()
-    }
-
-    private fun selectOldest20() {
-        val operatorId = selectedOperatorId ?: return
-        val operator = SavedIpStore.read(context).operators.firstOrNull { it.id == operatorId } ?: return
-        val selected = visibleEntries(operator, applySort = true).sortedBy { it.lastTestedAt }.take(20)
-        selectedAddresses.clear()
-        selectedAddresses.addAll(selected.map { it.address })
-        if (selectedAddresses.isEmpty()) selectedOperatorId = null
-        updateSelectionActions()
-        renderOperator(operatorId)
-    }
-
-    private fun clearSelectionState() {
-        selectedOperatorId = null
-        selectedAddresses.clear()
-        updateSelectionActions()
-    }
-
-    private fun clearSelection() {
-        val operatorId = selectedOperatorId
-        clearSelectionState()
-        if (operatorId != null) renderOperator(operatorId)
-    }
 
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private fun toggleSelection(operatorId: String, address: String): Boolean = selection.toggleSelection(operatorId, address)
+    private fun reconcileSelection(snapshot: SavedIpSnapshot) = selection.reconcileSelection(snapshot)
+    private fun updateSelectionActions() = selection.updateSelectionActions()
+    private fun selectUnreachable() = selection.selectUnreachable()
+    private fun selectOldest20() = selection.selectOldest20()
+    private fun clearSelectionState() = selection.clearSelectionState()
+    private fun clearSelection() = selection.clearSelection()
+    private fun chooseSelectAge(operator: SavedIpOperator) = selection.chooseSelectAge(operator)
+    private fun selectGroupMatches(operator: SavedIpOperator, matching: List<SavedIpEntry>) =
+        selection.selectGroupMatches(operator, matching)
 
     private fun invalidateUndo() = deleteUndo.invalidateUndo()
     private fun showDeleteUndo(operatorId: String, entries: List<SavedIpEntry>) = deleteUndo.showDeleteUndo(operatorId, entries)
@@ -1309,58 +1253,9 @@ class SavedIpDesign(
 
 
 
-    private fun chooseSelectAge(operator: SavedIpOperator) {
-        val labels = arrayOf(
-            context.getString(R.string.saved_ip_select_untested),
-            context.getString(R.string.saved_ip_select_over_1_hour),
-            context.getString(R.string.saved_ip_select_over_6_hours),
-            context.getString(R.string.saved_ip_select_over_24_hours),
-        )
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_select_age_title)
-            .setItems(labels) { _, which ->
-                val now = System.currentTimeMillis()
-                val matching = when (which) {
-                    0 -> operator.ips.filter { it.status == SavedIpStatus.UNTESTED || it.lastTestedAt <= 0L }
-                        .sortedBy { it.addedAt }
-                    1, 2, 3 -> {
-                        val hours = when (which) {
-                            1 -> 1L
-                            2 -> 6L
-                            else -> 24L
-                        }
-                        val cutoff = now - hours * 60L * 60L * 1000L
-                        operator.ips.filter { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
-                            .sortedBy { it.lastTestedAt }
-                    }
-                    else -> emptyList()
-                }
-                selectGroupMatches(operator, matching)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
 
-    private fun selectGroupMatches(operator: SavedIpOperator, matching: List<SavedIpEntry>) {
-        if (matching.isEmpty()) {
-            Toast.makeText(context, R.string.saved_ip_select_age_none, Toast.LENGTH_SHORT).show()
-            return
-        }
-        selectedOperatorId = operator.id
-        expandedOperatorId = operator.id
-        selectedAddresses.clear()
-        val selected = matching.take(20)
-        selectedAddresses.addAll(selected.map { it.address })
-        updateSelectionActions()
-        renderOperator(operator.id)
-        if (matching.size > 20) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.saved_ip_select_age_overflow, matching.size),
-                Toast.LENGTH_LONG,
-            ).show()
-        }
-    }
+
+
 
 
 
