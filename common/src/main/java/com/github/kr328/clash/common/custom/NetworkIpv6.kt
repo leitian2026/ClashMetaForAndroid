@@ -12,6 +12,12 @@ import java.net.InetAddress
 // below the VPN). Read on demand (when the errors page is shown, and once after a network change); nothing
 // here runs on its own.
 object NetworkIpv6 {
+    data class State(
+        val network: Network?,
+        val identity: String,
+        val signature: String,
+    )
+
     /**
      * Whether the network below the VPN can really use IPv6: a global address (not link-local, not unique-local,
      * not loopback) and an IPv6 default route. Unknown (no network, no permission) counts as "has IPv6", so that
@@ -22,15 +28,19 @@ object NetworkIpv6 {
 
         return try {
             val network = best(cm) ?: return true
-            val properties = cm.getLinkProperties(network) ?: return true
-
-            val global = properties.linkAddresses.any { isGlobal(it.address) }
-            val route = properties.routes.any { it.isDefaultRoute && it.gateway is Inet6Address }
-
-            global && route
+            hasIpv6(cm, network)
         } catch (e: Exception) {
             true
         }
+    }
+
+    private fun hasIpv6(cm: ConnectivityManager, network: Network): Boolean = try {
+        val properties = cm.getLinkProperties(network) ?: return true
+        val global = properties.linkAddresses.any { isGlobal(it.address) }
+        val route = properties.routes.any { it.isDefaultRoute && it.gateway is Inet6Address }
+        global && route
+    } catch (_: Exception) {
+        true
     }
 
     /**
@@ -38,27 +48,24 @@ object NetworkIpv6 {
      * network, IPv6 appearing or going away). Addresses are left out on purpose: IPv6 privacy addresses rotate
      * all the time, and that is not a change worth a new speed test. "" when there is no network.
      */
-    fun signature(context: Context): String {
-        val cm = context.getSystemService<ConnectivityManager>() ?: return ""
-
+    fun state(context: Context): State {
+        val cm = context.getSystemService<ConnectivityManager>() ?: return State(null, "", "")
         return try {
-            val network = best(cm) ?: return ""
-
-            "$network|${transport(cm, network)}|ipv6=${hasIpv6(context)}"
-        } catch (e: Exception) {
-            ""
+            val network = best(cm) ?: return State(null, "", "")
+            val identity = "$network|${transport(cm, network)}"
+            val signature = "$identity|ipv6=${hasIpv6(cm, network)}"
+            State(network, identity, signature)
+        } catch (_: Exception) {
+            State(null, "", "")
         }
     }
+
+    fun signature(context: Context): String = state(context).signature
+
+    fun identitySignature(context: Context): String = state(context).identity
 
     /** CUSTOM #168: expose the same selected network so identity requests are bound below the VPN. */
-    fun bestNetwork(context: Context): Network? {
-        val cm = context.getSystemService<ConnectivityManager>() ?: return null
-        return try {
-            best(cm)
-        } catch (_: Exception) {
-            null
-        }
-    }
+    fun bestNetwork(context: Context): Network? = state(context).network
 
     private fun isGlobal(address: InetAddress): Boolean {
         if (address !is Inet6Address) return false

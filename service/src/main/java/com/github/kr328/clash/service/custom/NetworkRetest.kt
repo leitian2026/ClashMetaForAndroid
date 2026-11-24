@@ -69,7 +69,8 @@ object NetworkRetest {
         app = context.applicationContext
 
         val cm = app.getSystemService<ConnectivityManager>() ?: return
-        last = NetworkIpv6.signature(app)
+        val state = NetworkIpv6.state(app)
+        last = state.signature
 
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
@@ -85,9 +86,9 @@ object NetworkRetest {
         if (last.isEmpty()) {
             saveNoNetwork()
         } else if (isInteractive()) {
-            identify(last)
+            identify(state.identity)
         } else {
-            pendingIdentitySignature = last
+            pendingIdentitySignature = state.identity
             waitForScreen()
         }
     }
@@ -98,7 +99,9 @@ object NetworkRetest {
     }
 
     private fun onSettled() {
-        val now = NetworkIpv6.signature(app)
+        val state = NetworkIpv6.state(app)
+        val now = state.signature
+        currentNetwork = state.network
         if (now == last) return
 
         val before = last
@@ -117,11 +120,11 @@ object NetworkRetest {
         pendingTest = true
 
         if (isInteractive()) {
-            identify(now)
+            identify(state.identity)
             pendingTest = false
             runTest()
         } else {
-            pendingIdentitySignature = now
+            pendingIdentitySignature = state.identity
             waitForScreen()
         }
     }
@@ -158,7 +161,7 @@ object NetworkRetest {
 
             handler.post {
                 if (generation != identityGeneration.get()) return@post
-                if (NetworkIpv6.signature(app) != signature) return@post
+                if (NetworkIpv6.identitySignature(app) != signature) return@post
                 NetworkIdentityStore.write(app, result)
                 CarrierSwitch.applyAsync(app, result) // CUSTOM (CUSTOM.md #169): apply once after a new stable identity.
                 app.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))

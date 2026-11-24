@@ -77,7 +77,7 @@ object CarrierSwitch {
     private fun isCurrentIdentity(context: Context, signature: String): Boolean {
         if (signature.isEmpty()) return false
         val latest = NetworkIdentityStore.read(context) ?: return false
-        return latest.signature == signature && NetworkIpv6.signature(context) == signature
+        return latest.signature == signature && NetworkIpv6.identitySignature(context) == signature
     }
 
     private fun clearSwitchStatus(
