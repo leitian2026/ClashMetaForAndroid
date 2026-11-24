@@ -44,7 +44,7 @@ class MainCustomCards(
     private val issuesCard: com.github.kr328.clash.design.view.LargeActionCard? =
         root.findViewById(R.id.custom_issues_card)
 
-    // CUSTOM #173: read per-subscription warning files only when a file's modification time changes.
+    // CUSTOM: read per-subscription warning files only when a file's modification time changes.
     private var updateGuardSignature: Long? = null
     private var cachedUpdateGuard: UpdateGuardRecord? = null
 
