@@ -20,8 +20,8 @@ fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
         state.savedTableRenderers.getOrPut(operator.id) {
             val renderer = IpTestView(
                 env.context, direct = false, target = false, savedTable = true,
-                env.visibleSavedColumns = env.visibleSavedColumns,
-                env.showDirectSpeed = env.showDirectSpeed,
+                visibleSavedColumns = env.visibleSavedColumns,
+                showDirectSpeed = env.showDirectSpeed,
             )
             val width = (env.operatorList.width - env.operatorList.paddingLeft - env.operatorList.paddingRight)
                 .takeIf { it > 0 } ?: (env.context.resources.displayMetrics.widthPixels - savedIpDp(env.density, 32))
@@ -59,7 +59,7 @@ fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: 
             onScroll = { state.savedTableScrollX = it },
             isSelectionMode = { env.selectedOperatorId == operator.id },
             isSelected = { address -> env.selectedOperatorId == operator.id && address in env.selectedAddresses },
-            onCopy = ::env.copyIp,
+            onCopy = env::copyIp,
             onDetail = { title, detail ->
                 MaterialAlertDialogBuilder(env.context).setTitle(title).setMessage(detail)
                     .setPositiveButton(R.string.close, null).show()
@@ -96,19 +96,19 @@ fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: 
             speedSortColumnName = env.currentSort(operator.id).columnName,
             onHeaderClick = onHeaderClick,
             recommendedIps = recommendedIps,
-            env.speedAvailable = env.speedAvailable,
-            env.speedBusy = env.speedBusy,
-            env.onSpeedTest = { address, direct -> env.onSpeedTest(operator.id, address, direct) },
+            speedAvailable = env.speedAvailable,
+            speedBusy = env.speedBusy,
+            onSpeedTest = { address, direct -> env.onSpeedTest(operator.id, address, direct) },
         )
 
-        val table = makeTable(entries, renderer).apply { tag = SAVED_TABLE_TAG }
+        val table = makeTable(entries, renderer).apply { tag = SavedIpRenderState.SAVED_TABLE_TAG }
         state.stickyHeaderTables[operator.id] = table
         container.addView(table, savedIpFullWidth())
 
         // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
         val stickyRenderer = IpTestView(
             env.context, direct = false, target = false, savedTable = true,
-            env.visibleSavedColumns = env.visibleSavedColumns, env.showDirectSpeed = env.showDirectSpeed,
+                visibleSavedColumns = env.visibleSavedColumns, env.showDirectSpeed = env.showDirectSpeed,
         )
         val stickyCopy = makeTable(emptyList(), stickyRenderer)
         state.stickyHeaderCopies[operator.id] = stickyCopy

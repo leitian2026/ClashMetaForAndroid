@@ -19,10 +19,67 @@ internal class SavedIpRenderer(
 ) {
     private val tableRenderer = SavedIpTableRenderer(env, state, selection, filterMenus)
 
-fun env.renderRows() {
-        cancelPendingSearchRender()
+    // CUSTOM #158: update saved download buttons from the process-wide event source.
+    fun setSpeedState(available: Boolean, busy: Boolean) {
+        if (env.speedAvailable == available && env.speedBusy == busy) return
+        env.speedAvailable = available
+        env.speedBusy = busy
+        // CUSTOM #158: update currently bound buttons without rebuilding the table.
+        state.savedTableRenderers.values.forEach { (renderer, _) ->
+            renderer.setSavedSpeedAvailability(env.speedAvailable, env.speedBusy)
+        }
+    }
+
+    // CUSTOM #158: update only the active download percentage in the already-bound cell.
+    fun updateSpeedProgress(operatorId: String, address: String, direct: Boolean, percent: Int?) {
+        state.savedTableRenderers[operatorId]?.first?.updateSavedSpeedProgress(address, direct, percent)
+    }
+
+    // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
+    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) {
+        val (snapshot, version) = SavedIpStore.readVersioned(env.context)
+        env.snapshotCache = snapshot
+        env.renderedDataVersion = version
+        val operator = env.snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
+        filterMenus.invalidateSortCache(operatorId)
+        val table = state.savedTableRenderers[operatorId]?.first ?: return
+        table.updateSavedSpeed(address, direct, speed, short, env.speedAvailable, env.speedBusy)
+        val updatedColumn = if (direct) "SPEED" else "SPEED_NODE"
+        if ((operatorId == env.expandedOperatorId || operatorId == env.selectedOperatorId) &&
+            env.currentSort(operatorId).columnName == updatedColumn
+        ) {
+            val query = env.searchInput.text?.toString()?.trim().orEmpty()
+            val visible = filterMenus.visibleEntries(operator, applySort = true)
+            val ordered = if (query.isEmpty()) visible else {
+                visible.filter { entry ->
+                    entry.address.contains(query, ignoreCase = true) ||
+                        SAVED_SEARCH_COLUMNS.any { column ->
+                            column in env.visibleSavedColumns &&
+                                table.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
+                        }
+                }
+            }
+            table.moveSavedRow(address, ordered)
+        }
+    }
+
+    fun setConfigIpSources(value: Map<String, Set<String>>) {
+        if (env.configuredIpSources == value) return
+        val changedIps = (env.configuredIpSources.keys + value.keys).filterTo(HashSet()) { ip ->
+            env.configuredIpSources[ip] != value[ip]
+        }
+        env.configuredIpSources = value
+        if (changedIps.isEmpty()) return
+        val affectedOperatorIds = env.snapshotCache.operators
+            .filter { operator -> operator.ips.any { it.address in changedIps } }
+            .map { it.id }
+        affectedOperatorIds.forEach { operatorId -> renderOperator(operatorId) }
+    }
+
+fun renderRows() {
+        env.cancelPendingSearchRender()
         env.dismissFailureDetailDialog()
-        renderedQuery = env.searchInput.text?.toString().orEmpty()
+        env.renderedQuery = env.searchInput.text?.toString().orEmpty()
         env.operatorContent.removeAllViews()
         state.operatorSections.clear()
         state.stickyHeaderCopies.clear()
@@ -40,7 +97,7 @@ fun env.renderRows() {
 
 fun addEmptyState() {
         env.operatorContent.addView(TextView(env.context).apply {
-            tag = EMPTY_STATE_TAG
+            tag = SavedIpRenderState.EMPTY_STATE_TAG
             setText(if (env.snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
             textSize = 14f
             setTextColor(env.colorMuted)

@@ -10,7 +10,7 @@ internal val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS
 internal interface SavedIpEnv {
     val context: Context
     val root: View
-    val snapshotCache: SavedIpSnapshot
+    var snapshotCache: SavedIpSnapshot
     var selectedOperatorId: String?
     val selectedAddresses: MutableSet<String>
     val filterState: SavedIpFilterState
@@ -34,8 +34,8 @@ internal interface SavedIpEnv {
     val operatorContent: android.widget.LinearLayout
     val operatorList: android.widget.ScrollView
     val stickyHeaderContainer: android.widget.LinearLayout
-    val speedAvailable: Boolean
-    val speedBusy: Boolean
+    var speedAvailable: Boolean
+    var speedBusy: Boolean
     val onSpeedTest: (String, String, Boolean) -> Unit
     var renderedDataVersion: Long
     var renderedQuery: String?
@@ -47,8 +47,7 @@ internal interface SavedIpEnv {
     val searchClearButton: android.widget.TextView
     val moreButton: View
     val savedTableRenderers: MutableMap<String, Pair<IpTestView, IntArray>>
-    val configuredIpSources: Map<String, Set<String>>
-    val renderedDataVersion: Long
+    var configuredIpSources: Map<String, Set<String>>
     var visibleSavedColumns: Set<String>
     var failureDetailDialog: android.app.Dialog?
 

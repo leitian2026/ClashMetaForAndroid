@@ -4,28 +4,20 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
-import android.widget.PopupMenu
-import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -33,8 +25,6 @@ import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.R
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
-import java.util.UUID
 
 // CUSTOM (CUSTOM.md #156 step 9): shared operator-name validation for saved-IP management entry points.
 internal fun savedIpOperatorDisplayName(context: Context, operator: SavedIpOperator): String = when (operator.id) {
@@ -324,10 +314,6 @@ class SavedIpDesign(
         set(value) { renderState.renderedDataVersion = value }
     private val savedTableRenderers get() = renderState.savedTableRenderers
     private val renderer = SavedIpRenderer(env, renderState, selection, filterMenus)
-    private var visibleSavedColumns: Set<String>
-        get() = filterMenus.visibleSavedColumns
-        set(value) { filterMenus.visibleSavedColumns = value }
-
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -395,48 +381,20 @@ class SavedIpDesign(
     }
 
     // CUSTOM.md #158: update saved download buttons from the process-wide event source.
-    fun setSpeedState(available: Boolean, busy: Boolean) {
-        if (speedAvailable == available && speedBusy == busy) return
-        speedAvailable = available
-        speedBusy = busy
-        // CUSTOM #158: update currently bound buttons without rebuilding the table.
-        savedTableRenderers.values.forEach { (renderer, _) ->
-            renderer.setSavedSpeedAvailability(speedAvailable, speedBusy)
-        }
-    }
 
     // CUSTOM #158: update only the active download percentage in the already-bound cell.
-    fun updateSpeedProgress(operatorId: String, address: String, direct: Boolean, percent: Int?) {
-        savedTableRenderers[operatorId]?.first?.updateSavedSpeedProgress(address, direct, percent)
-    }
 
     // CUSTOM #158/#159: update one speed cell and move existing row views when its order changes.
-    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) {
-        val (snapshot, version) = SavedIpStore.readVersioned(context)
-        snapshotCache = snapshot
-        renderedDataVersion = version
-        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
-        filterMenus.invalidateSortCache(operatorId)
-        val renderer = savedTableRenderers[operatorId]?.first ?: return
-        renderer.updateSavedSpeed(address, direct, speed, short, speedAvailable, speedBusy)
-        val updatedColumn = if (direct) "SPEED" else "SPEED_NODE"
-        if ((operatorId == expandedOperatorId || operatorId == selectedOperatorId) &&
-            currentSort(operatorId).columnName == updatedColumn
-        ) {
-            val query = searchInput.text?.toString()?.trim().orEmpty()
-            val visible = visibleEntries(operator, applySort = true)
-            val ordered = if (query.isEmpty()) visible else {
-                visible.filter { entry ->
-                    entry.address.contains(query, ignoreCase = true) ||
-                        SAVED_SEARCH_COLUMNS.any { column ->
-                            column in visibleSavedColumns &&
-                                renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
-                        }
-                }
-            }
-            renderer.moveSavedRow(address, ordered)
-        }
-    }
+
+    fun setSpeedState(available: Boolean, busy: Boolean) = renderer.setSpeedState(available, busy)
+
+    fun updateSpeedProgress(operatorId: String, address: String, direct: Boolean, percent: Int?) =
+        renderer.updateSpeedProgress(operatorId, address, direct, percent)
+
+    fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) =
+        renderer.updateSpeedResult(operatorId, address, direct, speed, short)
+
+    fun setConfigIpSources(value: Map<String, Set<String>>) = renderer.setConfigIpSources(value)
 
     fun saveState(outState: Bundle) {
         filterState.query = searchInput.text?.toString().orEmpty()
@@ -450,19 +408,6 @@ class SavedIpDesign(
             savedIpUiPreferences.edit().putString(KEY_PERSISTENT_UI_STATE, current).apply()
             lastPersistedUiState = current
         }
-    }
-
-    fun setConfigIpSources(value: Map<String, Set<String>>) {
-        if (configuredIpSources == value) return
-        val changedIps = (configuredIpSources.keys + value.keys).filterTo(HashSet()) { ip ->
-            configuredIpSources[ip] != value[ip]
-        }
-        configuredIpSources = value
-        if (changedIps.isEmpty()) return
-        val affectedOperatorIds = snapshotCache.operators
-            .filter { operator -> operator.ips.any { it.address in changedIps } }
-            .map { it.id }
-        affectedOperatorIds.forEach { operatorId -> renderOperator(operatorId) }
     }
 
     fun refreshIfDataChanged(): Boolean {
@@ -507,19 +452,10 @@ class SavedIpDesign(
         renderRows()
     }
 
-
-
-
-
     // CUSTOM.md #163: each expanded operator is rendered as one shared table. Search deliberately
     // expands every matching operator, preserving the existing search behavior.
     // CUSTOM (CUSTOM.md #165): each operator owns one section View. Local filter/selection
     // changes replace only that section; page-wide changes still call renderRows().
-
-
-
-
-
 
     private companion object {
         // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
@@ -527,47 +463,17 @@ class SavedIpDesign(
         const val KEY_PERSISTENT_UI_STATE = "persistent_filter_state"
     }
 
-
-
     // CUSTOM (CUSTOM.md #164): one mutually exclusive status choice per operator; "全部" clears it.
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
 
-
     // CUSTOM (CUSTOM.md #160): reuse the existing scrollable checkbox popup for each saved-table column.
-
 
     // CUSTOM (CUSTOM.md #164): reconcile each operator's selections only against that operator's values.
 
-
-
-
     // CUSTOM (CUSTOM.md #159/#164): each speed column has its own fastest / slowest menu.
 
-
     // CUSTOM #156: direct-speed visibility applies only to this saved-IP page.
-
-
-
-
-
-
-
-
-
 
     fun handleBackPressed(): Boolean {
         if (filterState.searchExpanded) {
@@ -580,25 +486,6 @@ class SavedIpDesign(
     // CUSTOM.md #156 step 4: enter / toggle selection only inside one operator group.
     // CUSTOM (CUSTOM.md #163 r330): keep active row toggles synchronous; rebuild only when
     // the checkbox column must appear on entry or disappear after the final item is cleared.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private fun renderRows() = renderer.renderRows()
     private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) = renderer.renderOperator(operatorId, showEmptyState)
@@ -695,19 +582,7 @@ class SavedIpDesign(
         onRetest(operatorId, addresses)
     }
 
-
-
-
-
-
-
-
-
-
-
-
     // CUSTOM.md #156 step 8: centralize error handling for every saved-list mutation.
-
 
     private fun copySelectedHosts() {
         val operatorId = selectedOperatorId ?: return
@@ -731,6 +606,5 @@ class SavedIpDesign(
         clipboard?.setPrimaryClip(ClipData.newPlainText("ip", address))
         Toast.makeText(context, R.string.saved_ip_copied, Toast.LENGTH_SHORT).show()
     }
-
 
 }
