@@ -546,10 +546,10 @@ class EditorDesign(
     /** Text and full-document caret offset for on-demand definition navigation. */
     fun definitionContext(): Pair<String, Int> = editor.fullText() to editor.fullCaretOffset()
 
-    // CUSTOM #172: reuse the same full-document caret coordinates as JumpDefinition.
+    // CUSTOM: reuse the same full-document caret coordinates as JumpDefinition.
     fun renameContext(): Pair<String, Int> = definitionContext()
 
-    // CUSTOM #172: preserve one undo step; segmented or threshold-crossing documents are not rewritten.
+    // CUSTOM: preserve one undo step; segmented or threshold-crossing documents are not rewritten.
     fun replaceWholeText(replacement: String): Boolean {
         if (editor.isWindowed || replacement.length > 150_000 || replacement.count { it == '\\n' } >= 3000) return false
         return editor.replaceWhole(replacement)
