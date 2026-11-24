@@ -2,6 +2,9 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 import android.content.Intent
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
@@ -9,6 +12,7 @@ import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.design.R
+import androidx.core.content.ContextCompat
 
 sealed class IssuesDisplayState {
     data class Summary(
@@ -87,13 +91,17 @@ class MainCustomCards(
                 context.getString(R.string.network_identity_card_issues, total)
             }
             val lines = ArrayList<String>()
+            var missingLineIndex = -1
             if (networkError != null) {
                 if (networkError.switchError.isNotEmpty()) {
                     lines += context.getString(R.string.network_identity_error_switch, networkError.switchError)
                 } else if (networkError.error.isNotEmpty()) {
                     lines += NetworkIdentityText.error(context, networkError.error)
                 }
-                networkError.switchMissing.takeIf { it.isNotEmpty() }?.let { lines += it }
+                networkError.switchMissing.takeIf { it.isNotEmpty() }?.let {
+                    missingLineIndex = lines.size
+                    lines += it
+                }
             }
             active.take(2 - lines.size).forEach {
                 lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
@@ -104,7 +112,25 @@ class MainCustomCards(
             }
             identityLine?.let { lines += it }
             if (automaticEnabled) identity?.switchNotice?.takeIf { it.isNotEmpty() }?.let { lines += it }
-            card.subtext = lines.joinToString("\n")
+            val subtext = SpannableStringBuilder()
+            lines.forEachIndexed { index, line ->
+                if (index > 0) subtext.append('\n')
+                val lineStart = subtext.length
+                subtext.append(line)
+                if (index == missingLineIndex) {
+                    val colonIndex = line.indexOfAny(charArrayOf('：', ':'))
+                    val spanEnd = lineStart + if (colonIndex >= 0) colonIndex + 1 else line.length
+                    if (spanEnd > lineStart) {
+                        subtext.setSpan(
+                            ForegroundColorSpan(ContextCompat.getColor(context, R.color.custom_notice_red)),
+                            lineStart,
+                            spanEnd,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                        )
+                    }
+                }
+            }
+            card.subtext = subtext
         }
         card.visibility = View.VISIBLE
     }
