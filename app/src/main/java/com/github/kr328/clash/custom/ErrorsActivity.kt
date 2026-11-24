@@ -7,6 +7,8 @@ import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.service.remote.IClashManager
 import com.github.kr328.clash.common.custom.NetworkIpv6
 import com.github.kr328.clash.common.custom.NetworkIdentityStore
+import com.github.kr328.clash.common.custom.UpdateGuardRecord
+import com.github.kr328.clash.common.custom.UpdateGuardStore
 import com.github.kr328.clash.core.model.ErrorSnapshot
 import com.github.kr328.clash.core.model.NodeInfo
 import com.github.kr328.clash.core.model.ProxySort
@@ -24,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 // CUSTOM (CUSTOM.md #21): the errors and diagnostics page. It only shows data that already exists:
 // the core's own warnings / errors (failed connections with node, rule, destination and reason),
@@ -36,6 +39,8 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     private var shownTimeouts: List<String> = emptyList()
     private var shownTestedAt: Long = 0
     private var subscriptionUpdate: SubscriptionUpdateDiff? = null // CUSTOM.md #170: read once when the page opens
+    private var updateGuardRecord: UpdateGuardRecord? = null // CUSTOM #173: read once when the page opens
+    private var updateGuardUuid: UUID? = null
 
     private val prefs by lazy { getSharedPreferences("custom_errors", MODE_PRIVATE) }
 
@@ -44,6 +49,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
 
         setContentDesign(design)
         subscriptionUpdate = readSubscriptionUpdateOnce()
+        updateGuardRecord = readUpdateGuardOnce()
 
         while (isActive) {
             select<Unit> {
@@ -66,6 +72,16 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                     when (it) {
                         ErrorsDesign.Request.Refresh -> design.refresh()
                         ErrorsDesign.Request.Copy -> design.copyAll()
+                        ErrorsDesign.Request.IgnoreUpdateGuard -> {
+                            val uuid = updateGuardUuid
+                            val saved = uuid != null && withContext(Dispatchers.IO) {
+                                UpdateGuardStore.setIgnored(this@ErrorsActivity, uuid, true)
+                            }
+                            if (saved) {
+                                updateGuardRecord = null
+                                design.setUpdateGuard(null) {}
+                            }
+                        }
                         ErrorsDesign.Request.Clear -> {
                             askCore { // the core could not be asked: the crash records are still cleared
                                 closeCustomConnection(CustomConnections.CLEAR_ERRORS)
@@ -181,6 +197,25 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
                 subscriptionUpdate = subscriptionUpdate,
             ),
         )
+        design.setUpdateGuard(updateGuardRecord) {
+            design.requests.trySend(ErrorsDesign.Request.IgnoreUpdateGuard)
+        }
+    }
+
+
+    /** CUSTOM #173: read the active subscription warning once when the diagnostics page opens. */
+    private suspend fun readUpdateGuardOnce(): UpdateGuardRecord? = withContext(Dispatchers.IO) {
+        try {
+            val uuid = ServiceStore(this@ErrorsActivity).activeProfile ?: return@withContext null
+            val record = UpdateGuardStore.read(this@ErrorsActivity, uuid) ?: return@withContext null
+            if (record.ignored) return@withContext null
+            updateGuardUuid = uuid
+            record
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /** CUSTOM (CUSTOM.md #170): compare once when this diagnostics page is opened, never on update/background. */
