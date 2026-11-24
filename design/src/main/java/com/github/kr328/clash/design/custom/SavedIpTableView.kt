@@ -105,20 +105,20 @@ internal class SavedIpTableView(
     fun isSavedTableFilterable(key: IpTestView.Key): Boolean = key in setOf(IpTestView.Key.COLO, IpTestView.Key.ASN, IpTestView.Key.GEO, IpTestView.Key.EXIT, IpTestView.Key.PORTS, IpTestView.Key.EXIT_IP, IpTestView.Key.TCOLO, IpTestView.Key.TARGET)
 
 
-fun isSavedSpeedColumn(index: Int): Boolean = env.keys.getOrNull(index) == IpTestView.Key.SPEED || env.keys.getOrNull(index) == IpTestView.Key.SPEED_NODE
+    fun isSavedSpeedColumn(index: Int): Boolean = env.keys.getOrNull(index) == IpTestView.Key.SPEED || env.keys.getOrNull(index) == IpTestView.Key.SPEED_NODE
 
 
-fun savedTableColumnOptions(): List<Pair<String, String>> =
+    fun savedTableColumnOptions(): List<Pair<String, String>> =
         state.savedTableKeys.map { it.name to columnWidths.title(it) }
 
 
-fun savedTableColumnName(columnIndex: Int): String = env.keys.getOrNull(columnIndex)?.name.orEmpty()
+    fun savedTableColumnName(columnIndex: Int): String = env.keys.getOrNull(columnIndex)?.name.orEmpty()
 
 
-fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): List<String> =
+    fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): List<String> =
         entries.asSequence().map { savedTableFilterValue(it, columnName) }.filter { it.isNotBlank() && it != "-" }.distinct().sorted().toList()
 
-        fun savedTableFilterValue(entry: SavedIpEntry, columnName: String): String {
+    fun savedTableFilterValue(entry: SavedIpEntry, columnName: String): String {
         val key = env.keys.firstOrNull { it.name == columnName } ?: return ""
         if (!isSavedTableFilterable(key)) return ""
         val row = entry.result ?: return ""
@@ -180,7 +180,7 @@ fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): Li
         }
     }
 
-        fun savedTableView(
+    fun savedTableView(
         entries: List<SavedIpEntry>,
         widths: IntArray,
         scrollX: Int,

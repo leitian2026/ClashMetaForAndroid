@@ -50,13 +50,30 @@ def function_lengths(path: Path) -> dict[str, int]:
         if not match:
             continue
         indent = len(line) - len(line.lstrip())
+        paren_depth = line.count("(") - line.count(")")
+        body_started = paren_depth <= 0 and (
+            "{" in line or re.search(r"\\)\\s*(?::[^=]+)?\\s*=", line) is not None
+        )
         end = index + 1
         while end < len(lines):
             candidate = lines[end]
             stripped = candidate.strip()
             if stripped and not stripped.startswith(("//", "*")) and not stripped.startswith("@"):
                 candidate_indent = len(candidate) - len(candidate.lstrip())
-                if candidate_indent <= indent:
+                if not body_started:
+                    # A multiline signature can have continuation lines aligned with the
+                    # declaration. Track parentheses so default-argument lambdas are not
+                    # mistaken for the function body.
+                    if candidate_indent <= indent and FUN_RE.match(candidate):
+                        break
+                    paren_depth += candidate.count("(") - candidate.count(")")
+                    if paren_depth <= 0 and (
+                        "{" in candidate
+                        or candidate.lstrip().startswith("=")
+                        or re.search(r"\\)\\s*(?::[^=]+)?\\s*=", candidate)
+                    ):
+                        body_started = True
+                elif candidate_indent <= indent:
                     break
             end += 1
         key = f"{relative}::{match.group(1)}"
