@@ -1,6 +1,8 @@
 package com.github.kr328.clash.design.custom
 
+import android.view.View
 import android.widget.Toast
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.github.kr328.clash.design.R
 
 // changes.md #175: multi-selection state and actions for saved-IP entries.

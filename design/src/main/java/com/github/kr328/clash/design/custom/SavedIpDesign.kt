@@ -167,15 +167,6 @@ class SavedIpDesign(
         effectiveSavedIpSortName(filterState.sortFor(operatorId).name, showDirectSpeed),
     )
     private fun setCurrentSort(operatorId: String, value: SavedIpSort) = filterState.setSort(operatorId, value)
-    private data class OrderedEntriesCache(val version: Long, val entries: List<SavedIpEntry>)
-    private data class SortedEntriesCache(val version: Long, val sort: SavedIpSort, val entries: List<SavedIpEntry>)
-    private val defaultOrderCache = HashMap<String, OrderedEntriesCache>()
-    private val sortedEntriesCache = HashMap<String, SortedEntriesCache>()
-    private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
-    private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
-    private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
-        ?.let { stored -> (stored + "SPEED_NODE").filter { it in allSavedColumnNames }.toSet() }
-        ?: allSavedColumnNames
     private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
     // Must be initialized before init{} calls refresh() -> renderRows().
     private val operatorSections = HashMap<String, LinearLayout>()
@@ -251,9 +242,6 @@ class SavedIpDesign(
         visibility = View.GONE
         setOnClickListener { collapseSearch() }
     }
-    private var tableFilterPopup: PopupWindow? = null
-    private var activeTableFilterOperatorId: String? = null
-    private var activeTableFilterColumn: String = ""
 
     private val env = object : SavedIpEnv {
         override val context: Context get() = this@SavedIpDesign.context
@@ -264,16 +252,12 @@ class SavedIpDesign(
             set(value) { selection.selectedOperatorId = value }
         override val selectedAddresses: MutableSet<String> get() = selection.selectedAddresses
         override val filterState: SavedIpFilterState get() = this@SavedIpDesign.filterState
-        override val expandedOperatorId: String? get() = this@SavedIpDesign.expandedOperatorId
+        override var expandedOperatorId: String?
+            get() = this@SavedIpDesign.expandedOperatorId
+            set(value) { this@SavedIpDesign.expandedOperatorId = value }
         override val canRetest: Boolean get() = this@SavedIpDesign.canRetest
         override val selectionActions: LinearLayout get() = this@SavedIpDesign.selectionActions
-        override val selectedCountView: TextView get() =    private val selection = SavedIpSelection(env)
-    private var selectedOperatorId: String?
-        get() = selection.selectedOperatorId
-        set(value) { selection.selectedOperatorId = value }
-    private val selectedAddresses: LinkedHashSet<String>
-        get() = selection.selectedAddresses
-     this@SavedIpDesign.selectedCountView
+        override val selectedCountView: TextView get() = this@SavedIpDesign.selectedCountView
         override val retestButton: TextView get() = this@SavedIpDesign.retestButton
         override val deleteSelectedButton: TextView get() = this@SavedIpDesign.deleteSelectedButton
         override val selectUnreachableButton: TextView get() = this@SavedIpDesign.selectUnreachableButton
@@ -282,15 +266,45 @@ class SavedIpDesign(
         override var failureDetailDialog: android.app.Dialog?
             get() = deleteUndo.failureDetailDialog
             set(value) { deleteUndo.failureDetailDialog = value }
+        override val savedIpUiPreferences get() = this@SavedIpDesign.savedIpUiPreferences
+        override var showDirectSpeed: Boolean
+            get() = this@SavedIpDesign.showDirectSpeed
+            set(value) { this@SavedIpDesign.showDirectSpeed = value }
+        override val density get() = this@SavedIpDesign.density
+        override val colorSurface get() = this@SavedIpDesign.colorSurface
+        override val searchInput get() = this@SavedIpDesign.searchInput
+        override val moreButton: View get() = this@SavedIpDesign.moreButton
+        override val savedTableRenderers get() = this@SavedIpDesign.savedTableRenderers
+        override val configuredIpSources get() = this@SavedIpDesign.configuredIpSources
+        override val renderedDataVersion get() = this@SavedIpDesign.renderedDataVersion
+        override var visibleSavedColumns: Set<String>
+            get() = filterMenus.visibleSavedColumns
+            set(value) { filterMenus.visibleSavedColumns = value }
 
         override fun refresh() = this@SavedIpDesign.refresh()
+        override fun renderRows() = this@SavedIpDesign.renderRows()
         override fun renderOperator(operatorId: String, showEmptyState: Boolean) = this@SavedIpDesign.renderOperator(operatorId, showEmptyState)
         override fun visibleEntries(operator: SavedIpOperator, applySort: Boolean) = this@SavedIpDesign.visibleEntries(operator, applySort)
+        override fun savedTableFor(operator: SavedIpOperator) = this@SavedIpDesign.savedTableFor(operator)
+        override fun currentSort(operatorId: String) = this@SavedIpDesign.currentSort(operatorId)
+        override fun setCurrentSort(operatorId: String, value: SavedIpSort) = this@SavedIpDesign.setCurrentSort(operatorId, value)
+        override fun collapseSearch() = this@SavedIpDesign.collapseSearch()
+        override fun updateSearchUi() = this@SavedIpDesign.updateSearchUi()
         override fun clearSelectionState() = selection.clearSelectionState()
-        override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean =
-            deleteUndo.writeSnapshot(transform)
+        override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean = deleteUndo.writeSnapshot(transform)
     }
+    private val selection = SavedIpSelection(env)
+    private var selectedOperatorId: String?
+        get() = selection.selectedOperatorId
+        set(value) { selection.selectedOperatorId = value }
+    private val selectedAddresses: LinkedHashSet<String>
+        get() = selection.selectedAddresses
     private val deleteUndo = SavedIpDeleteUndo(env)
+    private val filterMenus = SavedIpFilterMenus(env)
+    private var visibleSavedColumns: Set<String>
+        get() = filterMenus.visibleSavedColumns
+        set(value) { filterMenus.visibleSavedColumns = value }
+
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -379,8 +393,7 @@ class SavedIpDesign(
         snapshotCache = snapshot
         renderedDataVersion = version
         val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
-        defaultOrderCache.remove(operatorId)
-        sortedEntriesCache.remove(operatorId)
+        filterMenus.invalidateSortCache(operatorId)
         val renderer = savedTableRenderers[operatorId]?.first ?: return
         renderer.updateSavedSpeed(address, direct, speed, short, speedAvailable, speedBusy)
         val updatedColumn = if (direct) "SPEED" else "SPEED_NODE"
@@ -460,8 +473,7 @@ class SavedIpDesign(
         snapshotCache = snapshot
         renderedDataVersion = version
         hasLoadedSnapshot = true
-        defaultOrderCache.clear()
-        sortedEntriesCache.clear()
+        filterMenus.clearSortCaches()
         savedTableRenderers.clear()
         SavedIpStore.takeReadError()?.let { // CUSTOM.md #156 step 13
             Toast.makeText(context, context.getString(R.string.saved_ip_read_failed, it), Toast.LENGTH_LONG).show()
@@ -595,10 +607,8 @@ class SavedIpDesign(
         val EMPTY_STATE_TAG = Any()
         // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
         // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
-        const val KEY_VISIBLE_SAVED_COLUMNS = "visible_columns"
         const val KEY_PERSISTENT_UI_STATE = "persistent_filter_state"
         val SAVED_TABLE_TAG = Any()
-        val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS", "EXIT_IP", "TCOLO", "TARGET")
     }
 
     private fun bindOperatorRow(
@@ -887,231 +897,26 @@ class SavedIpDesign(
         }
     }
 
-    private fun showSavedColumnsDialog() {
-        val selected = visibleSavedColumns.toMutableSet()
-        // CUSTOM #156: do not offer the direct-speed column while its page-wide switch is off.
-        val availableOptions = savedTableColumnOptions.filter { showDirectSpeed || it.first != "SPEED" }
-        val labels = availableOptions.map { it.second }.toTypedArray()
-        val checked = BooleanArray(availableOptions.size) { availableOptions[it].first in selected }
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_show_columns_title)
-            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
-                val columnName = availableOptions[which].first
-                if (isChecked) selected.add(columnName) else selected.remove(columnName)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val next = selected.intersect(allSavedColumnNames)
-                visibleSavedColumns = next
-                savedIpUiPreferences.edit()
-                    .putStringSet(KEY_VISIBLE_SAVED_COLUMNS, HashSet(next))
-                    .apply()
-                filterState.selectedTableFilters.keys.toList().forEach { operatorId ->
-                    val filters = filterState.selectedTableFilters[operatorId] ?: return@forEach
-                    filters.keys.retainAll(next + "SPEED") // CUSTOM #156: preserve the direct-speed filter state.
-                    if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
-                }
-                filterState.sorts.keys.toList().forEach { operatorId ->
-                    val sort = currentSort(operatorId)
-                    if (sort.columnName != null && sort.columnName !in next) {
-                        setCurrentSort(operatorId, SavedIpSort.DEFAULT)
-                        sortedEntriesCache.remove(operatorId)
-                    }
-                }
-                savedTableRenderers.clear()
-                refresh()
-            }
-            .show()
-    }
 
-    private fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry> {
-        // Collapsed groups need only their filtered count; do not sort their rows.
-        val ordered = if (!applySort) {
-            operator.ips
-        } else {
-            val defaultOrdered = defaultOrderCache[operator.id]
-                ?.takeIf { it.version == renderedDataVersion }
-                ?.entries
-                ?: SavedIpStore.sortEntries(operator.ips).also {
-                    defaultOrderCache[operator.id] = OrderedEntriesCache(renderedDataVersion, it)
-                }
-            // Speed sorting is cached by data version and option; filters only retain items from this order.
-            val cached = sortedEntriesCache[operator.id]
-            if (cached != null && cached.version == renderedDataVersion && cached.sort == currentSort(operator.id)) {
-                cached.entries
-            } else {
-                val sorted = sortSavedIpEntries(defaultOrdered, currentSort(operator.id))
-                sortedEntriesCache[operator.id] = SortedEntriesCache(renderedDataVersion, currentSort(operator.id), sorted)
-                sorted
-            }
-        }
-        val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
-        val filtered = ordered.filter { entry -> selectedStatuses.isEmpty() || entry.status in selectedStatuses }
-        val tableFiltered = filterSavedIpEntriesByColumns(operator, filtered)
-        // CUSTOM (CUSTOM.md #156): pin recommended and configured IPs above the remaining rows.
-        val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
-        return tableFiltered.sortedBy { entry ->
-            entry.address !in recommendedIps && entry.address !in configuredIpSources
-        }
-    }
+
+
 
     // CUSTOM.md #160 (r291): scrollable anchored popup; checkboxes stay open for multi-selection.
-    private fun dismissFilterPopups() {
-        tableFilterPopup?.dismiss()
-        tableFilterPopup = null
-    }
+
 
     // CUSTOM (CUSTOM.md #160): reuse the existing scrollable checkbox popup for each saved-table column.
-    private fun showTableColumnPopup(anchor: View, operator: SavedIpOperator, columnIndex: Int) {
-        if (filterState.searchExpanded) collapseSearch()
-        val renderer = savedTableFor(operator).first
-        val columnName = renderer.savedTableColumnName(columnIndex)
-        if (columnName.isEmpty()) return
-        if (tableFilterPopup?.isShowing == true && activeTableFilterOperatorId == operator.id && activeTableFilterColumn == columnName) {
-            tableFilterPopup?.dismiss(); tableFilterPopup = null; return
-        }
-        dismissFilterPopups()
-        val options = renderer.savedTableFilterOptions(operator.ips, columnName)
-        if (options.isEmpty()) return
-        // CUSTOM (CUSTOM.md #164): calculate once on popup open; the current column's own selection is excluded.
-        val query = searchInput.text?.toString()?.trim().orEmpty()
-        val counts = SavedIpFilterCounts.count(
-            entries = operator.ips,
-            columnName = columnName,
-            valueOf = renderer::savedTableFilterValue,
-            selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty(),
-            selectedOtherColumns = filterState.selectedTableFilters[operator.id].orEmpty(),
-            query = query,
-            matchesSearch = { entry, search ->
-                entry.address.contains(search, ignoreCase = true) ||
-                    SAVED_SEARCH_COLUMNS.any { column ->
-                        column in visibleSavedColumns &&
-                            renderer.savedTableFilterValue(entry, column).contains(search, ignoreCase = true)
-                    }
-            },
-        )
-        val operatorFilters = filterState.selectedTableFilters.getOrPut(operator.id) { LinkedHashMap() }
-        val selected = operatorFilters.getOrPut(columnName) { LinkedHashSet() }
-        var selectionChanged = false
-        var selectionClearedOperatorId: String? = null
-        val choices = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(savedIpDp(density, 8), savedIpDp(density, 4), savedIpDp(density, 8), savedIpDp(density, 4)) }
-        options.forEach { value ->
-            choices.addView(CheckBox(context).apply {
-                tag = value
-                text = context.getString(R.string.saved_filter_count, value, counts[value] ?: 0)
-                textSize = 14f; isChecked = value in selected; minHeight = savedIpDp(density, 44)
-                setOnCheckedChangeListener { _, checked ->
-                    selectionChanged = true
-                    if (checked) selected.add(value) else selected.remove(value)
-                    if (selected.isEmpty()) operatorFilters.remove(columnName)
-                    if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
-                    // CUSTOM (CUSTOM.md #165): defer every affected operator rebuild until the popup closes.
-                    if (selectedOperatorId != null) selectionClearedOperatorId = selectedOperatorId
-                    clearSelectionState(); updateSearchUi()
-                }
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val scroll = ScrollView(context).apply {
-            isFillViewport = true; isVerticalScrollBarEnabled = true
-            addView(choices, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val popupWidth = maxOf(anchor.width, savedIpDp(density, 220)).coerceAtMost(context.resources.displayMetrics.widthPixels - savedIpDp(density, 24))
-        val popupHeight = minOf(savedIpDp(density, 280), savedIpDp(density, 48 * options.size.coerceAtLeast(1)))
-        val popup = PopupWindow(scroll, popupWidth, popupHeight, true).apply {
-            setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = savedIpDp(density, 8).toFloat(); isOutsideTouchable = true
-            setOnDismissListener {
-                if (selected.isEmpty()) {
-                    operatorFilters.remove(columnName)
-                    if (operatorFilters.isEmpty()) filterState.selectedTableFilters.remove(operator.id)
-                }
-                if (tableFilterPopup === this) tableFilterPopup = null
-                // Tapping outside without changing any checkbox must not rebuild the whole list.
-                if (selectionChanged) {
-                    renderOperator(operator.id)
-                    selectionClearedOperatorId?.takeIf { it != operator.id }?.let { renderOperator(it) }
-                }
-            }
-        }
-        tableFilterPopup = popup; activeTableFilterOperatorId = operator.id; activeTableFilterColumn = columnName
-        popup.showAsDropDown(anchor)
-    }
+
 
     // CUSTOM (CUSTOM.md #164): reconcile each operator's selections only against that operator's values.
-    private fun reconcileTableFilters(snapshot: SavedIpSnapshot) {
-        val operatorIds = filterState.selectedTableFilters.keys.toList()
-        for (operatorId in operatorIds) {
-            val operator = snapshot.operators.firstOrNull { it.id == operatorId }
-            val filters = filterState.selectedTableFilters[operatorId] ?: continue
-            if (operator == null) {
-                filterState.selectedTableFilters.remove(operatorId)
-                continue
-            }
-            val renderer = savedTableFor(operator).first
-            for (columnName in filters.keys.toList()) {
-                // CUSTOM #156: do not reconcile away the direct-speed filter while its column is hidden.
-                if (columnName == "SPEED") continue
-                filters[columnName]?.retainAll(renderer.savedTableFilterOptions(operator.ips, columnName).toSet())
-                if (filters[columnName].isNullOrEmpty()) filters.remove(columnName)
-            }
-            if (filters.isEmpty()) filterState.selectedTableFilters.remove(operatorId)
-        }
-        val validIds = snapshot.operators.mapTo(HashSet()) { it.id }
-        filterState.selectedStatuses.keys.retainAll(validIds)
-    }
 
-    private fun filterSavedIpEntriesByColumns(operator: SavedIpOperator, entries: List<SavedIpEntry>): List<SavedIpEntry> {
-        val filters = filterState.selectedTableFilters[operator.id].orEmpty()
-            .filterKeys { showDirectSpeed || it != "SPEED" }
-        if (filters.isEmpty()) return entries
-        val renderer = savedTableFor(operator).first
-        return entries.filter { entry -> filters.all { (columnName, values) ->
-            values.isEmpty() || renderer.savedTableFilterValue(entry, columnName) in values
-        } }
-    }
+
+
 
     // CUSTOM (CUSTOM.md #159/#164): each speed column has its own fastest / slowest menu.
-    private fun showSpeedSortMenu(anchor: View, columnName: String, operatorId: String) {
-        if (filterState.searchExpanded) collapseSearch()
-        dismissFilterPopups()
-        PopupMenu(context, anchor).apply {
-            menu.add(0, 1, 0, "按最快").isCheckable = true
-            menu.add(0, 2, 1, "按最慢").isCheckable = true
-            menu.setGroupCheckable(0, true, true)
-            val fastest = SavedIpSort.forColumn(columnName, true)
-            val slowest = SavedIpSort.forColumn(columnName, false)
-            when (currentSort(operatorId)) {
-                fastest -> menu.findItem(1)?.isChecked = true
-                slowest -> menu.findItem(2)?.isChecked = true
-                else -> Unit
-            }
-            setOnMenuItemClickListener { item ->
-                val chosen = if (item.itemId == 1) fastest else slowest
-                setCurrentSort(operatorId, if (currentSort(operatorId) == chosen) SavedIpSort.DEFAULT else chosen)
-                sortedEntriesCache.remove(operatorId)
-                renderOperator(operatorId)
-                true
-            }
-            show()
-        }
-    }
+
 
     // CUSTOM #156: direct-speed visibility applies only to this saved-IP page.
-    private fun showSavedIpMoreMenu() {
-        PopupMenu(context, moreButton).apply {
-            menu.add(0, 1, 0, R.string.saved_ip_show_direct_speed).apply {
-                isCheckable = true
-                isChecked = showDirectSpeed
-            }
-            setOnMenuItemClickListener {
-                showDirectSpeed = !showDirectSpeed
-                SavedIpDirectSpeedSetting.write(context, showDirectSpeed)
-                savedTableRenderers.clear()
-                renderRows()
-                true
-            }
-            show()
-        }
-    }
+
 
     private fun expandSearch() {
         filterState.searchExpanded = true
@@ -1177,6 +982,19 @@ class SavedIpDesign(
 
 
 
+
+    private fun showSavedColumnsDialog() = filterMenus.showSavedColumnsDialog()
+    private fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry> =
+        filterMenus.visibleEntries(operator, applySort)
+    private fun dismissFilterPopups() = filterMenus.dismiss()
+    private fun showTableColumnPopup(anchor: View, operator: SavedIpOperator, columnIndex: Int) =
+        filterMenus.showTableColumnPopup(anchor, operator, columnIndex)
+    private fun reconcileTableFilters(snapshot: SavedIpSnapshot) = filterMenus.reconcileTableFilters(snapshot)
+    private fun filterSavedIpEntriesByColumns(operator: SavedIpOperator, entries: List<SavedIpEntry>) =
+        filterMenus.filterSavedIpEntriesByColumns(operator, entries)
+    private fun showSpeedSortMenu(anchor: View, columnName: String, operatorId: String) =
+        filterMenus.showSpeedSortMenu(anchor, columnName, operatorId)
+    private fun showSavedIpMoreMenu() = filterMenus.showSavedIpMoreMenu()
 
     private fun toggleSelection(operatorId: String, address: String): Boolean = selection.toggleSelection(operatorId, address)
     private fun reconcileSelection(snapshot: SavedIpSnapshot) = selection.reconcileSelection(snapshot)
