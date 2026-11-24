@@ -29,7 +29,7 @@ fi
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchModel.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/NetworkIdentitySnapshot.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierOperatorConsensus.kt" \
-  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTargetCheck.kt" \\
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTargetCheck.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchMatcher.kt" \
   "$ROOT/tests/custom/CarrierOperatorConsensusTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchMatcherTests.kt" \
@@ -38,7 +38,7 @@ fi
   "$ROOT/tests/custom/TestMain.kt" \
   "$ROOT/tests/custom/TextSearchTests.kt" \
   "$ROOT/tests/custom/YamlLintTests.kt" \
-  "$ROOT/tests/custom/YamlPairsTests.kt" \ \\
+  "$ROOT/tests/custom/YamlPairsTests.kt" \
   -include-runtime -d "$OUT_DIR/custom-logic-tests.jar"
 
 java -jar "$OUT_DIR/custom-logic-tests.jar"
