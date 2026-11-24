@@ -420,12 +420,12 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val definition = plan.changes.firstOrNull { change ->
             val lineStart = source.lastIndexOf('\n', (change.start - 1).coerceAtLeast(0)) + 1
             val prefix = source.substring(lineStart, change.start).trimEnd()
-            prefix.endsWith("name:") || prefix.endsWith("'name':") || prefix.endsWith("\\"name\\":")
+            prefix.endsWith("name:") || prefix.endsWith("'name':") || prefix.endsWith("\"name\":")
         } ?: return null
         val previous = source.getOrNull(definition.start - 1)
         val raw = definition.replacement
         return when {
-            previous == '\\'' -> raw.replace("''", "'")
+            previous == '\'' -> raw.replace("''", "'")
             previous == '"' -> decodeYamlDoubleQuoted(raw)
             raw.length >= 2 && raw.first() == '"' && raw.last() == '"' ->
                 decodeYamlDoubleQuoted(raw.substring(1, raw.length - 1))
