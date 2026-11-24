@@ -78,10 +78,13 @@ object CarrierSwitchMatcherTests {
         )
         check(
             CarrierSwitchMatcher.match(
-                config.copy(custom = listOf(
-                    CarrierSwitchKeyword("电信", "无效组", ""),
-                    CarrierSwitchKeyword("电信", keywordTarget.group, keywordTarget.node),
-                )),
+                config.copy(
+                    telecom = emptyNode,
+                    custom = listOf(
+                        CarrierSwitchKeyword("电信", "无效组", ""),
+                        CarrierSwitchKeyword("电信", keywordTarget.group, keywordTarget.node),
+                    ),
+                ),
                 identity(operator = "电信"),
             ) == keywordTarget,
             "invalid keyword mapping does not block the next valid mapping",
