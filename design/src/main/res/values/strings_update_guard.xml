@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_guard_title">Subscription update warning</string>
+    <string name="update_guard_summary">Subscription update reduced proxy count from %1$d to %2$d.</string>
+    <string name="update_guard_ignore">Ignore</string>
+</resources>
