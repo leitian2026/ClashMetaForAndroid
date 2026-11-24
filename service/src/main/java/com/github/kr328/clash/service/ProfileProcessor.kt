@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.common.custom.CarrierSwitchStore // CUSTOM (CUSTOM.md #169)
+import com.github.kr328.clash.common.custom.UpdateGuardStore // CUSTOM (CUSTOM.md #173)
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.model.FetchStatus
 import com.github.kr328.clash.service.data.Imported
@@ -14,6 +15,7 @@ import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.custom.ConfigErrorText
 import com.github.kr328.clash.service.custom.ConfigHistory
 import com.github.kr328.clash.service.custom.ConfigUpdateSnapshot // CUSTOM (CUSTOM.md #170)
+import com.github.kr328.clash.service.custom.UpdateGuard // CUSTOM (CUSTOM.md #173)
 import com.github.kr328.clash.service.remote.IFetchObserver
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.importedDir
@@ -59,6 +61,7 @@ object ProfileProcessor {
                     throw ConfigErrorText.explain(context, context.processingDir, e)
                 }
 
+                var replaced = false
                 profileLock.withLock {
                     if (PendingDao().queryByUUID(snapshot.uuid) == snapshot) {
                         if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid) // CUSTOM (CUSTOM.md #28 #56): keep the version being replaced and the new one (only self-edited profiles have a history)
@@ -93,8 +96,12 @@ object ProfileProcessor {
 
                         context.pendingDir.resolve(snapshot.uuid.toString()).deleteRecursively()
 
+                        replaced = true
                         context.sendProfileChanged(snapshot.uuid)
                     }
+                }
+                if (replaced && snapshot.type != Profile.Type.File) {
+                    UpdateGuard.afterUpdateAsync(context, snapshot.uuid) // CUSTOM (CUSTOM.md #173)
                 }
             }
         }
@@ -120,6 +127,7 @@ object ProfileProcessor {
 
                 val subscriptionInfo = fetchProfile(context, snapshot.source, true, callback)
 
+                var replaced = false
                 profileLock.withLock {
                     val imported = ImportedDao().queryByUUID(snapshot.uuid)
                     if (imported != null) {
@@ -139,8 +147,12 @@ object ProfileProcessor {
                             )
                         }
 
+                        replaced = true
                         context.sendProfileChanged(snapshot.uuid)
                     }
+                }
+                if (replaced && snapshot.type != Profile.Type.File) {
+                    UpdateGuard.afterUpdateAsync(context, snapshot.uuid) // CUSTOM (CUSTOM.md #173)
                 }
             }
         }
@@ -187,6 +199,7 @@ object ProfileProcessor {
                 ConfigHistory.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #56): its history goes with it
                 ConfigUpdateSnapshot.deleteAll(context, uuid) // CUSTOM (CUSTOM.md #170)
                 CarrierSwitchStore.delete(context, uuid) // CUSTOM (CUSTOM.md #169): its carrier mapping goes with it
+                UpdateGuardStore.delete(context, uuid) // CUSTOM (CUSTOM.md #173): its warning goes with it
 
                 context.sendProfileChanged(uuid)
             }
