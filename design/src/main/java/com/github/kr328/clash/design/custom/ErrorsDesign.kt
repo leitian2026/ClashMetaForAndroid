@@ -63,7 +63,7 @@ class ErrorsDesign(context: Context) : Design<ErrorsDesign.Request>(context) {
     }
 
 
-    /** CUSTOM #173: the latest subscription node-count warning, placed above the diagnostics summary. */
+    /** CUSTOM: the latest subscription node-count warning, placed above the diagnostics summary. */
     suspend fun setUpdateGuard(record: UpdateGuardRecord?, onIgnore: () -> Unit) {
         withContext(Dispatchers.Main) {
             updateGuardRow?.let { binding.issuesList.removeView(it) }
