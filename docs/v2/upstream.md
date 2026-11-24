@@ -7,7 +7,7 @@
 |---|---|---|---|
 |`.github/workflows/build-debug.yaml`|#2 #3 #4 #5 #14 #18 #20 #40 #54|中|以上游为底，重加：只留 workflow_dispatch、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 -x…|
 |`.github/workflows/build-pre-release.yaml`|#2 #3|中|以上游为底，重加：只留 workflow_dispatch、预下载 Gradle|
-|`gradle.properties`|#85|低|重加末尾的 kotlin.daemon.jvmargs=-Xmx3g -Xss256m（#85：IpTestDialog.ask 是很大的 suspend 函数，Kotlin 2.1.详见旧文档对应编号|
+|`gradle.properties`|#175|低|保留 `kotlin.daemon.jvmargs=-Xmx3g`；Build Debug 已验证无需 `-Xss`。|
 |`core/src/main/golang/native/tunnel.go`|#1 #7 #37 #147|低|重加 ipdelay.TestGroup(name) 和 queryTunnelState 里的 current 字段（CurrentSet()、currentNode / curre…|
 |`core/src/main/golang/native/connections.go`|#8 #15 #101|低|重加 queryCustomConnections 的自定义分派和 closeCustomConnection 的自定义关闭分支；#101 在 CANCEL_IPTEST 前加 CAN详见旧文档对应编号|
 |`core/src/main/golang/native/tunnel/proxies.go`|#1 #55|低|重加 IPDelays 字段和填充行|

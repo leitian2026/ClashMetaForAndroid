@@ -32,13 +32,8 @@
 ## 构建事实（别误判）
 - 日常构建用 `build-debug.yaml`，实际跑的是 `app:assembleAlphaRelease`（**R8 已开**），只构建 arm64-v8a，固定签名。只能手动触发（`workflow_dispatch`）。
 - `build-release.yaml`、`update-dependencies.yaml` 没有改动。
-- **`IpTestDialog.ask`（`design/.../custom/IpTestDialog.kt`）已接近 Kotlin 2.1.0 编译器的栈上限。** 它是一个很大的 suspend 函数，里面嵌了很多回调、`try/catch` 和协程；编译器的协程转换器（`CoroutineTransformerMethodVisitor.collectSuspensionPoints`）按方法长度递归，默认栈会 `StackOverflowError`。现在靠 `gradle.properties` 的 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m` 才编得过（`docs/v2/changes.md` 的 #85）。
-  - 构建日志里出现 `StackOverflowError` 且栈里有 `collectSuspensionPoints`，就是这个问题。
-  - **加一个拆一个：** 每往 `ask` 里加一个功能，同一次任务里必须先从 `ask` 里拆出一块，拆出去的比新加的不小，让 `ask` 不再变大。新功能的主体逻辑写在新文件里，`ask` 里只留最少几行调用。
-    - 拆和加分成两个提交：先拆（`custom #N：从 IpTestDialog.ask 拆出…`），再加。拆的时候只做原样搬家、不改逻辑；回调之间共用的局部变量（如 `hintExpanded`、`resolveChecks`、`selected`、`input`、`scope`）收进一个小状态类，不要零散传参；协程的取消和作用域（`cancelResolve`、`CancellationException`）仍在同一套里。
-    - **回复里必须说清楚：** 这次拆了哪一块、搬到哪个文件、`ask` 拆前拆后各多少行，然后才说加了什么。没写这几项，就说明没按规则做。
-    - 同一次交付里又拆又加时，也要写明先后，并说明拆出去的那块没改逻辑；构建失败时先回退新加的，再查拆的。运行时没有副作用，风险只在改的过程里，而且这类错误编译不一定报，要实测。
-  - 这个栈设置只影响构建，不影响 App 运行、体积和功耗。
+- `IpTestDialog.ask` 曾因 suspend 函数过长触发 Kotlin 2.1.0 编译器 `StackOverflowError`；#175 已拆分该函数及相关长函数。当前 Build Debug 已在 `kotlin.daemon.jvmargs=-Xmx3g`（未设置 `-Xss`）下成功。
+- 后续如再次出现编译器栈溢出，优先拆分导致问题的长函数；不得仅凭历史问题恢复 `-Xss256m`，是否需要额外栈设置以当前 Build Debug 实测结果为准。
 
 ## 提交方式（直接在仓库里改的 AI 照这个做）
 - 默认：直接提交到 `custom` 分支，用户自己手动构建。不开分支、不开 PR、不 force push，不打包、不发增量包。

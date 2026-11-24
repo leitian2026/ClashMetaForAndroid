@@ -1,7 +1,7 @@
 > **旧文档，已冻结：不要往里写任何内容，改代码和写文档不要照着它做。合并上游时可以查它，但先看新文档：`docs/v2/`（`upstream.md`、`rules.md`、`changes.md`）。**
 
 基线：上游 `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`（版本 2.11.36）。
-当前版本：2_11_46-r397
+当前版本：2_11_46-r398
 已归档（内容已被后面的条目取代，仅留作记录）：#88（被 #89 取代）、#90（被 #91 #93 取代），见 `CUSTOM_ARCHIVE.md`。代码注释里写着这两个编号的，去那个文件里找。
 所有挂钩处在代码里都带 `CUSTOM` 注释，可用 `grep -rn CUSTOM` 找全。
 规则和同步上游的步骤见 `AGENTS.md`（开头有“动手前清单”）。每次改动都要同步更新登记，写在哪里见下面“怎么找”和 `AGENTS.md` 规则 7。
@@ -19,7 +19,7 @@
 |---|---|---|---|
 | `.github/workflows/build-debug.yaml` | #2 #3 #4 #5 #14 #18 #20 #40 #54 | 中（`on:` 段、Build 步骤） | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 `-x :app:downloadGeoFiles`）与上传、`Checkout submodules` 之后的 `Apply mihomo patches` 步骤（#20）、上传前的 `Artifact name` 步骤和上传步骤里的 `name:`（#40）、`Apply mihomo patches` 前的 `Remove deleted custom files` 步骤（#54） |
 | `.github/workflows/build-pre-release.yaml` | #2 #3 | 中 | 以上游为底，重加：只留 `workflow_dispatch`、预下载 Gradle |
-| `gradle.properties` | #85 | 低 | 重加末尾的 `kotlin.daemon.jvmargs=-Xmx3g -Xss256m`（#85：`IpTestDialog.ask` 是很大的 suspend 函数，Kotlin 2.1.0 协程转换器在默认栈上会 StackOverflowError） |
+| `gradle.properties` | #175 | 低 | 保留末尾的 `kotlin.daemon.jvmargs=-Xmx3g`；#175 拆分长函数后，Build Debug 已验证无需额外 `-Xss`。 |
 | `core/src/main/golang/native/tunnel.go` | #1 #7 #37 #147 | 低 | 重加 `ipdelay.TestGroup(name)` 和 `queryTunnelState` 里的 current 字段（`CurrentSet()`、`currentNode` / `currentIp` / `currentCountry` / `currentIps` / `currentMore`），以及 `reach` 字段（`ipdelay.Reach(node)`，#37）；#147 追加 `reachReason` / `reachAt` 两个 JSON 字段 |
 | `core/src/main/golang/native/connections.go` | #8 #15 #101 | 低 | 重加 `queryCustomConnections` 的自定义分派和 `closeCustomConnection` 的自定义关闭分支；#101 在 `CANCEL_IPTEST` 前加 `CANCEL_CHECK` 分支，调用 `conftest.CancelCheck()` |
 | `core/src/main/golang/native/tunnel/proxies.go` | #1 #55 | 低 | 重加 `IPDelays` 字段和填充行 |
