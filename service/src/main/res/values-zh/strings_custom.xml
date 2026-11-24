@@ -6,4 +6,6 @@
     <string name="custom_config_error">config.yaml 第 %1$d 行附近有错误（没有保存）：%2$s</string>
     <string name="custom_ips_more">等 %d 个</string>
     <string name="carrier_switch_missing_target">当前运营商：%1$s，未设置对应节点，没有自动切换</string>
+    <string name="carrier_switch_target_missing_group">映射的代理组不存在：%1$s</string>
+    <string name="carrier_switch_target_missing_node">映射的节点不存在：%1$s / %2$s</string>
 </resources>
