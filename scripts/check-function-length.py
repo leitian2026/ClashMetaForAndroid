@@ -52,7 +52,7 @@ def function_lengths(path: Path) -> dict[str, int]:
         indent = len(line) - len(line.lstrip())
         paren_depth = line.count("(") - line.count(")")
         body_started = paren_depth <= 0 and (
-            "{" in line or re.search(r"\\)\\s*(?::[^=]+)?\\s*=", line) is not None
+            "{" in line or re.search(r"\)\s*(?::[^=]+)?\s*=", line) is not None
         )
         end = index + 1
         while end < len(lines):
@@ -70,7 +70,7 @@ def function_lengths(path: Path) -> dict[str, int]:
                     if paren_depth <= 0 and (
                         "{" in candidate
                         or candidate.lstrip().startswith("=")
-                        or re.search(r"\\)\\s*(?::[^=]+)?\\s*=", candidate)
+                        or re.search(r"\)\s*(?::[^=]+)?\s*=", candidate)
                     ):
                         body_started = True
                 elif candidate_indent <= indent:
