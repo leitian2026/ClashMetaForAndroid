@@ -285,127 +285,20 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
         var failure = ""
 
         try {
-            val nodes = IpTestReport.parse(
-                withClash {
-                    queryCustomConnections(
-                        CustomConnections.SORT_CHECK,
-                        JSONObject().put("kind", "ip").put("mode", "nodes").toString(),
-                    )
-                },
-            ).nodes
+            val prepared = ConfigCheckIpTestSteps().prepare(
+                design,
+                presetIps,
+                { request -> IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }) },
+                { id, args -> getString(id, *args) },
+            ) ?: return
 
-            // CUSTOM.md #69: "read the IPs of the config" in the dialog; only when tapped. null = could not be read
-            val choice = design.askIpTest(nodes, readConfig = {
-                try {
-                    IpTestReport.parse(
-                        withClash {
-                            queryCustomConnections(
-                                CustomConnections.SORT_CHECK,
-                                JSONObject().put("kind", "ip").put("mode", "config").toString(),
-                            )
-                        },
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null
-                }
-            }, presetIps = presetIps, resolveDomains = { domains ->
-                try {
-                    val request = JSONObject().put("kind", "ip").put("mode", "resolve").put("domains", domains).toString()
-                    IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null
-                }
-            }, normalizeIps = { ips ->
-                try {
-                    val request = JSONObject().put("kind", "ip").put("mode", "normalize").put("ips", ips).toString()
-                    IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null
-                }
-            }, cancelResolve = {
-                try {
-                    withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                }
-            }) ?: return
-
-            if (choice.ips.isBlank()) {
-                design.showText(getString(R.string.iptest_need_ips))
-                return
-            }
-            // Do not pass a domain left over from an older dialog session into the existing test path.
-            // The core's legacy domain-capable route is intentionally unchanged.
-            val residualDomains = choice.ips.split(Regex("[\\s,;，；、]+" )).filter { isResidualDomainToken(it) }.distinct()
-            if (residualDomains.isNotEmpty()) {
-                design.showText(getString(R.string.iptest_resolve_before_test, residualDomains.joinToString("、")))
-                return
-            }
-
-            val direct = choice.mode == "direct"
-            val domain = if (direct) design.domain() else ""
-
-            if (direct && domain.isEmpty()) {
-                design.showText(getString(R.string.iptest_need_domain))
-                return
-            }
-
-            if (!direct && choice.node.isEmpty()) {
-                design.showText(getString(R.string.iptest_need_node))
-                return
-            }
-
-            // CUSTOM.md #66: the target address (through-node test only): a site the user really uses, http(s) only
-            val target = if (direct) "" else choice.target
-
-            if (target.isNotEmpty() && !Regex("^https?://[^/\\s]+.*$", RegexOption.IGNORE_CASE).matches(target)) {
-                design.showText(getString(R.string.iptest_target_bad))
-                return
-            }
-
-            // the list as the core reads it (addresses, domains, invalid words, and the limit of 20)
-            val parsed = IpTestReport.parse(
-                withClash {
-                    queryCustomConnections(
-                        CustomConnections.SORT_CHECK,
-                        JSONObject().put("kind", "ip").put("mode", "parse").put("direct", direct)
-                            .put("ips", choice.ips).toString(),
-                    )
-                },
-            )
-
-            when (parsed.error) {
-                "no address" -> {
-                    design.showText(getString(R.string.iptest_need_ips))
-                    return
-                }
-                "domain only node" -> {
-                    design.showText(getString(R.string.iptest_domain_node_only))
-                    return
-                }
-            }
-
-            val warnings = ArrayList<String>()
-
-            if (parsed.skipped.isNotEmpty()) warnings += getString(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
-            if (parsed.invalid.isNotEmpty()) warnings += getString(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
-            if (parsed.cut > 0) warnings += getString(R.string.iptest_cut, parsed.cut)
-            if (parsed.duplicates > 0) warnings += getString(R.string.iptest_duplicates_removed, parsed.duplicates)
-
-            val head = if (direct) {
-                getString(R.string.iptest_head_direct, domain)
-            } else {
-                getString(R.string.iptest_head_node, choice.node)
-            }
-
-            val targets = parsed.rows
+            val choice = prepared.choice
+            val direct = prepared.direct
+            val domain = prepared.domain
+            val target = prepared.target
+            val warnings = prepared.warnings
+            val head = prepared.head
+            val targets = prepared.targets
 
             lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
             saveOperatorIdForCurrentRound = preferredOperatorId // CUSTOM.md #156 step 4: prefer the source operator when saving re-test results
