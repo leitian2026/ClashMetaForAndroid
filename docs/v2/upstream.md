@@ -36,7 +36,7 @@
 |`core/src/main/golang/go.mod`|#79 #80|中|以上游版本的依赖选择为准，将 github.com/metacubex/http、github.com/metacubex/quic-go、github.com/metacubex/t…|
 |`app/src/main/java/com/github/kr328/clash/MainApplication.kt`|#16 #21|低|onCreate() 里 extractGeoFiles() 后重加一行 GeoFileKeeper.restoreAfterUpdate(this)（#16），在 onCreate(详见旧文档对应编号|
 |`design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt`|#17|低|preferenceScreen 块末尾（"服务"那个开关之后）重加一行 customBackup()|
-|`service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`|#27 #28 #56 #169 #170 #173|低|apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText…；#173 替换后锁外调用 UpdateGuard；delete() 清理提醒。|
+|`service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`|#27 #28 #56 #169 #170 #173|低|apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText…；#173 替换后异步检查；delete() 清理。|
 |`app/src/main/java/com/github/kr328/clash/LogsActivity.kt`|#31|低|setContentDesign(design) 后加一行 LogLevelControl.attach(this, design)；加一个 import|
 |`design/src/main/res/layout/design_logs.xml`|#31|低|在 delete_view（三横线）左边加 log_level_view（ 起是显示当前级别文字的 TextView，原来是图标 ImageView）；标题栏的 layout_toSt详见旧文档对应编号|
 |`design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt`|#31|低|删掉"日志级别"那一个 selectableList（换成一行 CUSTOM 注释）；入口搬到日志页|
