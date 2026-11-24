@@ -72,7 +72,7 @@ class EditorDesign(
     private val displayTitle: String = fileName,
 ) : Design<EditorDesign.Request>(context) {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
-    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, JumpDefinition }
+    enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, JumpDefinition, Rename }
 
     private val density = context.resources.displayMetrics.density
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -545,6 +545,15 @@ class EditorDesign(
 
     /** Text and full-document caret offset for on-demand definition navigation. */
     fun definitionContext(): Pair<String, Int> = editor.fullText() to editor.fullCaretOffset()
+
+    // CUSTOM #172: reuse the same full-document caret coordinates as JumpDefinition.
+    fun renameContext(): Pair<String, Int> = definitionContext()
+
+    // CUSTOM #172: preserve one undo step; segmented or threshold-crossing documents are not rewritten.
+    fun replaceWholeText(replacement: String): Boolean {
+        if (editor.isWindowed || replacement.length > 150_000 || replacement.count { it == '\\n' } >= 3000) return false
+        return editor.replaceWhole(replacement)
+    }
 
     /** CUSTOM.md #108: the page matches its committed applied version; alpha is visual only, never disables taps. */
     fun setApplied(same: Boolean) {
@@ -1167,7 +1176,10 @@ class EditorDesign(
                 menu.add(0, 5, 0, context.getString(R.string.editor_history_menu))
                 menu.add(0, 6, 0, context.getString(R.string.editor_compare_menu))
             }
-            if (useSchema) menu.add(0, 7, 0, context.getString(R.string.editor_jump_definition))
+            if (useSchema) {
+                menu.add(0, 7, 0, context.getString(R.string.editor_jump_definition))
+                menu.add(0, 8, 1, context.getString(R.string.editor_rename_menu))
+            }
             menu.add(0, 3, 1, context.getString(R.string.editor_goto_line))
             menu.add(0, 4, 1, context.getString(R.string.editor_show_whitespace)).apply {
                 isCheckable = true
@@ -1180,6 +1192,7 @@ class EditorDesign(
                 when (it.itemId) {
                     3 -> askLine()
                     7 -> requests.trySend(Request.JumpDefinition)
+                    8 -> requests.trySend(Request.Rename)
                     5 -> requests.trySend(Request.History)
                     6 -> requests.trySend(Request.Compare)
                     4 -> {
