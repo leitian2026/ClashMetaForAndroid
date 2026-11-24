@@ -8,15 +8,18 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.github.kr328.clash.core.model.IpTestRow
@@ -29,7 +32,7 @@ internal data class SavedSpeedCell(
     val container: FrameLayout, val button: ProgressMaterialButton, val cellWidth: Int,
     val label: String, var speed: Double, var short: Boolean,
 )
-internal class SavedTableState(context: Context, visibleSavedColumns: Set<String>?) {
+internal class SavedTableState(private val context: Context, visibleSavedColumns: Set<String>?) {
     val visibleSavedColumns: Set<String>? = visibleSavedColumns
     private fun dp(v: Int): Int = (v * context.resources.displayMetrics.density + 0.5f).toInt()
     val savedSpeedButtonHeight by lazy {
