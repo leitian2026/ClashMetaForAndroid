@@ -21,7 +21,7 @@ private const val DEFAULT_URL_NODE = "https://proof.ovh.net/files/100Mb.dat"
 internal class IpTestDialogOptions(
     context: Context,
     prefs: SharedPreferences,
-    nodes: List<String>,
+    private val nodes: List<String>,
     density: Float,
     pad: Int,
 ) {
@@ -217,4 +217,5 @@ internal class IpTestDialogOptions(
     fun portsValue(): String = portsInput.text.toString().trim().ifEmpty { DEFAULT_PORTS }
     fun directUrlValue(): String = directUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_DIRECT }
     fun nodeUrlValue(): String = nodeUrlInput.text.toString().trim().ifEmpty { DEFAULT_URL_NODE }
+    fun selectedNode(): String = if (nodes.isEmpty()) "" else (spinner.selectedItem as? String ?: "")
 }
