@@ -483,7 +483,7 @@ class IpTestView(
                         optional(row.targetNote),
                         optional(row.targetRetryAfter),
                         optional(row.targetCfMitigated),
-                        optional(pageHintText(row)),
+                        optional(pageHintText(context, row)),
                     )
                 } else {
                     listOf(
@@ -784,21 +784,9 @@ class IpTestView(
         return view.measuredHeight
     }
 
-    private fun certificateIssuerName(value: String): String {
-        val parts = value.split(',').map { it.trim() }
-        val commonName = parts.firstOrNull { it.startsWith("CN=", ignoreCase = true) }?.substringAfter('=')
-        val organization = parts.firstOrNull { it.startsWith("O=", ignoreCase = true) }?.substringAfter('=')
-        return when {
-            !commonName.isNullOrBlank() && !organization.isNullOrBlank() -> "$commonName ($organization)"
-            !commonName.isNullOrBlank() -> commonName
-            !organization.isNullOrBlank() -> organization
-            else -> value
-        }
-    }
 
-    private fun certificateDate(value: String): String {
-        return CERTIFICATE_DATE_REGEX.find(value)?.value ?: value
-    }
+
+
 
     // The diagnostics table follows the IP table: one IP per vertical row; diagnostic fields are horizontal columns.
     // The IP column stays fixed while the remaining columns scroll horizontally.
@@ -869,23 +857,13 @@ class IpTestView(
     private class ExtRow(val ip: String, val cells: List<ExtCell>)
 
     /** A reason cut to something that fits a cell: the timeouts get a word of their own. */
-    private fun extShortReason(reason: String): String {
-        val lower = reason.lowercase()
-        if (lower.contains("deadline exceeded") || lower.contains("timeout") || lower.contains("timed out")) {
-            return context.getString(R.string.iptest_ext_timeout)
-        }
-        return if (reason.length > 16) reason.take(16) + "…" else reason
-    }
 
-    private fun extText(text: String, color: Int): CharSequence {
-        val sb = SpannableStringBuilder()
-        add(sb, text, color)
-        return sb
-    }
+
+
 
     private fun extFailureText(result: IpTestExtResult): CharSequence {
         val reason = result.reason.ifBlank { context.getString(R.string.iptest_ext_failed) }
-        return extText(extShortReason(reason), colorBad)
+        return extText(extShortReason(context, reason), colorBad)
     }
 
     private fun extWsSummary(result: IpTestExtResult): CharSequence {
@@ -1167,8 +1145,6 @@ class IpTestView(
     }
 
     // Escape Markdown table delimiters and line breaks without changing the displayed values.
-    private fun markdownCell(value: String): String =
-        value.replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
     // quickest average first, the ones that failed last (in the order they were tested)
     private fun sorted(list: List<IpTestRow>): List<IpTestRow> {
@@ -1319,7 +1295,7 @@ class IpTestView(
             Key.PORT -> row.port
             Key.PORTS -> portsPlain(row).takeIf { it != "-" }.orEmpty()
             Key.EXIT_IP -> if (row.ok && row.exitIp.isNotBlank()) row.exitIp + "\n" + row.exitAsn.ifEmpty { "-" } else ""
-            Key.TCOLO -> coloLabel(row.targetColo).takeIf { it != "-" }.orEmpty()
+            Key.TCOLO -> coloLabel(row.targetColo, colos, coloCountries).takeIf { it != "-" }.orEmpty()
             Key.TARGET -> (if (!row.ok && row.reason.length > 40) handshakeFailureText(row.reason.take(40)) + "…" else targetText(row)).takeIf { it != "-" }.orEmpty()
             else -> ""
         }.trim()
@@ -1504,7 +1480,7 @@ class IpTestView(
                 )
             }
             if (!row.ok) {
-                val summary = renderer.savedFailureSummary(row)
+                val summary = savedFailureSummary(context, row)
                 val rawReason = row.reason.ifBlank { row.code.ifBlank { "unknown error" } }
                 val endpoint = if (row.port.isNotBlank()) "${entry.address}:${row.port}" else entry.address
                 (ipView as? LinearLayout)?.addView(
@@ -1577,7 +1553,7 @@ class IpTestView(
                     ) { onSpeedTest(entry.address, false) }
                         .also { savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }.container
                     result == null || mapped == null || missingExit -> textCell("-", colorMuted)
-                    mapped == Key.PHASE -> textCell(renderer.phaseText(row, directMode), colorText)
+                    mapped == Key.PHASE -> textCell(phaseText(context, row, directMode), colorText)
                     mapped == Key.PORT -> textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) colorMuted else colorText)
                     mapped == Key.LOSS && row.sent <= 0 -> textCell("-", colorMuted)
                     mapped in listOf(Key.MIN, Key.MAX, Key.AVG) && when (mapped) {
@@ -1977,7 +1953,7 @@ class IpTestView(
     private fun phaseNeed(): Int {
         val paint = TextView(context).apply { textSize = 14f }.paint
         val longest = rows.maxOfOrNull { r ->
-            val texts = if (savedTable) listOf(phaseText(r, true), phaseText(r, false)) else listOf(phaseText(r))
+            val texts = if (savedTable) listOf(phaseText(context, r, true), phaseText(context, r, false)) else listOf(phaseText(context, r, direct))
             texts.maxOf { text -> text.split('\n').maxOf { paint.measureText(it) } }
         } ?: 0f
 
@@ -2094,62 +2070,26 @@ class IpTestView(
     }
 
     // the colour of an average: under 150 ms green, under 300 orange, else red
-    private fun latencyColor(ms: Int): Int = when {
-        ms < 150 -> colorGood
-        ms < 300 -> colorWarn
-        else -> colorBad
-    }
+
 
     // CUSTOM.md #68: the colour of the jitter: under 30 ms green, under 100 orange, else red (a guess at what is steady
     // enough; the number itself is what to compare between addresses)
-    private fun jitterColor(ms: Int): Int = when {
-        ms < 30 -> colorGood
-        ms < 100 -> colorWarn
-        else -> colorBad
-    }
+
 
     // CUSTOM.md #68: three lines, one per part; "-" for a part that was not measured (a plain http address has no
     // handshake part), all "-" for an address that failed
-    private fun phaseText(r: IpTestRow, directMode: Boolean = direct): String {
-        if (!r.ok) return "-"
 
-        val v = { n: Int -> if (n > 0) context.getString(R.string.iptest_ms_short, n) else "-" }
 
-        return context.getString(
-            if (directMode) R.string.iptest_phase_cell_direct else R.string.iptest_phase_cell_node,
-            v(r.dial),
-            v(r.shake),
-            v(r.first),
-        )
-    }
 
-    private fun lossColor(loss: Int): Int = when {
-        loss == 0 -> colorGood
-        loss < 50 -> colorWarn
-        else -> colorBad
-    }
 
     // CUSTOM.md #62: "🇺🇸 LAS（拉斯维加斯 Las Vegas）". The flag is the country of the data centre and the English city
     // is what the network list says; both are missing when that list was not fetched. The Chinese name is built in
     // (ColoNames); a code it does not have keeps the English city, and with neither the bare code stays.
-    private fun coloHead(code: String): String {
-        val flag = CountryFlag.of(coloCountries[code.uppercase(Locale.US)])
 
-        return if (flag.isEmpty()) code else "$flag $code"
-    }
 
-    private fun coloTail(code: String): String {
-        val up = code.uppercase(Locale.US)
-        val names = listOfNotNull(ColoNames.cn(up), colos[up]).filter { it.isNotEmpty() }.distinct()
 
-        return if (names.isEmpty()) "" else "（" + names.joinToString(" ") + "）"
-    }
 
-    private fun coloLabel(code: String): String {
-        if (code.isEmpty()) return "-"
 
-        return coloHead(code) + coloTail(code)
-    }
 
     // CUSTOM.md #99: show a concise download failure reason in the speed cell; full detail remains in the live log.
     // CUSTOM.md #158: saved-IP download actions stay visible even when the original probe failed.
@@ -2208,37 +2148,16 @@ class IpTestView(
         }
         return SavedSpeedCell(container, button, cellWidth, label, speed, short)
     }
-    private fun speedText(r: IpTestRow): String {
-        return when {
-            speedIp == r.ip -> "…"
-            r.speed > 0 -> context.getString(R.string.iptest_speed_cell, String.format(Locale.US, "%.1f", r.speed))
-            r.speedErr.isNotEmpty() -> {
-                val status = HTTP_STATUS_REGEX.find(r.speedErr)?.groupValues?.get(1)
-                val lower = r.speedErr.lowercase(Locale.US)
-                val reason = when {
-                    status != null -> "HTTP $status"
-                    lower.contains("timeout") || lower.contains("deadline exceeded") -> context.getString(R.string.iptest_speed_timeout)
-                    lower.contains("no data") -> context.getString(R.string.iptest_speed_no_data)
-                    else -> r.speedErr.trim().take(20)
-                }
-                context.getString(R.string.iptest_speed_failed) + "\n" + reason
-            }
-            else -> "-"
-        }
-    }
 
-    private fun portsPlain(r: IpTestRow): String {
-        if (r.ports.isEmpty()) return "-"
 
-        return r.ports.joinToString(" ") { (if (it.ok) "" else "✗") + it.port }
-    }
+
 
     private fun plainOf(k: Key, r: IpTestRow): String {
         val tested = r.ok
         val ms = { v: Int -> if (tested) context.getString(R.string.iptest_ms_short, v) else "-" }
 
         return when (k) {
-            Key.COLO -> coloLabel(r.colo)
+            Key.COLO -> coloLabel(r.colo, colos, coloCountries)
             Key.ASN -> r.asn.ifEmpty { "-" }
             Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
             Key.LAND -> if (tested) CountryName.label(r.country) else "-"
@@ -2249,13 +2168,13 @@ class IpTestView(
             Key.MAX -> ms(r.max)
             Key.AVG -> ms(r.avg)
             Key.JITTER -> if (tested) context.getString(R.string.iptest_ms_short, r.jitter) else "-"
-            Key.PHASE -> phaseText(r)
+            Key.PHASE -> phaseText(context, r, direct)
             Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
             Key.EXIT_IP -> if (tested && r.exitIp.isNotEmpty()) r.exitIp + "\n" + r.exitAsn.ifEmpty { "-" } else "-"
-            Key.TARGET -> targetText(r)
-            Key.TCOLO -> coloLabel(r.targetColo)
+            Key.TARGET -> targetText(context, r)
+            Key.TCOLO -> coloLabel(r.targetColo, colos, coloCountries)
             Key.TEST -> ""
-            Key.SPEED -> speedText(r)
+            Key.SPEED -> speedText(context, r, speedIp)
             Key.SPEED_NODE -> "-"
         }
     }
@@ -2284,10 +2203,10 @@ class IpTestView(
             Key.TARGET -> targetCell(r)
             else -> {
                 val color = when (k) {
-                    Key.LOSS -> lossColor(r.loss)
-                    Key.AVG -> if (r.ok) latencyColor(r.avg) else colorMuted
-                    Key.JITTER -> if (r.ok) jitterColor(r.jitter) else colorMuted
-                    Key.TARGET -> targetColor(r)
+                    Key.LOSS -> lossColor(r.loss, colorGood, colorWarn, colorBad)
+                    Key.AVG -> if (r.ok) latencyColor(r.avg, colorGood, colorWarn, colorBad) else colorMuted
+                    Key.JITTER -> if (r.ok) jitterColor(r.jitter, colorGood, colorWarn, colorBad) else colorMuted
+                    Key.TARGET -> targetColor(r, colorBad, colorMuted, colorWarn, colorGood)
                     Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted
                     Key.ASN, Key.PORT -> colorText
                     else -> colorText
@@ -2301,82 +2220,37 @@ class IpTestView(
     // the flag, the code and its names on one line when the column is wide enough, else the names under the code
     // (never cut in the middle of the code)
     // CUSTOM.md #66: what the target site answered: "200", "403", "302 → host"; "-" when it gave no answer
-    private fun targetText(r: IpTestRow): String {
-        if (!r.ok) return handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } })
-        if (r.targetStatus == 0) return "-"
 
-        val note = if (r.targetNote.isEmpty()) "" else " → " + hostOf(r.targetNote)
-
-        // CUSTOM.md #73: a few words after the code say what it means
-        val word = TargetStatusText.of(context, r.targetStatus).let { if (it.isEmpty()) "" else " " + it }
-
-        return r.targetStatus.toString() + word + note + softLine(r)
-    }
 
     private fun targetCell(r: IpTestRow): View {
-        val full = targetText(r)
+        val full = targetText(context, r)
         val display = if (!r.ok && r.reason.length > 40) {
-            handshakeFailureText(r.reason.take(40)) + "…"
+            handshakeFailureText(context, r.reason.take(40)) + "…"
         } else full
-        return textCell(display, targetColor(r)).apply {
+        return textCell(display, targetColor(r, colorBad, colorMuted, colorWarn, colorGood)).apply {
             if (!r.ok) setOnClickListener {
-                onCopy(handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } }))
+                onCopy(handshakeFailureText(context, r.reason.ifBlank { r.code.ifBlank { "-" } }))
             }
         }
     }
 
-    private fun handshakeFailureText(reason: String): String =
-        context.getString(R.string.iptest_handshake_failed) + reason
 
-    private fun pageHintText(row: IpTestRow): String {
-        val existing = row.targetSoftNote.ifBlank { row.targetSoft }
-        if (existing.isNotBlank()) return existing
-        if (row.targetPageHint.isBlank()) return ""
 
-        val title = row.targetPageHint.substringBefore('\n')
-        val body = row.targetPageHint.substringAfter('\n', "").ifBlank { "-" }
-        return if (title.isNotBlank()) {
-            context.getString(R.string.iptest_page_hint, title, body)
-        } else {
-            context.getString(R.string.iptest_page_hint_no_title, body)
-        }
-    }
 
     // CUSTOM.md #67: the second line: what the page itself says (moved by the page, or says the region is refused)
-    private fun softLine(r: IpTestRow): String = when (r.targetSoft) {
-        "refresh", "script" -> "\n" + context.getString(R.string.iptest_soft_redirect, hostOf(r.targetSoftNote))
-        "region" -> "\n" + context.getString(R.string.iptest_soft_region)
-        else -> ""
-    }
 
-    private fun hostOf(location: String): String {
-        val host = try {
-            java.net.URI(location).host
-        } catch (_: Exception) {
-            null
-        }
 
-        return host ?: location.take(30)
-    }
 
-    private fun targetColor(r: IpTestRow): Int = when {
-        !r.ok -> colorBad
-        r.targetStatus == 0 -> colorMuted
-        r.targetSoft == "region" -> colorBad
-        r.targetSoft == "refresh" || r.targetSoft == "script" -> colorWarn
-        r.targetStatus in 200..299 -> colorGood
-        r.targetStatus in 300..399 -> colorWarn
-        else -> colorBad
-    }
+
 
     private fun coloCell(r: IpTestRow, w: Int, code: String = r.colo): View {
-        val one = coloLabel(code)
+        val one = coloLabel(code, colos, coloCountries)
         val cell = textCell(one, colorText)
 
         if (code.isNotEmpty() && cell.paint.measureText(one) > w - dp(8)) {
-            val tail = coloTail(code)
+            val tail = coloTail(code, colos)
 
-            if (tail.isNotEmpty()) cell.text = coloHead(code) + "\n" + tail
+            if (tail.isNotEmpty()) cell.text = coloHead(code, coloCountries) + "\n" + tail
         }
 
         return cell
@@ -2434,30 +2308,12 @@ class IpTestView(
         }
 
         cell.text = sb
-        cell.setOnClickListener { onDetail(context.getString(R.string.iptest_port_title, r.ip), portDetail(r)) }
+        cell.setOnClickListener { onDetail(context.getString(R.string.iptest_port_title, r.ip), portDetail(context, r)) }
 
         return cell
     }
 
-    private fun portDetail(r: IpTestRow): String {
-        val sb = StringBuilder()
 
-        for (p in r.ports) {
-            sb.append(
-                if (p.ok) {
-                    context.getString(R.string.iptest_port_ok, p.port, p.ms)
-                } else {
-                    context.getString(R.string.iptest_port_fail, p.port, explain(p.code, p.reason))
-                },
-            ).append('\n')
-        }
-
-        if (r.ports.isEmpty()) sb.append(context.getString(R.string.iptest_port_none)).append('\n')
-
-        sb.append('\n').append(context.getString(R.string.iptest_port_note))
-
-        return sb.toString()
-    }
 
     // "下载测速" of a row that works; "取消" on the row that is downloading; the others are grey while one is
     private fun testCell(r: IpTestRow): View {
@@ -2557,7 +2413,7 @@ class IpTestView(
 
     private fun ipDetails(r: IpTestRow): String {
         if (!r.ok) {
-            return if (r.sent > 0 || r.reason.isNotEmpty()) handshakeFailureText(r.reason.ifBlank { r.code.ifBlank { "-" } }) else ""
+            return if (r.sent > 0 || r.reason.isNotEmpty()) handshakeFailureText(context, r.reason.ifBlank { r.code.ifBlank { "-" } }) else ""
         }
 
         val parts = ArrayList<String>()
@@ -2581,67 +2437,12 @@ class IpTestView(
     }
 
     // CUSTOM (CUSTOM.md #156 r329): keep saved-list failure rows compact; the original reason remains in onDetail.
-    private fun savedFailureSummary(row: IpTestRow): String {
-        val reason = row.reason.lowercase(Locale.ROOT)
-        val category = when {
-            "certificate" in reason || "x509" in reason -> "证书校验失败"
-            "alpn" in reason -> "ALPN 不匹配"
-            "context canceled" in reason || "context cancelled" in reason ||
-                "operation was canceled" in reason || "operation was cancelled" in reason -> "已取消"
-            else -> when (row.code) {
-                "timeout" -> "连接超时"
-                "refused" -> "连接被拒绝"
-                "reset" -> "连接被重置"
-                "eof" -> "连接提前关闭"
-                "dns" -> "DNS 解析失败"
-                "network" -> "网络不可达"
-                "tls" -> "TLS 握手失败"
-                "auth" -> "认证失败"
-                "reject" -> "规则拒绝"
-                "echrejected" -> "ECH 被拒绝"
-                else -> ""
-            }
-        }
-        return if (category.isEmpty()) {
-            context.getString(R.string.iptest_handshake_failed).trimEnd('：', ':', ' ')
-        } else {
-            handshakeFailureText(category)
-        }
-    }
+
 
     // the core's own wording carries local addresses and ports, so it is shown only when the cause is not recognised
-    private fun explain(code: String, reason: String): String {
-        val text = context.getString(
-            when (code) {
-                "timeout" -> R.string.check_code_timeout
-                "refused" -> R.string.check_code_refused
-                "reset" -> R.string.check_code_reset
-                "eof" -> R.string.check_code_eof
-                "dns" -> R.string.check_code_dns
-                "network" -> R.string.check_code_network
-                "tls" -> R.string.check_code_tls
-                "auth" -> R.string.check_code_auth
-                "reject" -> R.string.check_code_reject
-                "echrejected" -> R.string.check_code_echrejected
-                else -> return context.getString(
-                    R.string.check_failed_raw,
-                    ErrorsText.explain(context, code),
-                    reason.ifEmpty { "-" },
-                )
-            },
-        )
 
-        return context.getString(R.string.check_failed, text)
-    }
 
-    private fun add(sb: SpannableStringBuilder, text: String, color: Int? = null, bold: Boolean = false) {
-        val start = sb.length
 
-        sb.append(text)
-
-        if (color != null) sb.setSpan(ForegroundColorSpan(color), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        if (bold) sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-    }
 
     private fun lp(w: Int, h: Int) = LinearLayout.LayoutParams(w, h)
 
@@ -2685,7 +2486,5 @@ class IpTestView(
     companion object {
         private const val MAX_LOG = 200
         private val HEADER_WHITESPACE_REGEX = Regex("""\s+""")
-        private val CERTIFICATE_DATE_REGEX = Regex("""\d{4}-\d{2}-\d{2}""")
-        private val HTTP_STATUS_REGEX = Regex("\\bHTTP(?:/\\d(?:\\.\\d)?)?\\s+(\\d{3})\\b", RegexOption.IGNORE_CASE)
     }
 }
