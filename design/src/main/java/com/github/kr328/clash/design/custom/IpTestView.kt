@@ -70,7 +70,7 @@ class IpTestView(
     var onDetail: (String, String) -> Unit = { _, _ -> } // a tap on the ports of a row: title, text
 
     // CUSTOM.md #68: JITTER (抖动) and PHASE (分段耗时) sit right after AVG
-    private enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
+    internal enum class Key { COLO, ASN, GEO, LAND, PORTS, LOSS, MIN, MAX, AVG, JITTER, PHASE, EXIT, EXIT_IP, PORT, TEST, SPEED, SPEED_NODE, TARGET, TCOLO }
 
     private data class SavedSpeedButtons(var direct: SavedSpeedCell? = null, var node: SavedSpeedCell? = null)
     private data class SavedSpeedCell(val container: FrameLayout, val button: ProgressMaterialButton, val cellWidth: Int, val label: String, var speed: Double, var short: Boolean)
@@ -909,7 +909,7 @@ class IpTestView(
                 add(sb, context.getString(format, result.udpMtu + overhead), colorGood)
             }
             result.udpNoResponse -> add(sb, context.getString(R.string.iptest_ext_udp_none), colorMuted)
-            result.reason.isNotBlank() -> add(sb, extShortReason(result.reason), colorBad)
+            result.reason.isNotBlank() -> add(sb, extShortReason(context, result.reason), colorBad)
             else -> add(sb, context.getString(R.string.iptest_ext_udp_dash), colorMuted)
         }
 
@@ -1287,7 +1287,7 @@ class IpTestView(
         } ?: return ""
         if (key == Key.EXIT && row.country.isEmpty()) return ""
         return when (mapped) {
-            Key.COLO -> coloLabel(row.colo).takeIf { it != "-" }.orEmpty()
+            Key.COLO -> coloLabel(row.colo, colos, coloCountries).takeIf { it != "-" }.orEmpty()
             Key.ASN -> row.asn
             Key.GEO -> if (row.ok) CountryName.label(row.geo).takeIf { it != "-" }.orEmpty() else ""
             Key.LAND -> if (row.ok) CountryName.label(row.country).takeIf { it != "-" }.orEmpty() else ""
@@ -1296,7 +1296,7 @@ class IpTestView(
             Key.PORTS -> portsPlain(row).takeIf { it != "-" }.orEmpty()
             Key.EXIT_IP -> if (row.ok && row.exitIp.isNotBlank()) row.exitIp + "\n" + row.exitAsn.ifEmpty { "-" } else ""
             Key.TCOLO -> coloLabel(row.targetColo, colos, coloCountries).takeIf { it != "-" }.orEmpty()
-            Key.TARGET -> (if (!row.ok && row.reason.length > 40) handshakeFailureText(row.reason.take(40)) + "…" else targetText(row)).takeIf { it != "-" }.orEmpty()
+            Key.TARGET -> (if (!row.ok && row.reason.length > 40) handshakeFailureText(context, row.reason.take(40)) + "…" else targetText(context, row)).takeIf { it != "-" }.orEmpty()
             else -> ""
         }.trim()
     }
@@ -2152,87 +2152,18 @@ class IpTestView(
 
 
 
-    private fun plainOf(k: Key, r: IpTestRow): String {
-        val tested = r.ok
-        val ms = { v: Int -> if (tested) context.getString(R.string.iptest_ms_short, v) else "-" }
 
-        return when (k) {
-            Key.COLO -> coloLabel(r.colo, colos, coloCountries)
-            Key.ASN -> r.asn.ifEmpty { "-" }
-            Key.GEO -> if (tested) CountryName.label(r.geo) else "-"
-            Key.LAND -> if (tested) CountryName.label(r.country) else "-"
-            Key.PORTS -> portsPlain(r)
-            Key.PORT -> "-"
-            Key.LOSS -> "${r.loss}%"
-            Key.MIN -> ms(r.min)
-            Key.MAX -> ms(r.max)
-            Key.AVG -> ms(r.avg)
-            Key.JITTER -> if (tested) context.getString(R.string.iptest_ms_short, r.jitter) else "-"
-            Key.PHASE -> phaseText(context, r, direct)
-            Key.EXIT -> if (tested) CountryName.label(r.country).let { if (it == "-") "？" else it } else "-"
-            Key.EXIT_IP -> if (tested && r.exitIp.isNotEmpty()) r.exitIp + "\n" + r.exitAsn.ifEmpty { "-" } else "-"
-            Key.TARGET -> targetText(context, r)
-            Key.TCOLO -> coloLabel(r.targetColo, colos, coloCountries)
-            Key.TEST -> ""
-            Key.SPEED -> speedText(context, r, speedIp)
-            Key.SPEED_NODE -> "-"
-        }
-    }
 
-    private fun ownerCellText(r: IpTestRow): String = when {
-        r.asn.isNotEmpty() -> r.asn
-        r.isDomain || !r.ok -> "-"
-        ownerLookupIp == r.ip -> "查询中…"
-        else -> "-"
-    }
 
-    private fun ownerCell(r: IpTestRow): View {
-        return textCell(ownerCellText(r), colorText).apply {
-            maxLines = 3
-            ellipsize = TextUtils.TruncateAt.END
-            ownerLookupCells[r.ip] = this
-        }
-    }
-    private fun cellOf(k: Key, r: IpTestRow, w: Int): View {
-        return when (k) {
-            Key.PORTS -> portsCell(r)
-            Key.COLO -> coloCell(r, w)
-            Key.TCOLO -> coloCell(r, w, r.targetColo)
-            Key.TEST -> testCell(r)
-            Key.ASN -> ownerCell(r)
-            Key.TARGET -> targetCell(r)
-            else -> {
-                val color = when (k) {
-                    Key.LOSS -> lossColor(r.loss, colorGood, colorWarn, colorBad)
-                    Key.AVG -> if (r.ok) latencyColor(r.avg, colorGood, colorWarn, colorBad) else colorMuted
-                    Key.JITTER -> if (r.ok) jitterColor(r.jitter, colorGood, colorWarn, colorBad) else colorMuted
-                    Key.TARGET -> targetColor(r, colorBad, colorMuted, colorWarn, colorGood)
-                    Key.SPEED -> if (r.speed > 0) colorText else if (r.speedErr.isNotEmpty()) colorBad else colorMuted
-                    Key.ASN, Key.PORT -> colorText
-                    else -> colorText
-                }
 
-                textCell(plainOf(k, r), color, bold = k == Key.AVG)
-            }
-        }
-    }
+
 
     // the flag, the code and its names on one line when the column is wide enough, else the names under the code
     // (never cut in the middle of the code)
     // CUSTOM.md #66: what the target site answered: "200", "403", "302 → host"; "-" when it gave no answer
 
 
-    private fun targetCell(r: IpTestRow): View {
-        val full = targetText(context, r)
-        val display = if (!r.ok && r.reason.length > 40) {
-            handshakeFailureText(context, r.reason.take(40)) + "…"
-        } else full
-        return textCell(display, targetColor(r, colorBad, colorMuted, colorWarn, colorGood)).apply {
-            if (!r.ok) setOnClickListener {
-                onCopy(handshakeFailureText(context, r.reason.ifBlank { r.code.ifBlank { "-" } }))
-            }
-        }
-    }
+
 
 
 
@@ -2243,198 +2174,24 @@ class IpTestView(
 
 
 
-    private fun coloCell(r: IpTestRow, w: Int, code: String = r.colo): View {
-        val one = coloLabel(code, colos, coloCountries)
-        val cell = textCell(one, colorText)
 
-        if (code.isNotEmpty() && cell.paint.measureText(one) > w - dp(8)) {
-            val tail = coloTail(code, colos)
 
-            if (tail.isNotEmpty()) cell.text = coloHead(code, coloCountries) + "\n" + tail
-        }
 
-        return cell
-    }
 
-    private fun textCell(text: String, color: Int, bold: Boolean = false): TextView {
-        return TextView(context).apply {
-            this.text = text
-            textSize = 14f
-            // CUSTOM.md #55 (r67): the first line of every cell sits on the same line as the IP (top aligned), not
-            // in the middle of the row, so a cell with many lines (the ports) is not pushed down and cut at the bottom
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            setTextColor(color)
-            setPadding(dp(4), dp(5), dp(4), dp(5))
-            maxLines = 3
-            ellipsize = TextUtils.TruncateAt.END
 
-            if (bold) setTypeface(typeface, Typeface.BOLD)
-        }
-    }
-
-    private fun headCell(text: String, w: Int): TextView {
-        return TextView(context).apply {
-            this.text = text
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorMuted)
-            setBackgroundColor(colorSurface)
-            minWidth = w
-            setPadding(dp(4), dp(6), dp(4), dp(6))
-        }
-    }
 
     // the ports that work in the normal colour, the ones that do not grey with a cross; a tap shows each one's result
-    private fun portsCell(r: IpTestRow): View {
-        val cell = textCell("", colorText)
 
-        if (r.ports.isEmpty()) {
-            cell.text = "-"
-            cell.setTextColor(colorMuted)
-
-            return cell
-        }
-
-        val sb = SpannableStringBuilder()
-
-        for (p in r.ports) {
-            if (sb.isNotEmpty()) sb.append(' ')
-
-            val from = sb.length
-
-            add(sb, (if (p.ok) "" else "✗") + p.port, if (p.ok) colorGood else colorMuted)
-            CheckMark.apply(context, sb, from, sb.length) // CUSTOM.md #57: the ✗ in red
-        }
-
-        cell.text = sb
-        cell.setOnClickListener { onDetail(context.getString(R.string.iptest_port_title, r.ip), portDetail(context, r)) }
-
-        return cell
-    }
 
 
 
     // "下载测速" of a row that works; "取消" on the row that is downloading; the others are grey while one is
-    private fun testCell(r: IpTestRow): View {
-        val box = LinearLayout(context).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL // CUSTOM.md #55 (r67)
-            setPadding(0, dp(2), 0, 0)
-        }
 
-        if (!r.ok) return box
-
-        val running = speedIp == r.ip
-        val enabled = !testing && (speedIp == null || running)
-
-        val button = ProgressMaterialButton().apply {
-            text = if (running && downloadProgressPercent != null) {
-                context.getString(R.string.check_cancel) + "\n" + downloadProgressPercent + "%"
-            } else context.getString(if (running) R.string.check_cancel else speedButtonTextRes())
-            progressLevel = if (running) (downloadProgressPercent ?: 0) * 100 else 0
-            textSize = 13f
-            isAllCaps = false
-            gravity = Gravity.CENTER
-            maxLines = 2
-            minWidth = 0
-            minHeight = speedButtonMinHeight()
-            insetTop = 0
-            insetBottom = 0
-            cornerRadius = dp(5)
-            strokeWidth = dp(1)
-            strokeColor = ColorStateList.valueOf(colorLink)
-            setTextColor(colorLink)
-            setPadding(dp(4), dp(2), dp(4), dp(2))
-            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            isEnabled = enabled
-            alpha = if (enabled) 1f else 0.35f
-
-            if (enabled) setOnClickListener { if (running) onSpeedCancel() else onSpeed(r.ip) }
-        }
-
-        if (running) activeTestSpeedButton = button
-        box.addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        return box
-    }
 
     // the IP (a tap copies it, dashed line under it) and under it, small and grey, what the handshake showed
-    private fun ipCell(
-        r: IpTestRow,
-        showRecommendation: Boolean = true,
-        showFailureDetail: Boolean = true,
-    ): View {
-        val box = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.TOP // CUSTOM.md #55 (r67): same top padding as the other cells, so the lines match
-            setPadding(dp(8), dp(5), dp(4), dp(5))
-        }
 
-        val ip = DashedTextView(context).apply {
-            text = r.ip
-            textSize = 15f
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.MIDDLE
-            gravity = Gravity.TOP or Gravity.START
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(if (r.ok) colorText else colorBad)
-            setOnClickListener { onCopy(r.ip) }
-        }
 
-        box.addView(ip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        if (showRecommendation && r.ip in recommendedIps) {
-            box.addView(
-                TextView(context).apply {
-                    text = "推荐"
-                    textSize = 13f
-                    setTextColor(colorWarn)
-                },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
-            )
-        }
-
-        val small = if (!r.ok && !showFailureDetail) "" else ipDetails(r)
-
-        if (small.isNotEmpty()) {
-            val t = TextView(context).apply {
-                text = small
-                textSize = 12f
-                maxLines = 6
-                ellipsize = TextUtils.TruncateAt.END
-                setTextColor(if (r.ok) colorMuted else colorBad)
-            }
-
-            box.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-
-        return box
-    }
-
-    private fun ipDetails(r: IpTestRow): String {
-        if (!r.ok) {
-            return if (r.sent > 0 || r.reason.isNotEmpty()) handshakeFailureText(context, r.reason.ifBlank { r.code.ifBlank { "-" } }) else ""
-        }
-
-        val parts = ArrayList<String>()
-
-        if (direct) {
-            if (r.tls.isNotEmpty()) parts += context.getString(R.string.iptest_tls, r.tls)
-            if (r.alpn.isNotEmpty()) parts += r.alpn
-
-            when (r.ech) {
-                "accepted" -> parts += context.getString(R.string.iptest_ech_accepted)
-                "notaccepted" -> parts += context.getString(R.string.iptest_ech_notaccepted)
-                "rejected" -> parts += context.getString(R.string.iptest_ech_rejected)
-            }
-
-            if (r.cf) parts += context.getString(R.string.iptest_cf)
-        }
-
-        if (r.inHosts) parts += context.getString(if (direct) R.string.iptest_in_config else R.string.iptest_in_hosts)
-
-        return parts.joinToString(" · ")
-    }
 
     // CUSTOM (CUSTOM.md #156 r329): keep saved-list failure rows compact; the original reason remains in onDetail.
 
@@ -2459,29 +2216,7 @@ class IpTestView(
     }
 
     // a TextView with a dashed line under its first line, the "tap to copy" mark
-    private class DashedTextView(context: Context) : TextView(context) {
-        private val dash = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1.5f * context.resources.displayMetrics.density
-            pathEffect = DashPathEffect(floatArrayOf(8f, 5f), 0f)
-        }
 
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-
-            val l = layout ?: return
-
-            if (l.lineCount == 0) return
-
-            dash.color = currentTextColor
-
-            val y = totalPaddingTop + l.getLineBottom(0) - dash.strokeWidth
-            val x0 = totalPaddingLeft + l.getLineLeft(0)
-            val x1 = totalPaddingLeft + l.getLineRight(0)
-
-            canvas.drawLine(x0, y, x1, y, dash)
-        }
-    }
 
     companion object {
         private const val MAX_LOG = 200
