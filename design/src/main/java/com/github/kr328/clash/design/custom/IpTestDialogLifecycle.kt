@@ -27,7 +27,7 @@ internal class IpTestDialogLifecycle(
         ctx: CancellableContinuation<IpTestChoice?>,
         titleRow: View,
         scroll: View,
-        dialogInput: IpTestDialogInput.State,
+        dialogInput: IpTestDialogInput,
     ) {
         fun done(mode: String) {
             if (state.resolving) {
