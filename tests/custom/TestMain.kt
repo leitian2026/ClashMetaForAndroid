@@ -21,6 +21,9 @@ fun main() {
     CarrierSwitchMatcherTests.run()
     CarrierOperatorConsensusTests.run()
     CarrierSwitchTargetCheckTests.run()
+    YamlRenameTests.run()
+    CarrierSwitchRenameTests.run()
+    ConfigProxyCountTests.run()
     println("Custom logic tests: $testPassed passed, $testFailed failed")
     if (testFailed > 0) kotlin.system.exitProcess(1)
 }
