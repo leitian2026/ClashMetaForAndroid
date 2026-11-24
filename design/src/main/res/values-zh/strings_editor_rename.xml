@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_rename_menu">重命名</string>
+    <string name="editor_rename_title">重命名 YAML 名称</string>
+    <string name="editor_rename_new_name">新名称</string>
+    <string name="editor_rename_confirm_title">确认重命名</string>
+    <string name="editor_rename_confirm_summary">将修改 %1$d 处（定义 1 处，引用 %2$d 处）。</string>
+    <string name="editor_rename_untouched">未改动位置（无法唯一确认）：</string>
+    <string name="editor_rename_other">其他未修改的出现位置：</string>
+    <string name="editor_rename_applied">已重命名 %1$d 处</string>
+    <string name="editor_rename_large_unsupported">大文件暂不支持重命名。</string>
+    <string name="editor_rename_error_empty">新名字不能为空。</string>
+    <string name="editor_rename_error_same">新名字与旧名字相同。</string>
+    <string name="editor_rename_error_duplicate">新名字已在第 %1$d 行定义。</string>
+    <string name="editor_rename_error_builtin">内置名称不能重命名。</string>
+    <string name="editor_rename_error_characters">新名字不能包含逗号或换行。</string>
+    <string name="editor_rename_error_position">请将光标放在节点名、代理组名或它的引用上。</string>
+</resources>
