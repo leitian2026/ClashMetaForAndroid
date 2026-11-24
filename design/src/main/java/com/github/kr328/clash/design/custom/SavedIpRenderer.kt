@@ -102,7 +102,7 @@ fun renderRows() {
 
 fun addEmptyState() {
         env.operatorContent.addView(TextView(env.context).apply {
-            tag = SavedIpRenderState.SavedIpRenderState.EMPTY_STATE_TAG
+            tag = SavedIpRenderState.EMPTY_STATE_TAG
             setText(if (env.snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
             textSize = 14f
             setTextColor(env.colorMuted)

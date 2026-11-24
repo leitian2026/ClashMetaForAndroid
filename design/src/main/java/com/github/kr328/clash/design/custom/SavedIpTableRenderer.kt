@@ -108,7 +108,7 @@ fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: 
         // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
         val stickyRenderer = IpTestView(
             env.context, direct = false, target = false, savedTable = true,
-                visibleSavedColumns = env.visibleSavedColumns, env.showDirectSpeed = env.showDirectSpeed,
+                visibleSavedColumns = env.visibleSavedColumns, showDirectSpeed = env.showDirectSpeed,
         )
         val stickyCopy = makeTable(emptyList(), stickyRenderer)
         state.stickyHeaderCopies[operator.id] = stickyCopy

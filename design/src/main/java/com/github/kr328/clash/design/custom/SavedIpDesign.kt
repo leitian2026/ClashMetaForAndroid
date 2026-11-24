@@ -220,7 +220,7 @@ class SavedIpDesign(
         setOnClickListener { collapseSearch() }
     }
 
-    private val env = object : SavedIpEnv {
+    private val env: SavedIpEnv = object : SavedIpEnv {
         override val context: Context get() = this@SavedIpDesign.context
         override val root: View get() = this@SavedIpDesign.root
         override var snapshotCache: SavedIpSnapshot
@@ -307,21 +307,21 @@ class SavedIpDesign(
         override fun chooseDeleteOlder(operator: SavedIpOperator) = deleteUndo.chooseDeleteOlder(operator)
         override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean = deleteUndo.writeSnapshot(transform)
     }
-    private val search = SavedIpSearch(env)
-    private val selection = SavedIpSelection(env)
+    private val search: SavedIpSearch = SavedIpSearch(env)
+    private val selection: SavedIpSelection = SavedIpSelection(env)
     private var selectedOperatorId: String?
         get() = selection.selectedOperatorId
         set(value) { selection.selectedOperatorId = value }
     private val selectedAddresses: LinkedHashSet<String> get() = selection.selectedAddresses
-    private val deleteUndo = SavedIpDeleteUndo(env)
-    private val filterMenus = SavedIpFilterMenus(env)
+    private val deleteUndo: SavedIpDeleteUndo = SavedIpDeleteUndo(env)
+    private val filterMenus: SavedIpFilterMenus = SavedIpFilterMenus(env)
     private val visibleSavedColumns: Set<String> get() = filterMenus.visibleSavedColumns
-    private val renderState = SavedIpRenderState()
+    private val renderState: SavedIpRenderState = SavedIpRenderState()
     private var renderedDataVersion: Long
         get() = renderState.renderedDataVersion
         set(value) { renderState.renderedDataVersion = value }
     private val savedTableRenderers get() = renderState.savedTableRenderers
-    private val renderer = SavedIpRenderer(env, renderState, selection, filterMenus)
+    private val renderer: SavedIpRenderer = SavedIpRenderer(env, renderState, selection, filterMenus)
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -424,7 +424,7 @@ class SavedIpDesign(
             refresh()
             return true
         }
-        if (searchInput.text?.toString().orEmpty() != renderedQuery) {
+        if (searchInput.text?.toString().orEmpty() != search.renderedQuery) {
             renderRows()
             return true
         }

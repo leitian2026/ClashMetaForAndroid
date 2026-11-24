@@ -1,6 +1,8 @@
 package com.github.kr328.clash.design.custom
 
+import android.text.InputType
 import android.util.Log
+import android.widget.EditText
 import android.widget.Toast
 import com.github.kr328.clash.design.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
