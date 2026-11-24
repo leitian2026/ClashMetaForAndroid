@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_rename_menu">Rename</string>
+    <string name="editor_rename_title">Rename YAML name</string>
+    <string name="editor_rename_new_name">New name</string>
+    <string name="editor_rename_confirm_title">Confirm rename</string>
+    <string name="editor_rename_confirm_summary">This will change %1$d places (1 definition, %2$d references).</string>
+    <string name="editor_rename_untouched">Not changed (ambiguous positions):</string>
+    <string name="editor_rename_other">Other occurrences not changed:</string>
+    <string name="editor_rename_applied">Renamed %1$d places</string>
+    <string name="editor_rename_large_unsupported">Rename is not supported while large-file windowing is active.</string>
+    <string name="editor_rename_error_empty">The new name cannot be empty.</string>
+    <string name="editor_rename_error_same">The new name is the same as the old name.</string>
+    <string name="editor_rename_error_duplicate">The new name is already defined on line %1$d.</string>
+    <string name="editor_rename_error_builtin">Built-in names cannot be renamed.</string>
+    <string name="editor_rename_error_characters">The new name cannot contain a comma or line break.</string>
+    <string name="editor_rename_error_position">Place the cursor on a proxy or group name, or one of its references.</string>
+</resources>
