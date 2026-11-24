@@ -25,13 +25,13 @@ class CarrierSwitchDesign(
     context: android.content.Context,
     initial: CarrierSwitchConfig,
     private val groups: List<String>,
-    private val nodes: Map<String, List<String>>,
     initialAutomaticEnabled: Boolean,
     identityDiagnostic: String,
 ) : Design<CarrierSwitchDesign.Request>(context) {
     sealed class Request {
         data class SetEnabled(val enabled: Boolean) : Request()
         data class Save(val config: CarrierSwitchConfig) : Request()
+        data class LoadNodes(val group: String, val selected: (String) -> Unit) : Request()
     }
 
     private var config = initial
@@ -39,6 +39,7 @@ class CarrierSwitchDesign(
     private val customRows = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private var automaticSwitch: Switch? = null
     private var automaticEnabled = initialAutomaticEnabled
+    private val loadingGroups = mutableSetOf<String>()
 
     override val root: View
         get() = content
@@ -180,6 +181,10 @@ class CarrierSwitchDesign(
     }
 
     private fun chooseTarget(current: CarrierSwitchTarget, selected: (CarrierSwitchTarget) -> Unit) {
+        if (groups.isEmpty()) {
+            Toast.makeText(context, R.string.carrier_switch_no_groups, Toast.LENGTH_SHORT).show()
+            return
+        }
         val options = groups + ""
         val labels = options.map { if (it.isEmpty()) context.getString(R.string.carrier_switch_clear) else it }
         MaterialAlertDialogBuilder(context)
@@ -189,7 +194,7 @@ class CarrierSwitchDesign(
                 if (group.isEmpty()) {
                     selected(CarrierSwitchTarget())
                 } else {
-                    chooseNode(group, current.node) { node ->
+                    chooseNode(group) { node ->
                         selected(CarrierSwitchTarget(group, node))
                     }
                 }
@@ -198,13 +203,20 @@ class CarrierSwitchDesign(
             .show()
     }
 
-    private fun chooseNode(group: String, current: String, selected: (String) -> Unit) {
-        val options = nodes[group].orEmpty()
-        if (options.isEmpty()) {
+    private fun chooseNode(group: String, selected: (String) -> Unit) {
+        if (!loadingGroups.add(group)) return
+        if (requests.trySend(Request.LoadNodes(group, selected)).isFailure) {
+            loadingGroups.remove(group)
+        }
+    }
+
+    fun showNodes(group: String, nodes: List<String>, selected: (String) -> Unit) {
+        loadingGroups.remove(group)
+        if (nodes.isEmpty()) {
             Toast.makeText(context, R.string.carrier_switch_node_empty, Toast.LENGTH_SHORT).show()
             return
         }
-        val labels = options + ""
+        val labels = nodes + ""
         val display = labels.map { if (it.isEmpty()) context.getString(R.string.carrier_switch_clear) else it }
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.carrier_switch_choose_node)

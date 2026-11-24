@@ -19,13 +19,10 @@ import kotlinx.coroutines.withContext
 class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
     override suspend fun main() {
         val profile = withProfile { queryActive() } ?: return finish()
-        val groupNames = withClash { queryProxyGroupNames(true) }
-        val nodes = LinkedHashMap<String, List<String>>()
-        for (group in groupNames) {
-            val proxyGroup = withClash { queryProxyGroup(group, ProxySort.Default) }
-            if (proxyGroup.type == "Selector") {
-                nodes[group] = proxyGroup.proxies.filterNot { it.isGroup }.map { it.name }
-            }
+        val groupNames = try {
+            withClash { queryProxyGroupNames(true) }
+        } catch (_: Exception) {
+            emptyList()
         }
 
         val initial = withContext(Dispatchers.IO) {
@@ -37,7 +34,7 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
         var automaticEnabled = withContext(Dispatchers.IO) {
             CarrierSwitchEnabledStore.read(this@CarrierSwitchActivity)
         }
-        val design = CarrierSwitchDesign(this, initial, nodes.keys.toList(), nodes, automaticEnabled, identityDiagnostic)
+        val design = CarrierSwitchDesign(this, initial, groupNames, automaticEnabled, identityDiagnostic)
         setContentDesign(design)
 
         while (isActive) {
@@ -66,6 +63,21 @@ class CarrierSwitchActivity : BaseActivity<CarrierSwitchDesign>() {
                                 design.setAutomaticEnabled(automaticEnabled)
                                 design.showEnableSaveFailed()
                             }
+                        }
+                        is CarrierSwitchDesign.Request.LoadNodes -> {
+                            val nodes = try {
+                                withClash {
+                                    val group = queryProxyGroup(it.group, ProxySort.Default)
+                                    if (group.type == "Selector") {
+                                        group.proxies.filterNot { proxy -> proxy.isGroup }.map { proxy -> proxy.name }
+                                    } else {
+                                        emptyList()
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
+                            design.showNodes(it.group, nodes, it.selected)
                         }
                         is CarrierSwitchDesign.Request.Save -> {
                             val saved = withContext(Dispatchers.IO) {

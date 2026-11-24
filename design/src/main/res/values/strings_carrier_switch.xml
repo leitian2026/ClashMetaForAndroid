@@ -22,6 +22,7 @@
     <string name="carrier_switch_saved">Saved</string>
     <string name="carrier_switch_save_failed">Could not save the mapping. The previous mapping is unchanged.</string>
     <string name="carrier_switch_node_empty">This group has no selectable nodes</string>
+    <string name="carrier_switch_no_groups">No selectable proxy groups. Start Clash and load a configuration first.</string>
     <string name="carrier_switch_home_result">Automatically switched to: %1$s</string>
     <string name="carrier_switch_default_target_label">Node: %1$s</string>
     <string name="carrier_switch_keyword_required">Enter a keyword</string>
