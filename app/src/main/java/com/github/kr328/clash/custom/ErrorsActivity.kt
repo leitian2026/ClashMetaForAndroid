@@ -206,11 +206,19 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     /** CUSTOM: read the active subscription warning once when the diagnostics page opens. */
     private suspend fun readUpdateGuardOnce(): UpdateGuardRecord? = withContext(Dispatchers.IO) {
         try {
-            val uuid = ServiceStore(this@ErrorsActivity).activeProfile ?: return@withContext null
-            val record = UpdateGuardStore.read(this@ErrorsActivity, uuid) ?: return@withContext null
-            if (record.ignored) return@withContext null
-            updateGuardUuid = uuid
-            record
+            val directory = filesDir.resolve("custom/update_guard")
+            var latest: Pair<UUID, UpdateGuardRecord>? = null
+            directory.listFiles()?.forEach { file ->
+                if (!file.isFile || file.extension != "json") return@forEach
+                val uuid = try { UUID.fromString(file.nameWithoutExtension) } catch (_: Exception) { null }
+                    ?: return@forEach
+                val record = UpdateGuardStore.read(this@ErrorsActivity, uuid) ?: return@forEach
+                if (!record.ignored && (latest == null || record.time > latest!!.second.time)) {
+                    latest = uuid to record
+                }
+            }
+            updateGuardUuid = latest?.first
+            latest?.second
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
