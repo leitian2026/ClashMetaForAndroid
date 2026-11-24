@@ -41,8 +41,8 @@ object YamlRename {
         }
         for (link in refsAtCaretLine) {
             val occurrences = occurrences(lines[caretLine].text, link.name)
-            val hit = occurrences.firstOrNull { caretColumn >= it.start && caretColumn <= it.end }
-            if (hit != null) {
+            val hit = occurrences.any { caretColumn >= it.start && caretColumn <= it.end }
+            if (hit) {
                 val resolved = YamlLint.resolve(links, text, offset)
                 if (resolved.link?.name == link.name &&
                     (resolved.link.kind == "proxy" || resolved.link.kind == "policy")
