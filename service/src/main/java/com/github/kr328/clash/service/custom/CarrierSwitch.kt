@@ -6,6 +6,8 @@ import com.github.kr328.clash.common.custom.CarrierSwitchConfig
 import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
 import com.github.kr328.clash.common.custom.CarrierSwitchMatcher
 import com.github.kr328.clash.common.custom.CarrierSwitchStore
+import com.github.kr328.clash.common.custom.CarrierSwitchTargetCheck
+import com.github.kr328.clash.common.custom.CarrierSwitchTargetState
 import com.github.kr328.clash.common.custom.CarrierSwitchTogglePolicy
 import com.github.kr328.clash.common.custom.CarrierSwitchTarget
 import com.github.kr328.clash.common.custom.CustomIntents
@@ -13,6 +15,7 @@ import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.common.custom.NetworkIdentityStore
 import com.github.kr328.clash.common.custom.NetworkIpv6
 import com.github.kr328.clash.core.Clash
+import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.service.StatusProvider
 import com.github.kr328.clash.service.R
 import com.github.kr328.clash.service.data.Selection
@@ -84,7 +87,12 @@ object CarrierSwitch {
         context: Context,
         latest: NetworkIdentitySnapshot,
     ): NetworkIdentitySnapshot? {
-        val cleared = latest.copy(switchResult = "", switchError = "", switchNotice = "")
+        val cleared = latest.copy(
+            switchResult = "",
+            switchError = "",
+            switchNotice = "",
+            switchMissing = "",
+        )
         if (cleared != latest) {
             if (!NetworkIdentityStore.writeIfSignature(context, latest.signature, cleared)) return null
             context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
@@ -114,6 +122,7 @@ object CarrierSwitch {
                         switchResult = "",
                         switchError = "",
                         switchNotice = context.getString(R.string.carrier_switch_missing_target, operator),
+                        switchMissing = "",
                     ),
                 )
             ) {
@@ -123,18 +132,93 @@ object CarrierSwitch {
         }
         val target = CarrierSwitchTarget(matched.group, matched.node)
 
-        // Avoid a redundant core selector patch and database write when already selected.
-        val selectedNode = try {
-            runBlocking { SelectionDao().querySelections(uuid) }
-                .firstOrNull { it.proxy == target.group }
-                ?.selected
-        } catch (_: Exception) {
+        val running = StatusProvider.serviceRunning
+        val coreTargetState = if (running) {
+            try {
+                val group = Clash.queryGroup(target.group, ProxySort.Default)
+                CarrierSwitchTargetCheck.check(
+                    group.type,
+                    group.proxies.map { it.name },
+                    group.now,
+                    target.node,
+                )
+            } catch (_: Exception) {
+                null
+            }
+        } else {
             null
         }
-        if (!CarrierSwitchMatcher.needsSwitch(selectedNode, target.node)) return
+
+        when (coreTargetState) {
+            CarrierSwitchTargetState.GroupMissing -> {
+                val message = context.getString(R.string.carrier_switch_target_missing_group, target.group)
+                if (NetworkIdentityStore.writeIfSignature(
+                        context,
+                        identity.signature,
+                        identity.copy(
+                            switchResult = "",
+                            switchError = "",
+                            switchNotice = "",
+                            switchMissing = message,
+                        ),
+                    )
+                ) {
+                    context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
+                }
+                return
+            }
+            CarrierSwitchTargetState.NodeMissing -> {
+                val message = context.getString(
+                    R.string.carrier_switch_target_missing_node,
+                    target.group,
+                    target.node,
+                )
+                if (NetworkIdentityStore.writeIfSignature(
+                        context,
+                        identity.signature,
+                        identity.copy(
+                            switchResult = "",
+                            switchError = "",
+                            switchNotice = "",
+                            switchMissing = message,
+                        ),
+                    )
+                ) {
+                    context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
+                }
+                return
+            }
+            CarrierSwitchTargetState.AlreadySelected -> {
+                if (identity.switchMissing.isNotEmpty() && NetworkIdentityStore.writeIfSignature(
+                        context,
+                        identity.signature,
+                        identity.copy(switchMissing = ""),
+                    )
+                ) {
+                    context.sendBroadcastSelf(Intent(CustomIntents.ACTION_ISSUES_CHANGED))
+                }
+                return
+            }
+            CarrierSwitchTargetState.NeedSwitch, null -> Unit
+        }
+
+        // A successful core query is authoritative. Fall back to the saved selection only if
+        // Clash is stopped or the core query failed.
+        val needsSwitch = if (running && coreTargetState != null) {
+            coreTargetState == CarrierSwitchTargetState.NeedSwitch
+        } else {
+            val selectedNode = try {
+                runBlocking { SelectionDao().querySelections(uuid) }
+                    .firstOrNull { it.proxy == target.group }
+                    ?.selected
+            } catch (_: Exception) {
+                null
+            }
+            CarrierSwitchMatcher.needsSwitch(selectedNode, target.node)
+        }
+        if (!needsSwitch) return
 
         if (!isCurrentIdentity(context, identity.signature)) return
-        val running = StatusProvider.serviceRunning
         val switched = if (running) {
             val success = Clash.patchSelector(target.group, target.node)
             if (success) {
@@ -147,16 +231,23 @@ object CarrierSwitch {
         }
 
         val updated = when {
-            !running -> identity.copy(switchResult = "", switchError = "", switchNotice = "")
+            !running -> identity.copy(
+                switchResult = "",
+                switchError = "",
+                switchNotice = "",
+                switchMissing = "",
+            )
             switched -> identity.copy(
                 switchResult = "${target.group} / ${target.node}",
                 switchError = "",
                 switchNotice = "",
+                switchMissing = "",
             )
             else -> identity.copy(
                 switchResult = "",
                 switchError = "${target.group} / ${target.node}",
                 switchNotice = "",
+                switchMissing = "",
             )
         }
         if (NetworkIdentityStore.writeIfSignature(context, identity.signature, updated)) {
