@@ -47,7 +47,14 @@ class MainCustomCards(
         val total = active.size + (if (networkError != null) 1 else 0)
         val switchResult = identity?.switchResult.orEmpty()
         val automaticEnabled = CarrierSwitchEnabledStore.read(context)
-        val showSwitchEntry = !automaticEnabled || (total == 0 && summary.readFailed == null && switchResult.isNotEmpty())
+        val onlyMissingSwitchTarget = active.isEmpty() &&
+            summary.readFailed == null &&
+            identity?.error.isNullOrEmpty() &&
+            identity?.switchError.isNullOrEmpty() &&
+            identity?.switchMissing?.isNotEmpty() == true
+        val showSwitchEntry = !automaticEnabled ||
+            (total == 0 && summary.readFailed == null && switchResult.isNotEmpty()) ||
+            onlyMissingSwitchTarget
         card.setOnClickListener {
             val target = if (showSwitchEntry) {
                 "com.github.kr328.clash.custom.CarrierSwitchActivity"
@@ -80,10 +87,13 @@ class MainCustomCards(
                 context.getString(R.string.network_identity_card_issues, total)
             }
             val lines = ArrayList<String>()
-            if (networkError != null) lines += if (networkError.switchError.isNotEmpty()) {
-                context.getString(R.string.network_identity_error_switch, networkError.switchError)
-            } else {
-                NetworkIdentityText.error(context, networkError.error)
+            if (networkError != null) {
+                lines += if (networkError.switchError.isNotEmpty()) {
+                    context.getString(R.string.network_identity_error_switch, networkError.switchError)
+                } else {
+                    NetworkIdentityText.error(context, networkError.error)
+                }
+                networkError.switchMissing.takeIf { it.isNotEmpty() }?.let { lines += it }
             }
             active.take(2 - lines.size).forEach {
                 lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
