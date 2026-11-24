@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_guard_title">订阅更新提醒</string>
+    <string name="update_guard_summary">订阅更新后节点数从 %1$d 降到 %2$d</string>
+    <string name="update_guard_ignore">忽略</string>
+</resources>
