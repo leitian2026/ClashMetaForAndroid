@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.text.InputType
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -27,6 +30,7 @@ class CarrierSwitchDesign(
     private val groups: List<String>,
     initialAutomaticEnabled: Boolean,
     identityDiagnostic: String,
+    initialMissingTargets: Set<String> = emptySet(),
 ) : Design<CarrierSwitchDesign.Request>(context) {
     sealed class Request {
         data class SetEnabled(val enabled: Boolean) : Request()
@@ -40,6 +44,13 @@ class CarrierSwitchDesign(
     private var automaticSwitch: Switch? = null
     private var automaticEnabled = initialAutomaticEnabled
     private val loadingGroups = mutableSetOf<String>()
+    private val missingTargets = initialMissingTargets.toMutableSet()
+    private data class TargetViewState(
+        val view: TextView,
+        val label: Int,
+        var target: CarrierSwitchTarget,
+    )
+    private val targetViews = mutableMapOf<String, TargetViewState>()
 
     override val root: View
         get() = content
@@ -124,6 +135,13 @@ class CarrierSwitchDesign(
         renderCustomRows()
     }
 
+    fun setMissingTargets(missing: Set<String>) {
+        val changed = (missingTargets + missing).filter { (it in missingTargets) != (it in missing) }
+        missingTargets.clear()
+        missingTargets.addAll(missing)
+        changed.forEach(::updateTargetView)
+    }
+
     fun showSaved() {
         Toast.makeText(context, R.string.carrier_switch_saved, Toast.LENGTH_SHORT).show()
     }
@@ -158,14 +176,14 @@ class CarrierSwitchDesign(
             textSize = 14f
         })
         var current = target
-        val defaultButton = outlinedButton().apply {
-            text = labelledTargetText(R.string.carrier_switch_default_target_label, current)
-            setOnClickListener {
-                chooseTarget(current) { selected ->
-                    current = current.copy(group = selected.group, node = selected.node)
-                    config = updateFixedConfig(key, current)
-                    text = labelledTargetText(R.string.carrier_switch_default_target_label, current)
-                }
+        val defaultButton = outlinedButton()
+        registerTargetView(key, defaultButton, R.string.carrier_switch_default_target_label, current)
+        defaultButton.setOnClickListener {
+            clearMissingTarget(key)
+            chooseTarget(current) { selected ->
+                current = current.copy(group = selected.group, node = selected.node)
+                config = updateFixedConfig(key, current)
+                updateTargetView(key, current)
             }
         }
         row.addView(defaultButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
@@ -228,6 +246,7 @@ class CarrierSwitchDesign(
     private fun addCustom() = editCustom(null)
 
     private fun editCustom(index: Int?) {
+        index?.let { clearMissingTarget("custom:$it") }
         val old = index?.let { config.custom.getOrNull(it) }
         val keywordInput = EditText(context).apply {
             hint = context.getString(R.string.carrier_switch_keyword)
@@ -258,6 +277,7 @@ class CarrierSwitchDesign(
 
     private fun renderCustomRows() {
         customRows.removeAllViews()
+        targetViews.keys.filter { it.startsWith("custom:") }.forEach(targetViews::remove)
         config.custom.forEachIndexed { index, item ->
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -267,21 +287,30 @@ class CarrierSwitchDesign(
                 text = item.keyword
                 textSize = 15f
             })
-            row.addView(TextView(context).apply {
-                text = labelledTargetText(
-                    R.string.carrier_switch_default_target_label, CarrierSwitchTarget(item.group, item.node),
-                )
-                textSize = 12f
-            })
+            val key = "custom:$index"
+            val target = CarrierSwitchTarget(item.group, item.node)
+            val targetView = TextView(context).apply { textSize = 12f }
+            registerTargetView(key, targetView, R.string.carrier_switch_default_target_label, target)
+            row.addView(targetView)
             val actions = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
             actions.addView(borderlessButton().apply {
                 setText(R.string.carrier_switch_edit)
-                setOnClickListener { editCustom(index) }
+                setOnClickListener { clearMissingTarget(key); editCustom(index) }
             })
             actions.addView(borderlessButton().apply {
                 setText(R.string.carrier_switch_delete)
                 setOnClickListener {
                     config = config.copy(custom = config.custom.filterIndexed { i, _ -> i != index })
+                    val shifted = missingTargets.mapNotNull { key ->
+                        val customIndex = key.removePrefix("custom:").takeIf { key.startsWith("custom:") }?.toIntOrNull()
+                        when {
+                            customIndex == null -> key
+                            customIndex == index -> null
+                            customIndex > index -> "custom:${customIndex - 1}"
+                            else -> key
+                        }
+                    }.toSet()
+                    setMissingTargets(shifted)
                     renderCustomRows()
                 }
             })
@@ -328,8 +357,39 @@ class CarrierSwitchDesign(
         setPadding(0, dp(16), 0, dp(8))
     }
 
-    private fun labelledTargetText(label: Int, target: CarrierSwitchTarget): String =
-        context.getString(label, targetText(target))
+    private fun registerTargetView(
+        key: String,
+        view: TextView,
+        label: Int,
+        target: CarrierSwitchTarget,
+    ) {
+        targetViews[key] = TargetViewState(view, label, target)
+        updateTargetView(key)
+    }
+
+    private fun updateTargetView(key: String, target: CarrierSwitchTarget? = null) {
+        val state = targetViews[key] ?: return
+        if (target != null) state.target = target
+        val base = context.getString(state.label, targetText(state.target))
+        if (key !in missingTargets) {
+            state.view.text = base
+            return
+        }
+        val text = SpannableStringBuilder(base).append(" ")
+        val start = text.length
+        text.append(context.getString(R.string.carrier_switch_target_not_found))
+        text.setSpan(
+            ForegroundColorSpan(Color.RED),
+            start,
+            text.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        state.view.text = text
+    }
+
+    private fun clearMissingTarget(key: String) {
+        if (missingTargets.remove(key)) updateTargetView(key)
+    }
 
     private fun targetText(target: CarrierSwitchTarget): String {
         return if (target.group.isBlank() || target.node.isBlank()) {
