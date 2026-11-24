@@ -248,7 +248,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
     }
 
     private var profileId = ""
-    // CUSTOM #172: rename mappings are held only in this Activity until a successful Apply.
+    // CUSTOM: rename mappings are held only in this Activity until a successful Apply.
     private val pendingRenames = ArrayList<Pair<String, String>>()
     private var openedName = ""
     private var split = false // CUSTOM.md #56
@@ -415,7 +415,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
     }
 
 
-    // CUSTOM #172: recover the new scalar from the definition edit without reparsing the YAML document.
+    // CUSTOM: recover the new scalar from the definition edit without reparsing the YAML document.
     private fun renamedName(source: String, plan: YamlRename.Plan): String? {
         val definition = plan.changes.firstOrNull { change ->
             val lineStart = source.lastIndexOf('\\n', (change.start - 1).coerceAtLeast(0)) + 1
@@ -471,7 +471,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            // CUSTOM #172: mapping persistence is best-effort and never changes the config Apply result.
+            // CUSTOM: mapping persistence is best-effort and never changes the config Apply result.
         } finally {
             pendingRenames.clear()
         }
@@ -547,7 +547,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val text = design.currentText()
 
         if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
-            pendingRenames.clear() // CUSTOM #172: an already-applied text has no pending rename to commit.
+            pendingRenames.clear() // CUSTOM: an already-applied text has no pending rename to commit.
             withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
             design.markSaved()
             design.setApplied(true)
