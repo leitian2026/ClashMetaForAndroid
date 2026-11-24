@@ -17,6 +17,7 @@
     <string name="carrier_switch_clear">清除映射</string>
     <string name="carrier_switch_not_set">未设置</string>
     <string name="carrier_switch_group_node">%1$s / %2$s</string>
+    <string name="carrier_switch_target_not_found">已不存在</string>
     <string name="carrier_switch_edit">修改</string>
     <string name="carrier_switch_delete">删除</string>
     <string name="carrier_switch_saved">已保存</string>
