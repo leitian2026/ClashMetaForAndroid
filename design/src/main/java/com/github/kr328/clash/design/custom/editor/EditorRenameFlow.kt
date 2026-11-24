@@ -30,7 +30,7 @@ object EditorRenameFlow {
         val input = TextInputEditText(context).apply {
             inputType = InputType.TYPE_CLASS_TEXT
             setText(oldName)
-            setSelection(text?.length ?: oldName.length)
+            setSelection(oldName.length)
         }
         val inputLayout = TextInputLayout(context).apply {
             hint = context.getString(R.string.editor_rename_new_name)
@@ -89,7 +89,7 @@ object EditorRenameFlow {
                 append(context.getString(R.string.editor_rename_untouched))
                 plan.untouched.take(20).forEach {
                     append("\n")
-                    append(context.getString(R.string.editor_rename_location, it.line, it.column + 1))
+                    append(it.line.toString() + ":" + (it.column + 1).toString())
                 }
             }
             if (plan.otherOccurrences.isNotEmpty()) {
@@ -97,7 +97,7 @@ object EditorRenameFlow {
                 append(context.getString(R.string.editor_rename_other))
                 plan.otherOccurrences.take(20).forEach { line ->
                     append("\n")
-                    append(context.getString(R.string.editor_rename_line, line))
+                    append(line.toString())
                 }
             }
         }
