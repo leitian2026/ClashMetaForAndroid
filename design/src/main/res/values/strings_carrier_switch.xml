@@ -17,6 +17,7 @@
     <string name="carrier_switch_clear">Clear mapping</string>
     <string name="carrier_switch_not_set">Not set</string>
     <string name="carrier_switch_group_node">%1$s / %2$s</string>
+    <string name="carrier_switch_target_not_found">not found</string>
     <string name="carrier_switch_edit">Edit</string>
     <string name="carrier_switch_delete">Delete</string>
     <string name="carrier_switch_saved">Saved</string>
