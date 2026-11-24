@@ -263,18 +263,6 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
     // the table and the live status get what each one found. Runs only when tapped; the core stops when the button is
     // tapped again.
     // CUSTOM.md step 68: domains are resolved in the dialog's separate field; the test box accepts IPs only.
-    private fun isResidualDomainToken(raw: String): Boolean {
-        var value = raw.trim()
-        if (value.count { it == ':' } == 1) value = value.substringBeforeLast(':')
-        value = value.trimEnd('.')
-        val labels = value.split('.')
-        if (labels.size < 2 || labels.any { it.isEmpty() || it.length > 63 || it.first() == '-' || it.last() == '-' }) return false
-        if (labels.last().none { it in 'a'..'z' || it in 'A'..'Z' }) return false
-        return labels.all { label ->
-            label.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }
-        }
-    }
-
     private suspend fun runIpTest(design: ConfigCheckDesign, presetIps: String? = null, preferredOperatorId: String? = null) {
         if (!clashRunning) {
             design.showText(getString(R.string.connections_not_running))
@@ -289,6 +277,14 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
                 design,
                 presetIps,
                 { request -> IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }) },
+                {
+                    try {
+                        withClash { closeCustomConnection(CustomConnections.CANCEL_IPTEST) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                    }
+                },
                 { id, args -> getString(id, *args) },
             ) ?: return
 
@@ -300,191 +296,38 @@ class ConfigCheckActivity : BaseActivity<ConfigCheckDesign>() {
             val head = prepared.head
             val targets = prepared.targets
 
-            lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
-            saveOperatorIdForCurrentRound = preferredOperatorId // CUSTOM.md #156 step 4: prefer the source operator when saving re-test results
-            ipRows = ArrayList()
-
-            design.ipBegin(direct, head, "", warnings, target.isNotEmpty())
-            design.ipSaveContext(domain, choice.node, choice.ports, choice.url)
-            begun = true
-            design.setIpRunning(true)
-            ipTesting = true
-            IpSpeedTestCoordinator.setBusy(true)
-            design.ipProgress(targets.size, 0)
-
-            design.ipLog(
-                getString(
-                    R.string.iptest_log_start,
-                    targets.size,
-                    if (direct) {
-                        getString(R.string.iptest_log_mode_direct, domain)
-                    } else {
-                        getString(R.string.iptest_log_mode_node, choice.node)
-                    },
-                ),
+            ConfigCheckIpTestSteps().begin(
+                design = design,
+                prepared = prepared,
+                resetRound = {
+                    lastRun = IpRun(direct, domain, choice.node, choice.ports, choice.url)
+                    saveOperatorIdForCurrentRound = preferredOperatorId
+                    ipRows = ArrayList()
+                },
+                markBegun = { begun = true },
+                markRunning = {
+                    ipTesting = true
+                    IpSpeedTestCoordinator.setBusy(true)
+                },
+                format = { id, args -> getString(id, *args) },
             )
 
-            var landNoNodeSaid = false
-            var tested = 0
-            val exitOwnerFailureLogged = HashSet<String>()
-
-            fetchColos(design) // CUSTOM.md #63: the through-node table has the data centre column too
-
-            // Automatic ASN / registered-country lookups run sequentially beside the IP loop.
-            // The queue is unbounded (at most the parsed IP limit) so enqueueing never delays the next probe.
-            val ownerQueue = Channel<String>(Channel.UNLIMITED)
-            val ownerJob = CoroutineScope(currentCoroutineContext()).launch {
-                for (ip in ownerQueue) runAutomaticOwnerLookup(design, ip)
-            }
-
-            try {
-            for ((i, t) in targets.withIndex()) {
-                if (i > 0) delay(Random.nextLong(1000, 3001)) // the random gap between two addresses
-
-                design.ipLog(getString(R.string.iptest_log_ip_start, i + 1, targets.size, t.ip))
-
-                val request = JSONObject()
-                    .put("kind", "ip")
-                    .put("mode", if (direct) "probe" else "nodeone")
-                    .put("domain", domain)
-                    .put("node", choice.node)
-                    .put("target", target)
-                    .put("ips", t.ip)
-                    .put("ports", choice.ports)
-                    .put("ext", if (direct) choice.ext.joinToString(",") else "") // CUSTOM.md #77: node mode never runs extension probes
-                    .put("wsPath", if (direct && "ws" in choice.ext) choice.wsPath else "") // CUSTOM.md #78
-                    .toString()
-
-                val report = IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) })
-
-                if (report.cancelled) break
-
-                tested++
-                design.ipProgress(targets.size, tested)
-
-                val row = report.rows.firstOrNull()
-
-                if (report.error.isNotEmpty() || row == null) {
-                    design.ipLog(getString(R.string.iptest_log_error, report.error.ifEmpty { t.ip }))
-                    continue
-                }
-
-                ipRows.add(row)
-
-                // CUSTOM.md #80: show each UDP MTU candidate and its response in the existing status log.
-                if (direct && row.mtu.tested) {
-                    row.mtu.detail.lineSequence().filter { it.isNotBlank() }.forEach { step ->
-                        design.ipLog(getString(R.string.iptest_log_mtu_step, row.ip, step))
-                    }
-                }
-
-                // Reference comparison is intentionally limited to node mode with no custom target.
-                val contextSub = if (direct) {
-                    if (report.echSource.isNotEmpty()) {
-                        getString(R.string.iptest_ech_source, report.echSource)
-                    } else {
-                        getString(R.string.iptest_ech_none)
-                    }
-                } else if (target.isNotEmpty()) {
-                    getString(R.string.iptest_target_sub, target)
-                } else {
-                    "" // CUSTOM.md #43 (r309): the "对照" line above the node-mode table was removed
-                }
-                val measureNote = getString(if (direct) R.string.iptest_measure_direct_note else R.string.iptest_measure_node_note)
-                val sub = listOf(contextSub, measureNote).filter { it.isNotEmpty() }.joinToString("\n")
-
-                design.ipInfo(head, sub, warnings)
-                design.ipRows(ipRows)
-
-                if (!direct && target.isNotEmpty()) {
-                    design.ipLog(
-                        getString(
-                            R.string.iptest_log_target_protocol,
-                            row.ip,
-                            row.targetAlpn.ifEmpty { "<empty>" },
-                            row.targetHttpProto.ifEmpty { "<empty>" },
-                        ),
-                    )
-                }
-
-                if (row.ok) {
-                    val open = row.ports.filter { it.ok }.joinToString(" ") { it.port.toString() }
-
-                    design.ipLog(
-                        if (direct) {
-                            getString(R.string.iptest_log_ip_ok, row.ip, row.avg, row.loss, open.ifEmpty { "-" })
-                        } else {
-                            getString(R.string.iptest_log_ip_ok_noports, row.ip, row.avg, row.loss)
-                        },
-                    )
-                    if (!direct && row.exitIp.isNotEmpty() && row.exitAsn.isEmpty() && exitOwnerFailureLogged.add(row.exitIp)) {
-                        design.ipLog(getString(R.string.iptest_log_exit_asn_none, row.exitIp))
-                    }
-
-                    // Direct-mode split timings are not all present in the node-mode table; keep that log only.
-                    if (direct) {
-                        design.ipLog(
-                            getString(
-                                R.string.iptest_log_split_direct,
-                                row.ip,
-                                row.jitter,
-                                row.dial,
-                                row.shake,
-                                row.first,
-                            ),
-                        )
-                    }
-
-                    if (direct) {
-                        if (report.landNode.isEmpty()) {
-                            if (!landNoNodeSaid) {
-                                landNoNodeSaid = true
-                                design.ipLog(getString(R.string.iptest_log_land_no_node, domain))
-                            }
-                        } else if (row.country.isNotEmpty()) {
-                            design.ipLog(getString(R.string.iptest_log_land_ok, row.ip, CountryName.label(row.country), report.landNode))
-                        } else {
-                            design.ipLog(getString(R.string.iptest_log_land_none, row.ip, report.landNode))
-                        }
-                    }
-
-                    // CUSTOM.md #63: through a node: the data centre comes from one extra direct connection (SNI = the node's
-                    // own domain), the operator and the registered country from the public service
-                    if (!direct && target.isNotEmpty()) {
-                        if (row.targetStatus == 0) {
-                            design.ipLog(getString(R.string.iptest_log_target_none, row.ip))
-                        }
-
-                        // CUSTOM.md #67: what the page itself says
-                        when (row.targetSoft) {
-                            "refresh", "script" -> design.ipLog(getString(R.string.iptest_log_soft_redirect, row.ip, row.targetSoftNote))
-                            "region" -> design.ipLog(getString(R.string.iptest_log_soft_region, row.ip, row.targetSoftNote))
-                        }
-                    }
-
-                    if (!direct && !row.isDomain && row.colo.isEmpty()) {
-                        val message = if (row.coloErr == "nosni") {
-                            getString(R.string.iptest_log_node_colo_nosni, row.ip)
-                        } else {
-                            getString(R.string.iptest_log_node_colo_fail, row.ip, row.coloErr.ifEmpty { "-" })
-                        }
-                        design.ipLog(message)
-                    }
-
-                    // CUSTOM.md #52 / #72: queue the automatic lookup; it must not delay the next IP probe.
-                    if (!row.isDomain) ownerQueue.send(row.ip)
-                } else {
-                    val rawReason = row.reason.ifBlank { row.code.ifBlank { "-" } }
-                    design.ipLog(getString(R.string.iptest_log_ip_fail, row.ip, getString(R.string.iptest_handshake_failed) + rawReason, row.loss))
-                }
-            }
-            } finally {
-                // On normal completion, wait for every queued lookup; cancellation still cancels the child job.
-                ownerQueue.close()
-                ownerJob.join()
-            }
-
-            design.ipLog(getString(R.string.iptest_log_done, ipRows.size))
+            ConfigCheckIpTestSteps().runLoop(
+                design = design,
+                direct = direct,
+                domain = domain,
+                choice = choice,
+                target = target,
+                head = head,
+                warnings = warnings,
+                targets = targets,
+                rows = { ipRows },
+                addRow = { ipRows.add(it) },
+                query = { request -> IpTestReport.parse(withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) }) },
+                fetchColos = { fetchColos(design) },
+                ownerLookup = { ip -> runAutomaticOwnerLookup(design, ip) },
+                format = { id, args -> getString(id, *args) },
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
