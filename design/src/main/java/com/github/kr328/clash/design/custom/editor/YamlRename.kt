@@ -295,8 +295,9 @@ object YamlRename {
     }
 
     private fun encode(value: String, originalQuote: Char?): String {
-        if (originalQuote == '\'') return "'" + value.replace("'", "''") + "'"
-        if (originalQuote == '"') return doubleQuoted(value)
+        // The recorded range excludes existing quote delimiters, so preserve only their escaped contents.
+        if (originalQuote == '\'') return value.replace("'", "''")
+        if (originalQuote == '"') return doubleQuotedContent(value)
         if (!needsQuotes(value)) return value
         return doubleQuoted(value)
     }
@@ -309,8 +310,9 @@ object YamlRename {
         return value.toDoubleOrNull() != null
     }
 
-    private fun doubleQuoted(value: String): String = buildString(value.length + 2) {
-        append('"')
+    private fun doubleQuoted(value: String): String = "\"" + doubleQuotedContent(value) + "\""
+
+    private fun doubleQuotedContent(value: String): String = buildString(value.length) {
         value.forEach { c ->
             when (c) {
                 '\\' -> append("\\\\")
@@ -321,6 +323,5 @@ object YamlRename {
                 else -> append(c)
             }
         }
-        append('"')
     }
 }
