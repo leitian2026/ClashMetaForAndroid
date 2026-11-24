@@ -101,6 +101,7 @@ class MainActivity : BaseActivity<MainDesign>() {
                 if (clashRunning && activityStarted) { // CUSTOM: CUSTOM.md #35 (activityStarted: nothing while the page is in the background)
                     ticker.onReceive {
                         design.fetchTraffic()
+                        design.tickUptime() // CUSTOM: changes.md #174
                     }
                 }
             }
@@ -109,6 +110,10 @@ class MainActivity : BaseActivity<MainDesign>() {
 
     private suspend fun MainDesign.fetch() {
         setClashRunning(clashRunning)
+        // CUSTOM: changes.md #174 (one provider call per fetch, off the main thread)
+        setUptimeStart(
+            if (clashRunning) withContext(Dispatchers.IO) { com.github.kr328.clash.custom.ServiceUptime.startedAt(this@MainActivity) } else -1L
+        )
 
         val state = withClash {
             queryTunnelState()

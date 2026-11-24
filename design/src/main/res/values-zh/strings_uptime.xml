@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- changes.md #174 -->
+    <string name="custom_running_uptime">运行中 · %1$s</string>
+    <string name="custom_uptime_day">天</string>
+    <string name="custom_uptime_hour">小时</string>
+    <string name="custom_uptime_minute">分</string>
+    <string name="custom_uptime_sep"></string>
+</resources>

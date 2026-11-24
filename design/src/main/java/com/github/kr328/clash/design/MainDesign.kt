@@ -44,6 +44,23 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     // CUSTOM: top-right menu (cloud backup, local export / import), CUSTOM.md #32
     private val customMenu = MainCustomMenu(context, binding.root)
 
+    // CUSTOM: changes.md #174: "running for ..." text after the running label
+    private val customUptime = com.github.kr328.clash.design.custom.MainUptime(context)
+
+    suspend fun setUptimeStart(startedAt: Long) { // CUSTOM: changes.md #174
+        withContext(Dispatchers.Main) {
+            customUptime.setStart(startedAt)
+            binding.uptime = customUptime.text()
+        }
+    }
+
+    suspend fun tickUptime() { // CUSTOM: changes.md #174 (called by the existing 1 s ticker; rebuilds the text once a minute)
+        if (!customUptime.changed()) return
+        withContext(Dispatchers.Main) {
+            binding.uptime = customUptime.text()
+        }
+    }
+
     suspend fun setCustomCards(running: Boolean, state: TunnelState) {
         withContext(Dispatchers.Main) {
             binding.customIp = customCards.update(running, state)

@@ -24,7 +24,7 @@ UPSTREAM_REF=${UPSTREAM_REF:-main}
 [ -f "$DOC" ] || { echo "CUSTOM.md not found"; exit 2; }
 
 # paths in the table: first backticked item of every row that starts with "| `"
-listed=$(grep -E '^\| `' "$DOC" | sed -E 's/^\| `([^`]+)`.*/\1/' | sort -u)
+listed=$({ grep -E '^\| `' "$DOC"; grep -E '^\| ?`' docs/v2/upstream.md 2>/dev/null; } | sed -E 's/^\| ?`([^`]+)`.*/\1/' | sort -u) # changes.md #174: docs/v2/upstream.md rows count too
 
 in_git=false
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 && in_git=true

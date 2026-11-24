@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- changes.md #174 -->
+    <string name="custom_running_uptime">Running · %1$s</string>
+    <string name="custom_uptime_day">d</string>
+    <string name="custom_uptime_hour">h</string>
+    <string name="custom_uptime_minute">m</string>
+    <string name="custom_uptime_sep"> </string>
+</resources>

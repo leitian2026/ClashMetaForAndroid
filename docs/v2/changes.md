@@ -175,3 +175,4 @@
 #171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商关键词匹配（含无效映射跳过及后续有效规则）；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug。测试：YamlLintTests.kt、YamlPairsTests.kt、TextSearchTests.kt、RestoreCarrierSwitchTests.kt、CarrierSwitchMatcherTests.kt
 #172｜编辑器重命名：按 YAML 结构同步修改代理组 / 节点定义及 proxy / policy 引用；应用成功后更新运营商映射。测试：YamlRenameTests.kt、CarrierSwitchRenameTests.kt
 #173｜订阅更新后节点数骤降提醒：更新前至少 10 个节点且更新后不超过一半时，在首页和错误诊断页提示并可忽略。测试：ConfigProxyCountTests.kt
+#174｜首页“运行中”后显示已运行时间（如“运行中 · 1小时23分”，满一天为“2天1小时23分”，不足一分钟显示“0分”）：服务启动时在 :background 进程记录 elapsedRealtime（StatusProvider 三处挂钩：serviceRunning setter 调 ServiceUptimeClock.onRunningChanged、call() 加 startedAt 分支、import），首页只在 fetch() 时读一次，复用已有 1 秒 ticker（仅运行且在前台）每分钟重建一次文字；配置重载不清零，真正停止再启动才清零。测试：UptimeFormatTests.kt

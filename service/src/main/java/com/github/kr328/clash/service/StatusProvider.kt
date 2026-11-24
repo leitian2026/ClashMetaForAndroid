@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import com.github.kr328.clash.common.Global
+import com.github.kr328.clash.service.custom.ServiceUptimeClock // CUSTOM: changes.md #174
 
 class StatusProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
@@ -18,6 +19,7 @@ class StatusProvider : ContentProvider() {
                 else
                     null
             }
+            ServiceUptimeClock.METHOD_STARTED_AT -> ServiceUptimeClock.answer() // CUSTOM: changes.md #174
             else -> super.call(method, arg, extras)
         }
     }
@@ -66,6 +68,7 @@ class StatusProvider : ContentProvider() {
             set(value) {
                 field = value
 
+                ServiceUptimeClock.onRunningChanged(value) // CUSTOM: changes.md #174
                 shouldStartClashOnBoot = value
             }
         var shouldStartClashOnBoot: Boolean

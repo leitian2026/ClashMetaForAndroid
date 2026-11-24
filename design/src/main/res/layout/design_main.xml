@@ -29,6 +29,9 @@
         <variable
             name="customIp"
             type="String" /> <!-- CUSTOM (CUSTOM.md #7): " · flag ip", appended to the proxy card subtext -->
+        <variable
+            name="uptime"
+            type="String" /> <!-- CUSTOM: changes.md #174: "1h 23m" after the running text; null = plain running text -->
 
         <import type="android.view.View" />
         <import type="com.github.kr328.clash.design.MainDesign.Request" />
@@ -119,7 +122,7 @@
                     app:cardBackgroundColor="@{clashRunning ? colorClashStarted : colorClashStopped}"
                     app:icon="@{clashRunning ? @drawable/ic_outline_check_circle : @drawable/ic_outline_not_interested}"
                     app:subtext="@{clashRunning ? @string/format_traffic_forwarded(forwarded) : @string/tap_to_start}"
-                    app:text="@{clashRunning ? @string/running : @string/stopped}">
+                    app:text="@{clashRunning ? (uptime == null ? @string/running : @string/custom_running_uptime(uptime)) : @string/stopped}"> <!-- CUSTOM: changes.md #174 -->
                     <requestFocus />
                 </com.github.kr328.clash.design.view.LargeActionCard>
 
