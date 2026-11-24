@@ -25,6 +25,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -73,6 +74,8 @@ class SavedIpDesign(
 ) : Design<SavedIpDesign.Request>(context) {
     enum class Request { Unused }
     private val savedIpUiPreferences = context.getSharedPreferences("custom_saved_ip_ui", Context.MODE_PRIVATE)
+    // CUSTOM #156: this page-only preference is read once when the page is created.
+    private var showDirectSpeed = SavedIpDirectSpeedSetting.read(context)
     private var lastPersistedUiState = savedIpUiPreferences.getString(KEY_PERSISTENT_UI_STATE, null)
     private val filterState = if (savedState == null) {
         SavedIpFilterState.restorePersistent(lastPersistedUiState)
@@ -220,6 +223,13 @@ class SavedIpDesign(
         }
         visibility = View.GONE
     }
+    private val moreButton = ImageView(context).apply {
+        setImageResource(R.drawable.ic_baseline_more_vert)
+        contentDescription = context.getString(R.string.saved_ip_show_direct_speed)
+        background = selectableBackground()
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        setOnClickListener { showSavedIpMoreMenu() }
+    }
     private val searchIconButton = FrameLayout(context).apply {
         background = selectableBackground()
         contentDescription = context.getString(R.string.saved_ip_search_hint)
@@ -262,9 +272,10 @@ class SavedIpDesign(
         root.addView(toolbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         // CUSTOM (CUSTOM.md #164): keep search on the same title row at the toolbar's end.
-        toolbar.addView(searchIconButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
-        toolbar.addView(searchBox, androidx.appcompat.widget.Toolbar.LayoutParams(dp(180), dp(40), Gravity.END).apply { marginEnd = dp(40) })
-        toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
+        toolbar.addView(moreButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END))
+        toolbar.addView(searchIconButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END).apply { marginEnd = dp(40) })
+        toolbar.addView(searchBox, androidx.appcompat.widget.Toolbar.LayoutParams(dp(180), dp(40), Gravity.END).apply { marginEnd = dp(80) })
+        toolbar.addView(searchCloseButton, androidx.appcompat.widget.Toolbar.LayoutParams(dp(40), dp(48), Gravity.END).apply { marginEnd = dp(40) })
 
         searchInput.setPadding(dp(12), dp(8), dp(12), dp(8))
         searchInput.imeOptions = EditorInfo.IME_ACTION_SEARCH
@@ -1047,6 +1058,24 @@ class SavedIpDesign(
                 setCurrentSort(operatorId, if (currentSort(operatorId) == chosen) SavedIpSort.DEFAULT else chosen)
                 sortedEntriesCache.remove(operatorId)
                 renderOperator(operatorId)
+                true
+            }
+            show()
+        }
+    }
+
+    // CUSTOM #156: direct-speed visibility applies only to this saved-IP page.
+    private fun showSavedIpMoreMenu() {
+        PopupMenu(context, moreButton).apply {
+            menu.add(0, 1, 0, R.string.saved_ip_show_direct_speed).apply {
+                isCheckable = true
+                isChecked = showDirectSpeed
+            }
+            setOnMenuItemClickListener {
+                showDirectSpeed = !showDirectSpeed
+                SavedIpDirectSpeedSetting.write(context, showDirectSpeed)
+                savedTableRenderers.clear()
+                renderRows()
                 true
             }
             show()
