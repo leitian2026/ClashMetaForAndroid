@@ -551,7 +551,7 @@ class EditorDesign(
 
     // CUSTOM: preserve one undo step; segmented or threshold-crossing documents are not rewritten.
     fun replaceWholeText(replacement: String): Boolean {
-        if (editor.isWindowed || replacement.length > 150_000 || replacement.count { it == '\\n' } >= 3000) return false
+        if (editor.isWindowed || replacement.length > 150_000 || replacement.count { it == '\n' } >= 3000) return false
         return editor.replaceWhole(replacement)
     }
 
