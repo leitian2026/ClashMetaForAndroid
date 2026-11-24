@@ -7,7 +7,7 @@ import com.github.kr328.clash.common.custom.UpdateGuardStore
 import com.github.kr328.clash.service.util.importedDir
 import java.util.UUID
 
-/** CUSTOM #173: compare a subscription's previous and newly imported proxy counts off the profile lock. */
+/** compare a subscription's previous and newly imported proxy counts off the profile lock. */
 object UpdateGuard {
     fun afterUpdateAsync(context: Context, uuid: UUID) {
         Thread({
@@ -37,7 +37,7 @@ object UpdateGuard {
                     UpdateGuardStore.delete(context, uuid)
                 }
             } catch (_: Exception) {
-                // CUSTOM #173: this diagnostic must never affect a successful subscription update.
+                // this diagnostic must never affect a successful subscription update.
             }
         }, "custom-update-guard").apply {
             isDaemon = true
