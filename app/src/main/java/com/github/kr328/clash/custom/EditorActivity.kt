@@ -33,6 +33,7 @@ import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -120,14 +121,17 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                         design.toast(getString(R.string.editor_rename_large_unsupported))
                     } else {
                         EditorRenameFlow.show(this, text, offset) { replacement, plan ->
-                            val newName = renamedName(text, plan)
-                            if (design.replaceWholeText(replacement)) {
-                                if (canCheck && plan.oldName != null && newName != null) {
-                                    pendingRenames += plan.oldName to newName
+                            launch {
+                                val newName = renamedName(text, plan)
+                                if (design.replaceWholeText(replacement)) {
+                                    val oldName = plan.oldName
+                                    if (canCheck && oldName != null && newName != null) {
+                                        pendingRenames.add(oldName to newName)
+                                    }
+                                    design.toast(getString(R.string.editor_rename_applied, plan.changes.size))
+                                } else {
+                                    design.toast(getString(R.string.editor_rename_large_unsupported))
                                 }
-                                design.toast(getString(R.string.editor_rename_applied, plan.changes.size))
-                            } else {
-                                design.toast(getString(R.string.editor_rename_large_unsupported))
                             }
                         }
                     }
@@ -437,7 +441,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val result = StringBuilder(value.length)
         var index = 0
         while (index < value.length) {
-            if (value[index] == '\\\\' && index + 1 < value.length) {
+            if (value[index] == '\\' && index + 1 < value.length) {
                 val next = value[index + 1]
                 result.append(when (next) { 'n' -> '\n'; 'r' -> '\r'; 't' -> '\t'; else -> next })
                 index += 2
