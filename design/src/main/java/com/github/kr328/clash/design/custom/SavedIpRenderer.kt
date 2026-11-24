@@ -19,6 +19,11 @@ internal class SavedIpRenderer(
 ) {
     private val tableRenderer = SavedIpTableRenderer(env, state, selection, filterMenus)
 
+    fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
+        tableRenderer.savedTableFor(operator)
+
+    fun updateStickyHeader() = tableRenderer.updateStickyHeader()
+
     // CUSTOM #158: update saved download buttons from the process-wide event source.
     fun setSpeedState(available: Boolean, busy: Boolean) {
         if (env.speedAvailable == available && env.speedBusy == busy) return
@@ -97,7 +102,7 @@ fun renderRows() {
 
 fun addEmptyState() {
         env.operatorContent.addView(TextView(env.context).apply {
-            tag = SavedIpRenderState.EMPTY_STATE_TAG
+            tag = SavedIpRenderState.SavedIpRenderState.EMPTY_STATE_TAG
             setText(if (env.snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
             textSize = 14f
             setTextColor(env.colorMuted)
@@ -118,7 +123,7 @@ fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
             state.stickyHeaderOperatorId = null
         }
         state.operatorSections.remove(operatorId)?.let { env.operatorContent.removeView(it) }
-        env.operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { env.operatorContent.removeView(it) }
+        env.operatorContent.findViewWithTag<View>(SavedIpRenderState.EMPTY_STATE_TAG)?.let { env.operatorContent.removeView(it) }
 
         val query = env.searchInput.text?.toString()?.trim().orEmpty()
         val expanded = query.isNotEmpty() || env.expandedOperatorId == operator.id || env.selectedOperatorId == operator.id
