@@ -1,4 +1,9 @@
-package com.github.kr328.clash.common.custom
+package com.github.kr328.clash.design.custom.editor
+
+import com.github.kr328.clash.common.custom.CarrierSwitchConfig
+import com.github.kr328.clash.common.custom.CarrierSwitchKeyword
+import com.github.kr328.clash.common.custom.CarrierSwitchRename
+import com.github.kr328.clash.common.custom.CarrierSwitchTarget
 
 object CarrierSwitchRenameTests {
     fun run() {
