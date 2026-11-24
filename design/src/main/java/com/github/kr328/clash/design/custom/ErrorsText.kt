@@ -26,6 +26,7 @@ object ErrorsText {
             if (identity.switchError.isNotEmpty()) lines += context.getString(
                 R.string.network_identity_error_switch, identity.switchError,
             )
+            if (identity.switchMissing.isNotEmpty()) lines += identity.switchMissing
             if (identity.switchResult.isNotEmpty()) lines += context.getString(
                 R.string.network_identity_switch_success, identity.switchResult,
             )
