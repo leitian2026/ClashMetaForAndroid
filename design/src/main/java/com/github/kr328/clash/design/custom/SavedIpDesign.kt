@@ -223,7 +223,9 @@ class SavedIpDesign(
     private val env = object : SavedIpEnv {
         override val context: Context get() = this@SavedIpDesign.context
         override val root: View get() = this@SavedIpDesign.root
-        override val snapshotCache: SavedIpSnapshot get() = this@SavedIpDesign.snapshotCache
+        override var snapshotCache: SavedIpSnapshot
+            get() = this@SavedIpDesign.snapshotCache
+            set(value) { this@SavedIpDesign.snapshotCache = value }
         override var selectedOperatorId: String?
             get() = selection.selectedOperatorId
             set(value) { selection.selectedOperatorId = value }
@@ -264,7 +266,9 @@ class SavedIpDesign(
         override val operatorList get() = this@SavedIpDesign.operatorList
         override val stickyHeaderContainer get() = this@SavedIpDesign.stickyHeaderContainer
         override val savedTableRenderers get() = renderState.savedTableRenderers
-        override val configuredIpSources get() = this@SavedIpDesign.configuredIpSources
+        override var configuredIpSources: Map<String, Set<String>>
+            get() = this@SavedIpDesign.configuredIpSources
+            set(value) { this@SavedIpDesign.configuredIpSources = value }
         override var renderedDataVersion: Long
             get() = renderState.renderedDataVersion
             set(value) { renderState.renderedDataVersion = value }
@@ -274,8 +278,12 @@ class SavedIpDesign(
         override var visibleSavedColumns: Set<String>
             get() = filterMenus.visibleSavedColumns
             set(value) { filterMenus.visibleSavedColumns = value }
-        override val speedAvailable get() = this@SavedIpDesign.speedAvailable
-        override val speedBusy get() = this@SavedIpDesign.speedBusy
+        override var speedAvailable: Boolean
+            get() = this@SavedIpDesign.speedAvailable
+            set(value) { this@SavedIpDesign.speedAvailable = value }
+        override var speedBusy: Boolean
+            get() = this@SavedIpDesign.speedBusy
+            set(value) { this@SavedIpDesign.speedBusy = value }
         override val onSpeedTest get() = this@SavedIpDesign.onSpeedTest
 
         override fun refresh() = this@SavedIpDesign.refresh()
