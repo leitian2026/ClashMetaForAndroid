@@ -173,10 +173,6 @@ class SavedIpDesign(
     private val sortedEntriesCache = HashMap<String, SortedEntriesCache>()
     private var selectedOperatorId: String? = null
     private val selectedAddresses = LinkedHashSet<String>()
-    private data class SavedIpUndo(val operatorId: String, val entries: List<SavedIpEntry>)
-    private var pendingUndo: SavedIpUndo? = null
-    private var undoSnackbar: Snackbar? = null
-    private var failureDetailDialog: android.app.Dialog? = null
     private val savedTableColumnOptions = IpTestView(context, direct = false, target = false, savedTable = true).savedTableColumnOptions()
     private val allSavedColumnNames = savedTableColumnOptions.mapTo(LinkedHashSet()) { it.first }
     private var visibleSavedColumns: Set<String> = savedIpUiPreferences.getStringSet(KEY_VISIBLE_SAVED_COLUMNS, null)
@@ -260,6 +256,23 @@ class SavedIpDesign(
     private var tableFilterPopup: PopupWindow? = null
     private var activeTableFilterOperatorId: String? = null
     private var activeTableFilterColumn: String = ""
+
+    private val env = object : SavedIpEnv {
+        override val context: Context get() = this@SavedIpDesign.context
+        override val root: View get() = this@SavedIpDesign.root
+        override val snapshotCache: SavedIpSnapshot get() = this@SavedIpDesign.snapshotCache
+        override val selectedOperatorId: String? get() = this@SavedIpDesign.selectedOperatorId
+        override val selectedAddresses: Set<String> get() = this@SavedIpDesign.selectedAddresses
+        override var failureDetailDialog: android.app.Dialog?
+            get() = deleteUndo.failureDetailDialog
+            set(value) { deleteUndo.failureDetailDialog = value }
+
+        override fun refresh() = this@SavedIpDesign.refresh()
+        override fun clearSelectionState() = this@SavedIpDesign.clearSelectionState()
+        override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean =
+            deleteUndo.writeSnapshot(transform)
+    }
+    private val deleteUndo = SavedIpDeleteUndo(env)
 
     init {
         // CUSTOM.md #156: keep the custom page clear of the translucent system bars, following the app's inset model.
@@ -985,7 +998,7 @@ class SavedIpDesign(
             addView(choices, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val popupWidth = maxOf(anchor.width, savedIpDp(density, 220)).coerceAtMost(context.resources.displayMetrics.widthPixels - savedIpDp(density, 24))
-        val popupHeight = minOf(savedIpDp(density, 280), dp(48 * options.size.coerceAtLeast(1)))
+        val popupHeight = minOf(savedIpDp(density, 280), savedIpDp(density, 48 * options.size.coerceAtLeast(1)))
         val popup = PopupWindow(scroll, popupWidth, popupHeight, true).apply {
             setBackgroundDrawable(ColorDrawable(colorSurface)); elevation = savedIpDp(density, 8).toFloat(); isOutsideTouchable = true
             setOnDismissListener {
@@ -1226,88 +1239,29 @@ class SavedIpDesign(
         if (operatorId != null) renderOperator(operatorId)
     }
 
-    private fun invalidateUndo() {
-        pendingUndo = null
-        undoSnackbar?.dismiss()
-        undoSnackbar = null
-    }
 
-    private fun showDeleteUndo(operatorId: String, entries: List<SavedIpEntry>) {
-        if (entries.isEmpty()) return
-        invalidateUndo()
-        val undo = SavedIpUndo(operatorId, entries.toList())
-        pendingUndo = undo
-        val snackbar = Snackbar.make(
-            root,
-            context.getString(R.string.saved_ip_deleted_undo, entries.size),
-            Snackbar.LENGTH_LONG,
-        ).setAction(R.string.saved_ip_undo) {
-            restoreDeleted(undo)
-        }
-        snackbar.addCallback(object : Snackbar.Callback() {
-            override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
-                if (pendingUndo === undo) pendingUndo = null
-                if (undoSnackbar === transientBottomBar) undoSnackbar = null
-            }
-        })
-        undoSnackbar = snackbar
-        snackbar.show()
-    }
 
-    private fun restoreDeleted(undo: SavedIpUndo) {
-        if (pendingUndo !== undo) return
-        pendingUndo = null
-        undoSnackbar = null
-        val exists = snapshotCache.operators.any { it.id == undo.operatorId }
-        if (!exists) return
-        if (!writeSnapshot { snapshot ->
-            snapshot.copy(operators = snapshot.operators.map { operator ->
-                if (operator.id != undo.operatorId) operator else {
-                    val addresses = operator.ips.mapTo(HashSet()) { it.address }
-                    val restored = undo.entries.filterNot { it.address in addresses }
-                    operator.copy(ips = operator.ips + restored)
-                }
-            })
-        }) return
-        refresh()
-    }
 
-    private fun dismissFailureDetailDialog() {
-        failureDetailDialog?.dismiss()
-        failureDetailDialog = null
-    }
 
+
+
+    private fun invalidateUndo() = deleteUndo.invalidateUndo()
+    private fun showDeleteUndo(operatorId: String, entries: List<SavedIpEntry>) = deleteUndo.showDeleteUndo(operatorId, entries)
+    private fun restoreDeleted(undo: SavedIpDeleteUndo.SavedIpUndo) = deleteUndo.restoreDeleted(undo)
+    private fun dismissFailureDetailDialog() = deleteUndo.dismissFailureDetailDialog()
     fun disposeUndo() {
         cancelPendingSearchRender()
-        dismissFailureDetailDialog()
-        invalidateUndo()
+        deleteUndo.disposeUndo()
     }
-
-    private fun deleteSelected() {
-        val operatorId = selectedOperatorId ?: return
-        val addresses = selectedAddresses.toSet()
-        if (addresses.isEmpty()) return
-
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_delete_ip_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_selected_message, addresses.size))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
-                var deletedEntries = emptyList<SavedIpEntry>()
-                if (!writeSnapshot { snapshot ->
-                    snapshot.copy(operators = snapshot.operators.map { operator ->
-                        if (operator.id == operatorId) {
-                            deletedEntries = operator.ips.filter { it.address in addresses }
-                            operator.copy(ips = operator.ips.filterNot { it.address in addresses })
-                        } else operator
-                    })
-                }) return@setPositiveButton
-                clearSelectionState()
-                refresh()
-                showDeleteUndo(operatorId, deletedEntries)
-            }
-            .show()
-    }
+    private fun deleteSelected() = deleteUndo.deleteSelected()
+    private fun confirmDeleteOperator(operator: SavedIpOperator) = deleteUndo.confirmDeleteOperator(operator)
+    private fun chooseDeleteOlder(operator: SavedIpOperator) = deleteUndo.chooseDeleteOlder(operator)
+    private fun confirmDeleteOlder(operator: SavedIpOperator, days: Int, cutoff: Long) = deleteUndo.confirmDeleteOlder(operator, days, cutoff)
+    private fun confirmDeleteUnreachable(operator: SavedIpOperator) = deleteUndo.confirmDeleteUnreachable(operator)
+    private fun confirmDeleteIp(operatorId: String, address: String) = deleteUndo.confirmDeleteIp(operatorId, address)
+    private fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean = deleteUndo.writeSnapshot(transform)
+    private fun editOperator(operator: SavedIpOperator) = deleteUndo.editOperator(operator)
+    private fun showOperatorNameDialog(existing: SavedIpOperator?) = deleteUndo.showOperatorNameDialog(existing)
 
     private fun retestSelected() {
         val operatorId = selectedOperatorId ?: return
@@ -1350,113 +1304,10 @@ class SavedIpDesign(
         onRetest(operatorId, addresses)
     }
 
-    private fun editOperator(operator: SavedIpOperator) {
-        if (operator.id in SavedIpStore.builtInOperatorIds) return
-        showOperatorNameDialog(operator)
-    }
 
-    private fun showOperatorNameDialog(existing: SavedIpOperator?) {
-        val input = EditText(context).apply {
-            setHint(R.string.saved_ip_operator_name_hint)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            setSingleLine(true)
-            if (existing != null) setText(existing.name)
-            setSelection(text.length)
-        }
-        val dialog = MaterialAlertDialogBuilder(context)
-            .setTitle(if (existing == null) R.string.saved_ip_add_operator_title else R.string.saved_ip_edit_operator_title)
-            .setView(input)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_add, null)
-            .create()
 
-        dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = input.text.toString().trim()
-                val error = savedIpOperatorNameError(context, name, existing?.id)
-                if (error != 0) {
-                    input.error = context.getString(error)
-                    return@setOnClickListener
-                }
 
-                if (!writeSnapshot { snapshot ->
-                    val operators = snapshot.operators.toMutableList()
-                    if (existing == null) {
-                        operators += SavedIpOperator("custom_" + UUID.randomUUID().toString(), name)
-                    } else {
-                        val index = operators.indexOfFirst { it.id == existing.id }
-                        if (index >= 0) operators[index] = operators[index].copy(name = name)
-                    }
-                    snapshot.copy(operators = operators)
-                }) return@setOnClickListener
-                dialog.dismiss()
-                refresh()
-            }
-        }
-        dialog.show()
-    }
 
-    private fun confirmDeleteOperator(operator: SavedIpOperator) {
-        if (operator.id in SavedIpStore.builtInOperatorIds) return
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_operator_delete_title)
-            .setMessage(context.getString(R.string.saved_ip_operator_delete_message, operator.ips.size))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
-                if (!writeSnapshot { snapshot ->
-                    snapshot.copy(
-                        operators = snapshot.operators.filterNot { it.id == operator.id },
-                        lastOperatorId = if (snapshot.lastOperatorId == operator.id) SavedIpStore.OPERATOR_TELECOM else snapshot.lastOperatorId,
-                    )
-                }) return@setPositiveButton
-                refresh()
-            }
-            .show()
-    }
-
-    private fun chooseDeleteOlder(operator: SavedIpOperator) {
-        val days = intArrayOf(1, 3, 7, 30)
-        val labels = arrayOf(
-            context.getString(R.string.saved_ip_days_1),
-            context.getString(R.string.saved_ip_days_3),
-            context.getString(R.string.saved_ip_days_7),
-            context.getString(R.string.saved_ip_days_30),
-        )
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_delete_older_title)
-            .setItems(labels) { _, which ->
-                if (which in days.indices) {
-                    val cutoff = System.currentTimeMillis() - days[which].toLong() * 24L * 60L * 60L * 1000L
-                    confirmDeleteOlder(operator, days[which], cutoff)
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun confirmDeleteOlder(operator: SavedIpOperator, days: Int, cutoff: Long) {
-        val current = snapshotCache.operators.firstOrNull { it.id == operator.id } ?: operator
-        val count = current.ips.count { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_delete_older_confirm_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_older_message, savedIpDisplayName(context, operator), count, days))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
-                var deletedEntries = emptyList<SavedIpEntry>()
-                if (!writeSnapshot { snapshot ->
-                    snapshot.copy(operators = snapshot.operators.map { saved ->
-                        if (saved.id == operator.id) {
-                            deletedEntries = saved.ips.filter { it.lastTestedAt > 0L && it.lastTestedAt < cutoff }
-                            saved.copy(ips = saved.ips.filterNot { it.lastTestedAt > 0L && it.lastTestedAt < cutoff })
-                        } else saved
-                    })
-                }) return@setPositiveButton
-                if (selectedOperatorId == operator.id) clearSelectionState()
-                refresh()
-                showDeleteUndo(operator.id, deletedEntries)
-            }
-            .show()
-    }
 
     private fun chooseSelectAge(operator: SavedIpOperator) {
         val labels = arrayOf(
@@ -1511,62 +1362,10 @@ class SavedIpDesign(
         }
     }
 
-    private fun confirmDeleteUnreachable(operator: SavedIpOperator) {
-        val count = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
-        if (count == 0) return
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_delete_unreachable_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_unreachable_message, savedIpDisplayName(context, operator), count))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
-                var deletedEntries = emptyList<SavedIpEntry>()
-                if (!writeSnapshot { snapshot ->
-                    snapshot.copy(operators = snapshot.operators.map { current ->
-                        if (current.id == operator.id) {
-                            deletedEntries = current.ips.filter { it.status == SavedIpStatus.UNREACHABLE }
-                            current.copy(ips = current.ips.filterNot { it.status == SavedIpStatus.UNREACHABLE })
-                        } else current
-                    })
-                }) return@setPositiveButton
-                if (selectedOperatorId == operator.id) clearSelectionState()
-                refresh()
-                showDeleteUndo(operator.id, deletedEntries)
-            }
-            .show()
-    }
 
-    private fun confirmDeleteIp(operatorId: String, address: String) {
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.saved_ip_delete_ip_title)
-            .setMessage(context.getString(R.string.saved_ip_delete_ip_message, address))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.saved_ip_delete) { _, _ ->
-                if (!writeSnapshot { snapshot ->
-                    snapshot.copy(operators = snapshot.operators.map { operator ->
-                        if (operator.id == operatorId) operator.copy(ips = operator.ips.filterNot { it.address == address })
-                        else operator
-                    })
-                }) return@setPositiveButton
-                refresh()
-            }
-            .show()
-    }
 
     // CUSTOM.md #156 step 8: centralize error handling for every saved-list mutation.
-    private fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean {
-        return try {
-            SavedIpStore.update(context, transform)
-            true
-        } catch (e: SavedIpLimitException) {
-            Log.w("SavedIpDesign", "Saved IP list reached its ${SavedIpStore.MAX_IP_COUNT}-entry limit", e)
-            Toast.makeText(context, context.getString(R.string.saved_ip_save_limit, SavedIpStore.MAX_IP_COUNT), Toast.LENGTH_LONG).show()
-            false
-        } catch (e: Exception) {
-            Log.e("SavedIpDesign", "Failed to write saved IP list", e)
-            Toast.makeText(context, context.getString(R.string.editor_save_failed, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
-            false
-        }
-    }
+
 
     private fun copySelectedHosts() {
         val operatorId = selectedOperatorId ?: return
