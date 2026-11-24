@@ -38,7 +38,7 @@ object CarrierSwitchRenameTests {
             setOf("C"),
         )
         check(result?.telecom?.group == "C" && result.telecom.node == "C", "rename chain is collapsed to its final name")
-        check(result.mobile.group == "C" && result.mobile.node == "C", "every chain source resolves to the final name")
+        check(result?.let { it.mobile.group == "C" && it.mobile.node == "C" } == true, "every chain source resolves to the final name")
         val cycle = CarrierSwitchRename.apply(config, listOf("A" to "B", "B" to "A"), setOf("A", "B"))
         check(cycle == null, "rename cycle is treated as no change")
     }
