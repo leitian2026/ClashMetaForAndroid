@@ -39,7 +39,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     private var shownTimeouts: List<String> = emptyList()
     private var shownTestedAt: Long = 0
     private var subscriptionUpdate: SubscriptionUpdateDiff? = null // CUSTOM.md #170: read once when the page opens
-    private var updateGuardRecord: UpdateGuardRecord? = null // CUSTOM #173: read once when the page opens
+    private var updateGuardRecord: UpdateGuardRecord? = null // CUSTOM: read once when the page opens
     private var updateGuardUuid: UUID? = null
 
     private val prefs by lazy { getSharedPreferences("custom_errors", MODE_PRIVATE) }
@@ -203,7 +203,7 @@ class ErrorsActivity : BaseActivity<ErrorsDesign>() {
     }
 
 
-    /** CUSTOM #173: read the active subscription warning once when the diagnostics page opens. */
+    /** CUSTOM: read the active subscription warning once when the diagnostics page opens. */
     private suspend fun readUpdateGuardOnce(): UpdateGuardRecord? = withContext(Dispatchers.IO) {
         try {
             val uuid = ServiceStore(this@ErrorsActivity).activeProfile ?: return@withContext null
