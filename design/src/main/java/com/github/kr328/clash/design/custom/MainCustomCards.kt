@@ -88,10 +88,10 @@ class MainCustomCards(
             }
             val lines = ArrayList<String>()
             if (networkError != null) {
-                lines += if (networkError.switchError.isNotEmpty()) {
-                    context.getString(R.string.network_identity_error_switch, networkError.switchError)
-                } else {
-                    NetworkIdentityText.error(context, networkError.error)
+                if (networkError.switchError.isNotEmpty()) {
+                    lines += context.getString(R.string.network_identity_error_switch, networkError.switchError)
+                } else if (networkError.error.isNotEmpty()) {
+                    lines += NetworkIdentityText.error(context, networkError.error)
                 }
                 networkError.switchMissing.takeIf { it.isNotEmpty() }?.let { lines += it }
             }
