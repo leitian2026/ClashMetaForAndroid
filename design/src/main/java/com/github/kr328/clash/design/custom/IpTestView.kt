@@ -191,8 +191,8 @@ class IpTestView(
         override fun speedButtonTextRes(): Int = columnWidths.speedButtonTextRes()
         override fun speedButtonMinHeight(): Int = columnWidths.speedButtonMinHeight()
     }
-    private val cells = IpTestCells(env)
-    private val columnWidths = IpTestColumnWidths(env, cells)
+    private val cells: IpTestCells = IpTestCells(env)
+    private val columnWidths: IpTestColumnWidths = IpTestColumnWidths(env, cells)
     private val diagnostics = IpTestDiagnosticsView(env, cells, columnWidths) { redraw() }
     private val savedIpTable = SavedIpTableView(env, cells, columnWidths, savedTableState)
 
