@@ -38,6 +38,7 @@ object NetworkRetest {
 
     // only touched on the main thread
     private var last: String = ""
+    @Volatile private var currentNetwork: Network? = null
     private var waitingForScreen = false
     private var pendingIdentitySignature = ""
     private var pendingTest = false
@@ -47,7 +48,11 @@ object NetworkRetest {
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = changed()
         override fun onLost(network: Network) = changed()
-        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = changed()
+        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+            val current = currentNetwork
+            if (current != null && network != current) return
+            changed()
+        }
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) = Unit
     }
 
@@ -71,6 +76,7 @@ object NetworkRetest {
         val cm = app.getSystemService<ConnectivityManager>() ?: return
         val state = NetworkIpv6.state(app)
         last = state.signature
+        currentNetwork = state.network
 
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
