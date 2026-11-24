@@ -60,7 +60,7 @@ while IFS= read -r f; do
 
   if $have_upstream && printf '%s\n' "$upstream_files" | grep -qxF "$f"; then
     unlisted="$unlisted$f"$'\n'
-  elif ! grep -rqF -- "$base" "$DOC" docs/custom 2>/dev/null; then
+  elif ! grep -rqF -- "$base" "$DOC" docs/custom docs/v2/changes.md 2>/dev/null; then
     unregistered="$unregistered$f"$'\n'
   fi
 done <<< "$marked"

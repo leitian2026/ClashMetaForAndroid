@@ -89,9 +89,11 @@ internal class IpTestDialogOptions(
         } catch (_: Exception) {
         }
     }
-    wsCheck.setOnCheckedChangeListener { _, checked ->
-        wsPathLabel.visibility = if (checked) View.VISIBLE else View.GONE
-        wsPathInput.visibility = if (checked) View.VISIBLE else View.GONE
+    init {
+        wsCheck.setOnCheckedChangeListener { _, checked ->
+            wsPathLabel.visibility = if (checked) View.VISIBLE else View.GONE
+            wsPathInput.visibility = if (checked) View.VISIBLE else View.GONE
+        }
     }
 
     // CUSTOM.md #52: the ports to try; CUSTOM.md #98: separate download addresses for each mode

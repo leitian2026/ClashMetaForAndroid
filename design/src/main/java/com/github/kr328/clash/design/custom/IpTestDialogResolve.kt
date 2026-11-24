@@ -195,16 +195,20 @@ internal class IpTestDialogResolve(
         textSize = 13f
         alpha = 0.7f
     }
-    resolveRowsBox.addView(resolveResultPlaceholder)
-    resolveResultBox.addView(resolveStatusBox)
-    resolveResultBox.addView(resolveRowsBox)
+    init {
+        resolveRowsBox.addView(resolveResultPlaceholder)
+        resolveResultBox.addView(resolveStatusBox)
+        resolveResultBox.addView(resolveRowsBox)
+    }
     val resolveResultOutlineTemplate = LayoutInflater.from(context)
         .inflate(R.layout.dialog_iptest_outlined_field, null, false) as TextInputLayout
     val resultOutlineBackground = resolveResultOutlineTemplate
         .findViewById<TextInputEditText>(R.id.iptest_outlined_input)
         .background ?: throw IllegalStateException("Outlined field background is missing")
-    resolveResultBox.background = resultOutlineBackground.constantState?.newDrawable()?.mutate()
-        ?: resultOutlineBackground.mutate()
+    init {
+        resolveResultBox.background = resultOutlineBackground.constantState?.newDrawable()?.mutate()
+            ?: resultOutlineBackground.mutate()
+    }
     val resolveResultField = resolveResultBox
     val resolveResultLabel = TextView(context).apply {
         setText(R.string.iptest_resolve_results_title)
@@ -319,10 +323,12 @@ internal class IpTestDialogResolve(
         addView(clearResultsButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
-    renderResolvedRows()
-    renderLatestResolveHints()
-    clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
-    updateResolvedTimeLabel()
+    init {
+        renderResolvedRows()
+        renderLatestResolveHints()
+        clearResultsButton.isEnabled = hasResolveRows || hasResolveStatus
+        updateResolvedTimeLabel()
+    }
 
     val resolveButton = MaterialButton(context).apply {
         setText(R.string.iptest_resolve_button)
