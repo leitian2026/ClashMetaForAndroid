@@ -99,7 +99,7 @@ internal class SavedIpTableView(
 ) {
     private fun dp(v: Int): Int = (v * env.context.resources.displayMetrics.density + 0.5f).toInt()
     private fun lp(w: Int, h: Int) = LinearLayout.LayoutParams(w, h)
-    fun isSavedTableFilterable(key: Key): Boolean = key in setOf(IpTestView.Key.COLO, IpTestView.Key.ASN, IpTestView.Key.GEO, IpTestView.Key.EXIT, IpTestView.Key.PORTS, IpTestView.Key.EXIT_IP, IpTestView.Key.TCOLO, IpTestView.Key.TARGET)
+    fun isSavedTableFilterable(key: IpTestView.Key): Boolean = key in setOf(IpTestView.Key.COLO, IpTestView.Key.ASN, IpTestView.Key.GEO, IpTestView.Key.EXIT, IpTestView.Key.PORTS, IpTestView.Key.EXIT_IP, IpTestView.Key.TCOLO, IpTestView.Key.TARGET)
 
 
 fun isSavedSpeedColumn(index: Int): Boolean = env.keys.getOrNull(index) == IpTestView.Key.SPEED || env.keys.getOrNull(index) == IpTestView.Key.SPEED_NODE
@@ -177,7 +177,7 @@ fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): Li
         }
     }
 
-    fun savedTableView(
+        fun savedTableView(
         entries: List<SavedIpEntry>,
         widths: IntArray,
         scrollX: Int,
@@ -191,7 +191,315 @@ fun savedTableFilterOptions(entries: List<SavedIpEntry>, columnName: String): Li
         selectedFilters: Map<String, Set<String>> = emptyMap(),
         speedSortLabel: String = "",
         speedSortColumnName: String? = null,
-        onHeaderClick: (Int, View) -> Unit = { _, _ -> }
+        onHeaderClick: (Int, View) -> Unit = { _, _ -> },
+        configIpSources: Map<String, Set<String>> = emptyMap(),
+        recommendedIps: Set<String> = emptySet(),
+        speedAvailable: Boolean = true,
+        speedBusy: Boolean = false,
+        onSpeedTest: (String, Boolean) -> Unit = { _, _ -> },
+    ): View {
+        val gridWidth = widths.drop(1).sum()
+        val selectionMode = isSelectionMode()
+        val checkboxWidth = if (selectionMode) dp(40) else 0
+        val ipColumnWidth = widths[0] + checkboxWidth
+        val left = LinearLayout(env.context).apply { orientation = LinearLayout.VERTICAL }
+        val grid = LinearLayout(env.context).apply { orientation = LinearLayout.VERTICAL }
+        state.savedSpeedButtons.clear()
+        state.savedRowViews.clear()
+        state.savedRowBaseHeights.clear()
+        val leftHeader = this.cells.headCell(env.context.getString(R.string.iptest_col_ip), ipColumnWidth)
+        val headers = env.keys.mapIndexed { index, key ->
+            val isSpeedColumn = key == IpTestView.Key.SPEED || key == IpTestView.Key.SPEED_NODE
+            savedHeaderCell(
+                columnWidths.savedHeaderTitle(key),
+                widths[index + 1],
+                selectedFilters[key.name].orEmpty(),
+                if (isSpeedColumn && key.name == speedSortColumnName) speedSortLabel else null,
+                showSpeedUnit = isSpeedColumn,
+            ) { anchor ->
+                if (isSavedTableFilterable(key) || isSpeedColumn) onHeaderClick(index, anchor)
+            }.apply { isEnabled = isSavedTableFilterable(key) || isSpeedColumn }
+        }
+        val headerHeight = maxOf(
+            env.headH,
+            columnWidths.heightOf(leftHeader, ipColumnWidth),
+            headers.mapIndexed { index, cell -> columnWidths.heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+        ) + dp(6)
+        left.addView(leftHeader, lp(ipColumnWidth, headerHeight))
+        val headerRow = LinearLayout(env.context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(env.colorSurface)
+        }
+        headers.forEachIndexed { index, cell ->
+            cell.setBackgroundColor(Color.TRANSPARENT)
+            headerRow.addView(cell, lp(widths[index + 1], headerHeight))
+        }
+        grid.addView(headerRow, lp(gridWidth, headerHeight))
+
+        val now = System.currentTimeMillis()
+        entries.forEachIndexed { rowIndex, entry ->
+            val result = entry.result
+            // CUSTOM.md #156: the config source is the green second line below; drop the stored inHosts so ipDetails() does not repeat it.
+            val row = (result ?: IpTestRow(ip = entry.address, ok = true)).copy(inHosts = false)
+            val renderer = IpTestView(env.context, entry.testDirect, entry.testTarget)
+            renderer.colos = env.colos
+            renderer.coloCountries = env.coloCountries
+            renderer.recommendedIps = recommendedIps
+            renderer.onCopy = { address ->
+                if (isSelectionMode()) {
+                    onLongPress(address)
+                    Unit
+                } else onCopy(address)
+            }
+            renderer.onDetail = onDetail
+            val ipView = renderer.ipCell(row, showRecommendation = false, showFailureDetail = false)
+            // CUSTOM (CUSTOM.md #156): configuration source is the second line; test details follow it.
+            val sourceLabels = configIpSources[entry.address].orEmpty().mapNotNull { via ->
+                when (via) {
+                    "server" -> "已在 server"
+                    "hosts", "alias" -> "已在 hosts"
+                    "dns" -> "配置解析 IP"
+                    else -> null
+                }
+            }.distinct()
+            if (sourceLabels.isNotEmpty()) {
+                // CUSTOM.md #156 (r328): each config source is a capsule - translucent green fill, blue text; static, no animation.
+                val pillFill = if (env.night) Color.argb(64, 129, 199, 132) else Color.argb(48, 46, 125, 50)
+                val pillText = if (env.night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
+                val pillRow = LinearLayout(env.context).apply { orientation = LinearLayout.HORIZONTAL }
+                sourceLabels.forEachIndexed { i, label ->
+                    pillRow.addView(
+                        TextView(env.context).apply {
+                            text = label
+                            textSize = 12f
+                            maxLines = 1
+                            ellipsize = TextUtils.TruncateAt.END
+                            setTextColor(pillText)
+                            setPadding(dp(8), dp(1), dp(8), dp(1))
+                            background = GradientDrawable().apply {
+                                setColor(pillFill)
+                                cornerRadius = dp(12).toFloat()
+                            }
+                        },
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                            topMargin = dp(1); bottomMargin = dp(1)
+                            if (i > 0) marginStart = dp(4)
+                        },
+                    )
+                }
+                (ipView as? LinearLayout)?.addView(
+                    pillRow,
+                    1,
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
+            val timeText = SavedIpTimeText.text(env.context, entry.lastTestedAt, now)
+            if (entry.address in recommendedIps || timeText.isNotEmpty() || entry.failStreak >= 3) {
+                val label = SpannableStringBuilder()
+                if (entry.address in recommendedIps) {
+                    val start = label.length
+                    label.append("推荐")
+                    label.setSpan(ForegroundColorSpan(env.colorWarn), start, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    label.setSpan(android.text.style.AbsoluteSizeSpan(13, true), start, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (timeText.isNotEmpty()) label.append("　")
+                }
+                label.append(timeText)
+                if (entry.failStreak >= 3) {
+                    if (label.isNotEmpty()) label.append("　")
+                    val start = label.length
+                    label.append("连续不通 ${entry.failStreak} 次")
+                    label.setSpan(
+                        ForegroundColorSpan(env.colorBad),
+                        start,
+                        label.length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
+                (ipView as? LinearLayout)?.addView(
+                    TextView(env.context).apply {
+                        text = label; textSize = 13f; maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) env.colorWarn else env.colorMuted)
+                    },
+                    if (sourceLabels.isNotEmpty()) 2 else 1,
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
+            if (!row.ok) {
+                val summary = savedFailureSummary(env.context, row)
+                val rawReason = row.reason.ifBlank { row.code.ifBlank { "unknown error" } }
+                val endpoint = if (row.port.isNotBlank()) "${entry.address}:${row.port}" else entry.address
+                (ipView as? LinearLayout)?.addView(
+                    TextView(env.context).apply {
+                        text = summary
+                        textSize = 13f
+                        maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(env.colorBad)
+                        setOnClickListener {
+                            onFailureDetail(entry.address, "$endpoint connect error: $rawReason")
+                        }
+                    },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+            }
+
+            val selected = isSelected(entry.address)
+            val selectedBackground = Color.argb(
+                36, Color.red(env.colorLink), Color.green(env.colorLink), Color.blue(env.colorLink),
+            )
+            val rowBackground = if (selected) selectedBackground else env.colorSurface
+            var selectionCheckBox: CheckBox? = null
+            val leftRow = LinearLayout(env.context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundColor(rowBackground)
+                if (selectionMode) {
+                    val checkBox = CheckBox(env.context).apply {
+                        isChecked = selected
+                        contentDescription = entry.address
+                    }
+                    selectionCheckBox = checkBox
+                    addView(checkBox, LinearLayout.LayoutParams(checkboxWidth, ViewGroup.LayoutParams.MATCH_PARENT))
+                }
+                addView(ipView, LinearLayout.LayoutParams(widths[0], ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+            val cells = env.keys.mapIndexed { index, key ->
+                val directMode = entry.testDirect
+                val targetMode = entry.testTarget
+                val mapped = when (key) {
+                    IpTestView.Key.COLO -> IpTestView.Key.COLO
+                    IpTestView.Key.ASN -> IpTestView.Key.ASN
+                    IpTestView.Key.GEO -> IpTestView.Key.GEO
+                    IpTestView.Key.EXIT -> if (directMode) IpTestView.Key.LAND else IpTestView.Key.EXIT
+                    IpTestView.Key.PORTS -> if (directMode) IpTestView.Key.PORTS else IpTestView.Key.PORT
+                    IpTestView.Key.LOSS -> IpTestView.Key.LOSS
+                    IpTestView.Key.MIN -> IpTestView.Key.MIN
+                    IpTestView.Key.MAX -> IpTestView.Key.MAX
+                    IpTestView.Key.AVG -> IpTestView.Key.AVG
+                    IpTestView.Key.JITTER -> IpTestView.Key.JITTER
+                    IpTestView.Key.EXIT_IP -> if (directMode) null else IpTestView.Key.EXIT_IP
+                    IpTestView.Key.TCOLO -> if (targetMode) IpTestView.Key.TCOLO else null
+                    IpTestView.Key.TARGET -> if (targetMode) IpTestView.Key.TARGET else null
+                    IpTestView.Key.PHASE -> IpTestView.Key.PHASE
+                    IpTestView.Key.SPEED -> IpTestView.Key.SPEED
+                    IpTestView.Key.SPEED_NODE -> IpTestView.Key.SPEED_NODE
+                    else -> null
+                }
+                val missingExit = key == IpTestView.Key.EXIT && row.country.isEmpty()
+                when {
+                    key == IpTestView.Key.SPEED -> savedSpeedCell(
+                        env.context.getString(R.string.saved_ip_speed_direct_short), entry.speedDirect, entry.speedDirectShort,
+                        speedAvailable, speedBusy, widths[index + 1],
+                    ) { onSpeedTest(entry.address, true) }
+                        .also { state.savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.direct = it }.container
+                    key == IpTestView.Key.SPEED_NODE -> savedSpeedCell(
+                        env.context.getString(R.string.saved_ip_speed_node_short), entry.speedNode, entry.speedNodeShort,
+                        speedAvailable, speedBusy, widths[index + 1],
+                    ) { onSpeedTest(entry.address, false) }
+                        .also { state.savedSpeedButtons.getOrPut(entry.address) { SavedSpeedButtons() }.node = it }.container
+                    result == null || mapped == null || missingExit -> this.cells.textCell("-", env.colorMuted)
+                    mapped == IpTestView.Key.PHASE -> this.cells.textCell(phaseText(env.context, row, directMode), env.colorText)
+                    mapped == IpTestView.Key.PORT -> this.cells.textCell(row.port.ifEmpty { "-" }, if (row.port.isEmpty()) env.colorMuted else env.colorText)
+                    mapped == IpTestView.Key.LOSS && row.sent <= 0 -> this.cells.textCell("-", env.colorMuted)
+                    mapped in listOf(IpTestView.Key.MIN, IpTestView.Key.MAX, IpTestView.Key.AVG) && when (mapped) {
+                        IpTestView.Key.MIN -> row.min <= 0
+                        IpTestView.Key.MAX -> row.max <= 0
+                        else -> row.avg <= 0
+                    } -> this.cells.textCell("-", env.colorMuted)
+                    mapped == IpTestView.Key.JITTER && row.sent <= 0 -> this.cells.textCell("-", env.colorMuted)
+                    else -> renderer.cellOf(mapped, row, widths[index + 1])
+                }
+            }
+            val baseHeight = maxOf(
+                env.rowH,
+                columnWidths.heightOf(ipView, widths[0]),
+                cells.mapIndexedNotNull { index, cell ->
+                    if (env.keys[index] == IpTestView.Key.SPEED || env.keys[index] == IpTestView.Key.SPEED_NODE) null
+                    else columnWidths.heightOf(cell, widths[index + 1])
+                }.maxOrNull() ?: 0,
+            )
+            state.savedRowBaseHeights[entry.address] = baseHeight
+            val height = maxOf(
+                baseHeight,
+                cells.mapIndexed { index, cell -> columnWidths.heightOf(cell, widths[index + 1]) }.maxOrNull() ?: 0,
+            ) + dp(8)
+            val line = LinearLayout(env.context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(rowBackground)
+            }
+            cells.forEachIndexed { index, cell -> line.addView(cell, lp(widths[index + 1], height)) }
+            val leftRowContainer = env.rowWithDivider(leftRow, rowBackground, rowIndex < entries.lastIndex)
+            val gridRowContainer = env.rowWithDivider(line, rowBackground, rowIndex < entries.lastIndex)
+            left.addView(leftRowContainer, lp(ipColumnWidth, height))
+            grid.addView(gridRowContainer, lp(gridWidth, height))
+            state.savedRowViews[entry.address] = leftRowContainer to gridRowContainer
+
+            // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
+            // click handlers so a tap cannot open a port / detail dialog or copy the IP.
+            // CUSTOM (CUSTOM.md #163 r330): active multi-selection updates only this row;
+            // entering / leaving selection mode still rebuilds once to add / remove the checkbox column.
+            fun toggleRowSelection() {
+                val nowSelected = onLongPress(entry.address)
+                if (isSelectionMode()) {
+                    val background = if (nowSelected) selectedBackground else env.colorSurface
+                    leftRow.setBackgroundColor(background)
+                    line.setBackgroundColor(background)
+                    leftRowContainer.setBackgroundColor(background)
+                    gridRowContainer.setBackgroundColor(background)
+                    selectionCheckBox?.isChecked = nowSelected
+                }
+            }
+
+            if (selectionMode) {
+                fun attachSelectionClick(view: View) {
+                    if (view !is CheckBox) {
+                        view.setOnClickListener { toggleRowSelection() }
+                    }
+                    if (view is ViewGroup) {
+                        for (childIndex in 0 until view.childCount) attachSelectionClick(view.getChildAt(childIndex))
+                    }
+                }
+                attachSelectionClick(leftRow)
+                attachSelectionClick(line)
+                selectionCheckBox?.setOnClickListener { toggleRowSelection() }
+            }
+
+            fun attachLongPress(view: View) {
+                view.setOnLongClickListener { toggleRowSelection(); true }
+                if (view is ViewGroup) for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
+            }
+            attachLongPress(leftRow)
+            attachLongPress(line)
+        }
+
+        state.savedRowsLeft = left
+        state.savedRowsGrid = grid
+        val scroll = HorizontalScrollView(env.context).apply {
+            isHorizontalScrollBarEnabled = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+            setOnScrollChangeListener { _, x, _, _, _ -> onScroll(x) }
+        }
+        // CUSTOM (CUSTOM.md #165): restore the horizontal position before the first frame is drawn,
+        // so a rebuilt table never shows at the far left for one frame and then jumps back.
+        val restoreScrollListener = object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                view: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+            ) {
+                if (view.width <= 0) return
+                view.removeOnLayoutChangeListener(this)
+                view.scrollTo(scrollX, 0)
+            }
+        }
+        scroll.addOnLayoutChangeListener(restoreScrollListener)
+        return LinearLayout(env.context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(left, LinearLayout.LayoutParams(ipColumnWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+    }
 
     fun setSavedSpeedAvailability(available: Boolean, busy: Boolean) {
         state.savedSpeedButtons.values.forEach { buttons ->
