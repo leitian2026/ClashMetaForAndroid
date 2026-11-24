@@ -7,6 +7,7 @@
     <string name="carrier_switch_telecom">电信</string>
     <string name="carrier_switch_unicom">联通</string>
     <string name="carrier_switch_mobile">移动</string>
+    <string name="carrier_switch_broadcast">广电</string>
     <string name="carrier_switch_custom_section">自定义运营商</string>
     <string name="carrier_switch_add">新增自定义项</string>
     <string name="carrier_switch_save">保存</string>

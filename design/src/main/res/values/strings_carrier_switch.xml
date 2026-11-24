@@ -7,6 +7,7 @@
     <string name="carrier_switch_telecom">China Telecom</string>
     <string name="carrier_switch_unicom">China Unicom</string>
     <string name="carrier_switch_mobile">China Mobile</string>
+    <string name="carrier_switch_broadcast">Broadnet</string>
     <string name="carrier_switch_custom_section">Custom carriers</string>
     <string name="carrier_switch_add">Add custom carrier</string>
     <string name="carrier_switch_save">Save</string>

@@ -30,6 +30,7 @@ object CarrierSwitchStore {
         put("unicom", target(value.unicom))
         put("mobile", target(value.mobile))
         put("custom", custom)
+        put("broadcast", target(value.broadcast))
     }
 
     fun decode(json: JSONObject): CarrierSwitchConfig {
@@ -49,7 +50,13 @@ object CarrierSwitchStore {
                 item.optString("node"),
             )
         }
-        return CarrierSwitchConfig(target("telecom"), target("unicom"), target("mobile"), custom)
+        return CarrierSwitchConfig(
+            telecom = target("telecom"),
+            unicom = target("unicom"),
+            mobile = target("mobile"),
+            custom = custom,
+            broadcast = target("broadcast"),
+        )
     }
 
     fun isEmpty(value: CarrierSwitchConfig): Boolean {
@@ -57,7 +64,7 @@ object CarrierSwitchStore {
         fun hasAnyTarget(target: CarrierSwitchTarget) =
             hasTarget(target.group, target.node)
 
-        val fixedEmpty = listOf(value.telecom, value.unicom, value.mobile).none(::hasAnyTarget)
+        val fixedEmpty = listOf(value.telecom, value.unicom, value.mobile, value.broadcast).none(::hasAnyTarget)
         val customEmpty = value.custom.none {
             it.keyword.isNotBlank() &&
                 hasTarget(it.group, it.node)

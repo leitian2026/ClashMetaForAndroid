@@ -25,6 +25,28 @@ object CarrierSwitchMatcherTests {
         check(CarrierSwitchMatcher.match(config, identity(operator = "联通")) == unicom, "unicom uses fixed mapping")
         check(CarrierSwitchMatcher.match(config, identity(operator = "移动")) == mobile, "mobile uses fixed mapping")
 
+        val broadcast = CarrierSwitchTarget("广电组", "广电节点")
+        val broadcastConfig = config.copy(broadcast = broadcast)
+        check(
+            CarrierSwitchMatcher.match(broadcastConfig, identity(operator = "广电")) == broadcast,
+            "broadcast uses fixed mapping",
+        )
+        val broadcastCustom = CarrierSwitchTarget("自定义广电组", "自定义广电节点")
+        check(
+            CarrierSwitchMatcher.match(
+                broadcastConfig.copy(custom = listOf(CarrierSwitchKeyword("广电", broadcastCustom.group, broadcastCustom.node))),
+                identity(operator = "广电"),
+            ) == broadcast,
+            "broadcast fixed mapping takes precedence over custom keyword",
+        )
+        check(
+            CarrierSwitchMatcher.match(
+                config.copy(custom = listOf(CarrierSwitchKeyword("广电", broadcastCustom.group, broadcastCustom.node))),
+                identity(operator = "广电"),
+            ) == broadcastCustom,
+            "empty broadcast fixed mapping falls back to custom keyword",
+        )
+
         val emptyNode = CarrierSwitchTarget("运营商组", "")
         val emptyGroup = CarrierSwitchTarget("", "运营商节点")
         val keywordTarget = CarrierSwitchTarget("关键词组", "关键词节点")

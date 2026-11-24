@@ -10,6 +10,7 @@ object CarrierSwitchMatcher {
             "电信" -> config.telecom
             "联通" -> config.unicom
             "移动" -> config.mobile
+            "广电" -> config.broadcast
             else -> null
         }
         if (fixed != null && fixed.group.isNotBlank() && fixed.node.isNotBlank()) return fixed

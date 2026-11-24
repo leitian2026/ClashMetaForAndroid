@@ -95,6 +95,7 @@ class CarrierSwitchDesign(
         fixedRow(body, "telecom", R.string.carrier_switch_telecom, config.telecom)
         fixedRow(body, "unicom", R.string.carrier_switch_unicom, config.unicom)
         fixedRow(body, "mobile", R.string.carrier_switch_mobile, config.mobile)
+        fixedRow(body, "broadcast", R.string.carrier_switch_broadcast, config.broadcast)
 
         body.addView(sectionTitle(R.string.carrier_switch_custom_section))
         body.addView(customRows)
@@ -173,7 +174,9 @@ class CarrierSwitchDesign(
     private fun updateFixedConfig(key: String, target: CarrierSwitchTarget): CarrierSwitchConfig = when (key) {
         "telecom" -> config.copy(telecom = target)
         "unicom" -> config.copy(unicom = target)
-        else -> config.copy(mobile = target)
+        "mobile" -> config.copy(mobile = target)
+        "broadcast" -> config.copy(broadcast = target)
+        else -> config
     }
 
     private fun chooseTarget(current: CarrierSwitchTarget, selected: (CarrierSwitchTarget) -> Unit) {

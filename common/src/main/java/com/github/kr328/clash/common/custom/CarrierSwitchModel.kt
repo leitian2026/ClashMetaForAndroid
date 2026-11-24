@@ -16,4 +16,5 @@ data class CarrierSwitchConfig(
     val unicom: CarrierSwitchTarget = CarrierSwitchTarget(),
     val mobile: CarrierSwitchTarget = CarrierSwitchTarget(),
     val custom: List<CarrierSwitchKeyword> = emptyList(),
+    val broadcast: CarrierSwitchTarget = CarrierSwitchTarget(),
 )
