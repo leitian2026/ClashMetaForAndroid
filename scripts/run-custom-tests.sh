@@ -22,22 +22,28 @@ fi
 # 源文件列表和触发路径要保持一致
 "$compiler" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlRename.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt" \
   "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTogglePolicy.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchModel.kt" \
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchRename.kt" \
+  "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/ConfigProxyCount.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/NetworkIdentitySnapshot.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierOperatorConsensus.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTargetCheck.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchMatcher.kt" \
   "$ROOT/tests/custom/CarrierOperatorConsensusTests.kt" \
+  "$ROOT/tests/custom/CarrierSwitchRenameTests.kt" \
+  "$ROOT/tests/custom/ConfigProxyCountTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchMatcherTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchTargetCheckTests.kt" \
   "$ROOT/tests/custom/RestoreCarrierSwitchTests.kt" \
   "$ROOT/tests/custom/TestMain.kt" \
   "$ROOT/tests/custom/TextSearchTests.kt" \
   "$ROOT/tests/custom/YamlLintTests.kt" \
+  "$ROOT/tests/custom/YamlRenameTests.kt" \
   "$ROOT/tests/custom/YamlPairsTests.kt" \
   -include-runtime -d "$OUT_DIR/custom-logic-tests.jar"
 
