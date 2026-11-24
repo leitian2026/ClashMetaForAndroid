@@ -115,6 +115,9 @@ def main() -> int:
     args = parser.parse_args()
     files, functions = current_sizes()
     if args.update:
+        if LIMITS.exists() and LIMITS.read_text(encoding="utf-8").strip():
+            print("--update is only for initial generation; lower existing limits manually.", file=sys.stderr)
+            return 2
         return update_limits(files, functions)
 
     try:

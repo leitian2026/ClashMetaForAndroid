@@ -43,7 +43,7 @@ class SaveIpBatchDialog(
     private lateinit var onlyReachableButton: android.widget.Button
     private lateinit var saveCountView: TextView
     private lateinit var positive: android.widget.Button
-    private lateinit var dialog: android.app.AlertDialog
+    private lateinit var dialog: androidx.appcompat.app.AlertDialog
     private var refreshSaveAvailability: ((reloadStore: Boolean) -> Unit)? = null
     private var cancelPendingSaveAvailabilityAction: (() -> Unit)? = null
     private var pendingSaveAvailability: Runnable? = null
