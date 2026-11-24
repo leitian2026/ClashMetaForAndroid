@@ -2,7 +2,7 @@ package com.github.kr328.clash.design.custom
 
 import android.content.Context
 
-/** CUSTOM #156: independent saved-IP page display preference; never changes stored IP data. */
+/** Independent saved-IP page display preference; never changes stored IP data. */
 internal object SavedIpDirectSpeedSetting {
     private const val KEY = "show_direct_speed"
 

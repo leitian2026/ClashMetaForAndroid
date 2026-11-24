@@ -872,12 +872,14 @@ class SavedIpDesign(
 
     private fun showSavedColumnsDialog() {
         val selected = visibleSavedColumns.toMutableSet()
-        val labels = savedTableColumnOptions.map { it.second }.toTypedArray()
-        val checked = BooleanArray(savedTableColumnOptions.size) { savedTableColumnOptions[it].first in selected }
+        // CUSTOM #156: do not offer the direct-speed column while its page-wide switch is off.
+        val availableOptions = savedTableColumnOptions.filter { showDirectSpeed || it.first != "SPEED" }
+        val labels = availableOptions.map { it.second }.toTypedArray()
+        val checked = BooleanArray(availableOptions.size) { availableOptions[it].first in selected }
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.saved_ip_show_columns_title)
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
-                val columnName = savedTableColumnOptions[which].first
+                val columnName = availableOptions[which].first
                 if (isChecked) selected.add(columnName) else selected.remove(columnName)
             }
             .setNegativeButton(android.R.string.cancel, null)
