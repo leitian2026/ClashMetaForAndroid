@@ -153,9 +153,6 @@ class SavedIpDesign(
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var renderedDataVersion = -1L
     private var hasLoadedSnapshot = false
-    private val searchHandler = Handler(Looper.getMainLooper())
-    private var pendingSearchRender: Runnable? = null
-    private var renderedQuery: String? = null
     private var configuredIpSources: Map<String, Set<String>> = emptyMap()
     private var expandedOperatorId: String?
         get() = filterState.expandedOperatorId
@@ -273,6 +270,11 @@ class SavedIpDesign(
         override val density get() = this@SavedIpDesign.density
         override val colorSurface get() = this@SavedIpDesign.colorSurface
         override val searchInput get() = this@SavedIpDesign.searchInput
+        override val searchBox get() = this@SavedIpDesign.searchBox
+        override val searchIconButton get() = this@SavedIpDesign.searchIconButton
+        override val searchCloseButton get() = this@SavedIpDesign.searchCloseButton
+        override val searchIndicator get() = this@SavedIpDesign.searchIndicator
+        override val searchClearButton get() = this@SavedIpDesign.searchClearButton
         override val moreButton: View get() = this@SavedIpDesign.moreButton
         override val savedTableRenderers get() = this@SavedIpDesign.savedTableRenderers
         override val configuredIpSources get() = this@SavedIpDesign.configuredIpSources
@@ -288,11 +290,16 @@ class SavedIpDesign(
         override fun savedTableFor(operator: SavedIpOperator) = this@SavedIpDesign.savedTableFor(operator)
         override fun currentSort(operatorId: String) = this@SavedIpDesign.currentSort(operatorId)
         override fun setCurrentSort(operatorId: String, value: SavedIpSort) = this@SavedIpDesign.setCurrentSort(operatorId, value)
-        override fun collapseSearch() = this@SavedIpDesign.collapseSearch()
-        override fun updateSearchUi() = this@SavedIpDesign.updateSearchUi()
+        override fun collapseSearch() = search.collapseSearch()
+        override fun expandSearch() = search.expandSearch()
+        override fun updateSearchUi() = search.updateSearchUi()
         override fun clearSelectionState() = selection.clearSelectionState()
         override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean = deleteUndo.writeSnapshot(transform)
     }
+    private val search = SavedIpSearch(env)
+    private var renderedQuery: String?
+        get() = search.renderedQuery
+        set(value) { search.renderedQuery = value }
     private val selection = SavedIpSelection(env)
     private var selectedOperatorId: String?
         get() = selection.selectedOperatorId
@@ -484,20 +491,9 @@ class SavedIpDesign(
         renderRows()
     }
 
-    private fun scheduleSearchRender() {
-        cancelPendingSearchRender()
-        val task = Runnable {
-            pendingSearchRender = null
-            renderRows()
-        }
-        pendingSearchRender = task
-        searchHandler.postDelayed(task, 300L)
-    }
 
-    fun cancelPendingSearchRender() {
-        pendingSearchRender?.let(searchHandler::removeCallbacks)
-        pendingSearchRender = null
-    }
+
+
 
     // CUSTOM.md #163: each expanded operator is rendered as one shared table. Search deliberately
     // expands every matching operator, preserving the existing search behavior.
@@ -918,39 +914,13 @@ class SavedIpDesign(
     // CUSTOM #156: direct-speed visibility applies only to this saved-IP page.
 
 
-    private fun expandSearch() {
-        filterState.searchExpanded = true
-        updateSearchUi()
-        searchInput.requestFocus()
-        searchInput.post {
-            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
-                ?.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
-        }
-    }
 
-    private fun collapseSearch() {
-        if (!filterState.searchExpanded) return
-        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
-            ?.hideSoftInputFromWindow(searchInput.windowToken, 0)
-        filterState.searchExpanded = false
-        searchInput.clearFocus()
-        updateSearchUi()
-        renderRows()
-    }
 
-    private fun updateSearchUi() {
-        val expanded = filterState.searchExpanded
-        searchIconButton.visibility = if (expanded) View.GONE else View.VISIBLE
-        searchBox.visibility = if (expanded) View.VISIBLE else View.GONE
-        searchCloseButton.visibility = if (expanded) View.VISIBLE else View.GONE
-        updateSearchIndicator()
-    }
 
-    private fun updateSearchIndicator() {
-        val query = searchInput.text?.toString().orEmpty()
-        searchIndicator.visibility = if (query.isNotBlank()) View.VISIBLE else View.GONE
-        searchClearButton.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
-    }
+
+
+
+
 
     fun handleBackPressed(): Boolean {
         if (filterState.searchExpanded) {
@@ -982,6 +952,13 @@ class SavedIpDesign(
 
 
 
+
+    private fun scheduleSearchRender() = search.scheduleSearchRender()
+    fun cancelPendingSearchRender() = search.cancelPendingSearchRender()
+    private fun expandSearch() = search.expandSearch()
+    private fun collapseSearch() = search.collapseSearch()
+    private fun updateSearchUi() = search.updateSearchUi()
+    private fun updateSearchIndicator() = search.updateSearchIndicator()
 
     private fun showSavedColumnsDialog() = filterMenus.showSavedColumnsDialog()
     private fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry> =

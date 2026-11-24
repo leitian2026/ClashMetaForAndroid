@@ -4,6 +4,9 @@ import android.content.Context
 import android.view.View
 
 // changes.md #175: live access to SavedIpDesign state shared by extracted feature classes.
+// Shared filterable saved-table columns used by the page, filter menus, and renderer.
+internal val SAVED_SEARCH_COLUMNS = arrayOf("COLO", "ASN", "GEO", "EXIT", "PORTS", "EXIT_IP", "TCOLO", "TARGET")
+
 internal interface SavedIpEnv {
     val context: Context
     val root: View
@@ -25,6 +28,11 @@ internal interface SavedIpEnv {
     val density: Float
     val colorSurface: Int
     val searchInput: android.widget.EditText
+    val searchBox: android.widget.FrameLayout
+    val searchIconButton: android.widget.FrameLayout
+    val searchCloseButton: android.widget.TextView
+    val searchIndicator: View
+    val searchClearButton: android.widget.TextView
     val moreButton: View
     val savedTableRenderers: MutableMap<String, Pair<IpTestView, IntArray>>
     val configuredIpSources: Map<String, Set<String>>
@@ -39,6 +47,7 @@ internal interface SavedIpEnv {
     fun currentSort(operatorId: String): SavedIpSort
     fun setCurrentSort(operatorId: String, value: SavedIpSort)
     fun collapseSearch()
+    fun expandSearch()
     fun updateSearchUi()
     fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry>
     fun clearSelectionState()
