@@ -9,6 +9,9 @@ import android.view.View
 import android.widget.TextView
 import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.common.custom.CarrierSwitchEnabledStore
+import com.github.kr328.clash.common.custom.UpdateGuardRecord
+import com.github.kr328.clash.common.custom.UpdateGuardStore
+import java.util.UUID
 import com.github.kr328.clash.common.custom.NetworkIdentitySnapshot
 import com.github.kr328.clash.core.custom.IssuesSnapshot
 import com.github.kr328.clash.design.R
@@ -41,14 +44,39 @@ class MainCustomCards(
     private val issuesCard: com.github.kr328.clash.design.view.LargeActionCard? =
         root.findViewById(R.id.custom_issues_card)
 
+    // CUSTOM #173: read per-subscription warning files only when a file's modification time changes.
+    private var updateGuardSignature: Long? = null
+    private var cachedUpdateGuard: UpdateGuardRecord? = null
+
+    private fun updateGuard(): UpdateGuardRecord? {
+        val directory = context.filesDir.resolve("custom/update_guard")
+        val files = directory.listFiles()?.filter { it.isFile && it.extension == "json" }?.sortedBy { it.name }.orEmpty()
+        var signature = files.size.toLong()
+        for (file in files) {
+            signature = signature * 31L + file.name.hashCode()
+            signature = signature * 31L + file.lastModified()
+            signature = signature * 31L + file.length()
+        }
+        if (updateGuardSignature == signature) return cachedUpdateGuard
+
+        updateGuardSignature = signature
+        cachedUpdateGuard = files.mapNotNull { file ->
+            val uuid = try { UUID.fromString(file.nameWithoutExtension) } catch (_: Exception) { null }
+                ?: return@mapNotNull null
+            UpdateGuardStore.read(context, uuid)?.takeIf { !it.ignored }
+        }.maxByOrNull { it.time }
+        return cachedUpdateGuard
+    }
+
     // CUSTOM #168: this card stays visible even when Clash is stopped or there are no problems.
     fun setIssues(state: IssuesDisplayState) {
         val card = issuesCard ?: return
         val summary = state as? IssuesDisplayState.Summary ?: return
         val active = summary.snapshot?.items.orEmpty().filter { !it.ignored && !it.resolved }
+        val updateGuard = updateGuard()
         val identity = summary.identity
         val networkError = identity?.takeIf { it.hasNetworkError }
-        val total = active.size + (if (networkError != null) 1 else 0)
+        val total = active.size + (if (networkError != null) 1 else 0) + (if (updateGuard != null) 1 else 0)
         val switchResult = identity?.switchResult.orEmpty()
         val automaticEnabled = CarrierSwitchEnabledStore.read(context)
         val onlyMissingSwitchTarget = active.isEmpty() &&
@@ -92,6 +120,9 @@ class MainCustomCards(
             }
             val lines = ArrayList<String>()
             var missingLineIndex = -1
+            updateGuard?.let {
+                lines += context.getString(R.string.update_guard_summary, it.oldCount, it.newCount)
+            }
             if (networkError != null) {
                 if (networkError.switchError.isNotEmpty()) {
                     lines += context.getString(R.string.network_identity_error_switch, networkError.switchError)
@@ -103,11 +134,11 @@ class MainCustomCards(
                     lines += it
                 }
             }
-            active.take(2 - lines.size).forEach {
+            active.take((2 - lines.size).coerceAtLeast(0)).forEach {
                 lines += context.getString(IssueText.kindRes(it.kind), IssueText.subject(it))
             }
             if (summary.readFailed != null && lines.isEmpty()) lines += summary.readFailed
-            if (active.size + (if (networkError != null) 1 else 0) > lines.size) {
+            if (total > lines.size) {
                 lines += context.getString(R.string.main_issues_card_more)
             }
             identityLine?.let { lines += it }
