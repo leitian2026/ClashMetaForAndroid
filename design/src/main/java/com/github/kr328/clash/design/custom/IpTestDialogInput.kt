@@ -31,6 +31,8 @@ internal class IpTestDialogInput private constructor(
 
     fun flush() = inputHistory.flush()
 
+    fun dismissOnCancellation(dialog: android.app.Dialog) = inputHistory.dismissOnCancellation(dialog)
+
     private data class State(var hintExpanded: Boolean = false)
 
     companion object {
