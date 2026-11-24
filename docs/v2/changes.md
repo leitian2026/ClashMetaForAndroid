@@ -173,3 +173,5 @@
 #169｜按运营商自动切换节点：识别完成、配置载入 / 恢复完成、设置页保存及开关打开时按当前运营商套用；默认开启的全局开关跨进程持久化，任务串行并校验当前网络签名，手动换节点 / 载入清理旧记录，目标已选中时跳过重复切换和写入，空组 / 空节点规则跳过，已识别但未配置的固定运营商提示但不计错误；支持电信、联通、移动、广电固定映射及自定义关键词，映射页按需加载所选代理组节点。运行中套用前查询核心组，以核心当前选中节点判断是否需要切换；组或节点不存在时在首页和错误诊断页提示并计入问题，映射页对不存在的目标标红“已不存在”；首页卡片里提示语（到第一个冒号）为红色。测试：CarrierSwitchMatcherTests.kt、CarrierSwitchTargetCheckTests.kt。
 #170｜订阅更新后显示变更摘要：仅保留非 File 订阅上一份 config.yaml，打开错误与诊断页时按需比较并显示新增 / 删除行数
 #171｜纯逻辑 JVM 测试：YamlLint、YamlPairs、TextSearch、恢复映射策略、开关策略、运营商关键词匹配（含无效映射跳过及后续有效规则）；Kotlin 2.1.0 直接编译运行，独立于 Gradle / Build Debug。测试：YamlLintTests.kt、YamlPairsTests.kt、TextSearchTests.kt、RestoreCarrierSwitchTests.kt、CarrierSwitchMatcherTests.kt
+#172｜编辑器重命名：按 YAML 结构同步修改代理组 / 节点定义及 proxy / policy 引用；应用成功后更新运营商映射。测试：YamlRenameTests.kt、CarrierSwitchRenameTests.kt
+#173｜订阅更新后节点数骤降提醒：更新前至少 10 个节点且更新后不超过一半时，在首页和错误诊断页提示并可忽略。测试：ConfigProxyCountTests.kt
