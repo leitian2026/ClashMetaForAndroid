@@ -223,10 +223,3 @@ object IpTestDialog {
 
 }
 
-/** CUSTOM #99: preserve the input-history cancellation behavior after the input UI was extracted. */
-private fun IpTestDialogInput.dismissOnCancellation(dialog: android.app.Dialog) {
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-        flush()
-        dialog.dismiss()
-    }
-}
