@@ -1,6 +1,10 @@
 package com.github.kr328.clash.custom
 
 import com.github.kr328.clash.design.custom.editor.YamlLint
+import com.github.kr328.clash.design.custom.editor.EditorRenameFlow
+import com.github.kr328.clash.design.custom.editor.YamlRename
+import com.github.kr328.clash.common.custom.CarrierSwitchRename
+import com.github.kr328.clash.common.custom.CarrierSwitchStore
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -110,6 +114,24 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Apply -> if (split) apply(design, uri)
                 EditorDesign.Request.History -> if (split) history(design)
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
+                EditorDesign.Request.Rename -> {
+                    val (text, offset) = design.renameContext()
+                    if (!design.replaceWholeText(text)) {
+                        design.toast(getString(R.string.editor_rename_large_unsupported))
+                    } else {
+                        EditorRenameFlow.show(this, text, offset) { replacement, plan ->
+                            val newName = renamedName(text, plan)
+                            if (design.replaceWholeText(replacement)) {
+                                if (canCheck && plan.oldName != null && newName != null) {
+                                    pendingRenames += plan.oldName to newName
+                                }
+                                design.toast(getString(R.string.editor_rename_applied, plan.changes.size))
+                            } else {
+                                design.toast(getString(R.string.editor_rename_large_unsupported))
+                            }
+                        }
+                    }
+                }
                 EditorDesign.Request.JumpDefinition -> {
                     val (text, offset) = design.definitionContext()
                     val resolution = withContext(Dispatchers.Default) {
@@ -226,6 +248,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
     }
 
     private var profileId = ""
+    // CUSTOM #172: rename mappings are held only in this Activity until a successful Apply.
+    private val pendingRenames = ArrayList<Pair<String, String>>()
     private var openedName = ""
     private var split = false // CUSTOM.md #56
     private var profileTitle = ""
@@ -281,6 +305,8 @@ class EditorActivity : BaseActivity<EditorDesign>() {
 
             return false
         }
+
+        commitPendingRenames(design)
 
         val selected = try {
             withProfile { queryActive()?.uuid == profileUuid() }
@@ -388,6 +414,69 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         design.setApplied(matches)
     }
 
+
+    // CUSTOM #172: recover the new scalar from the definition edit without reparsing the YAML document.
+    private fun renamedName(source: String, plan: YamlRename.Plan): String? {
+        val definition = plan.changes.firstOrNull { change ->
+            val lineStart = source.lastIndexOf('\\n', (change.start - 1).coerceAtLeast(0)) + 1
+            val prefix = source.substring(lineStart, change.start).trimEnd()
+            prefix.endsWith("name:") || prefix.endsWith("'name':") || prefix.endsWith("\\"name\\":")
+        } ?: return null
+        val previous = source.getOrNull(definition.start - 1)
+        val raw = definition.replacement
+        return when {
+            previous == '\\'' -> raw.replace("''", "'")
+            previous == '"' -> decodeYamlDoubleQuoted(raw)
+            raw.length >= 2 && raw.first() == '"' && raw.last() == '"' ->
+                decodeYamlDoubleQuoted(raw.substring(1, raw.length - 1))
+            else -> raw
+        }
+    }
+
+    private fun decodeYamlDoubleQuoted(value: String): String {
+        val result = StringBuilder(value.length)
+        var index = 0
+        while (index < value.length) {
+            if (value[index] == '\\\\' && index + 1 < value.length) {
+                val next = value[index + 1]
+                result.append(when (next) { 'n' -> '\\n'; 'r' -> '\\r'; 't' -> '\\t'; else -> next })
+                index += 2
+            } else {
+                result.append(value[index++])
+            }
+        }
+        return result.toString()
+    }
+
+    private suspend fun commitPendingRenames(design: EditorDesign) {
+        if (pendingRenames.isEmpty()) return
+        val renames = pendingRenames.toList()
+        try {
+            val uuid = profileUuid()
+            val config = withContext(Dispatchers.IO) {
+                CarrierSwitchStore.read(this@EditorActivity, uuid)
+            }
+            val definedNames = withContext(Dispatchers.Default) {
+                YamlLint.links(design.currentText()).names.keys
+            }
+            val updated = withContext(Dispatchers.Default) {
+                CarrierSwitchRename.apply(config, renames, definedNames)
+            }
+            if (updated != null) {
+                val written = withContext(Dispatchers.IO) {
+                    CarrierSwitchStore.write(this@EditorActivity, uuid, updated)
+                }
+                if (written) withClash { applyCarrierSwitch() }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // CUSTOM #172: mapping persistence is best-effort and never changes the config Apply result.
+        } finally {
+            pendingRenames.clear()
+        }
+    }
+
     private fun profileUuid(): UUID = UUID.fromString(profileId)
 
     /** "Save as history version": only written to the history, the profile's pending copy and the config in use are not touched. */
@@ -458,6 +547,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         val text = design.currentText()
 
         if (withContext(Dispatchers.IO) { ConfigHistory.isInUse(this@EditorActivity, uuid, text) }) {
+            pendingRenames.clear() // CUSTOM #172: an already-applied text has no pending rename to commit.
             withContext(Dispatchers.IO) { ConfigHistory.keepInUse(this@EditorActivity, uuid) }
             design.markSaved()
             design.setApplied(true)
@@ -522,6 +612,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
             return false
         }
 
+        commitPendingRenames(design)
         design.markSaved()
         refreshApplyState(design)
         showAppliedResult(design, historyKept = kept)
