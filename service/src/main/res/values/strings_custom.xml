@@ -6,4 +6,6 @@
     <string name="custom_config_error">config.yaml has an error near line %1$d (nothing was saved): %2$s</string>
     <string name="custom_ips_more">+%d more</string>
     <string name="carrier_switch_missing_target">Current carrier: %1$s. No node is configured, so no automatic switch was made.</string>
+    <string name="carrier_switch_target_missing_group">Mapped group not found: %1$s</string>
+    <string name="carrier_switch_target_missing_node">Mapped node not found: %1$s / %2$s</string>
 </resources>
