@@ -1,0 +1,10 @@
+# Generated once with: python3 scripts/check-function-length.py --update
+app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt 964
+app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt::history 225
+design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt 939
+design/src/main/java/com/github/kr328/clash/design/custom/SavedIpDesign.kt 1645
+design/src/main/java/com/github/kr328/clash/design/custom/SavedIpTableView.kt::savedTableFilterOptions 512
+design/src/main/java/com/github/kr328/clash/design/custom/editor/CodeEditText.kt 2104
+design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt 1275
+design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt::walk 229
+service/src/main/java/com/github/kr328/clash/service/custom/CarrierSwitch.kt::apply 153

@@ -230,6 +230,10 @@ if [ -f "$TEST_RUNNER" ] && [ -f "$TEST_WORKFLOW" ]; then
   fi
 fi
 
+
+# 9. Enforce custom Kotlin file and function size ceilings.
+python3 scripts/check-function-length.py || status=1
+
 if [ "$status" -eq 0 ]; then
   mode="no '$UPSTREAM_REF' ref: loose check"
   $have_upstream && mode="against $UPSTREAM_REF"
