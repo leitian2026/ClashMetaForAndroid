@@ -13,7 +13,7 @@ data class UpdateGuardRecord(
     val ignored: Boolean = false,
 )
 
-/** CUSTOM #173: one latest node-count drop warning per subscription. */
+/** one latest node-count drop warning per subscription. */
 object UpdateGuardStore {
     private val lock = Any()
 
