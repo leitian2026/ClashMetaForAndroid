@@ -15,6 +15,9 @@ data class CarrierOperatorAgreement(
 object CarrierOperatorConsensus {
     private val supportedOperators = setOf("电信", "联通", "移动", "广电")
 
+    fun needsThirdOpinion(firstTwo: List<CarrierOperatorVote>): Boolean =
+        resolve(firstTwo) == null
+
     fun resolve(votes: List<CarrierOperatorVote>): CarrierOperatorAgreement? {
         val valid = votes.filter { it.operator in supportedOperators }
         val winners = valid.groupBy { it.operator }.filterValues { it.size >= 2 }

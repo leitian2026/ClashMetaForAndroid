@@ -24,6 +24,33 @@ object CarrierOperatorConsensusTests {
             CarrierOperatorConsensus.resolve(listOf(CarrierOperatorVote("ipip", "电信"))) == null,
             "one provider is not enough",
         )
+
+        check(
+            !CarrierOperatorConsensus.needsThirdOpinion(
+                listOf(CarrierOperatorVote("ipip", "电信"), CarrierOperatorVote("pconline", "电信")),
+            ),
+            "two matching providers do not need a third opinion",
+        )
+        check(
+            CarrierOperatorConsensus.needsThirdOpinion(
+                listOf(CarrierOperatorVote("ipip", "电信"), CarrierOperatorVote("pconline", "联通")),
+            ),
+            "two different providers need a third opinion",
+        )
+        check(
+            CarrierOperatorConsensus.needsThirdOpinion(listOf(CarrierOperatorVote("ipip", "电信"))),
+            "only one valid provider needs a third opinion",
+        )
+        check(
+            CarrierOperatorConsensus.needsThirdOpinion(
+                listOf(CarrierOperatorVote("ipip", "未知"), CarrierOperatorVote("pconline", "未知")),
+            ),
+            "two unknown results need a third opinion",
+        )
+        check(
+            CarrierOperatorConsensus.needsThirdOpinion(emptyList()),
+            "an empty result list needs a third opinion",
+        )
         val disagreement = listOf(
             CarrierOperatorVote("ipip", "电信"),
             CarrierOperatorVote("pconline", "联通"),

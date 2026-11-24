@@ -19,6 +19,10 @@ import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /** CUSTOM (CUSTOM.md #168): one lookup for the selected network below the VPN. */
 object NetworkIdentity {
@@ -58,7 +62,7 @@ object NetworkIdentity {
             }
         }
 
-        // Run the providers together; total wait is bounded by one timeout window.
+        // Query the first two providers concurrently; ask Bilibili only when they cannot decide.
         val executor = Executors.newFixedThreadPool(3)
         val requests = try {
             val ipip = executor.submit<RequestResult> {
@@ -67,28 +71,44 @@ object NetworkIdentity {
             val pconline = executor.submit<RequestResult> {
                 request(network, "https://whois.pconline.com.cn/ipJson.jsp?json=true") { body -> parsePconline(body) }
             }
-            val bilibili = executor.submit<RequestResult> {
-                request(network, "https://api.bilibili.com/x/web-interface/zone") { body -> parseBilibili(body) }
+            val firstTwo = listOf(awaitResult(ipip), awaitResult(pconline))
+            val firstVotes = firstTwo.mapNotNull { it.answer }
+                .map { CarrierOperatorVote(it.source, it.operator) }
+            val needsThird = CarrierOperatorConsensus.needsThirdOpinion(firstVotes)
+            val third = if (needsThird) {
+                val bilibili = executor.submit<RequestResult> {
+                    request(network, "https://api.bilibili.com/x/web-interface/zone") { body -> parseBilibili(body) }
+                }
+                awaitResult(bilibili)
+            } else {
+                RequestResult(null, false)
             }
-            listOf(ipip.get(), pconline.get(), bilibili.get())
+            firstTwo + third
         } finally {
             executor.shutdownNow()
         }
         val answers = requests.mapNotNull { it.answer }
+        val needsThird = CarrierOperatorConsensus.needsThirdOpinion(
+            requests.take(2).mapNotNull { it.answer }.map { CarrierOperatorVote(it.source, it.operator) },
+        )
         val sourceNames = listOf("IPIP", "PConline", "Bilibili")
         val diagnostic = requests.mapIndexed { index, result ->
-            val outcome = result.answer?.let { answer ->
-                buildString {
-                    append(answer.operator)
-                    if (answer.ip.isNotEmpty()) append(" · ").append(answer.ip)
-                    if (answer.rawOperator.isNotEmpty()) append("（").append(answer.rawOperator).append("）")
+            if (index == 2 && !needsThird) {
+                "Bilibili：未查询"
+            } else {
+                val outcome = result.answer?.let { answer ->
+                    buildString {
+                        append(answer.operator)
+                        if (answer.ip.isNotEmpty()) append(" · ").append(answer.ip)
+                        if (answer.rawOperator.isNotEmpty()) append("（").append(answer.rawOperator).append("）")
+                    }
+                } ?: when {
+                    result.timedOut -> "超时"
+                    result.bindFailed -> "网络绑定失败"
+                    else -> "无有效结果"
                 }
-            } ?: when {
-                result.timedOut -> "超时"
-                result.bindFailed -> "网络绑定失败"
-                else -> "无有效结果"
+                "${sourceNames[index]}：$outcome"
             }
-            "${sourceNames[index]}：$outcome"
         }.joinToString("\n")
         val votes = answers.map { CarrierOperatorVote(it.source, it.operator) }
         val consensus = CarrierOperatorConsensus.resolve(votes)
@@ -116,6 +136,14 @@ object NetworkIdentity {
             else -> "all_failed"
         }
         return failed(signature, error, if (cellular) "online_fallback" else "online", diagnostic)
+    }
+
+    private fun awaitResult(future: Future<RequestResult>): RequestResult = try {
+        future.get(TIMEOUT_MS * 2L + 1000L, TimeUnit.MILLISECONDS)
+    } catch (_: TimeoutException) {
+        RequestResult(null, true)
+    } catch (_: ExecutionException) {
+        RequestResult(null, false)
     }
 
     private fun readMobileOperator(context: Context): String? {
