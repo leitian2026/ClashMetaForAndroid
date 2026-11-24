@@ -84,9 +84,11 @@ class MainCustomCards(
             identity?.error.isNullOrEmpty() &&
             identity?.switchError.isNullOrEmpty() &&
             identity?.switchMissing?.isNotEmpty() == true
-        val showSwitchEntry = !automaticEnabled ||
-            (total == 0 && summary.readFailed == null && switchResult.isNotEmpty()) ||
-            onlyMissingSwitchTarget
+        val showSwitchEntry = updateGuard == null && (
+            !automaticEnabled ||
+                (total == 0 && summary.readFailed == null && switchResult.isNotEmpty()) ||
+                onlyMissingSwitchTarget
+            )
         card.setOnClickListener {
             val target = if (showSwitchEntry) {
                 "com.github.kr328.clash.custom.CarrierSwitchActivity"
