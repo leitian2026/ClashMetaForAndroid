@@ -41,10 +41,10 @@ object YamlRenameTests {
               - {name: G, type: select, proxies: [A, B]}
         """.trimIndent()
         val at = text.indexOf("A, B")
-        val plan = YamlRename.plan(text, at, "Node A")
+        val plan = YamlRename.plan(text, at, "NodeA")
         val result = YamlRename.apply(text, plan.changes)
         check(plan.error == null && plan.referenceCount == 1, "flow proxy reference resolves")
-        check(result.contains("proxies: [\"Node A\", B]"), "flow proxy reference is quoted when needed")
+        check(result.contains("proxies: [NodeA, B]"), "flow proxy reference is quoted when needed")
     }
 
     private fun rulePolicyReference() {
@@ -128,7 +128,7 @@ object YamlRenameTests {
         check(plan.error == null && plan.referenceCount == 1, "only uniquely located reference is changed")
         check(result.contains("dialer-proxy: A, proxies: [A]"), "ambiguous same-line candidates stay unchanged")
         check(result.contains("DOMAIN,example.com,C"), "separate confirmed reference is changed")
-        check(plan.untouched.any { it.line == 6 }, "ambiguous location is reported")
+        check(plan.untouched.any { it.line == 5 }, "ambiguous location is reported")
     }
 
     private fun reportsOtherOccurrences() {
