@@ -49,6 +49,7 @@ object NetworkIdentityStore {
                 switchResult = json.optString("switchResult", ""),
                 switchError = json.optString("switchError", ""),
                 switchNotice = json.optString("switchNotice", ""),
+                switchMissing = json.optString("switchMissing", ""),
             )
         } catch (_: Exception) { null }
     }
@@ -72,6 +73,7 @@ object NetworkIdentityStore {
                 .put("switchResult", value.switchResult)
                 .put("switchError", value.switchError)
                 .put("switchNotice", value.switchNotice)
+                .put("switchMissing", value.switchMissing)
             output.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(output)
             stream = null
