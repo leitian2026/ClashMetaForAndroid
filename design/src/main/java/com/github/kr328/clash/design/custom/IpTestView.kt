@@ -181,6 +181,64 @@ class IpTestView(
     private val ownerLookupCells = HashMap<String, TextView>()
     private var testing = false
 
+    private val env = object : IpTestEnv {
+        override val context: Context get() = this@IpTestView.context
+        override val direct: Boolean get() = this@IpTestView.direct
+        override val target: Boolean get() = this@IpTestView.target
+        override var rows: List<IpTestRow>
+            get() = this@IpTestView.rows
+            set(value) { this@IpTestView.rows = value }
+        override var colos: Map<String, String>
+            get() = this@IpTestView.colos
+            set(value) { this@IpTestView.colos = value }
+        override var coloCountries: Map<String, String>
+            get() = this@IpTestView.coloCountries
+            set(value) { this@IpTestView.coloCountries = value }
+        override val speedIp: String? get() = this@IpTestView.speedIp
+        override val testing: Boolean get() = this@IpTestView.testing
+        override var activeTestSpeedButton: ProgressMaterialButton?
+            get() = this@IpTestView.activeTestSpeedButton
+            set(value) { this@IpTestView.activeTestSpeedButton = value }
+        override val downloadProgressPercent: Int? get() = this@IpTestView.downloadProgressPercent
+        override val ownerLookupCells: MutableMap<String, TextView> get() = this@IpTestView.ownerLookupCells
+        override val ownerLookupIp: String? get() = this@IpTestView.ownerLookupIp
+        override val recommendedIps: Set<String> get() = this@IpTestView.recommendedIps
+        override val onCopy: (String) -> Unit get() = this@IpTestView.onCopy
+        override val onDetail: (String, String) -> Unit get() = this@IpTestView.onDetail
+        override val onSpeed: (String) -> Unit get() = this@IpTestView.onSpeed
+        override val onSpeedCancel: () -> Unit get() = this@IpTestView.onSpeedCancel
+        override val colorText: Int get() = this@IpTestView.colorText
+        override val colorMuted: Int get() = this@IpTestView.colorMuted
+        override val colorGood: Int get() = this@IpTestView.colorGood
+        override val colorWarn: Int get() = this@IpTestView.colorWarn
+        override val colorBad: Int get() = this@IpTestView.colorBad
+        override val colorLink: Int get() = this@IpTestView.colorLink
+        override val colorSurface: Int get() = this@IpTestView.colorSurface
+        override val keys: List<Key> get() = this@IpTestView.keys
+        override val savedTable: Boolean get() = this@IpTestView.savedTable
+        override var savedTableAvailableWidth: Int
+            get() = this@IpTestView.savedTableAvailableWidth
+            set(value) { this@IpTestView.savedTableAvailableWidth = value }
+        override val tableBox: LinearLayout get() = this@IpTestView.tableBox
+        override fun speedButtonTextRes(): Int = columnWidths.speedButtonTextRes()
+        override fun speedButtonMinHeight(): Int = columnWidths.speedButtonMinHeight()
+    }
+    private val cells = IpTestCells(env)
+    private val columnWidths = IpTestColumnWidths(env, cells)
+
+    private fun plainOf(k: Key, r: IpTestRow): String = cells.plainOf(k, r)
+    private fun ownerCellText(r: IpTestRow): String = cells.ownerCellText(r)
+    private fun ownerCell(r: IpTestRow): View = cells.ownerCell(r)
+    private fun cellOf(k: Key, r: IpTestRow, w: Int): View = cells.cellOf(k, r, w)
+    private fun targetCell(r: IpTestRow): View = cells.targetCell(r)
+    private fun coloCell(r: IpTestRow, w: Int, code: String = r.colo): View = cells.coloCell(r, w, code)
+    private fun textCell(text: String, color: Int, bold: Boolean = false): TextView = cells.textCell(text, color, bold)
+    private fun headCell(text: String, w: Int): TextView = cells.headCell(text, w)
+    private fun portsCell(r: IpTestRow): View = cells.portsCell(r)
+    private fun testCell(r: IpTestRow): View = cells.testCell(r)
+    private fun ipCell(r: IpTestRow, showRecommendation: Boolean = true, showFailureDetail: Boolean = true): View =
+        cells.ipCell(r, showRecommendation, showFailureDetail)
+
     private var infoText: CharSequence = ""
     private val logLines = ArrayList<String>()
 
@@ -1248,13 +1306,25 @@ class IpTestView(
 
 
     // CUSTOM.md #162: saved-IP rows use the live table's header, cell, IP and width factories.
-    internal fun savedTableWidths(availableWidth: Int, savedRows: List<IpTestRow>, cityNames: Map<String, String>, countryCodes: Map<String, String>): IntArray {
-        rows = savedRows
-        colos = cityNames
-        coloCountries = countryCodes
-        savedTableAvailableWidth = availableWidth
-        return widths()
-    }
+
+
+    internal fun savedTableWidths(availableWidth: Int, savedRows: List<IpTestRow>, cityNames: Map<String, String>, countryCodes: Map<String, String>): IntArray =
+        columnWidths.savedTableWidths(availableWidth, savedRows, cityNames, countryCodes)
+    private fun heightOf(v: View, w: Int): Int = columnWidths.heightOf(v, w)
+    private fun contentNeed(k: Key): Int = columnWidths.contentNeed(k)
+    private fun widths(): IntArray = columnWidths.widths()
+    private fun headerNeed(k: Key): Int = columnWidths.headerNeed(k)
+    private fun speedButtonNeed(): Int = columnWidths.speedButtonNeed()
+    private fun speedButtonTextRes(): Int = columnWidths.speedButtonTextRes()
+    private fun speedButtonMinHeight(): Int = columnWidths.speedButtonMinHeight()
+    private fun phaseNeed(): Int = columnWidths.phaseNeed()
+    private fun exitIpNeed(): Int = columnWidths.exitIpNeed()
+    private fun ipMin(): Int = columnWidths.ipMin()
+    private fun savedHeaderTitle(k: Key): String = columnWidths.savedHeaderTitle(k)
+    private fun title(k: Key): String = columnWidths.title(k)
+    private fun savedSpeedHeaderNeed(k: Key): Int = columnWidths.savedSpeedHeaderNeed(k)
+    private fun savedSpeedButtonNeed(k: Key): Int = columnWidths.savedSpeedButtonNeed(k)
+    private fun width(k: Key): Int = columnWidths.width(k)
 
     // CUSTOM (CUSTOM.md #160): filter options use the same semantic mapping as saved-table cells.
     private fun isSavedTableFilterable(key: Key): Boolean = key in setOf(Key.COLO, Key.ASN, Key.GEO, Key.EXIT, Key.PORTS, Key.EXIT_IP, Key.TCOLO, Key.TARGET)
@@ -1757,317 +1827,48 @@ class IpTestView(
         grid.addView(gridRow, targetChildIndex.coerceAtMost(grid.childCount))
     }
 
-    private fun heightOf(v: View, w: Int): Int {
-        v.measure(
-            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-        )
 
-        return v.measuredHeight
-    }
 
     // Keep ordinary text cells to at most three lines. If a value needs more room,
     // widen its column; the complete grid scrolls when the page cannot fit all required widths.
-    private fun contentNeed(k: Key): Int {
-        var required = width(k)
-        rows.forEach { row ->
-            val cell = cellOf(k, row, Int.MAX_VALUE / 4) as? TextView ?: return@forEach
-            val value = cell.text
-            if (value.isEmpty()) return@forEach
 
-            var low = dp(32)
-            var high = maxOf(
-                required,
-                cell.paint.measureText(value.toString().replace('\n', ' ')).toInt() +
-                    cell.paddingLeft + cell.paddingRight,
-            )
-            while (low < high) {
-                val mid = (low + high) / 2
-                val contentWidth = (mid - cell.paddingLeft - cell.paddingRight).coerceAtLeast(1)
-                val layout = StaticLayout.Builder.obtain(
-                    value, 0, value.length, cell.paint, contentWidth,
-                ).setIncludePad(cell.includeFontPadding).build()
-                if (layout.lineCount <= 3) high = mid else low = mid + 1
-            }
-            required = maxOf(required, low)
-        }
-        return required
-    }
 
     // [0] the IP column, then one per key. The narrowest widths that read well; when the page is wider than their sum
     // the rest is shared out (the columns with the longest text get the most), so the table fills the page exactly
-    private fun widths(): IntArray {
-        val min = IntArray(keys.size + 1)
-        val floor = IntArray(keys.size + 1)
 
-        min[0] = ipMin()
-        floor[0] = min[0]
-
-        keys.forEachIndexed { i, k ->
-            val savedSpeedColumn = savedTable && k in setOf(Key.SPEED, Key.SPEED_NODE)
-            val header = if (savedSpeedColumn) savedSpeedHeaderNeed(k) else headerNeed(k)
-            val button = when {
-                savedSpeedColumn -> savedSpeedButtonNeed(k)
-                k == Key.TEST -> speedButtonNeed()
-                else -> 0
-            }
-            val requiredContentWidth = if (
-                k !in setOf(Key.TEST, Key.PORTS, Key.PHASE, Key.EXIT_IP) &&
-                !savedSpeedColumn
-            ) contentNeed(k) else 0
-            floor[i + 1] = maxOf(header, button, requiredContentWidth)
-            min[i + 1] = maxOf(if (savedSpeedColumn) 0 else width(k), floor[i + 1])
-        }
-
-        // CUSTOM.md #94: the time split is as wide as its longest line, so "首字节 447 ms" does not wrap
-        val phaseAt = keys.indexOf(Key.PHASE) + 1
-
-        if (phaseAt > 0) {
-            val need = phaseNeed()
-            min[phaseAt] = maxOf(min[phaseAt], need)
-            floor[phaseAt] = maxOf(floor[phaseAt], need)
-        }
-
-        // Keep the public-facing IP and operator on their own two lines, without wrapping either value.
-        val exitIpAt = keys.indexOf(Key.EXIT_IP) + 1
-
-        if (exitIpAt > 0) {
-            val need = exitIpNeed()
-            min[exitIpAt] = maxOf(min[exitIpAt], need)
-            floor[exitIpAt] = maxOf(floor[exitIpAt], need)
-        }
-
-        val avail = if (savedTable && savedTableAvailableWidth > 0) savedTableAvailableWidth else tableBox.width
-        val sum = min.sum()
-        val speedColumns = keys.indices.filter { keys[it] == Key.SPEED || keys[it] == Key.SPEED_NODE }.map { it + 1 }
-
-        // how the spare width is shared: the columns with the longest text get the most
-        fun weightOf(i: Int): Double {
-            val factor = if (i == 0) 1.0 else when (keys[i - 1]) {
-                Key.COLO, Key.TCOLO, Key.ASN, Key.EXIT_IP, Key.PORTS -> 1.8
-                Key.GEO, Key.LAND -> 1.3
-                else -> 1.0
-            }
-
-            return min[i] * factor
-        }
-
-        if (avail >= sum) {
-            val weight = DoubleArray(min.size) { weightOf(it) }
-            val total = weight.sum()
-            val extra = avail - sum
-            val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
-
-            out[out.size - 1] += avail - out.sum()
-
-            return out
-        }
-
-        // CUSTOM.md #62: everything but 速度 fits: those columns keep their natural widths and fill the page, and 速度
-        // stays behind the right edge (the table scrolls sideways to it)
-        if (speedColumns.isNotEmpty()) {
-            val sumNoSpeed = sum - speedColumns.sumOf { min[it] }
-
-            if (avail >= sumNoSpeed) {
-                val weight = DoubleArray(min.size) { if (it in speedColumns) 0.0 else weightOf(it) }
-                val total = weight.sum()
-                val extra = avail - sumNoSpeed
-                val out = IntArray(min.size) { i -> min[i] + (extra * weight[i] / total).toInt() }
-
-                val firstColumnAt = keys.indexOf(if (direct || savedTable) Key.COLO else Key.PORT) + 1
-                val nonSpeedColumns = (0 until min.size).filter { it !in speedColumns }
-                out[firstColumnAt] += avail - sumNoSpeed - nonSpeedColumns.sumOf { out[it] - min[it] }
-
-                return out
-            }
-        }
-
-        // CUSTOM.md #55 (r67): a little too wide (a long IP in the first column): the other columns give up to 15%
-        // (their text just wraps one more time) so that the last column is not pushed off the screen; only when that
-        // is not enough the table scrolls sideways as before
-        val rest = sum - min[0]
-        val need = sum - avail
-
-        if (rest > 0 && need <= rest * 0.15) {
-            val out = IntArray(min.size)
-
-            out[0] = min[0]
-
-            for (i in 1 until min.size) out[i] = (min[i] * (rest - need).toDouble() / rest).toInt()
-
-            out[out.size - 1] += avail - out.sum()
-
-            // Keep every header/button's longest explicit line intact. If the remaining columns cannot
-            // absorb the shrink without breaking that minimum, retain the natural widths and scroll.
-            for (i in out.indices) out[i] = maxOf(out[i], floor[i])
-
-            if (out.sum() <= avail) return out
-        }
-
-        return min
-    }
 
     // Measure the longest explicit header line at the same text size, weight and horizontal padding as headCell.
-    private fun headerNeed(k: Key): Int {
-        val sample = TextView(context).apply {
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-        }
-        val longest = title(k).split('\n').maxOf { sample.paint.measureText(it) }
 
-        return longest.toInt() + 1 + dp(8)
-    }
 
     // Measure the dedicated button label, not iptest_btn_speed which may also be used by non-button text.
-    private fun speedButtonNeed(): Int {
-        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            textSize = 13f
-            isAllCaps = false
-            setPadding(dp(4), 0, dp(4), 0)
-        }
-        val label = context.getString(speedButtonTextRes())
-        val longest = label.split('\n').maxOf { sample.paint.measureText(it) }
 
-        return longest.toInt() + 1 + dp(8)
-    }
 
     // Use the two-line label only for Chinese; all other locales retain their existing translation.
-    private fun speedButtonTextRes(): Int {
-        val language = context.resources.configuration.locale?.language ?: Locale.getDefault().language
 
-        return if (language == "zh") R.string.iptest_btn_speed_button else R.string.iptest_btn_speed
-    }
 
-    private fun speedButtonMinHeight(): Int {
-        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            textSize = 13f
-            isAllCaps = false
-        }
-        val line = sample.paint.fontMetricsInt.let { it.bottom - it.top }
 
-        return maxOf(dp(32), line * 2 + dp(4))
-    }
 
     // CUSTOM.md #94: the longest line of the three-line time split in the 14 sp of the cell plus its padding. When it
     // wrapped ("447" and "ms" on two lines) the row became two or three lines taller than anything else in it.
-    private fun phaseNeed(): Int {
-        val paint = TextView(context).apply { textSize = 14f }.paint
-        val longest = rows.maxOfOrNull { r ->
-            val texts = if (savedTable) listOf(phaseText(context, r, true), phaseText(context, r, false)) else listOf(phaseText(context, r, direct))
-            texts.maxOf { text -> text.split('\n').maxOf { paint.measureText(it) } }
-        } ?: 0f
 
-        return (longest.toInt() + dp(10)).coerceAtMost(dp(120))
-    }
 
     // Keep the public-facing IP and its operator on separate, unwrapped lines.
-    private fun exitIpNeed(): Int {
-        val paint = TextView(context).apply { textSize = 14f }.paint
-        val longest = rows.maxOfOrNull { r -> maxOf(paint.measureText(r.exitIp), paint.measureText(r.exitAsn)) } ?: 0f
 
-        return (longest.toInt() + dp(16)).coerceAtLeast(dp(116))
-    }
 
     // the longest IP in the 15 sp bold of the cell, so it is never cut
-    private fun ipMin(): Int {
-        val paint = TextView(context).apply {
-            textSize = 15f
-            setTypeface(typeface, Typeface.BOLD)
-        }.paint
 
-        val longest = rows.maxOfOrNull { paint.measureText(it.ip) } ?: 0f
 
-        return (longest.toInt() + dp(16)).coerceIn(dp(112), dp(150))
-    }
 
-    private fun savedHeaderTitle(k: Key): String {
-        return when (k) {
-            Key.SPEED -> context.getString(R.string.saved_ip_speed_direct_short)
-            Key.SPEED_NODE -> context.getString(R.string.saved_ip_speed_node_short)
-            else -> title(k)
-        }
-    }
 
-    private fun title(k: Key): String {
-        return context.getString(
-            when (k) {
-                Key.COLO -> if (direct || savedTable) R.string.iptest_col_colo else R.string.iptest_col_colo_node
-                Key.ASN -> R.string.iptest_col_asn
-                Key.GEO -> R.string.iptest_col_geo
-                Key.LAND, Key.EXIT -> R.string.iptest_col_exit
-                Key.EXIT_IP -> R.string.iptest_col_exit_ip
-                Key.PORTS, Key.PORT -> R.string.iptest_col_port
-                Key.LOSS -> R.string.iptest_col_loss
-                Key.MIN -> R.string.iptest_col_min
-                Key.MAX -> R.string.iptest_col_max
-                Key.AVG -> R.string.iptest_col_avg
-                Key.JITTER -> R.string.iptest_col_jitter
-                Key.PHASE -> R.string.iptest_col_phase
-                Key.TARGET -> R.string.iptest_col_target
-                Key.TCOLO -> R.string.iptest_col_tcolo
-                Key.TEST -> R.string.iptest_col_test
-                Key.SPEED -> R.string.saved_ip_speed_direct
-                Key.SPEED_NODE -> R.string.saved_ip_speed_node
-            },
-        )
-    }
+
 
     // CUSTOM.md #162: saved speed columns fit their actual three-line header and two-line button,
     // without inheriting the wider live-test speed column's fixed width.
-    private fun savedSpeedHeaderNeed(k: Key): Int {
-        val title = TextView(context).apply {
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-        }
-        val detail = TextView(context).apply { textSize = 11f }
-        val titleWidth = title.paint.measureText(savedHeaderTitle(k)).toInt() + dp(8)
-        val unitWidth = detail.paint.measureText(context.getString(R.string.saved_ip_speed_unit)).toInt() + dp(6)
-        val sortWidth = maxOf(
-            detail.paint.measureText("按最快"),
-            detail.paint.measureText("按最慢"),
-        ).toInt() + dp(6)
-        return maxOf(titleWidth, unitWidth, sortWidth)
-    }
 
-    private fun savedSpeedButtonNeed(k: Key): Int {
-        val sample = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            textSize = 14f
-            isAllCaps = false
-            setPadding(dp(3), dp(2), dp(3), dp(2))
-        }
-        val label = context.getString(
-            if (k == Key.SPEED) R.string.saved_ip_speed_direct_short else R.string.saved_ip_speed_node_short,
-        )
-        val longest = maxOf(
-            label.split('\n').maxOf { sample.paint.measureText(it) },
-            sample.paint.measureText("88.8"),
-        )
-        // Include the button's own horizontal padding and the cell container's two 4dp margins.
-        return longest.toInt() + dp(1) + dp(6) + dp(8)
-    }
 
-    private fun width(k: Key): Int {
-        return dp(
-            when (k) {
-                Key.COLO -> 84
-                Key.ASN -> 84
-                Key.GEO, Key.LAND -> 76
-                Key.PORTS -> 100 // CUSTOM.md #57: room for the replacement span's same-colour dot
-                Key.PORT -> 56
-                Key.LOSS -> 52
-                Key.MIN, Key.MAX, Key.AVG -> 54
-                Key.JITTER -> 54
-                Key.PHASE -> 84
-                Key.EXIT -> 76
-                Key.EXIT_IP -> 116
-                Key.TARGET -> 84
-                Key.TCOLO -> 84
-                Key.TEST -> 52
-                Key.SPEED -> 96
-                Key.SPEED_NODE -> 96
-            },
-        )
-    }
+
+
+
 
     // the colour of an average: under 150 ms green, under 300 orange, else red
 

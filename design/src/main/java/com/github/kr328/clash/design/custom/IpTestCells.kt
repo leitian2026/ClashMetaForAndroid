@@ -21,9 +21,9 @@ internal interface IpTestEnv {
     val context: Context
     val direct: Boolean
     val target: Boolean
-    val rows: List<IpTestRow>
-    val colos: Map<String, String>
-    val coloCountries: Map<String, String>
+    var rows: List<IpTestRow>
+    var colos: Map<String, String>
+    var coloCountries: Map<String, String>
     val speedIp: String?
     val testing: Boolean
     var activeTestSpeedButton: ProgressMaterialButton?
@@ -42,6 +42,10 @@ internal interface IpTestEnv {
     val colorBad: Int
     val colorLink: Int
     val colorSurface: Int
+    val keys: List<IpTestView.Key>
+    val savedTable: Boolean
+    var savedTableAvailableWidth: Int
+    val tableBox: LinearLayout
     fun speedButtonTextRes(): Int
     fun speedButtonMinHeight(): Int
 }
@@ -315,10 +319,10 @@ internal class IpTestCells(private val env: IpTestEnv) {
         else -> "-"
     }
 
-    private class DashedTextView(env.context: Context) : TextView(env.context) {
+    private class DashedTextView(context: Context) : TextView(context) {
         private val dash = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 1.5f * env.context.resources.displayMetrics.density
+            strokeWidth = 1.5f * context.resources.displayMetrics.density
             pathEffect = DashPathEffect(floatArrayOf(8f, 5f), 0f)
         }
 
