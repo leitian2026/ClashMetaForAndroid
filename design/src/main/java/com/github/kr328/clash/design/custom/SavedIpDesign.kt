@@ -13,7 +13,6 @@ import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.text.Editable
 import android.text.TextWatcher
-import android.text.TextUtils
 import android.view.Gravity
 import android.widget.PopupMenu
 import android.widget.PopupWindow
@@ -604,19 +603,6 @@ class SavedIpDesign(
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             maxLines = 1
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val fastest = operator.ips.asSequence()
-            .filter { it.status == SavedIpStatus.REACHABLE && it.avg > 0 }
-            .minByOrNull { it.avg }
-        if (fastest != null) {
-            title.addView(TextView(context).apply {
-                text = "最快 ${fastest.address}　${fastest.avg} ms"
-                textSize = 11f
-                setTextColor(colorMuted)
-                maxLines = 1
-                ellipsize = TextUtils.TruncateAt.END
-                maxWidth = dp(150)
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
         val statusTags = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
