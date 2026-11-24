@@ -12,8 +12,10 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.github.kr328.clash.core.model.DnsCheckReport
 import com.github.kr328.clash.core.model.IpTestRow
 import com.github.kr328.clash.design.R
 
@@ -42,6 +44,10 @@ internal interface IpTestEnv {
     val colorBad: Int
     val colorLink: Int
     val colorSurface: Int
+    val colorStripe: Int
+    val colorTableDivider: Int
+    val dnsReport: DnsCheckReport?
+    fun rowWithDivider(content: View, backgroundColor: Int, showDivider: Boolean): FrameLayout
     val keys: List<IpTestView.Key>
     val savedTable: Boolean
     var savedTableAvailableWidth: Int

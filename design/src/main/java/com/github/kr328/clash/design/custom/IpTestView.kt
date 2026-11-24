@@ -214,6 +214,11 @@ class IpTestView(
         override val colorBad: Int get() = this@IpTestView.colorBad
         override val colorLink: Int get() = this@IpTestView.colorLink
         override val colorSurface: Int get() = this@IpTestView.colorSurface
+        override val colorStripe: Int get() = this@IpTestView.colorStripe
+        override val colorTableDivider: Int get() = this@IpTestView.colorTableDivider
+        override val dnsReport: DnsCheckReport? get() = this@IpTestView.dnsReport
+        override fun rowWithDivider(content: View, backgroundColor: Int, showDivider: Boolean): FrameLayout =
+            this@IpTestView.rowWithDivider(content, backgroundColor, showDivider)
         override val keys: List<Key> get() = this@IpTestView.keys
         override val savedTable: Boolean get() = this@IpTestView.savedTable
         override var savedTableAvailableWidth: Int
@@ -225,6 +230,7 @@ class IpTestView(
     }
     private val cells = IpTestCells(env)
     private val columnWidths = IpTestColumnWidths(env, cells)
+    private val diagnostics = IpTestDiagnosticsView(env, cells, columnWidths) { redraw() }
 
     private fun plainOf(k: Key, r: IpTestRow): String = cells.plainOf(k, r)
     private fun ownerCellText(r: IpTestRow): String = cells.ownerCellText(r)
@@ -298,36 +304,6 @@ class IpTestView(
 
     private val tableBox = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
-    // CUSTOM.md #156 step 41: collapsible diagnostics below the unchanged IP table; expanded by default.
-    private var diagnosticsExpanded = true
-    private val diagnosticsBody = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(8), dp(8), dp(8), dp(8))
-        background = GradientDrawable().apply {
-            setColor(colorSurface)
-            cornerRadius = dp(6).toFloat()
-        }
-    }
-    private var diagnosticsPlain = ""
-    private val diagnosticsTitle = TextView(context).apply {
-        textSize = 14f
-        setTypeface(typeface, Typeface.BOLD)
-        setTextColor(colorText)
-        setPadding(0, dp(8), 0, dp(6))
-        text = "${context.getString(R.string.iptest_diag_title)}  ▴"
-        setOnClickListener {
-            diagnosticsExpanded = !diagnosticsExpanded
-            diagnosticsBody.visibility = if (diagnosticsExpanded) View.VISIBLE else View.GONE
-            text = "${context.getString(R.string.iptest_diag_title)}  ${if (diagnosticsExpanded) "▴" else "▾"}"
-        }
-    }
-    private val diagnosticsBox = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        visibility = View.VISIBLE
-        addView(diagnosticsTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        addView(diagnosticsBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    }
-
     private val hint = TextView(context).apply {
         setText(R.string.iptest_table_hint)
         textSize = 13f
@@ -390,9 +366,6 @@ class IpTestView(
         tableBox.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
             if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) redraw()
         }
-        diagnosticsBody.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
-            if (r - l != oldR - oldL && r - l > 0 && rows.isNotEmpty()) diagnosticsBody.post { updateDiagnostics() }
-        }
 
         root.addView(infoHeader, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(info, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -400,7 +373,7 @@ class IpTestView(
         root.addView(noteBody, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tableBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(diagnosticsBox, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(diagnostics.box, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logTitle, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(logScroll, lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)))
 
@@ -465,382 +438,27 @@ class IpTestView(
         if (target || !direct) updateDiagnostics()
     }
 
+    private fun updateDiagnostics() = diagnostics.updateDiagnostics()
+
     fun setDnsReport(report: DnsCheckReport) {
         dnsReport = report
-        diagnosticsBox.visibility = View.VISIBLE
+        diagnostics.box.visibility = View.VISIBLE
         updateDiagnostics()
     }
 
-    private fun updateDiagnostics() {
-        diagnosticsBody.removeAllViews()
-        val copied = StringBuilder()
 
-        fun appendMarkdown(headers: List<String>, values: List<List<String>>) {
-            copied.append("| ").append(headers.joinToString(" | ") { markdownCell(it) }).append(" |\n")
-            copied.append("| ").append(headers.joinToString(" | ") { "---" }).append(" |\n")
-            values.forEach { row ->
-                copied.append("| ").append(row.joinToString(" | ") { markdownCell(it) }).append(" |\n")
-            }
-            copied.append('\n')
-        }
-
-        if (rows.isNotEmpty() && (target || !direct)) {
-            // Only show fields that are not already present in the original IP table.
-            // IP is retained solely as the row identifier for matching each diagnostic record.
-            val headers = if (target) {
-                listOf(
-                    context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn),
-                    context.getString(R.string.iptest_diag_cert), context.getString(R.string.iptest_diag_cert_ip),
-                    context.getString(R.string.iptest_diag_cf_ray), context.getString(R.string.iptest_diag_content_type),
-                    context.getString(R.string.iptest_diag_location), context.getString(R.string.iptest_diag_retry_after),
-                    context.getString(R.string.iptest_diag_cf_mitigated), context.getString(R.string.iptest_diag_page_hint),
-                )
-            } else {
-                listOf(context.getString(R.string.iptest_diag_ip), context.getString(R.string.iptest_diag_tls), context.getString(R.string.iptest_diag_alpn))
-            }
-
-            val values = rows.map { row ->
-                val failed = !row.ok || (target && row.targetStatus == 0)
-                val dash = context.getString(R.string.iptest_diag_dash)
-                val none = context.getString(R.string.iptest_diag_none)
-                val missing = context.getString(R.string.iptest_diag_not_obtained)
-
-                fun required(value: String): String = when {
-                    failed -> dash
-                    value.isNotBlank() -> value
-                    else -> missing
-                }
-                fun optional(value: String): String = when {
-                    failed -> dash
-                    value.isNotBlank() -> value
-                    else -> none
-                }
-
-                if (target) {
-                    listOf(
-                        row.ip,
-                        required(row.targetTls),
-                        required(
-                            row.targetAlpn.ifBlank {
-                                when (row.targetHttpProtoMajor) {
-                                    2 -> "h2"
-                                    1 -> "http/1.1"
-                                    else -> ""
-                                }
-                            },
-                        ),
-                        context.getString(
-                            R.string.iptest_diag_cert_value,
-                            required(row.targetCertDnsNames),
-                            required(row.targetCertIssuer),
-                            required(row.targetCertNotAfter),
-                        ),
-                        optional(row.targetCertIpAddresses),
-                        required(row.targetCfRay),
-                        required(row.targetContentType),
-                        optional(row.targetNote),
-                        optional(row.targetRetryAfter),
-                        optional(row.targetCfMitigated),
-                        optional(pageHintText(context, row)),
-                    )
-                } else {
-                    listOf(
-                        row.ip,
-                        required(row.tls),
-                        required(row.alpn),
-                    )
-                }
-            }
-
-            copied.append(context.getString(R.string.iptest_diag_ip_title) + "\n")
-            // Export uses the original full values. Only the on-screen certificate text is shortened.
-            appendMarkdown(headers, values)
-            if (target) {
-                val displayValues = values.mapIndexed { index, original ->
-                    val row = rows[index]
-                    val failed = !row.ok || row.targetStatus == 0
-                    val dash = context.getString(R.string.iptest_diag_dash)
-                    val missing = context.getString(R.string.iptest_diag_not_obtained)
-                    val domain = if (failed) dash else row.targetCertDnsNames.ifBlank { missing }
-                    val issuer = if (failed) dash else certificateIssuerName(row.targetCertIssuer.ifBlank { missing })
-                    val expiry = if (failed) dash else certificateDate(row.targetCertNotAfter.ifBlank { missing })
-                    original.toMutableList().apply {
-                        this[3] = context.getString(R.string.iptest_diag_cert_value, domain, issuer, expiry)
-                    }
-                }
-                addDetailedDiagnosticsTable(
-                    context.getString(R.string.iptest_diag_ip_title),
-                    headers,
-                    displayValues,
-                    values,
-                )
-            } else {
-                // The non-target TLS / protocol mini-table keeps its existing layout and sizing.
-                addDiagnosticsTable(context.getString(R.string.iptest_diag_ip_title), headers, values)
-            }
-        }
-
-        // CUSTOM.md #77: extension diagnostics stay below the existing IP table; never add more main-table columns.
-        if (direct && rows.any { it.ws.tested || it.h3.tested || it.mtu.tested }) {
-            val headers = listOf(
-                context.getString(R.string.iptest_ext_ip),
-                context.getString(R.string.iptest_ext_ws),
-                context.getString(R.string.iptest_ext_h3),
-                context.getString(R.string.iptest_ext_mtu),
-            )
-            fun resultText(result: IpTestExtResult, mtu: Boolean = false): String {
-                if (!result.tested) return context.getString(R.string.iptest_diag_dash)
-                if (mtu) {
-                    val parts = ArrayList<String>()
-                    if (result.tcpMss > 0 && result.tcpMtu > 0) {
-                        parts += context.getString(R.string.iptest_ext_tcp_mtu, result.tcpMss, result.tcpMtu)
-                    } else {
-                        parts += context.getString(R.string.iptest_ext_tcp_none)
-                    }
-                    if (result.udpMtu > 0) {
-                        val format = if (result.detail.contains("UDP upper bound reached")) {
-                            R.string.iptest_ext_udp_mtu_at_least
-                        } else {
-                            R.string.iptest_ext_udp_mtu
-                        }
-                        parts += context.getString(format, result.udpMtu)
-                    } else if (result.udpNoResponse) {
-                        parts += context.getString(R.string.iptest_ext_udp_none)
-                    } else {
-                        parts += context.getString(R.string.iptest_ext_udp_dash)
-                    }
-                    if (result.reason.isNotBlank()) parts += result.reason
-                    return parts.joinToString(" · ").ifBlank { context.getString(R.string.iptest_ext_failed) }
-                }
-                if (result.reason.isNotBlank()) return result.reason
-                if (result.status > 0) {
-                    val status = result.status.toString()
-                    val statusText = if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, status, result.ms) else status
-                    val detail = result.detail.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
-                    return statusText + detail
-                }
-                if (result.ms > 0) return context.getString(R.string.iptest_ext_ms, result.ms)
-                return result.detail.ifBlank { context.getString(if (result.ok) R.string.iptest_ext_ok else R.string.iptest_ext_failed) }
-            }
-            val values = rows.map { row ->
-                listOf(row.ip, resultText(row.ws), resultText(row.h3), resultText(row.mtu, mtu = true))
-            }
-            val title = context.getString(R.string.iptest_ext_title)
-            copied.append(title).append('\n')
-            appendMarkdown(headers, values)
-            // CUSTOM.md #156 step 83: the shown table is a compact full-width one (one short line per cell, tap for the
-            // full text); the copied text above keeps the full values.
-            val extRows = rows.mapIndexed { index, row ->
-                ExtRow(
-                    row.ip,
-                    listOf(
-                        ExtCell(extWsSummary(row.ws), "${headers[1]} · ${row.ip}", values[index][1]),
-                        ExtCell(extH3Summary(row.h3), "${headers[2]} · ${row.ip}", values[index][2]),
-                        ExtCell(
-                            extMtuSummary(row.ip, row.mtu),
-                            "${headers[3]} · ${row.ip}",
-                            listOf(values[index][3], row.mtu.detail).filter { it.isNotBlank() }.joinToString("\n\n"),
-                        ),
-                    ),
-                )
-            }
-            addExtensionTable(title, headers, extRows)
-        }
-
-        dnsReport?.let { report ->
-            val dnsRows = ArrayList<List<String>>()
-            for (server in report.servers) {
-                dnsRows += listOf(
-                    server.address.ifBlank { context.getString(R.string.iptest_diag_not_obtained) },
-                    if (server.ok && server.ms > 0) "${server.ms} ms" else context.getString(R.string.iptest_diag_not_obtained),
-                )
-            }
-            if (report.core.asked) {
-                dnsRows += listOf(context.getString(R.string.iptest_diag_core_dns), if (report.core.ok && report.core.ms > 0) "${report.core.ms} ms" else context.getString(R.string.iptest_diag_not_obtained))
-            }
-            report.kernel?.let { kernel ->
-                dnsRows += listOf(context.getString(R.string.iptest_diag_kernel_dns), if (kernel.ok && kernel.ms > 0) "${kernel.ms} ms" else context.getString(R.string.iptest_diag_not_obtained))
-            }
-            if (dnsRows.isEmpty()) dnsRows += listOf(context.getString(R.string.iptest_diag_no_results), context.getString(R.string.iptest_diag_not_obtained))
-
-            val dnsTitle = context.getString(R.string.iptest_diag_dns_title, report.domain)
-            copied.append(dnsTitle).append('\n')
-            appendMarkdown(listOf(context.getString(R.string.iptest_diag_dns_item), context.getString(R.string.iptest_diag_dns_time)), dnsRows)
-            addDiagnosticsTable(dnsTitle, listOf(context.getString(R.string.iptest_diag_dns_item), context.getString(R.string.iptest_diag_dns_time)), dnsRows, 150, 110)
-        }
-
-        diagnosticsPlain = copied.toString().trim()
-        if (diagnosticsBody.childCount == 0) {
-            val empty = TextView(context).apply {
-                text = context.getString(R.string.iptest_diag_empty)
-                textSize = 13f
-                setTextColor(colorMuted)
-            }
-            diagnosticsBody.addView(empty, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-    }
 
     // Target diagnostics use one table. The IP column is fixed at the left; the remaining ten columns
     // scroll as one grid. Column widths follow the longest value and the longest unbroken header word.
-    private fun addDetailedDiagnosticsTable(
-        title: String,
-        headers: List<String>,
-        values: List<List<String>>,
-        copyValues: List<List<String>>,
-    ) {
-        val heading = TextView(context).apply {
-            text = title
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorText)
-            setPadding(0, dp(10), 0, dp(6))
-        }
-        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val availableWidth = (diagnosticsBody.width - diagnosticsBody.paddingLeft - diagnosticsBody.paddingRight)
-            .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - dp(48))
-        val widths = detailedColumnWidths(headers, values, availableWidth)
-        val firstWidth = widths.first()
-        val gridWidth = widths.drop(1).sum()
 
-        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
-        val leftHeader = detailedHeaderCell(headers.first())
-        val rightHeaders = headers.drop(1).map { detailedHeaderCell(it) }
-        val headerHeight = maxOf(
-            dp(42),
-            detailedHeight(leftHeader, firstWidth),
-            rightHeaders.mapIndexed { index, cell -> detailedHeight(cell, widths[index + 1]) }.maxOrNull() ?: 0,
-        )
 
-        val leftHeaderBg = FrameLayout(context).apply {
-            setBackgroundColor(colorSurface)
-            addView(leftHeader, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            ))
-        }
-        left.addView(leftHeaderBg, lp(firstWidth, headerHeight))
 
-        val headRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(colorSurface)
-        }
-        rightHeaders.forEachIndexed { index, cell ->
-            headRow.addView(cell, lp(widths[index + 1], headerHeight))
-        }
-        grid.addView(headRow, lp(gridWidth, headerHeight))
 
-        values.forEachIndexed { rowIndex, row ->
-            val fullRow = copyValues.getOrNull(rowIndex).orEmpty()
-            val first = detailedValueCell(row.firstOrNull().orEmpty(), fullRow.firstOrNull().orEmpty(), true, true)
-            val cells = row.drop(1).mapIndexed { index, value ->
-                val columnIndex = index + 1
-                detailedValueCell(value, fullRow.getOrNull(columnIndex).orEmpty(), false, columnIndex == 5)
-            }
-            val height = maxOf(
-                dp(42),
-                detailedHeight(first, firstWidth),
-                cells.mapIndexed { index, cell -> detailedHeight(cell, widths[index + 1]) }.maxOrNull() ?: 0,
-            )
 
-            // Fixed and scrolling portions use the same stripe and the same measured row height.
-            val leftRow = FrameLayout(context).apply {
-                setBackgroundColor(colorSurface)
-                addView(first, FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                ))
-            }
-            left.addView(
-                rowWithDivider(leftRow, colorSurface, rowIndex < values.lastIndex),
-                lp(firstWidth, height),
-            )
 
-            val rightRow = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(colorSurface)
-            }
-            cells.forEachIndexed { index, cell ->
-                rightRow.addView(cell, lp(widths[index + 1], height))
-            }
-            grid.addView(
-                rowWithDivider(rightRow, colorSurface, rowIndex < values.lastIndex),
-                lp(gridWidth, height),
-            )
-        }
 
-        val scroll = HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = true
-            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val table = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(left, lp(firstWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    }
-
-    private fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
-        val maxRegularWidth = (availableWidth / 2).coerceAtLeast(dp(48))
-        val normalPaint = TextView(context).apply { textSize = 14f }.paint
-        val boldPaint = TextView(context).apply {
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-        }.paint
-
-        return IntArray(headers.size) { column ->
-            val headerWordWidth = headers[column].split(HEADER_WHITESPACE_REGEX)
-                .maxOfOrNull { boldPaint.measureText(it) } ?: 0f
-            val valuePaint = if (column == 0) boldPaint else normalPaint
-            val valueWidth = values.maxOfOrNull { row ->
-                valuePaint.measureText(row.getOrNull(column).orEmpty().replace('\n', ' '))
-            } ?: 0f
-            val natural = maxOf(headerWordWidth, valueWidth).toInt() + dp(16)
-
-            when (column) {
-                0, 5 -> natural.coerceAtMost(availableWidth.coerceAtLeast(dp(48)))
-                else -> natural.coerceAtLeast(dp(44)).coerceAtMost(maxRegularWidth)
-            }
-        }
-    }
-
-    private fun detailedHeaderCell(text: String): TextView = TextView(context).apply {
-        this.text = text
-        textSize = 14f
-        maxLines = 2
-        ellipsize = TextUtils.TruncateAt.END
-        gravity = Gravity.CENTER_VERTICAL or Gravity.START
-        setTypeface(typeface, Typeface.BOLD)
-        setTextColor(colorMuted)
-        setBackgroundColor(Color.TRANSPARENT)
-        setPadding(dp(6), dp(6), dp(6), dp(6))
-    }
-
-    private fun detailedValueCell(text: String, copyText: String, bold: Boolean, noWrap: Boolean): TextView = TextView(context).apply {
-        this.text = text.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
-        textSize = 14f
-        maxLines = if (noWrap) 1 else 3
-        if (noWrap) isSingleLine = true
-        ellipsize = TextUtils.TruncateAt.END
-        gravity = Gravity.TOP or Gravity.START
-        setTextColor(colorText)
-        setBackgroundColor(Color.TRANSPARENT)
-        setPadding(dp(6), dp(5), dp(6), dp(5))
-        if (bold) setTypeface(typeface, Typeface.BOLD)
-        setOnClickListener { onCopy(copyText.ifBlank { this.text.toString() }) }
-    }
-
-    private fun detailedHeight(view: View, width: Int): Int {
-        view.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-        )
-        return view.measuredHeight
-    }
 
 
 
@@ -848,213 +466,29 @@ class IpTestView(
 
     // The diagnostics table follows the IP table: one IP per vertical row; diagnostic fields are horizontal columns.
     // The IP column stays fixed while the remaining columns scroll horizontally.
-    private fun addDiagnosticsTable(
-        title: String,
-        headers: List<String>,
-        values: List<List<String>>,
-        firstWidthDp: Int = 140,
-        otherWidthDp: Int = 118,
-    ) {
-        val heading = TextView(context).apply {
-            text = title
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorText)
-            setPadding(0, dp(10), 0, dp(6))
-        }
-        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val firstWidth = dp(firstWidthDp)
-        val otherWidth = dp(otherWidthDp)
-        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val gridWidth = otherWidth * (headers.size - 1)
 
-        left.addView(diagnosticCell(headers.first(), colorSurface, true), lp(firstWidth, dp(42)))
 
-        val headRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(colorSurface)
-        }
-        headers.drop(1).forEach { header ->
-            headRow.addView(diagnosticCell(header, colorSurface, true), lp(otherWidth, dp(42)))
-        }
-        grid.addView(headRow, lp(gridWidth, dp(42)))
-
-        values.forEachIndexed { index, row ->
-            val stripe = if (index % 2 == 1) colorStripe else Color.TRANSPARENT
-            val first = diagnosticCell(row.firstOrNull().orEmpty(), stripe, true)
-            val cells = row.drop(1).map { diagnosticCell(it, stripe, false) }
-            val leftHeight = diagnosticHeight(first, firstWidth)
-            val rightHeight = cells.maxOfOrNull { diagnosticHeight(it, otherWidth) } ?: dp(42)
-            val height = maxOf(dp(42), leftHeight, rightHeight)
-
-            left.addView(first, lp(firstWidth, height))
-            val line = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(stripe)
-            }
-            cells.forEach { line.addView(it, lp(otherWidth, height)) }
-            grid.addView(line, lp(gridWidth, height))
-        }
-
-        val scroll = HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = true
-            addView(grid, ViewGroup.LayoutParams(gridWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val table = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(left, lp(firstWidth, ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    }
-
-    private class ExtCell(val text: CharSequence, val title: String, val detail: String)
-
-    private class ExtRow(val ip: String, val cells: List<ExtCell>)
 
     /** A reason cut to something that fits a cell: the timeouts get a word of their own. */
 
 
 
 
-    private fun extFailureText(result: IpTestExtResult): CharSequence {
-        val reason = result.reason.ifBlank { context.getString(R.string.iptest_ext_failed) }
-        return extText(extShortReason(context, reason), colorBad)
-    }
 
-    private fun extWsSummary(result: IpTestExtResult): CharSequence {
-        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
-        if (result.status == 101 || (result.ok && result.status == 0)) {
-            return extText(context.getString(R.string.iptest_ext_ws_upgraded), colorGood)
-        }
-        if (result.status in 200..399) {
-            return extText(context.getString(R.string.iptest_ext_no_upgrade, result.status), colorMuted)
-        }
-        if (result.status > 0) return extText(result.status.toString(), colorBad)
-        return extFailureText(result)
-    }
 
-    private fun extH3Summary(result: IpTestExtResult): CharSequence {
-        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
-        if (result.status > 0) {
-            val text = if (result.ms > 0) context.getString(R.string.iptest_ext_status_ms, result.status.toString(), result.ms) else result.status.toString()
-            return extText(text, if (result.status in 200..399) colorGood else colorBad)
-        }
-        return extFailureText(result)
-    }
+
+
+
 
     /** Two short lines: the TCP and the UDP path MTU (the UDP probe measures the payload, so the headers are added back). */
-    private fun extMtuSummary(ip: String, result: IpTestExtResult): CharSequence {
-        if (!result.tested) return extText(context.getString(R.string.iptest_diag_dash), colorMuted)
 
-        val sb = SpannableStringBuilder()
 
-        if (result.tcpMtu > 0) {
-            add(sb, context.getString(R.string.iptest_ext_tcp_short, result.tcpMtu), colorGood)
-        } else {
-            add(sb, context.getString(R.string.iptest_ext_tcp_none), colorMuted)
-        }
 
-        sb.append('\n')
 
-        val overhead = if (ip.contains(':')) 48 else 28
 
-        when {
-            result.udpMtu > 0 -> {
-                val format = if (result.detail.contains("UDP upper bound reached")) R.string.iptest_ext_udp_mtu_at_least else R.string.iptest_ext_udp_mtu
-                add(sb, context.getString(format, result.udpMtu + overhead), colorGood)
-            }
-            result.udpNoResponse -> add(sb, context.getString(R.string.iptest_ext_udp_none), colorMuted)
-            result.reason.isNotBlank() -> add(sb, extShortReason(context, result.reason), colorBad)
-            else -> add(sb, context.getString(R.string.iptest_ext_udp_dash), colorMuted)
-        }
 
-        return sb
-    }
 
-    private fun addExtensionTable(title: String, headers: List<String>, rows: List<ExtRow>) {
-        val heading = TextView(context).apply {
-            val sb = SpannableStringBuilder()
-            add(sb, title, bold = true)
-            add(sb, "  " + context.getString(R.string.iptest_ext_tap_hint), colorMuted)
-            sb.setSpan(android.text.style.AbsoluteSizeSpan(12, true), title.length, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            text = sb
-            textSize = 14f
-            setTextColor(colorText)
-            setPadding(0, dp(10), 0, dp(6))
-        }
-        diagnosticsBody.addView(heading, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        val firstWidth = dp(124)
-
-        fun cell(text: CharSequence, bold: Boolean, textColor: Int, size: Float): TextView = TextView(context).apply {
-            this.text = text
-            textSize = size
-            setTextColor(textColor)
-            gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(dp(6), dp(5), dp(6), dp(5))
-            minHeight = dp(42)
-            if (bold) setTypeface(typeface, Typeface.BOLD)
-        }
-
-        fun row(background: Int, cells: List<TextView>): LinearLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(background)
-            cells.forEachIndexed { i, view ->
-                if (i == 0) {
-                    addView(view, LinearLayout.LayoutParams(firstWidth, ViewGroup.LayoutParams.MATCH_PARENT))
-                } else {
-                    addView(view, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-                }
-            }
-        }
-
-        val table = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-
-        table.addView(
-            row(colorSurface, headers.map { cell(it, true, colorText, 14f) }),
-            lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
-        )
-
-        rows.forEachIndexed { index, r ->
-            val stripe = if (index % 2 == 1) colorStripe else Color.TRANSPARENT
-            val views = ArrayList<TextView>()
-
-            views += cell(r.ip, true, colorText, 14f)
-
-            for (c in r.cells) {
-                views += cell(c.text, false, colorText, 13f).apply {
-                    if (c.detail.isNotBlank()) setOnClickListener { onDetail(c.title, c.detail) }
-                }
-            }
-
-            table.addView(row(stripe, views), lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-
-        diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    }
-
-    private fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
-        return TextView(context).apply {
-            this.text = text.ifBlank { context.getString(R.string.iptest_diag_not_obtained) }
-            textSize = 14f
-            setTextColor(colorText)
-            gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(dp(6), dp(5), dp(6), dp(5))
-            setBackgroundColor(backgroundColor)
-            if (bold) setTypeface(typeface, Typeface.BOLD)
-        }
-    }
-
-    private fun diagnosticHeight(view: View, width: Int): Int {
-        view.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-        )
-        return view.measuredHeight
-    }
 
     /** [testing]: the round is running (no download then); [ip]: the row whose download is running. */
     fun setBusy(testing: Boolean, ip: String?) {
@@ -1193,8 +627,8 @@ class IpTestView(
 
         sb.append("\n").append(context.getString(R.string.iptest_log_title))
         if (totalIps > 0) sb.append(context.getString(R.string.iptest_log_progress, totalIps, testedIps))
-        if (diagnosticsPlain.isNotEmpty()) {
-            sb.append("\n\n").append(context.getString(R.string.iptest_diag_title)).append("\n").append(diagnosticsPlain)
+        if (diagnostics.diagnosticsPlain.isNotEmpty()) {
+            sb.append("\n\n").append(context.getString(R.string.iptest_diag_title)).append("\n").append(diagnostics.diagnosticsPlain)
         }
 
         sb.append('\n').append(logLines.joinToString("\n"))

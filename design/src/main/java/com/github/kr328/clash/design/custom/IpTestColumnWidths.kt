@@ -314,8 +314,8 @@ internal class IpTestColumnWidths(private val env: IpTestEnv, private val cells:
 
     fun savedTableWidths(availableWidth: Int, savedRows: List<IpTestRow>, cityNames: Map<String, String>, countryCodes: Map<String, String>): IntArray {
         env.rows = savedRows
-        colos = cityNames
-        coloCountries = countryCodes
+        env.colos = cityNames
+        env.coloCountries = countryCodes
         env.savedTableAvailableWidth = availableWidth
         return widths()
     }
