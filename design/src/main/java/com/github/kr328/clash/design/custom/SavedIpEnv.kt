@@ -27,6 +27,18 @@ internal interface SavedIpEnv {
     var showDirectSpeed: Boolean
     val density: Float
     val colorSurface: Int
+    val colorText: Int
+    val colorLink: Int
+    val colorMuted: Int
+    val colorDivider: Int
+    val operatorContent: android.widget.LinearLayout
+    val operatorList: android.widget.ScrollView
+    val stickyHeaderContainer: android.widget.LinearLayout
+    val speedAvailable: Boolean
+    val speedBusy: Boolean
+    val onSpeedTest: (String, String, Boolean) -> Unit
+    var renderedDataVersion: Long
+    var renderedQuery: String?
     val searchInput: android.widget.EditText
     val searchBox: android.widget.FrameLayout
     val searchIconButton: android.widget.FrameLayout
@@ -47,6 +59,14 @@ internal interface SavedIpEnv {
     fun currentSort(operatorId: String): SavedIpSort
     fun setCurrentSort(operatorId: String, value: SavedIpSort)
     fun collapseSearch()
+    fun cancelPendingSearchRender()
+    fun dismissFailureDetailDialog()
+    fun copyIp(address: String)
+    fun confirmDeleteUnreachable(operator: SavedIpOperator)
+    fun editOperator(operator: SavedIpOperator)
+    fun confirmDeleteOperator(operator: SavedIpOperator)
+    fun chooseDeleteOlder(operator: SavedIpOperator)
+    fun toggleSelection(operatorId: String, address: String): Boolean
     fun expandSearch()
     fun updateSearchUi()
     fun visibleEntries(operator: SavedIpOperator, applySort: Boolean = false): List<SavedIpEntry>

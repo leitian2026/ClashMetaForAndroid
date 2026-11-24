@@ -151,7 +151,6 @@ class SavedIpDesign(
         addView(searchClearButton, FrameLayout.LayoutParams(savedIpDp(density, 40), savedIpDp(density, 40), Gravity.END or Gravity.CENTER_VERTICAL))
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
-    private var renderedDataVersion = -1L
     private var hasLoadedSnapshot = false
     private var configuredIpSources: Map<String, Set<String>> = emptyMap()
     private var expandedOperatorId: String?
@@ -164,15 +163,6 @@ class SavedIpDesign(
         effectiveSavedIpSortName(filterState.sortFor(operatorId).name, showDirectSpeed),
     )
     private fun setCurrentSort(operatorId: String, value: SavedIpSort) = filterState.setSort(operatorId, value)
-    private val savedTableRenderers = HashMap<String, Pair<IpTestView, IntArray>>()
-    // Must be initialized before init{} calls refresh() -> renderRows().
-    private val operatorSections = HashMap<String, LinearLayout>()
-    private val stickyHeaderCopies = HashMap<String, View>()
-    private val stickyHeaderTables = HashMap<String, View>()
-    private val stickyHeaderSourceScrolls = HashMap<String, HorizontalScrollView>()
-    private val stickyHeaderCopyScrolls = HashMap<String, HorizontalScrollView>()
-    private var stickyHeaderOperatorId: String? = null
-    private var savedTableScrollX = 0
 
     // CUSTOM (CUSTOM.md #164): the former filter toolbar is removed; search moves into the title row.
     private val selectionActions = LinearLayout(context).apply {
@@ -269,6 +259,10 @@ class SavedIpDesign(
             set(value) { this@SavedIpDesign.showDirectSpeed = value }
         override val density get() = this@SavedIpDesign.density
         override val colorSurface get() = this@SavedIpDesign.colorSurface
+        override val colorText get() = this@SavedIpDesign.colorText
+        override val colorLink get() = this@SavedIpDesign.colorLink
+        override val colorMuted get() = this@SavedIpDesign.colorMuted
+        override val colorDivider get() = this@SavedIpDesign.colorDivider
         override val searchInput get() = this@SavedIpDesign.searchInput
         override val searchBox get() = this@SavedIpDesign.searchBox
         override val searchIconButton get() = this@SavedIpDesign.searchIconButton
@@ -276,38 +270,60 @@ class SavedIpDesign(
         override val searchIndicator get() = this@SavedIpDesign.searchIndicator
         override val searchClearButton get() = this@SavedIpDesign.searchClearButton
         override val moreButton: View get() = this@SavedIpDesign.moreButton
-        override val savedTableRenderers get() = this@SavedIpDesign.savedTableRenderers
+        override val operatorContent get() = this@SavedIpDesign.operatorContent
+        override val operatorList get() = this@SavedIpDesign.operatorList
+        override val stickyHeaderContainer get() = this@SavedIpDesign.stickyHeaderContainer
+        override val savedTableRenderers get() = renderState.savedTableRenderers
         override val configuredIpSources get() = this@SavedIpDesign.configuredIpSources
-        override val renderedDataVersion get() = this@SavedIpDesign.renderedDataVersion
+        override var renderedDataVersion: Long
+            get() = renderState.renderedDataVersion
+            set(value) { renderState.renderedDataVersion = value }
+        override var renderedQuery: String?
+            get() = search.renderedQuery
+            set(value) { search.renderedQuery = value }
         override var visibleSavedColumns: Set<String>
             get() = filterMenus.visibleSavedColumns
             set(value) { filterMenus.visibleSavedColumns = value }
+        override val speedAvailable get() = this@SavedIpDesign.speedAvailable
+        override val speedBusy get() = this@SavedIpDesign.speedBusy
+        override val onSpeedTest get() = this@SavedIpDesign.onSpeedTest
 
         override fun refresh() = this@SavedIpDesign.refresh()
-        override fun renderRows() = this@SavedIpDesign.renderRows()
-        override fun renderOperator(operatorId: String, showEmptyState: Boolean) = this@SavedIpDesign.renderOperator(operatorId, showEmptyState)
-        override fun visibleEntries(operator: SavedIpOperator, applySort: Boolean) = this@SavedIpDesign.visibleEntries(operator, applySort)
-        override fun savedTableFor(operator: SavedIpOperator) = this@SavedIpDesign.savedTableFor(operator)
+        override fun renderRows() = renderer.renderRows()
+        override fun renderOperator(operatorId: String, showEmptyState: Boolean) = renderer.renderOperator(operatorId, showEmptyState)
+        override fun savedTableFor(operator: SavedIpOperator) = renderer.savedTableFor(operator)
+        override fun visibleEntries(operator: SavedIpOperator, applySort: Boolean) = filterMenus.visibleEntries(operator, applySort)
         override fun currentSort(operatorId: String) = this@SavedIpDesign.currentSort(operatorId)
         override fun setCurrentSort(operatorId: String, value: SavedIpSort) = this@SavedIpDesign.setCurrentSort(operatorId, value)
         override fun collapseSearch() = search.collapseSearch()
         override fun expandSearch() = search.expandSearch()
         override fun updateSearchUi() = search.updateSearchUi()
+        override fun cancelPendingSearchRender() = search.cancelPendingSearchRender()
+        override fun dismissFailureDetailDialog() = deleteUndo.dismissFailureDetailDialog()
         override fun clearSelectionState() = selection.clearSelectionState()
+        override fun toggleSelection(operatorId: String, address: String) = selection.toggleSelection(operatorId, address)
+        override fun copyIp(address: String) = this@SavedIpDesign.copyIp(address)
+        override fun confirmDeleteUnreachable(operator: SavedIpOperator) = deleteUndo.confirmDeleteUnreachable(operator)
+        override fun editOperator(operator: SavedIpOperator) = deleteUndo.editOperator(operator)
+        override fun confirmDeleteOperator(operator: SavedIpOperator) = deleteUndo.confirmDeleteOperator(operator)
+        override fun chooseDeleteOlder(operator: SavedIpOperator) = deleteUndo.chooseDeleteOlder(operator)
         override fun writeSnapshot(transform: (SavedIpSnapshot) -> SavedIpSnapshot): Boolean = deleteUndo.writeSnapshot(transform)
     }
     private val search = SavedIpSearch(env)
-    private var renderedQuery: String?
-        get() = search.renderedQuery
-        set(value) { search.renderedQuery = value }
     private val selection = SavedIpSelection(env)
     private var selectedOperatorId: String?
         get() = selection.selectedOperatorId
         set(value) { selection.selectedOperatorId = value }
-    private val selectedAddresses: LinkedHashSet<String>
-        get() = selection.selectedAddresses
+    private val selectedAddresses: LinkedHashSet<String> get() = selection.selectedAddresses
     private val deleteUndo = SavedIpDeleteUndo(env)
     private val filterMenus = SavedIpFilterMenus(env)
+    private val visibleSavedColumns: Set<String> get() = filterMenus.visibleSavedColumns
+    private val renderState = SavedIpRenderState()
+    private var renderedDataVersion: Long
+        get() = renderState.renderedDataVersion
+        set(value) { renderState.renderedDataVersion = value }
+    private val savedTableRenderers get() = renderState.savedTableRenderers
+    private val renderer = SavedIpRenderer(env, renderState, selection, filterMenus)
     private var visibleSavedColumns: Set<String>
         get() = filterMenus.visibleSavedColumns
         set(value) { filterMenus.visibleSavedColumns = value }
@@ -499,399 +515,30 @@ class SavedIpDesign(
     // expands every matching operator, preserving the existing search behavior.
     // CUSTOM (CUSTOM.md #165): each operator owns one section View. Local filter/selection
     // changes replace only that section; page-wide changes still call renderRows().
-    private fun renderRows() {
-        cancelPendingSearchRender()
-        dismissFailureDetailDialog()
-        renderedQuery = searchInput.text?.toString().orEmpty()
-        operatorContent.removeAllViews()
-        operatorSections.clear()
-        stickyHeaderCopies.clear()
-        stickyHeaderTables.clear()
-        stickyHeaderSourceScrolls.clear()
-        stickyHeaderCopyScrolls.clear()
-        stickyHeaderContainer.removeAllViews()
-        stickyHeaderContainer.visibility = View.GONE
-        stickyHeaderOperatorId = null
-        snapshotCache.operators.forEach { renderOperator(it.id, showEmptyState = false) }
-        if (operatorContent.childCount == 0) addEmptyState()
-        updateStickyHeader()
-        operatorList.post { updateStickyHeader() }
-    }
 
-    private fun addEmptyState() {
-        operatorContent.addView(TextView(context).apply {
-            tag = EMPTY_STATE_TAG
-            setText(if (snapshotCache.operators.none { it.ips.isNotEmpty() }) R.string.saved_ip_empty else R.string.saved_ip_filter_no_match)
-            textSize = 14f
-            setTextColor(colorMuted)
-            setPadding(0, savedIpDp(density, 12), 0, savedIpDp(density, 16))
-        }, savedIpFullWidth())
-    }
 
-    private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) {
-        val operator = snapshotCache.operators.firstOrNull { it.id == operatorId } ?: return
-        dismissFailureDetailDialog()
-        stickyHeaderCopies.remove(operatorId)
-        stickyHeaderTables.remove(operatorId)
-        stickyHeaderSourceScrolls.remove(operatorId)
-        stickyHeaderCopyScrolls.remove(operatorId)
-        if (stickyHeaderOperatorId == operatorId) {
-            stickyHeaderContainer.removeAllViews()
-            stickyHeaderContainer.visibility = View.GONE
-            stickyHeaderOperatorId = null
-        }
-        operatorSections.remove(operatorId)?.let { operatorContent.removeView(it) }
-        operatorContent.findViewWithTag<View>(EMPTY_STATE_TAG)?.let { operatorContent.removeView(it) }
 
-        val query = searchInput.text?.toString()?.trim().orEmpty()
-        val expanded = query.isNotEmpty() || expandedOperatorId == operator.id || selectedOperatorId == operator.id
-        // Keep status filters, column filters and search active during multi-selection.
-        // Calculate speed sorting only for the explicitly expanded operator group.
-        val filtered = visibleEntries(operator, applySort = operator.id == expandedOperatorId || selectedOperatorId == operator.id)
-        val entries = if (query.isEmpty()) filtered else {
-            val renderer = savedTableFor(operator).first
-            filtered.filter { entry ->
-                entry.address.contains(query, ignoreCase = true) ||
-                    SAVED_SEARCH_COLUMNS.any { column ->
-                        column in visibleSavedColumns &&
-                            renderer.savedTableFilterValue(entry, column).contains(query, ignoreCase = true)
-                    }
-            }
-        }
-        val hasActiveFilters = filterState.selectedStatuses.containsKey(operator.id) ||
-            filterState.selectedTableFilters.containsKey(operator.id)
-        if (entries.isNotEmpty() || (operator.ips.isNotEmpty() && hasActiveFilters)) {
-            val section = LinearLayout(context).apply {
-                tag = operator.id
-                orientation = LinearLayout.VERTICAL
-            }
-            val group = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, savedIpDp(density, 10), 0, savedIpDp(density, 8))
-            }
-            bindOperatorRow(group, operator, entries, expanded)
-            section.addView(group, savedIpFullWidth())
-            if (expanded) {
-                if (entries.isNotEmpty()) {
-                    bindSavedTable(section, operator, entries)
-                } else {
-                    bindSavedTable(section, operator, emptyList())
-                    section.addView(TextView(context).apply {
-                        setText(R.string.saved_ip_filter_no_match)
-                        textSize = 13f
-                        setTextColor(colorMuted)
-                        setPadding(savedIpDp(density, 48), savedIpDp(density, 8), 0, savedIpDp(density, 12))
-                    }, savedIpFullWidth())
-                }
-            }
-            val targetOrder = snapshotCache.operators.indexOfFirst { it.id == operatorId }
-            var insertAt = operatorContent.childCount
-            for (i in 0 until operatorContent.childCount) {
-                val childId = operatorContent.getChildAt(i).tag as? String ?: continue
-                val childOrder = snapshotCache.operators.indexOfFirst { it.id == childId }
-                if (childOrder > targetOrder) { insertAt = i; break }
-            }
-            operatorContent.addView(section, insertAt, savedIpFullWidth())
-            operatorSections[operatorId] = section
-        }
-        if (showEmptyState && operatorContent.childCount == 0) addEmptyState()
-        updateStickyHeader()
-        operatorList.post { updateStickyHeader() }
-    }
+
+
 
     private companion object {
-        val EMPTY_STATE_TAG = Any()
         // Saved-table filterable columns: entry colo, ASN, registered country, exit country,
         // port, exit IP, target colo and target response. Values come from IpTestView's cell mapping.
         const val KEY_PERSISTENT_UI_STATE = "persistent_filter_state"
-        val SAVED_TABLE_TAG = Any()
     }
 
-    private fun bindOperatorRow(
-        container: LinearLayout,
-        operator: SavedIpOperator,
-        entries: List<SavedIpEntry>,
-        expanded: Boolean,
-    ) {
-        val reachable = operator.ips.count { it.status == SavedIpStatus.REACHABLE }
-        val unreachable = operator.ips.count { it.status == SavedIpStatus.UNREACHABLE }
-        val untested = operator.ips.count { it.status == SavedIpStatus.UNTESTED }
-        val allUnreachable = operator.ips.any { it.status == SavedIpStatus.UNREACHABLE }
-        val header = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = savedIpDp(density, 56)
-        }
-        val arrow = TextView(context).apply {
-            text = if (expanded) "▾" else "▸"
-            textSize = 18f
-            setTextColor(colorLink)
-            gravity = Gravity.CENTER
-        }
-        header.addView(arrow, LinearLayout.LayoutParams(savedIpDp(density, 48), savedIpDp(density, 48)))
-        val title = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        title.addView(TextView(context).apply {
-            text = context.getString(R.string.saved_ip_group_title, savedIpDisplayName(context, operator), entries.size)
-            textSize = 15f
-            setTextColor(colorText)
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            maxLines = 1
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val statusTags = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        statusTags.addView(groupStatusTag(operator, null, "全部", operator.ips.size, colorLink))
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.REACHABLE, context.getString(R.string.saved_ip_status_reachable), reachable, Color.rgb(46, 125, 50)))
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNREACHABLE, context.getString(R.string.saved_ip_status_unreachable), unreachable, Color.rgb(198, 40, 40)))
-        statusTags.addView(groupStatusTag(operator, SavedIpStatus.UNTESTED, context.getString(R.string.saved_ip_status_untested), untested, Color.rgb(239, 143, 0)))
-        title.addView(statusTags, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val menuButton = TextView(context).apply {
-            text = "⋮"
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setTextColor(colorLink)
-            background = savedIpSelectableBackground(context)
-            contentDescription = context.getString(R.string.saved_ip_group_menu)
-            setOnClickListener { anchor ->
-                PopupMenu(context, anchor).apply {
-                    menu.add(0, 1, 0, R.string.saved_ip_delete_unreachable).isEnabled = allUnreachable
-                    menu.add(0, 4, 1, R.string.saved_ip_delete_older)
-                    menu.add(0, 5, 2, R.string.saved_ip_select_age)
-                    menu.add(0, 6, 5, R.string.saved_ip_show_columns)
-                    if (operator.id !in SavedIpStore.builtInOperatorIds) {
-                        menu.add(0, 2, 3, R.string.saved_ip_rename)
-                        menu.add(0, 3, 4, R.string.saved_ip_delete)
-                    }
-                    setOnMenuItemClickListener { item ->
-                        when (item.itemId) {
-                            1 -> confirmDeleteUnreachable(operator)
-                            2 -> editOperator(operator)
-                            3 -> confirmDeleteOperator(operator)
-                            4 -> chooseDeleteOlder(operator)
-                            5 -> chooseSelectAge(operator)
-                            6 -> showSavedColumnsDialog()
-                        }
-                        true
-                    }
-                    show()
-                }
-            }
-        }
-        header.addView(menuButton, LinearLayout.LayoutParams(savedIpDp(density, 48), savedIpDp(density, 48)))
-        container.addView(header, savedIpFullWidth())
-        container.setOnClickListener {
-            expandedOperatorId = if (expandedOperatorId == operator.id) null else operator.id
-            renderRows()
-        }
-        container.addView(View(context).apply { setBackgroundColor(colorDivider) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, savedIpDp(density, 1)))
-    }
+
 
     // CUSTOM (CUSTOM.md #164): one mutually exclusive status choice per operator; "全部" clears it.
-    private fun groupStatusTag(
-        operator: SavedIpOperator,
-        status: SavedIpStatus?,
-        label: String,
-        count: Int,
-        color: Int,
-    ): TextView = TextView(context).apply {
-        text = "$label $count"
-        textSize = 12f
-        val selectedStatuses = filterState.selectedStatuses[operator.id].orEmpty()
-        val selected = if (status == null) selectedStatuses.isEmpty() else selectedStatuses.singleOrNull() == status
-        setTextColor(if (selected) Color.WHITE else color)
-        setPadding(savedIpDp(density, 7), savedIpDp(density, 4), savedIpDp(density, 7), savedIpDp(density, 4))
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = savedIpDp(density, 8).toFloat()
-            setColor(if (selected) color else Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)))
-        }
-        setOnClickListener {
-            if (status == null) {
-                filterState.selectedStatuses.remove(operator.id)
-            } else {
-                filterState.selectedStatuses[operator.id] = linkedSetOf(status)
-            }
-            val previousSelection = selectedOperatorId
-            clearSelectionState()
-            renderOperator(operator.id)
-            if (previousSelection != null && previousSelection != operator.id) renderOperator(previousSelection)
-        }
-    }
 
-    private fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> =
-        savedTableRenderers.getOrPut(operator.id) {
-            val renderer = IpTestView(
-                context, direct = false, target = false, savedTable = true,
-                visibleSavedColumns = visibleSavedColumns,
-                showDirectSpeed = showDirectSpeed,
-            )
-            val width = (operatorList.width - operatorList.paddingLeft - operatorList.paddingRight)
-                .takeIf { it > 0 } ?: (context.resources.displayMetrics.widthPixels - savedIpDp(density, 32))
-            val widths = renderer.savedTableWidths(
-                width,
-                operator.ips.map { it.result ?: com.github.kr328.clash.core.model.IpTestRow(ip = it.address, ok = true) },
-                operator.colos,
-                operator.coloCountries,
-            )
-            renderer to widths
-        }
 
-    private fun bindSavedTable(container: LinearLayout, operator: SavedIpOperator, entries: List<SavedIpEntry>) {
-        val (renderer, widths) = savedTableFor(operator)
-        // CUSTOM #156: hidden direct-speed filter state remains stored but is not shown in the table header.
-        val selectedFilters = filterState.selectedTableFilters[operator.id].orEmpty()
-            .filterKeys { showDirectSpeed || it != "SPEED" }
-        // CUSTOM.md #166: calculate from the complete operator list, before UI filters are applied.
-        val recommendedIps = IpRecommend.forSaved(operator.ips, System.currentTimeMillis())
-        val speedSortLabel = when {
-            currentSort(operator.id) == SavedIpSort.DEFAULT -> ""
-            currentSort(operator.id).isFastest -> "按最快"
-            else -> "按最慢"
-        }
-        val onHeaderClick: (Int, View) -> Unit = { columnIndex, anchor ->
-            val columnName = renderer.savedTableColumnName(columnIndex)
-            if (columnName == "SPEED" || columnName == "SPEED_NODE") showSpeedSortMenu(anchor, columnName, operator.id)
-            else showTableColumnPopup(anchor, operator, columnIndex)
-        }
-        fun makeTable(rows: List<SavedIpEntry>, tableRenderer: IpTestView): View = tableRenderer.savedTableView(
-            entries = rows,
-            configIpSources = configuredIpSources,
-            widths = widths,
-            scrollX = savedTableScrollX,
-            onScroll = { savedTableScrollX = it },
-            isSelectionMode = { selectedOperatorId == operator.id },
-            isSelected = { address -> selectedOperatorId == operator.id && address in selectedAddresses },
-            onCopy = ::copyIp,
-            onDetail = { title, detail ->
-                MaterialAlertDialogBuilder(context).setTitle(title).setMessage(detail)
-                    .setPositiveButton(R.string.close, null).show()
-            },
-            onFailureDetail = { title, detail ->
-                val message = TextView(context).apply {
-                    text = detail
-                    textSize = 14f
-                    setTextColor(colorText)
-                    setTextIsSelectable(true)
-                    setPadding(savedIpDp(density, 16), savedIpDp(density, 8), savedIpDp(density, 16), savedIpDp(density, 8))
-                }
-                val scroll = ScrollView(context).apply {
-                    isVerticalScrollBarEnabled = true
-                    addView(message, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                }
-                dismissFailureDetailDialog()
-                val dialog = MaterialAlertDialogBuilder(context).setTitle(title).setView(
-                    scroll,
-                    savedIpDp(density, 12),
-                    savedIpDp(density, 8),
-                    savedIpDp(density, 12),
-                    savedIpDp(density, 8),
-                ).setPositiveButton(R.string.close, null).create()
-                failureDetailDialog = dialog
-                dialog.setOnDismissListener {
-                    if (failureDetailDialog === dialog) failureDetailDialog = null
-                }
-                dialog.show()
-            },
-            onLongPress = { address -> toggleSelection(operator.id, address) },
-            selectedFilters = selectedFilters,
-            speedSortLabel = speedSortLabel,
-            speedSortColumnName = currentSort(operator.id).columnName,
-            onHeaderClick = onHeaderClick,
-            recommendedIps = recommendedIps,
-            speedAvailable = speedAvailable,
-            speedBusy = speedBusy,
-            onSpeedTest = { address, direct -> onSpeedTest(operator.id, address, direct) },
-        )
 
-        val table = makeTable(entries, renderer).apply { tag = SAVED_TABLE_TAG }
-        stickyHeaderTables[operator.id] = table
-        container.addView(table, savedIpFullWidth())
 
-        // Keep a separate header-only renderer so the main renderer retains row handles for in-place updates.
-        val stickyRenderer = IpTestView(
-            context, direct = false, target = false, savedTable = true,
-            visibleSavedColumns = visibleSavedColumns, showDirectSpeed = showDirectSpeed,
-        )
-        val stickyCopy = makeTable(emptyList(), stickyRenderer)
-        stickyHeaderCopies[operator.id] = stickyCopy
-        val sourceScroll = findHorizontalScroll(table)
-        val copyScroll = findHorizontalScroll(stickyCopy)
-        if (sourceScroll != null && copyScroll != null) {
-            var syncing = false
-            sourceScroll.setOnScrollChangeListener { _, x, _, _, _ ->
-                savedTableScrollX = x
-                if (!syncing && copyScroll.scrollX != x) {
-                    syncing = true
-                    copyScroll.scrollTo(x, 0)
-                    syncing = false
-                }
-            }
-            copyScroll.setOnScrollChangeListener { _, x, _, _, _ ->
-                savedTableScrollX = x
-                if (!syncing && sourceScroll.scrollX != x) {
-                    syncing = true
-                    sourceScroll.scrollTo(x, 0)
-                    syncing = false
-                }
-            }
-            stickyHeaderSourceScrolls[operator.id] = sourceScroll
-            stickyHeaderCopyScrolls[operator.id] = copyScroll
-        }
-    }
 
-    private fun findHorizontalScroll(view: View): HorizontalScrollView? {
-        if (view is HorizontalScrollView) return view
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                findHorizontalScroll(view.getChildAt(i))?.let { return it }
-            }
-        }
-        return null
-    }
 
-    private fun updateStickyHeader() {
-        val viewportLocation = IntArray(2)
-        operatorList.getLocationOnScreen(viewportLocation)
-        val viewportTop = viewportLocation[1]
-        var activeOperatorId: String? = null
-        for (operator in snapshotCache.operators) {
-            // Only expanded operators have a table entry; use the cached reference instead of
-            // traversing the section's view tree on every vertical scroll event.
-            val table = stickyHeaderTables[operator.id] ?: continue
-            if (table.height <= 0) continue
-            val tableLocation = IntArray(2)
-            table.getLocationOnScreen(tableLocation)
-            if (tableLocation[1] < viewportTop && tableLocation[1] + table.height > viewportTop) {
-                activeOperatorId = operator.id
-                break
-            }
-        }
 
-        if (activeOperatorId == null) {
-            stickyHeaderContainer.visibility = View.GONE
-            stickyHeaderOperatorId = null
-            return
-        }
 
-        val copy = stickyHeaderCopies[activeOperatorId] ?: return
-        if (stickyHeaderOperatorId != activeOperatorId || stickyHeaderContainer.childCount == 0) {
-            stickyHeaderContainer.removeAllViews()
-            (copy.parent as? ViewGroup)?.removeView(copy)
-            stickyHeaderContainer.addView(copy, savedIpFullWidth())
-            stickyHeaderOperatorId = activeOperatorId
-        }
-        stickyHeaderContainer.visibility = View.VISIBLE
-        val sourceScroll = stickyHeaderSourceScrolls[activeOperatorId]
-        val copyScroll = stickyHeaderCopyScrolls[activeOperatorId]
-        if (sourceScroll != null && copyScroll != null && copyScroll.scrollX != sourceScroll.scrollX) {
-            copyScroll.scrollTo(sourceScroll.scrollX, 0)
-        }
-    }
+
 
 
 
@@ -952,6 +599,11 @@ class SavedIpDesign(
 
 
 
+
+    private fun renderRows() = renderer.renderRows()
+    private fun renderOperator(operatorId: String, showEmptyState: Boolean = true) = renderer.renderOperator(operatorId, showEmptyState)
+    private fun savedTableFor(operator: SavedIpOperator): Pair<IpTestView, IntArray> = renderer.savedTableFor(operator)
+    private fun updateStickyHeader() = renderer.updateStickyHeader()
 
     private fun scheduleSearchRender() = search.scheduleSearchRender()
     fun cancelPendingSearchRender() = search.cancelPendingSearchRender()
