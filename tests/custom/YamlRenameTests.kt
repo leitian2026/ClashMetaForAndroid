@@ -25,11 +25,11 @@ object YamlRenameTests {
             rules:
               - DOMAIN,example.com,G
         """.trimIndent()
-        val plan = YamlRename.plan(text, text.indexOf("A", text.indexOf("name: A")), "Renamed")
+        val plan = YamlRename.plan(text, text.indexOf("G", text.indexOf("name: G")), "GroupRenamed")
         val result = YamlRename.apply(text, plan.changes)
-        check(plan.error == null && plan.definitionCount == 1 && plan.referenceCount == 1, "rename block definition and proxy reference")
-        check(result.contains("name: Renamed") && result.contains("- Renamed"), "block rename writes both locations")
-        check(result.contains("DOMAIN,example.com,G"), "unrelated policy is not changed")
+        check(plan.error == null && plan.definitionCount == 1 && plan.referenceCount == 1, "rename block group definition and policy reference")
+        check(result.contains("name: GroupRenamed") && result.contains("DOMAIN,example.com,GroupRenamed"), "block group rename writes definition and policy")
+        check(result.contains("- A"), "unrelated proxy reference is not changed")
     }
 
     private fun flowProxyReferences() {
@@ -44,20 +44,24 @@ object YamlRenameTests {
         val plan = YamlRename.plan(text, at, "NodeA")
         val result = YamlRename.apply(text, plan.changes)
         check(plan.error == null && plan.referenceCount == 1, "flow proxy reference resolves")
-        check(result.contains("proxies: [NodeA, B]"), "flow proxy reference is quoted when needed")
+        check(result.contains("proxies: [NodeA, B]"), "flow proxy reference is updated")
     }
 
     private fun rulePolicyReference() {
         val text = """
             proxies:
               - name: A
+            proxy-groups:
+              - name: G
+                proxies: [A]
             rules:
-              - DOMAIN,example.com,A
+              - DOMAIN,example.com,G
         """.trimIndent()
-        val at = text.lastIndexOf("A")
-        val plan = YamlRename.plan(text, at, "B")
+        val at = text.lastIndexOf("G")
+        val plan = YamlRename.plan(text, at, "GroupB")
+        val result = YamlRename.apply(text, plan.changes)
         check(plan.error == null && plan.referenceCount == 1, "rule policy reference resolves")
-        check(YamlRename.apply(text, plan.changes).contains("DOMAIN,example.com,B"), "rule policy is renamed")
+        check(result.contains("name: GroupB") && result.contains("DOMAIN,example.com,GroupB"), "rule policy and group definition are renamed")
     }
 
     private fun quotedNameStyle() {
