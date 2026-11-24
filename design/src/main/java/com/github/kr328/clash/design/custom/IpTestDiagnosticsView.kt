@@ -274,7 +274,7 @@ internal class IpTestDiagnosticsView(
         }
     }
 
-    fun addDetailedDiagnosticsTable(
+    private fun addDetailedDiagnosticsTable(
         title: String,
         headers: List<String>,
         values: List<List<String>>,
@@ -376,7 +376,7 @@ internal class IpTestDiagnosticsView(
         diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
-    fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
+    private fun detailedColumnWidths(headers: List<String>, values: List<List<String>>, availableWidth: Int): IntArray {
         val maxRegularWidth = (availableWidth / 2).coerceAtLeast(dp(48))
         val normalPaint = TextView(env.context).apply { textSize = 14f }.paint
         val boldPaint = TextView(env.context).apply {
@@ -400,7 +400,7 @@ internal class IpTestDiagnosticsView(
         }
     }
 
-    fun detailedHeaderCell(text: String): TextView = TextView(env.context).apply {
+    private fun detailedHeaderCell(text: String): TextView = TextView(env.context).apply {
         this.text = text
         textSize = 14f
         maxLines = 2
@@ -412,7 +412,7 @@ internal class IpTestDiagnosticsView(
         setPadding(dp(6), dp(6), dp(6), dp(6))
     }
 
-    fun detailedValueCell(text: String, copyText: String, bold: Boolean, noWrap: Boolean): TextView = TextView(env.context).apply {
+    private fun detailedValueCell(text: String, copyText: String, bold: Boolean, noWrap: Boolean): TextView = TextView(env.context).apply {
         this.text = text.ifBlank { env.context.getString(R.string.iptest_diag_not_obtained) }
         textSize = 14f
         maxLines = if (noWrap) 1 else 3
@@ -426,7 +426,7 @@ internal class IpTestDiagnosticsView(
         setOnClickListener { env.onCopy(copyText.ifBlank { this.text.toString() }) }
     }
 
-    fun detailedHeight(view: View, width: Int): Int {
+    private fun detailedHeight(view: View, width: Int): Int {
         view.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
@@ -434,7 +434,7 @@ internal class IpTestDiagnosticsView(
         return view.measuredHeight
     }
 
-    fun addDiagnosticsTable(
+    private fun addDiagnosticsTable(
         title: String,
         headers: List<String>,
         values: List<List<String>>,
@@ -496,12 +496,12 @@ internal class IpTestDiagnosticsView(
         diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
-    fun extFailureText(result: IpTestExtResult): CharSequence {
+    private fun extFailureText(result: IpTestExtResult): CharSequence {
         val reason = result.reason.ifBlank { env.context.getString(R.string.iptest_ext_failed) }
         return extText(extShortReason(env.context, reason), env.colorBad)
     }
 
-    fun extWsSummary(result: IpTestExtResult): CharSequence {
+    private fun extWsSummary(result: IpTestExtResult): CharSequence {
         if (!result.tested) return extText(env.context.getString(R.string.iptest_diag_dash), env.colorMuted)
         if (result.status == 101 || (result.ok && result.status == 0)) {
             return extText(env.context.getString(R.string.iptest_ext_ws_upgraded), env.colorGood)
@@ -513,7 +513,7 @@ internal class IpTestDiagnosticsView(
         return extFailureText(result)
     }
 
-    fun extH3Summary(result: IpTestExtResult): CharSequence {
+    private fun extH3Summary(result: IpTestExtResult): CharSequence {
         if (!result.tested) return extText(env.context.getString(R.string.iptest_diag_dash), env.colorMuted)
         if (result.status > 0) {
             val text = if (result.ms > 0) env.context.getString(R.string.iptest_ext_status_ms, result.status.toString(), result.ms) else result.status.toString()
@@ -522,7 +522,7 @@ internal class IpTestDiagnosticsView(
         return extFailureText(result)
     }
 
-    fun extMtuSummary(ip: String, result: IpTestExtResult): CharSequence {
+    private fun extMtuSummary(ip: String, result: IpTestExtResult): CharSequence {
         if (!result.tested) return extText(env.context.getString(R.string.iptest_diag_dash), env.colorMuted)
 
         val sb = SpannableStringBuilder()
@@ -550,7 +550,7 @@ internal class IpTestDiagnosticsView(
         return sb
     }
 
-    fun addExtensionTable(title: String, headers: List<String>, rows: List<ExtRow>) {
+    private fun addExtensionTable(title: String, headers: List<String>, rows: List<ExtRow>) {
         val heading = TextView(env.context).apply {
             val sb = SpannableStringBuilder()
             add(sb, title, bold = true)
@@ -612,7 +612,7 @@ internal class IpTestDiagnosticsView(
         diagnosticsBody.addView(table, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
-    fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
+    private fun diagnosticCell(text: String, backgroundColor: Int, bold: Boolean): TextView {
         return TextView(env.context).apply {
             this.text = text.ifBlank { env.context.getString(R.string.iptest_diag_not_obtained) }
             textSize = 14f
@@ -624,7 +624,7 @@ internal class IpTestDiagnosticsView(
         }
     }
 
-    fun diagnosticHeight(view: View, width: Int): Int {
+    private fun diagnosticHeight(view: View, width: Int): Int {
         view.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),

@@ -44,6 +44,10 @@ internal interface IpTestEnv {
     val colorBad: Int
     val colorLink: Int
     val colorSurface: Int
+    val night: Boolean
+    val showDirectSpeed: Boolean
+    val rowH: Int
+    val headH: Int
     val colorStripe: Int
     val colorTableDivider: Int
     val dnsReport: DnsCheckReport?
@@ -210,7 +214,7 @@ internal class IpTestCells(private val env: IpTestEnv) {
         val running = env.speedIp == r.ip
         val enabled = !env.testing && (env.speedIp == null || running)
 
-        val button = ProgressMaterialButton().apply {
+        val button = ProgressMaterialButton(env.context, env.colorLink).apply {
             text = if (running && env.downloadProgressPercent != null) {
                 env.context.getString(R.string.check_cancel) + "\n" + env.downloadProgressPercent + "%"
             } else env.context.getString(if (running) R.string.check_cancel else env.speedButtonTextRes())
