@@ -116,7 +116,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
                 EditorDesign.Request.Compare -> if (split) compare(design, getString(R.string.editor_compare_title))
                 EditorDesign.Request.Rename -> {
                     val (text, offset) = design.renameContext()
-                    if (text.length > 150_000 || text.count { it == '\\n' } >= 3000) {
+                    if (text.length > 150_000 || text.count { it == '\n' } >= 3000) {
                         design.toast(getString(R.string.editor_rename_large_unsupported))
                     } else {
                         EditorRenameFlow.show(this, text, offset) { replacement, plan ->
@@ -418,7 +418,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
     // CUSTOM: recover the new scalar from the definition edit without reparsing the YAML document.
     private fun renamedName(source: String, plan: YamlRename.Plan): String? {
         val definition = plan.changes.firstOrNull { change ->
-            val lineStart = source.lastIndexOf('\\n', (change.start - 1).coerceAtLeast(0)) + 1
+            val lineStart = source.lastIndexOf('\n', (change.start - 1).coerceAtLeast(0)) + 1
             val prefix = source.substring(lineStart, change.start).trimEnd()
             prefix.endsWith("name:") || prefix.endsWith("'name':") || prefix.endsWith("\\"name\\":")
         } ?: return null
@@ -439,7 +439,7 @@ class EditorActivity : BaseActivity<EditorDesign>() {
         while (index < value.length) {
             if (value[index] == '\\\\' && index + 1 < value.length) {
                 val next = value[index + 1]
-                result.append(when (next) { 'n' -> '\\n'; 'r' -> '\\r'; 't' -> '\\t'; else -> next })
+                result.append(when (next) { 'n' -> '\n'; 'r' -> '\r'; 't' -> '\t'; else -> next })
                 index += 2
             } else {
                 result.append(value[index++])
