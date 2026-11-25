@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">Hiển thị IP</string>
+    <string name="custom_show_ip_summary">Hiển thị IP nút hiện tại trong thông báo</string>
+</resources>
