@@ -18,6 +18,7 @@ import (
 	"cfa/native/conftest"
 	"cfa/native/errlog"
 	"cfa/native/issues"
+	"cfa/native/screenstate"
 
 	"github.com/metacubex/mihomo/component/dialer"
 )
@@ -111,6 +112,8 @@ func SetScreenInteractive(interactive bool) {
 	} else {
 		atomic.StoreInt32(&screenInteractive, 0)
 	}
+
+	screenstate.SetInteractive(interactive)
 }
 
 func round() roundResult {
