@@ -8,6 +8,7 @@ import android.view.View
 import com.github.kr328.clash.common.compat.getDrawableCompat
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.custom.CheckMark
+import com.github.kr328.clash.design.custom.IpTextFitPaint
 import com.github.kr328.clash.core.util.CountryFlag
 import com.github.kr328.clash.design.store.UiStore
 
@@ -33,6 +34,8 @@ class ProxyView(
     private val ipTimeoutText by lazy { context.getString(R.string.ip_delay_timeout) }
     // CUSTOM.md #151: separate from the faded text paint so the in-use dot stays fully opaque.
     private val inUseDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    // CUSTOM #178: only IPv6 rows use adaptive text fitting; IPv4 drawing remains unchanged.
+    private val ipTextFitPaint = IpTextFitPaint()
 
     // CUSTOM (CUSTOM.md #12): when the per-IP delays were measured (0 = unknown). The text under the
     // IP rows is computed when the view is drawn; nothing ticks to keep it up to date.
@@ -277,7 +280,14 @@ class ProxyView(
                     canvas.drawCircle(left + dotDiameter / 2f, centerY, dotDiameter / 2f, inUseDotPaint)
                 }
 
-                canvas.drawText(base, 0, ipCount, textX, y, paint)
+                if (item.ip.indexOf(':') >= 0) {
+                    val fitted = ipTextFitPaint.fit(base, available, state.config.textSize, state.config.textSize * 0.72f)
+                    paint.textSize = fitted.textSize
+                    canvas.drawText(fitted.text, textX, y, paint)
+                    paint.textSize = state.config.textSize
+                } else {
+                    canvas.drawText(base, 0, ipCount, textX, y, paint)
+                }
                 canvas.drawText(text, right - textWidth, y, paint)
             }
 
