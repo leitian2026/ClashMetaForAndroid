@@ -18,6 +18,7 @@ fun main() {
     TextSearchTests.run()
     YamlLintTests.run()
     RestoreCarrierSwitchTests.run()
+    BackupExtrasRestoreTests.run()
     CarrierSwitchMatcherTests.run()
     CarrierOperatorConsensusTests.run()
     CarrierSwitchTargetCheckTests.run()

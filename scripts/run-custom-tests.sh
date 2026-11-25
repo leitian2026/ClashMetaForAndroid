@@ -26,6 +26,7 @@ fi
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt" \
   "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt" \
+  "$ROOT/app/src/main/java/com/github/kr328/clash/custom/BackupExtrasRestorePolicy.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchTogglePolicy.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchModel.kt" \
   "$ROOT/common/src/main/java/com/github/kr328/clash/common/custom/CarrierSwitchRename.kt" \
@@ -44,6 +45,7 @@ fi
   "$ROOT/tests/custom/CarrierSwitchMatcherTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchTargetCheckTests.kt" \
   "$ROOT/tests/custom/RestoreCarrierSwitchTests.kt" \
+  "$ROOT/tests/custom/BackupExtrasRestoreTests.kt" \
   "$ROOT/tests/custom/TestMain.kt" \
   "$ROOT/tests/custom/UptimeFormatTests.kt" \
   "$ROOT/tests/custom/NotificationDisplayPolicyTests.kt" \

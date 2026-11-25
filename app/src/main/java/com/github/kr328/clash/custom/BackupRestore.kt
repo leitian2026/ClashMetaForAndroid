@@ -198,6 +198,7 @@ internal object BackupRestore {
             }
         }
 
+        val extraSettings = BackupExtrasRestore.restore(context, backup, idMap, applySettings, failed)
         val restoredActiveUuid = withProfile { queryActive()?.uuid }
         val activeProfileChanged = active?.uuid != restoredActiveUuid
         val savedIpStat = savedIps?.let {
@@ -207,7 +208,7 @@ internal object BackupRestore {
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
         return BackupManager.RestoreResult(
-            restored, skipped, failed, settings, override, deleted, savedIpStat,
+            restored, skipped, failed, settings || extraSettings, override, deleted, savedIpStat,
             carrierRestored, carrierKept, carrierFailed,
             activeProfileChanged, restoredActiveUuid?.toString(),
             activeProfileChanged || activeContentReplaced,

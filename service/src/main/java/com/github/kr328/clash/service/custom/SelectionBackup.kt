@@ -1,10 +1,13 @@
 // CUSTOM (CUSTOM.md #17)
 package com.github.kr328.clash.service.custom
 
+import com.github.kr328.clash.service.data.Imported
 import com.github.kr328.clash.service.data.ImportedDao
+import com.github.kr328.clash.service.data.Pending
 import com.github.kr328.clash.service.data.PendingDao
 import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
+import com.github.kr328.clash.service.model.Profile
 import java.util.UUID
 
 /** Room-independent rows exposed to the app module for backup and restore. */
@@ -29,10 +32,7 @@ object SelectionBackup {
         val dao = ImportedDao()
         return dao.queryAllUUIDs().mapNotNull { uuid ->
             dao.queryByUUID(uuid)?.let {
-                ProfileBackupRow(
-                    it.uuid, it.name, it.type.name, it.source, it.interval,
-                    it.createdAt, it.ageSecretKey,
-                )
+                ProfileBackupRow(it.uuid, it.name, it.type.name, it.source, it.interval, it.createdAt, it.ageSecretKey)
             }
         }
     }
@@ -41,28 +41,53 @@ object SelectionBackup {
         val dao = PendingDao()
         return dao.queryAllUUIDs().mapNotNull { uuid ->
             dao.queryByUUID(uuid)?.let {
-                ProfileBackupRow(
-                    it.uuid, it.name, it.type.name, it.source, it.interval,
-                    it.createdAt, it.ageSecretKey,
-                )
+                ProfileBackupRow(it.uuid, it.name, it.type.name, it.source, it.interval, it.createdAt, it.ageSecretKey)
             }
         }
     }
 
     suspend fun querySelectionRows(uuid: UUID): List<SelectionRow> {
-        return SelectionDao().querySelections(uuid).map {
-            SelectionRow(it.proxy, it.selected)
-        }
+        return SelectionDao().querySelections(uuid).map { SelectionRow(it.proxy, it.selected) }
     }
 
     suspend fun writeSelectionRows(uuid: UUID, rows: List<SelectionRow>) {
         val dao = SelectionDao()
         val existing = dao.querySelections(uuid).map { it.proxy }
-        if (existing.isNotEmpty()) {
-            dao.removeSelections(uuid, existing)
-        }
+        if (existing.isNotEmpty()) dao.removeSelections(uuid, existing)
+        rows.forEach { dao.setSelected(Selection(uuid, it.proxy, it.selected)) }
+    }
+
+    suspend fun writeImportedRows(rows: List<ProfileBackupRow>) {
+        val dao = ImportedDao()
         rows.forEach { row ->
-            dao.setSelected(Selection(uuid, row.proxy, row.selected))
+            val existing = dao.queryByUUID(row.uuid) ?: return@forEach
+            dao.update(existing.copy(
+                name = row.name,
+                type = Profile.Type.valueOf(row.type),
+                source = row.source,
+                interval = row.interval,
+                createdAt = row.createdAt,
+                ageSecretKey = row.ageSecretKey,
+            ))
+        }
+    }
+
+    suspend fun writePendingRows(rows: List<ProfileBackupRow>) {
+        val dao = PendingDao()
+        rows.forEach { row ->
+            dao.insert(Pending(
+                uuid = row.uuid,
+                name = row.name,
+                type = Profile.Type.valueOf(row.type),
+                source = row.source,
+                interval = row.interval,
+                upload = 0L,
+                download = 0L,
+                total = 0L,
+                expire = 0L,
+                createdAt = row.createdAt,
+                ageSecretKey = row.ageSecretKey,
+            ))
         }
     }
 }
