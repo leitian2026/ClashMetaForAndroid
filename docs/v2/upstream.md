@@ -23,7 +23,7 @@
 |`design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt`|#169|低|增加 carrier_switch_view 点击挂钩，通过 setClassName 打开运营商映射设置页；运营商入口、测速入口和更多菜单另有三处长按提示。业务逻辑放在新建的 Car…|
 |`design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt`|#6 #16|低|重加 geoSiteDownload() 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里）|
 |`app/src/main/java/com/github/kr328/clash/MainActivity.kt`|#6 #7 #8 #20 #21 #22 #35 #53 #174|低|重加 fetch() 里的 setCustomCards(...)、customNodeIpEvents() 和 select 里的 customNodeIp.onReceive 分支…|
-|`service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt`|#7 #35 #176|低|恢复上游 `queryTrafficNow()`：正文实时上传 / 下载速度，副标题累计流量；保留 `NodeIpText`、`NodeIpNotifier`、`nodeIpChanged`，仅在显示 IP 时订阅事件并单独显示 IP 行；流量刷新仅在开关开启且亮屏时每 5 秒执行，内容不变跳过通知。|
+|`service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt`|#7 #35 #176|低|恢复上游 `queryTrafficNow()`：收起态正文将实时上传 / 下载速度与 IP / 节点合并显示，展开态分行显示，副标题累计流量；保留 `NodeIpText`、`NodeIpNotifier`、`nodeIpChanged`，仅在显示 IP 时订阅事件；流量刷新仅在开关开启且亮屏时每 5 秒执行，内容不变跳过通知。|
 |`service/src/main/java/com/github/kr328/clash/service/store/ServiceStore.kt`|#176|低|新增 `showIp` 布尔设置，默认开启；与原 `dynamicNotification`（显示流量）互相独立。|
 |`service/src/main/java/com/github/kr328/clash/service/TunService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
 |`service/src/main/java/com/github/kr328/clash/service/ClashService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
