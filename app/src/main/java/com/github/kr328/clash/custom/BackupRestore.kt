@@ -206,7 +206,7 @@ internal object BackupRestore {
 
         withContext(Dispatchers.IO) { backup.root.deleteRecursively() }
 
-        return RestoreResult(
+        return BackupManager.RestoreResult(
             restored, skipped, failed, settings, override, deleted, savedIpStat,
             carrierRestored, carrierKept, carrierFailed,
             activeProfileChanged, restoredActiveUuid?.toString(),
