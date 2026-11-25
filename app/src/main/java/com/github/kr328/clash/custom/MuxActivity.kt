@@ -72,6 +72,10 @@ class MuxActivity : BaseActivity<MuxDesign>() {
             null
         }
 
+        // Unchanged successful data is already represented, including a prior parse failure.
+        // For a failed query (raw == null), compare the error too so a changed failure is still shown.
+        if (running == shownRunning && raw == shownRaw && (raw != null || error == shownError)) return
+
         val snapshot = raw?.let {
             try {
                 MuxSnapshot.parse(it)
@@ -80,8 +84,6 @@ class MuxActivity : BaseActivity<MuxDesign>() {
                 null
             }
         }
-
-        if (running == shownRunning && raw == shownRaw && error == shownError) return
 
         shownRunning = running
         shownRaw = raw
