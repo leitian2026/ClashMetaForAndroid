@@ -89,4 +89,4 @@ subtext 的 setter 里，binding.subtextView.text = value 改成 binding.subtext
 
 ## Mihomo 补丁
 
-`patches/mihomo/0004-lookup-fresh.patch` 只新增 `dns/fresh.go`，提供绕过缓存读取的 A / AAAA 查询；依赖固定子模块提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 中 `dns.Resolver.exchangeWithoutCache`、`msgToIP`，以及 `resolver.Resolver` / `dns.Resolvers` 类型。未修改 mihomo 现有文件或解析器接口。更新 mihomo 时，先核对这些函数、解析器动态类型及初始化赋值，再对补丁执行 dry-run；版本或接口不匹配时不得直接套用。
+`0004-lookup-fresh.patch` 新增 `dns/fresh.go`；依赖锁定 mihomo 的 `Resolver.exchangeWithoutCache`、`msgToIP`。升级子模块前核对接口并 dry-run。
