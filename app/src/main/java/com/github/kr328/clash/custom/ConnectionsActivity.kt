@@ -145,6 +145,10 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
 
         val key = "$running|$sort|$search"
 
+        // A successful query with unchanged raw data is already represented, including a prior parse failure.
+        // For a failed query (raw == null), also compare the error so a changed failure is still shown.
+        if (key == shownKey && raw == shownRaw && (raw != null || error == shownError)) return
+
         val snapshot = raw?.let {
             try {
                 ConnectionSnapshot.parse(it)
@@ -153,8 +157,6 @@ class ConnectionsActivity : BaseActivity<ConnectionsDesign>() {
                 null
             }
         }
-
-        if (key == shownKey && raw == shownRaw && error == shownError) return
 
         shownKey = key
         shownRaw = raw
