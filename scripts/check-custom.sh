@@ -147,7 +147,7 @@ if [ -f docs/v2/upstream.md ] && [ -f docs/v2/rules.md ] && [ -f docs/v2/changes
 fi
 if [ "$v2_status" -ne 0 ]; then status=1; fi
 
-# 5. every CUSTOM.md #N reference in the code has a detail file
+# 5. every CUSTOM.md #N / CUSTOM #N code reference is recorded in docs/custom or the v2 feature index
 nocode=""
 refs=$(printf '%s\n' "$files" \
   | grep -vE '^(core/src/foss/|\.idea/|scripts/|docs/custom/|\.github/[^/]+\.md$|(CUSTOM|CUSTOM_ARCHIVE|AGENTS|CLAUDE|GEMINI|README|CONTRIBUTING|PRIVACY_POLICY)\.md$|\.cursorrules$)' \
@@ -158,7 +158,8 @@ while IFS= read -r n; do
   num=${n%%[a-z]*}
   suffix=${n#"$num"}
   name=$(printf '%03d%s' "$((10#$num))" "$suffix")
-  if [ ! -f "docs/custom/$name.md" ] && ! grep -qE "^## $n\. " CUSTOM_ARCHIVE.md 2>/dev/null; then
+  if [ ! -f "docs/custom/$name.md" ] && ! grep -qE "^## $n\\. " CUSTOM_ARCHIVE.md 2>/dev/null \
+    && ! grep -qE "^#$n([｜[:space:]]|$)" docs/v2/changes.md 2>/dev/null; then
     nocode="$nocode#$n (no docs/custom/$name.md)"$'\n'
   fi
 done <<< "$refs"
