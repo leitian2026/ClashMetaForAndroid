@@ -22,6 +22,9 @@
     <string name="iptest_cancelled">已取消，下面是取消前测完的</string>
     <string name="iptest_domain_node_only">测试框里不能直接填域名，请先在独立的域名输入框解析成 IPv4</string>
     <string name="iptest_skipped">测试框不能直接测试域名，请先解析成 IPv4：%1$s</string>
+    <string name="iptest_no_ipv6_reason">当前网络没有可用的 IPv6</string>
+    <string name="iptest_no_ipv6_warning">当前网络没有可用 IPv6，直连测试跳过 %1$d 个 IPv6 地址</string>
+    <string name="iptest_no_ipv6_status">跳过：当前网络无 IPv6</string>
     <string name="iptest_invalid">没看懂：%1$s</string>
     <string name="iptest_cut">超过 20 个的上限，还有 %1$d 个没测</string>
     <string name="iptest_in_hosts">已在 hosts</string>
@@ -91,6 +94,7 @@
     <string name="iptest_http_403_note">服务器拒绝访问</string>
     <string name="iptest_log_speed_cancelled">%1$s 下载测速已取消</string>
     <string name="iptest_log_error">出错：%1$s</string>
+    <string name="iptest_log_no_ipv6">%1$s 已跳过：当前网络没有可用 IPv6</string>
     <string name="iptest_log_node_colo_nosni">%1$s 入口机房：没读，这个节点没有域名可当 SNI</string>
     <string name="iptest_log_node_colo_fail">%1$s 入口机房：没读到（额外直连一次失败：%2$s）</string>
     <string name="iptest_target_label">目标网址（用于经节点测延迟和读取目标站机房，可不填；要看目标站机房，请填 Cloudflare 上的站点）</string>
