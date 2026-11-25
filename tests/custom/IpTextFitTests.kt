@@ -4,7 +4,7 @@ import com.github.kr328.clash.design.custom.IpTextFit
 
 object IpTextFitTests {
     fun run() {
-        val unchanged = IpTextFit.fit("2001:db8::1", 100f, 18f, 12f) { text, size ->
+        val unchanged = IpTextFit.fit("2001:db8::1", 250f, 18f, 12f) { text, size ->
             text.length * size
         }
         check(unchanged.text == "2001:db8::1" && unchanged.textSize == 18f, "IPv6 text stays unchanged when it fits")
