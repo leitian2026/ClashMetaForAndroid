@@ -37,6 +37,13 @@ object YamlFixTests {
         check(separatePlan?.candidates?.none { it.description.kind == FixDescriptionKind.DeleteLine } == true,
             "YamlFix does not treat another list's item as a deletion sibling")
 
+        val deleteOnlyText = "proxy-groups:\\n  - name: g\\n    type: select\\n    use:\\n      - missingA\\n      - missingB\\n"
+        val deleteOnlyProblem = YamlLint.run(deleteOnlyText).first { it.kind == DiagKind.MissingProvider }
+        val deleteOnlyPlan = YamlFix.plan(deleteOnlyText, deleteOnlyProblem)
+        check(deleteOnlyPlan?.candidates?.singleOrNull()?.description?.kind == FixDescriptionKind.DeleteLine &&
+            deleteOnlyPlan.defaultSelectedIndex == null,
+            "YamlFix keeps a sole delete option unselected for explicit user choice")
+
         val duplicate = Diagnostic(0, 0, DiagKind.DupKey, "port")
         check(YamlFix.plan("port: 1\nport: 2\n", duplicate) == null,
             "YamlFix does not guess a duplicate-key repair")
