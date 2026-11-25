@@ -120,7 +120,7 @@
     <string name="editor_copy_failed">Could not copy the text</string>
     <string name="editor_symbols">Symbols</string>
     <string name="editor_symbols_back">Back to actions</string>
-    <!-- CUSTOM (CUSTOM.md #177): one-click YAML repair -->
+    <!-- CUSTOM (CUSTOM: #177): one-click YAML repair -->
     <string name="editor_fix_title">Fix: line %1$d</string>
     <string name="editor_fix_apply">Apply fix</string>
     <string name="editor_fix_jump">Go to line</string>
