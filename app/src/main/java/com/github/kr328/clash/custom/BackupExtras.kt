@@ -2,9 +2,7 @@ package com.github.kr328.clash.custom
 
 import android.content.Context
 import com.github.kr328.clash.service.PreferenceProvider
-import com.github.kr328.clash.service.data.ImportedDao
-import com.github.kr328.clash.service.data.PendingDao
-import com.github.kr328.clash.service.data.SelectionDao
+import com.github.kr328.clash.service.data.Database
 import com.github.kr328.clash.service.util.processingDir
 import com.github.kr328.clash.util.logsDir
 import org.json.JSONArray
@@ -48,7 +46,11 @@ internal object BackupExtras {
         }
         manifest.put("extraPrefs", extraPrefs)
 
-        val imported = ImportedDao().queryAllUUIDs().mapNotNull { ImportedDao().queryByUUID(it) }
+        val database = Database.database
+        val importedDao = database.openImportedDao()
+        val pendingDao = database.openPendingDao()
+        val selectionDao = database.openSelectionProxyDao()
+        val imported = importedDao.queryAllUUIDs().mapNotNull { importedDao.queryByUUID(it) }
         manifest.put("importedMetadata", JSONArray().apply {
             imported.forEach { item ->
                 put(JSONObject()
@@ -62,7 +64,7 @@ internal object BackupExtras {
             }
         })
 
-        val pending = PendingDao().queryAllUUIDs().mapNotNull { PendingDao().queryByUUID(it) }
+        val pending = pendingDao.queryAllUUIDs().mapNotNull { pendingDao.queryByUUID(it) }
         manifest.put("pendingMetadata", JSONArray().apply {
             pending.forEach { item ->
                 put(JSONObject()
@@ -78,7 +80,7 @@ internal object BackupExtras {
 
         manifest.put("selections", JSONArray().apply {
             imported.forEach { item ->
-                SelectionDao().querySelections(item.uuid).forEach { selection ->
+                selectionDao.querySelections(item.uuid).forEach { selection ->
                     put(JSONObject()
                         .put("uuid", selection.uuid.toString())
                         .put("proxy", selection.proxy)
