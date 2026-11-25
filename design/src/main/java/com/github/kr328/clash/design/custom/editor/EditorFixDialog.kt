@@ -17,6 +17,7 @@ class EditorFixDialog(
         if (plan.candidates.isEmpty()) return
         var selected = plan.defaultSelectedIndex
         val labels = plan.candidates.map(::describe).toTypedArray()
+        var alert: androidx.appcompat.app.AlertDialog? = null
         val builder = MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.editor_fix_title, line + 1))
             .setMessage(
@@ -33,20 +34,18 @@ class EditorFixDialog(
             }
 
         if (plan.candidates.size > 1 || selected == null) {
-            builder.setSingleChoiceItems(labels, selected ?: -1) { _, which -> selected = which }
+            builder.setSingleChoiceItems(labels, selected ?: -1) { _, which ->
+                selected = which
+                alert?.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.isEnabled = true
+            }
         }
         val dialog = builder.create()
+        alert = dialog
         dialog.setOnShowListener {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).isEnabled = selected != null
         }
         dialog.show()
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).isEnabled = selected != null
-        if (plan.candidates.size > 1 || selected == null) {
-            dialog.listView?.setOnItemClickListener { _, _, which, _ ->
-                selected = which
-                dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).isEnabled = true
-            }
-        }
     }
 
     private fun describe(candidate: FixCandidate): String {
