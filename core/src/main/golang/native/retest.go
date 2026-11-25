@@ -9,8 +9,8 @@ import (
 
 // CUSTOM (CUSTOM.md #24): what the service process tells the core about the network.
 //
-//	"changed": the underlying network changed. Only remembered, so that the errors page can say a speed
-//	           test is older than the switch.
+//	"changed": record the network-change time and expire the reachability answer. A lit screen probes
+//	           immediately; a dark screen defers the probe until the screen turns on.
 //	"run":     latency test of every group, once. Only the core's own latency test, none of the extra
 //	           per-IP requests of a manual test (CUSTOM.md #1). The call returns at once; the test runs on.
 //
