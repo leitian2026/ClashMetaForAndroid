@@ -57,3 +57,17 @@ func TestMergeDisplayFailures(t *testing.T) {
 		t.Fatalf("fail 1 = %+v", f)
 	}
 }
+
+func TestMergeDisplayIncludesIPv6(t *testing.T) {
+	r := mergeDisplay([]displayNode{
+		{name: "v6", via: "server", ips: []displayIP{{ip: "2001:db8::1", inUse: true}}},
+		{name: "dual", key: "dual.example", via: "dns", ips: []displayIP{{ip: "2001:db8::2"}}},
+	})
+
+	if len(r.IPs) != 2 || r.IPs[0].IP != "2001:db8::1" || !r.IPs[0].InUse || r.IPs[1].IP != "2001:db8::2" {
+		t.Fatalf("IPv6 rows = %+v", r.IPs)
+	}
+	if len(r.Fails) != 0 {
+		t.Fatalf("IPv6 rows created failures: %+v", r.Fails)
+	}
+}
