@@ -1,6 +1,6 @@
 package conftest
 
-// CUSTOM (CUSTOM.md step 66, not upstream): explicit, user-triggered A-record lookup for the
+// CUSTOM (CUSTOM.md #178, not upstream): explicit, user-triggered A- and AAAA-record lookup for the
 // test-other-IPs dialog. It uses the running core resolver and never starts background work.
 
 import (
@@ -19,17 +19,19 @@ import (
 )
 
 const (
-	resolveDomainLimit = 8
-	resolveConcurrency = 4
-	resolveTotalLimit  = 10 * time.Second
+	resolveDomainLimit     = 8
+	resolveIPv6DomainLimit = 4
+	resolveConcurrency     = 4
+	resolveTotalLimit      = 10 * time.Second
 )
 
 var fakeIPPrefix = netip.MustParsePrefix("198.18.0.0/15")
 
-// IPResolveResult is one domain's IPv4 answer in mode "resolve".
+// IPResolveResult is one domain's IPv4 and IPv6 answers in mode "resolve".
 type IPResolveResult struct {
 	Domain                 string   `json:"domain"`
 	IPs                    []string `json:"ips"`
+	IPsV6                  []string `json:"ipsV6"`
 	Omitted                int      `json:"omitted"`
 	Error                  string   `json:"error"`
 	FromHosts              bool     `json:"fromHosts"`
@@ -116,40 +118,102 @@ func normalizeResolvedIPs(input []netip.Addr) (ips []string, omitted int) {
 	return ips, omitted
 }
 
-func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any) IPResolveResult {
-	result := IPResolveResult{Domain: domain, IPs: []string{}}
-	var addresses []netip.Addr
+// normalizeResolvedIPv6 keeps usable IPv6 addresses, filters the profile's fake-ip pools,
+// sorts, deduplicates and caps the result independently from IPv4.
+func normalizeResolvedIPv6(input []netip.Addr, prefixes []string) []string {
+	unique := make(map[netip.Addr]bool, len(input))
+	addresses := make([]netip.Addr, 0, len(input))
+	for _, address := range input {
+		if !address.IsValid() || !address.Is6() || address.Is4In6() {
+			continue
+		}
+		if inAnyPrefix(address.String(), prefixes) || unique[address] {
+			continue
+		}
+		unique[address] = true
+		addresses = append(addresses, address)
+	}
+	sort.Slice(addresses, func(i, j int) bool { return addresses[i].Less(addresses[j]) })
+	if len(addresses) > resolveIPv6DomainLimit {
+		addresses = addresses[:resolveIPv6DomainLimit]
+	}
+	ips := make([]string, 0, len(addresses))
+	for _, address := range addresses {
+		ips = append(ips, address.String())
+	}
+	return ips
+}
+
+func resolveOneDomain(ctx context.Context, domain string, hosts map[string]any, fakePrefixes []string) IPResolveResult {
+	result := IPResolveResult{Domain: domain, IPs: []string{}, IPsV6: []string{}}
+	var addresses4, addresses6 []netip.Addr
 
 	if raw, found := hosts[domain]; found {
 		result.FromHosts = true
 		for _, value := range ipdelay.ToStrings(raw) {
 			if address, err := netip.ParseAddr(strings.TrimSpace(value)); err == nil {
-				addresses = append(addresses, address.Unmap())
+				if address.Is4() || address.Is4In6() {
+					addresses4 = append(addresses4, address.Unmap())
+				} else if address.Is6() {
+					addresses6 = append(addresses6, address)
+				}
 			}
 		}
-		if len(addresses) == 0 {
+		if len(addresses4)+len(addresses6) == 0 {
 			result.Error = "hosts_no_ipv4"
 			return result
 		}
 	} else {
-		resolved, err := mihomoDNS.LookupIPv4Fresh(ctx, domain)
-		if errors.Is(err, mihomoDNS.ErrFreshUnsupported) {
-			result.CacheBypassUnsupported = true
-			resolved, err = resolver.LookupIPv4(ctx, domain)
+		type familyResult struct {
+			addresses               []netip.Addr
+			err                     error
+			cacheBypassUnsupported  bool
 		}
-		if err != nil {
-			if ctx.Err() != nil {
-				result.Error = "timeout"
-			} else {
-				result.Error = err.Error()
+		var ipv4, ipv6 familyResult
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			ipv4.addresses, ipv4.err = mihomoDNS.LookupIPv4Fresh(ctx, domain)
+			if errors.Is(ipv4.err, mihomoDNS.ErrFreshUnsupported) {
+				ipv4.cacheBypassUnsupported = true
+				ipv4.addresses, ipv4.err = resolver.LookupIPv4(ctx, domain)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			ipv6.addresses, ipv6.err = mihomoDNS.LookupIPv6Fresh(ctx, domain)
+			if errors.Is(ipv6.err, mihomoDNS.ErrFreshUnsupported) {
+				ipv6.cacheBypassUnsupported = true
+				ipv6.addresses, ipv6.err = resolver.LookupIPv6(ctx, domain)
+			}
+		}()
+		wg.Wait()
+
+		result.CacheBypassUnsupported = ipv4.cacheBypassUnsupported || ipv6.cacheBypassUnsupported
+		addresses4, addresses6 = ipv4.addresses, ipv6.addresses
+		if ctx.Err() != nil {
+			result.Error = "timeout"
+			return result
+		}
+		if len(addresses4)+len(addresses6) == 0 {
+			switch {
+			case ipv4.err != nil && !errors.Is(ipv4.err, resolver.ErrIPNotFound):
+				result.Error = ipv4.err.Error()
+			case ipv6.err != nil && !errors.Is(ipv6.err, resolver.ErrIPNotFound) &&
+				!errors.Is(ipv6.err, resolver.ErrIPv6Disabled):
+				result.Error = ipv6.err.Error()
+			default:
+				result.Error = "no_ipv4"
 			}
 			return result
 		}
-		addresses = resolved
 	}
 
-	result.IPs, result.Omitted = normalizeResolvedIPs(addresses)
-	if len(result.IPs) == 0 {
+	result.IPs, result.Omitted = normalizeResolvedIPs(addresses4)
+	result.IPsV6 = normalizeResolvedIPv6(addresses6, fakePrefixes)
+	if len(result.IPs)+len(result.IPsV6) == 0 {
 		result.Error = "no_ipv4"
 	}
 	return result
@@ -170,6 +234,7 @@ func runResolve(req IPRequest, rep IPReport) IPReport {
 	defer cancel()
 
 	hosts := ipdelay.RawHosts()
+	fakePrefixes := fakeRanges(parseDNSConfig(ipdelay.DNSTree()))
 	sem := make(chan struct{}, resolveConcurrency)
 	var wg sync.WaitGroup
 	for i, domain := range domains {
@@ -179,11 +244,11 @@ func runResolve(req IPRequest, rep IPReport) IPReport {
 			select {
 			case sem <- struct{}{}:
 			case <-ctx.Done():
-				rep.Resolved[index] = IPResolveResult{Domain: name, IPs: []string{}, Error: "timeout"}
+				rep.Resolved[index] = IPResolveResult{Domain: name, IPs: []string{}, IPsV6: []string{}, Error: "timeout"}
 				return
 			}
 			defer func() { <-sem }()
-			rep.Resolved[index] = resolveOneDomain(ctx, name, hosts)
+			rep.Resolved[index] = resolveOneDomain(ctx, name, hosts, fakePrefixes)
 		}(i, domain)
 	}
 	wg.Wait()
@@ -194,7 +259,7 @@ func runResolve(req IPRequest, rep IPReport) IPReport {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		for i := range rep.Resolved {
 			if rep.Resolved[i].Domain == "" {
-				rep.Resolved[i] = IPResolveResult{Domain: domains[i], IPs: []string{}, Error: "timeout"}
+				rep.Resolved[i] = IPResolveResult{Domain: domains[i], IPs: []string{}, IPsV6: []string{}, Error: "timeout"}
 			}
 		}
 	}
