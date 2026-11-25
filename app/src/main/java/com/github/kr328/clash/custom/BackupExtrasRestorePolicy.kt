@@ -1,3 +1,4 @@
+// CUSTOM (CUSTOM.md #17)
 package com.github.kr328.clash.custom
 
 import java.util.UUID
