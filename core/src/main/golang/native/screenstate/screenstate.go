@@ -21,7 +21,7 @@ func SetInteractive(value bool) {
 	}
 
 	listenersMu.Lock()
-	current := append([]func(bool)(nil), listeners...)
+	current := append([]func(bool){}, listeners...)
 	listenersMu.Unlock()
 
 	for _, listener := range current {
