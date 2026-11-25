@@ -20,6 +20,7 @@ import com.github.kr328.clash.service.R
 import com.github.kr328.clash.service.StatusProvider
 import com.github.kr328.clash.service.custom.NodeIpNotifier
 import com.github.kr328.clash.service.custom.NodeIpText
+import com.github.kr328.clash.service.custom.NotificationDisplayPolicy
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
@@ -49,35 +50,59 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
     // CUSTOM.md #35: the text of the notification as last posted; null = post at the next update
     private var lastPosted: String? = null
 
-    private fun update() {
-        val total = Clash.queryTrafficTotal()
+    private fun update(showTraffic: Boolean, showIp: Boolean) {
+        val trafficText: String?
+        val trafficSubText: String?
 
-        val uploaded = total.trafficUpload()
-        val downloaded = total.trafficDownload()
+        if (showTraffic) {
+            val now = Clash.queryTrafficNow()
+            val total = Clash.queryTrafficTotal()
 
-        val text = NodeIpText.get(service) // CUSTOM: CUSTOM.md #7 (was: upload/download speed)
-        val sub = service.getString(
-            R.string.clash_notification_content,
-            uploaded, downloaded
-        )
+            trafficText = service.getString(
+                R.string.clash_notification_content,
+                "${now.trafficUpload()}/s", "${now.trafficDownload()}/s"
+            )
+            trafficSubText = service.getString(
+                R.string.clash_notification_content,
+                total.trafficUpload(), total.trafficDownload()
+            )
+        } else {
+            trafficText = null
+            trafficSubText = null
+        }
 
-        // CUSTOM.md #35: every notify() is a call to the system; when the text is the same as the one on
-        // screen (no traffic, no new IP) there is nothing to tell it
-        val key = "$text\n$sub"
+        // CUSTOM #176: do not read tunnel state when the IP line is disabled.
+        val ipText = if (showIp) NodeIpText.get(service) else null
+        val contentText = trafficText ?: ipText
+        val expandedText = if (trafficText != null && ipText != null) {
+            "$trafficText\\n$ipText"
+        } else {
+            null
+        }
 
+        // CUSTOM #35/#176: avoid notifying Android when every displayed line is unchanged.
+        val key = "$contentText\\n$trafficSubText\\n$expandedText"
         if (key == lastPosted) return
 
         lastPosted = key
 
-        val notification = builder
-            .setContentText(text)
-            .setSubText(sub)
-            .build()
+        val notificationBuilder = builder
+            .setContentText(contentText)
+            .setSubText(trafficSubText)
 
-        notificationManager.notify(R.id.nf_clash_status, notification)
+        if (expandedText != null) {
+            notificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+        } else {
+            notificationBuilder.setStyle(null)
+        }
+
+        notificationManager.notify(R.id.nf_clash_status, notificationBuilder.build())
     }
 
     override suspend fun run() = coroutineScope {
+        val store = com.github.kr328.clash.service.store.ServiceStore(service)
+        val showTraffic = store.dynamicNotification
+        val showIp = store.showIp
         var shouldUpdate = service.getSystemService<PowerManager>()?.isInteractive ?: true
 
         val screenToggle = receiveBroadcast(false, Channel.CONFLATED) {
@@ -89,15 +114,23 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             addAction(Intents.ACTION_PROFILE_LOADED)
         }
 
-        // CUSTOM: CUSTOM.md #7 - node IP changed (event from the core)
-        val nodeIpChanged = receiveBroadcast(capacity = Channel.CONFLATED) {
-            addAction(CustomIntents.ACTION_NODE_IP_CHANGED)
+        // CUSTOM #176: subscribe to IP events only when the IP line is enabled.
+        val nodeIpChanged = if (showIp) {
+            receiveBroadcast(capacity = Channel.CONFLATED) {
+                addAction(CustomIntents.ACTION_NODE_IP_CHANGED)
+            }
+        } else {
+            null
         }
 
-        NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7
+        if (showIp) NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7/#176
 
-        // CUSTOM.md #35: every 5 seconds (was 1). A new IP does not wait for it: nodeIpChanged below updates at once.
-        val ticker = ticker(TimeUnit.SECONDS.toMillis(5))
+        // CUSTOM #35/#176: traffic refreshes every 5 seconds only while enabled and interactive.
+        val trafficTicker = if (showTraffic) ticker(TimeUnit.SECONDS.toMillis(5)) else null
+
+        if (!showTraffic && NotificationDisplayPolicy.shouldRefreshIp(showIp, shouldUpdate)) {
+            update(showTraffic, showIp)
+        }
 
         while (true) {
             select<Unit> {
@@ -106,21 +139,31 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                         Intent.ACTION_SCREEN_ON -> {
                             shouldUpdate = true
                             lastPosted = null // post once when the screen is on again
+                            if (!showTraffic && NotificationDisplayPolicy.shouldRefreshIp(showIp, true)) {
+                                update(showTraffic, showIp)
+                            }
                         }
                         Intent.ACTION_SCREEN_OFF ->
                             shouldUpdate = false
                     }
                 }
-                nodeIpChanged.onReceive { // CUSTOM: CUSTOM.md #7
-                    if (shouldUpdate) update()
+                if (nodeIpChanged != null) {
+                    nodeIpChanged.onReceive { // CUSTOM #7/#176: core event, never polled
+                        if (NotificationDisplayPolicy.shouldRefreshIp(showIp, shouldUpdate)) {
+                            update(showTraffic, showIp)
+                        }
+                    }
                 }
                 profileLoaded.onReceive {
                     builder.setContentTitle(StatusProvider.currentProfile ?: "Not selected")
-                    lastPosted = null // CUSTOM.md #35: the title changed, post at the next update even if the text is the same
+                    lastPosted = null // CUSTOM #35: the title changed
+                    if (!showTraffic && NotificationDisplayPolicy.shouldRefreshIp(showIp, shouldUpdate)) {
+                        update(showTraffic, showIp)
+                    }
                 }
-                if (shouldUpdate) {
-                    ticker.onReceive {
-                        update()
+                if (trafficTicker != null && NotificationDisplayPolicy.shouldRefreshTraffic(showTraffic, shouldUpdate)) {
+                    trafficTicker.onReceive {
+                        update(showTraffic, showIp)
                     }
                 }
             }
