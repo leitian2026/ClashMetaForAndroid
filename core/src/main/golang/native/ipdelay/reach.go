@@ -4,9 +4,10 @@ package ipdelay
 //
 // One small request (the same test address as the speed test, through the node in use) is made when the
 // home page or the notification asks for the tunnel state and the last answer is old or missing, and once
-// after the network changed. There is no timer: nothing happens unless something asks, and at most one
-// request per reachFresh (reachRetry after a failure). The app is told, with the same event as for a node
-// IP change, only when the answer switched between "works" and "does not work".
+// after the network changed. While the screen is off, due probes and notifications are deferred; turning
+// the screen on resumes each pending action once. There is no timer: nothing happens unless something asks,
+// and at most one request per reachFresh (reachRetry after a failure). The app is told only when the answer
+// switches between "works" and "does not work".
 
 import (
 	"context"
@@ -52,10 +53,14 @@ func Reach(node string) (int, string, int64) {
 		(reachMs >= 0 && age > reachFresh) ||
 		(reachMs < 0 && age > reachRetry)
 
-	if due && !reachBusy {
-		reachBusy = true
+	if due {
+		if deferReachIfScreenOff() {
+			// Keep the last answer and remember one probe for when the screen turns on.
+		} else if !reachBusy {
+			reachBusy = true
 
-		go probeReach(node)
+			go probeReach(node)
+		}
 	}
 
 	at := int64(0)
@@ -79,6 +84,10 @@ func refreshReach() {
 	defer reachLock.Unlock()
 
 	reachAt = time.Time{}
+
+	if deferReachIfScreenOff() {
+		return
+	}
 
 	if reachNode != "" && !reachBusy {
 		reachBusy = true
@@ -108,6 +117,9 @@ func probeReach(node string) {
 	if tell && ms != 0 {
 		notifyNow()
 	}
+
+	// A probe that was already running when the screen turned on may have delayed this pending probe.
+	processPendingScreenWork()
 }
 
 // measureReach returns the delay in milliseconds, -1 when the request failed, 0 when the node is not known.
@@ -143,8 +155,35 @@ func measureReach(node string) (ms int, reason string) {
 	return ms, ""
 }
 
+// resumePendingReach starts the deferred probe when no probe is already running.
+// It returns false only when a probe is busy, so the pending flag can be retained.
+func resumePendingReach() bool {
+	reachLock.Lock()
+	if reachNode == "" {
+		reachLock.Unlock()
+		return true
+	}
+	if reachBusy {
+		reachLock.Unlock()
+		return false
+	}
+
+	node := reachNode
+	reachAt = time.Time{}
+	reachBusy = true
+	reachLock.Unlock()
+
+	go probeReach(node)
+	return true
+}
+
 // notifyNow tells the app at once (no delay, no history entry: only what is shown is read again).
+// While the screen is off, one notification is held until the screen turns on.
 func notifyNow() {
+	if deferNotifyIfScreenOff() {
+		return
+	}
+
 	notifyLock.Lock()
 	f := onChange
 	notifyLock.Unlock()
