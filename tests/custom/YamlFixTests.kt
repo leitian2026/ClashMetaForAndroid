@@ -58,7 +58,7 @@ object YamlFixTests {
         val deleteOnlyProblem = YamlLint.run(deleteOnlyText).first { it.kind == DiagKind.MissingProvider }
         val deleteOnlyPlan = YamlFix.plan(deleteOnlyText, deleteOnlyProblem)
         check(deleteOnlyPlan?.candidates?.singleOrNull()?.description?.kind == FixDescriptionKind.DeleteLine &&
-            deleteOnlyPlan.defaultSelectedIndex == null,
+            deleteOnlyPlan?.defaultSelectedIndex == null,
             "YamlFix keeps a sole delete option unselected for explicit user choice")
 
         val duplicate = Diagnostic(0, 0, DiagKind.DupKey, "port")
