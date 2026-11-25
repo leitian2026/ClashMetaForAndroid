@@ -2,6 +2,8 @@ package com.github.kr328.clash.custom
 
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.core.model.IpTestRow
+import com.github.kr328.clash.common.custom.NetworkIpv6
+import com.github.kr328.clash.design.custom.IpTestIpv6
 import com.github.kr328.clash.design.custom.ConfigCheckDesign
 import com.github.kr328.clash.design.custom.IpTestChoice
 import com.github.kr328.clash.design.custom.CountryName
@@ -124,13 +126,24 @@ class ConfigCheckIpTestSteps {
                 return null
             }
         }
+        // Read the underlying network once for this round. Through-node tests are never filtered by this result.
+        val hasIpv6 = NetworkIpv6.hasIpv6(design.root.context)
+        val targets = parsed.rows.map { row ->
+            if (IpTestIpv6.shouldSkip(row.ip, direct, hasIpv6)) {
+                row.copy(code = IpTestIpv6.NO_IPV6_CODE, reason = message(R.string.iptest_no_ipv6_reason))
+            } else {
+                row
+            }
+        }
+        val noIpv6Count = targets.count { it.code == IpTestIpv6.NO_IPV6_CODE }
         val warnings = ArrayList<String>()
+        if (noIpv6Count > 0) warnings += message(R.string.iptest_no_ipv6_warning, noIpv6Count)
         if (parsed.skipped.isNotEmpty()) warnings += message(R.string.iptest_skipped, parsed.skipped.joinToString("、"))
         if (parsed.invalid.isNotEmpty()) warnings += message(R.string.iptest_invalid, parsed.invalid.joinToString("、"))
         if (parsed.cut > 0) warnings += message(R.string.iptest_cut, parsed.cut)
         if (parsed.duplicates > 0) warnings += message(R.string.iptest_duplicates_removed, parsed.duplicates)
         val head = if (direct) message(R.string.iptest_head_direct, domain) else message(R.string.iptest_head_node, choice.node)
-        return Prepared(choice, direct, domain, target, warnings, head, parsed.rows)
+        return Prepared(choice, direct, domain, target, warnings, head, targets)
     }
 
     suspend fun begin(
@@ -187,6 +200,12 @@ class ConfigCheckIpTestSteps {
         )
         try {
             for ((index, item) in targets.withIndex()) {
+                if (item.code == IpTestIpv6.NO_IPV6_CODE) {
+                    addRow(item)
+                    design.ipRows(rows())
+                    design.ipLog(message(R.string.iptest_log_no_ipv6, item.ip))
+                    continue
+                }
                 if (!runTarget(index, item, targets.size, design, direct, domain, choice, target,
                         head, warnings, state, rows, addRow, query, format)) break
             }
