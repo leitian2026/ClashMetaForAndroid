@@ -120,4 +120,18 @@
     <string name="editor_copy_failed">Could not copy the text</string>
     <string name="editor_symbols">Symbols</string>
     <string name="editor_symbols_back">Back to actions</string>
+    <!-- CUSTOM (CUSTOM.md #177): one-click YAML repair -->
+    <string name="editor_fix_title">Fix: line %1$d</string>
+    <string name="editor_fix_apply">Apply fix</string>
+    <string name="editor_fix_jump">Go to line</string>
+    <string name="editor_fix_tabs">Replace indentation Tabs on %1$d lines with %2$d spaces</string>
+    <string name="editor_fix_indent">Indent %1$d → %2$d spaces (move this line and %3$d following lines together)</string>
+    <string name="editor_fix_indent_single">Indent %1$d → %2$d spaces (this line only)</string>
+    <string name="editor_fix_rename">Change to “%1$s” (defined on line %2$d)</string>
+    <string name="editor_fix_rename_builtin">Change to “%1$s” (built-in)</string>
+    <string name="editor_fix_delete">Delete this line (line %1$d)</string>
+    <string name="editor_fix_no_suggestion">No reliable fix is available for this problem yet. Jumped to its line.</string>
+    <string name="editor_fix_too_big">Text is too large (or is currently shown in segments); one-click repair is not supported. Please edit it manually.</string>
+    <string name="editor_fix_changed">The text has changed. Please reopen the problem list.</string>
+    <string name="editor_fix_done">Fixed</string>
 </resources>
