@@ -1,6 +1,6 @@
 package com.github.kr328.clash.design.custom.editor
 
-// CUSTOM (CUSTOM.md #177, not upstream): conservative block-indent repair candidates.
+// CUSTOM: #177 (not upstream): conservative block-indent repair candidates.
 object YamlFixIndent {
     fun plan(text: String, diagnostic: Diagnostic): FixPlan? {
         if (diagnostic.kind != DiagKind.IndentDeeper && diagnostic.kind != DiagKind.IndentMisaligned) return null
