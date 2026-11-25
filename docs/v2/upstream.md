@@ -75,13 +75,13 @@ queryTunnelState() 开头加 NodeIpNotifier.start(context)；加 queryCustomConn
 ### `service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt`
 重加 queryCustomConnections(sort: Int, filter: String): String 和 closeCustomConnection(id: String): Boolean；#158 增加带 ILogObserver 参数的下载进度请求，复用既有 logcat 事件接口；#169 增加设置保存后应用当前缓存映射的远程方法。
 ### `app/src/main/AndroidManifest.xml`
-在 LogsActivity 前重加 .custom.ConnectionsActivity（#8）、.custom.BackupActivity（#17，必须带 android:theme="@style/BackupTranslucentTheme"）、.custom.MuxActivity（#20）、.custom.ErrorsActivity（#21）、.custom.ConfigCheckActivity（#22）、.custom.SavedIpActivity（#156，标签 @string/saved_ip_title）和 .custom.EditorActivity（#46，必须带 configChanges 里的 orientation|screenSize|...）的 <activity>；#169 登记 .custom.CarrierSwitchActivity
+在 LogsActivity 前登记 .custom.ConnectionsActivity、BackupActivity（必须带 BackupTranslucentTheme）、MuxActivity、ErrorsActivity、ConfigCheckActivity、SavedIpActivity（label=saved_ip_title）、EditorActivity（configChanges 含 orientation|screenSize|...）和 CarrierSwitchActivity
 ### `design/src/main/res/layout/adapter_profile.xml`
 以上游新版为底：<data> 里加变量 edit；时间 TextView（elapsed_view）layout_marginEnd 改 20dp、layout_toStartOf 改成 @id/edit_view；在它和那条 2dp 竖线之间加 FrameLayout（@+id/edit_view，铅笔图标 ic_baseline_edit，onClick="@{edit}"）
 ### `core/src/main/golang/go.mod`
 以上游版本的依赖选择为准，将 github.com/metacubex/http、github.com/metacubex/quic-go、github.com/metacubex/tls 和 golang.org/x/sys 从间接依赖提升到直接 require；保持已核对的版本（http v0.1.8、项目锁定的 quic-go、tls v0.1.9、x/sys v0.30.0），不擅自升级。若上游更新这些依赖，先重新核对 http3 API 和模块版本，再同步调整 go.sum。
 ### `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`
-apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText.explain(context, context.processingDir, e) }（#27，保存失败时报出是哪一行）；② 在 context.importedDir.resolve(snapshot.uuid.toString()).deleteRecursively() 前一行加 if (snapshot.type == Profile.Type.File) ConfigHistory.keep(context, snapshot.uuid)（#28 #56，只给自己编辑的配置记下被替换的和新的版本）；delete() 里清理 ConfigHistory（#56）、ConfigUpdateSnapshot（#170）后调用 CarrierSwitchStore.delete(context, uuid) 清理同 UUID 的运营商映射（#169）；加对应 import
+apply()：fetchProfile() 异常用 ConfigErrorText.explain 包装（#27）；File 配置替换前调用 ConfigHistory.keep()（#28/#56）。delete() 清理 ConfigHistory、ConfigUpdateSnapshot，并调用 CarrierSwitchStore.delete() 清理同 UUID 映射（#169）；保留对应 import。
 ### `build.gradle.kts`
 重加 queryConfigProperty 后面的 customRev（读 CUSTOM.md 的"当前版本："那一行，取最后的 r<数字>），release 构建类型里的 versionNameSuffix = customRev，debug 构建类型里的 versionNameSuffix 改成 ".debug$customRev"（后缀必须放在构建类型里，才会排在变体后缀 .Alpha / .Meta 的后面）
 ### `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt`
