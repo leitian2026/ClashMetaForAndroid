@@ -9,6 +9,9 @@ on:
       # 源文件列表和触发路径要保持一致
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlRename.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFix.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFixIndent.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFixName.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt'
       - 'app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt'
@@ -38,6 +41,7 @@ on:
       - 'tests/custom/TextSearchTests.kt'
       - 'tests/custom/YamlLintTests.kt'
       - 'tests/custom/YamlRenameTests.kt'
+      - 'tests/custom/YamlFixTests.kt'
       - 'tests/custom/YamlPairsTests.kt'
       - 'scripts/run-custom-tests.sh'
       - '.github/workflows/test-custom.yaml'
