@@ -22,6 +22,9 @@
     <string name="iptest_cancelled">Cancelled, these are the ones done before</string>
     <string name="iptest_domain_node_only">Do not put domains in the test box; resolve them to IPv4 in the separate domain field first</string>
     <string name="iptest_skipped">Domains cannot be tested directly from this box; resolve them to IPv4 first: %1$s</string>
+    <string name="iptest_no_ipv6_reason">This network has no usable IPv6 connectivity</string>
+    <string name="iptest_no_ipv6_warning">No usable IPv6 network; skipped %1$d IPv6 address(es) in direct mode</string>
+    <string name="iptest_no_ipv6_status">Skipped: no IPv6 network</string>
     <string name="iptest_invalid">Not understood: %1$s</string>
     <string name="iptest_cut">Over the limit of 20, %1$d not tested</string>
     <string name="iptest_in_hosts">already in hosts</string>
@@ -88,6 +91,7 @@
     <string name="iptest_http_403_note">The server refused the request</string>
     <string name="iptest_log_speed_cancelled">%1$s download test cancelled</string>
     <string name="iptest_log_error">Error: %1$s</string>
+    <string name="iptest_log_no_ipv6">%1$s skipped: this network has no usable IPv6 connectivity</string>
     <string name="iptest_log_land_ok">%1$s landing country: %2$s (through node %3$s, asked now)</string>
     <string name="iptest_log_land_none">%1$s landing country: not found (through node %2$s, asked now)</string>
     <string name="iptest_log_land_no_node">No config node uses %1$s as its server, so the landing country is not queried (it can only be looked up through a node)</string>
