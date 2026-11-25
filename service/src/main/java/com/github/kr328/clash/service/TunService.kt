@@ -13,6 +13,7 @@ import com.github.kr328.clash.service.clash.clashRuntime
 import com.github.kr328.clash.service.clash.module.*
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.store.ServiceStore
+import com.github.kr328.clash.service.custom.NotificationDisplayPolicy
 import com.github.kr328.clash.service.util.cancelAndJoinBlocking
 import com.github.kr328.clash.service.util.parseCIDR
 import com.github.kr328.clash.service.util.sendClashStarted
@@ -34,7 +35,7 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
         val config = install(ConfigurationModule(self))
         val network = install(NetworkObserveModule(self))
 
-        if (store.dynamicNotification)
+        if (NotificationDisplayPolicy.useDynamicNotification(store.dynamicNotification, store.showIp))
             install(DynamicNotificationModule(self))
         else
             install(StaticNotificationModule(self))
