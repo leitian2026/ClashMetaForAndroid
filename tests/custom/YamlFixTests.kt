@@ -12,6 +12,23 @@ object YamlFixTests {
             check(YamlLint.run(fixed).none { it.kind == DiagKind.Tab }, "YamlFix Tab repair removes Tab diagnostic")
         }
 
+        val deeperText = "a: 1\\n    b: 2\\n      c: 3\\n"
+        val deeper = YamlLint.run(deeperText).first { it.kind == DiagKind.IndentDeeper }
+        val deeperPlan = YamlFix.plan(deeperText, deeper)
+        check(deeperPlan?.candidates?.isNotEmpty() == true, "YamlFix offers a validated deeper-indent repair")
+        val deeperCandidate = deeperPlan?.candidates?.firstOrNull()
+        if (deeperCandidate != null) {
+            val fixed = YamlRename.apply(deeperText, deeperCandidate.changes)
+            check(YamlLint.run(fixed).none { it.kind == DiagKind.IndentDeeper },
+                "YamlFix moves the indented block together")
+        }
+
+        val misalignedText = "root:\\n  child:\\n    nested: value\\n   sibling: value"
+        val misaligned = YamlLint.run(misalignedText).first { it.kind == DiagKind.IndentMisaligned }
+        val misalignedPlan = YamlFix.plan(misalignedText, misaligned)
+        check(misalignedPlan?.candidates?.isNotEmpty() == true,
+            "YamlFix offers validated alternatives for misaligned indentation")
+
         val missingText = "proxy-groups:\n  - name: g\n    type: select\n    proxies:\n      - nodeB\nproxies:\n  - name: nodeA\n    type: direct\n"
         val missing = YamlLint.run(missingText).first { it.kind == DiagKind.MissingProxy }
         val renamePlan = YamlFix.plan(missingText, missing)
