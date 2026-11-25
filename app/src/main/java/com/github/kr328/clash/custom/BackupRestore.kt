@@ -27,17 +27,17 @@ internal object BackupRestore {
         val savedIps = backup.manifest.optJSONObject("savedIps")?.toString()
         savedIps?.let { SavedIpStore.validateBackup(it) }
         val settings = withContext(Dispatchers.IO) {
-            applySettings && restoreSettings(context, backup.manifest)
+            applySettings && BackupManager.restoreSettings(context, backup.manifest)
         }
         val override = withContext(Dispatchers.IO) {
             if (!applySettings || backup.manifest.isNull("override")) false
-            else writeOverride(context, backup.manifest.getString("override"))
+            else BackupManager.writeOverride(context, backup.manifest.getString("override"))
         }
 
         val existing = withProfile { queryAll() }
         val active = withProfile { queryActive() }
         val deleteCandidates = if (replace) existing.filter {
-            it.imported && it.type != Profile.Type.External && !inBackup(backup, it)
+            it.imported && it.type != Profile.Type.External && !BackupManager.inBackup(backup, it)
         } else emptyList()
 
         val idMap = HashMap<String, UUID>()
@@ -81,13 +81,13 @@ internal object BackupRestore {
             var target: UUID? = null
             try {
                 target = uuid ?: withProfile { create(type, name, source, ageKey) }
-                val targetId = target ?: throw BackupException("cannot create subscription: $name")
+                val targetId = target ?: throw BackupManager.BackupException("cannot create subscription: $name")
                 withProfile { patch(targetId, name, source, interval, ageKey) }
 
                 withContext(Dispatchers.IO) {
-                    val from = File(backup.root, PROFILES + oldId)
+                    val from = File(backup.root, BackupManager.PROFILES + oldId)
                     if (type == Profile.Type.File) {
-                        if (!from.isDirectory) throw BackupException("missing file subscription data: $name")
+                        if (!from.isDirectory) throw BackupManager.BackupException("missing file subscription data: $name")
                         val pending = context.pendingDir.resolve(targetId.toString())
                         pending.deleteRecursively()
                         from.copyRecursively(pending, overwrite = true)
