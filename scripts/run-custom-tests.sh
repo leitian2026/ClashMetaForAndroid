@@ -23,6 +23,9 @@ fi
 "$compiler" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlRename.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFix.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFixIndent.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFixName.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlPairs.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/TextSearch.kt" \
   "$ROOT/app/src/main/java/com/github/kr328/clash/custom/RestoreCarrierSwitchPolicy.kt" \
@@ -52,6 +55,7 @@ fi
   "$ROOT/tests/custom/TextSearchTests.kt" \
   "$ROOT/tests/custom/YamlLintTests.kt" \
   "$ROOT/tests/custom/YamlRenameTests.kt" \
+  "$ROOT/tests/custom/YamlFixTests.kt" \
   "$ROOT/tests/custom/YamlPairsTests.kt" \
   -include-runtime -d "$OUT_DIR/custom-logic-tests.jar"
 
