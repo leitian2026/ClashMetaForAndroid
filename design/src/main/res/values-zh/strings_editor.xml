@@ -120,7 +120,7 @@
     <string name="editor_copy_failed">复制失败</string>
     <string name="editor_symbols">符号</string>
     <string name="editor_symbols_back">返回操作按钮</string>
-    <!-- CUSTOM (CUSTOM.md #177)：一键修复 YAML 问题 -->
+    <!-- CUSTOM (CUSTOM: #177)：一键修复 YAML 问题 -->
     <string name="editor_fix_title">修复：第 %1$d 行</string>
     <string name="editor_fix_apply">应用修复</string>
     <string name="editor_fix_jump">跳到该行</string>
