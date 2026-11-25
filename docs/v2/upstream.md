@@ -87,3 +87,6 @@ apply()：fetchProfile() 异常用 ConfigErrorText.explain 包装（#27）；Fil
 ### `design/src/main/java/com/github/kr328/clash/design/view/LargeActionCard.kt`
 subtext 的 setter 里，binding.subtextView.text = value 改成 binding.subtextView.text = com.github.kr328.clash.design.custom.CheckMark.paint(context, value)（首页代理卡片的 ✓ 绿 / ✗ 红）
 
+## Mihomo 补丁
+
+`patches/mihomo/0004-lookup-fresh.patch` 只新增 `dns/fresh.go`，提供绕过缓存读取的 A / AAAA 查询；依赖固定子模块提交 `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8` 中 `dns.Resolver.exchangeWithoutCache`、`msgToIP`，以及 `resolver.Resolver` / `dns.Resolvers` 类型。未修改 mihomo 现有文件或解析器接口。更新 mihomo 时，先核对这些函数、解析器动态类型及初始化赋值，再对补丁执行 dry-run；版本或接口不匹配时不得直接套用。
