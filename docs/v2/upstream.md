@@ -5,7 +5,7 @@
 
 |上游文件|对应功能编号|风险|冲突时怎么办|
 |---|---|---|---|
-|`.github/workflows/build-debug.yaml`|#2 #3 #4 #5 #14 #18 #20 #40 #54|中|以上游为底，重加：只留 workflow_dispatch、预下载 Gradle、预下载 geo 文件并加 geo 文件缓存兜底（#14 #18）、签名步骤、arm64 参数（含 -x…|
+|`.github/workflows/build-debug.yaml`|#2 #3 #4 #5 #14 #18 #20 #40 #54|中|以上游为底，重加 workflow_dispatch、Gradle / geo 预下载及缓存兜底、签名、arm64 构建参数与上传、mihomo 补丁应用、产物命名和删除废弃文件步骤。|
 |`.github/workflows/build-pre-release.yaml`|#2 #3|中|以上游为底，重加：只留 workflow_dispatch、预下载 Gradle|
 |`gradle.properties`|#175|低|保留 `kotlin.daemon.jvmargs=-Xmx3g`；Build Debug 已验证无需 `-Xss`。|
 |`core/src/main/golang/native/tunnel.go`|#1 #7 #37 #147|低|重加 ipdelay.TestGroup(name) 和 queryTunnelState 里的 current 字段（CurrentSet()、currentNode / curre…|
@@ -16,7 +16,7 @@
 |`core/src/main/java/com/github/kr328/clash/core/model/Proxy.kt`|#1|低|重加 ipDelays 参数|
 |`core/src/main/java/com/github/kr328/clash/core/model/TunnelState.kt`|#7 #37 #147|低|重加 current* 参数（currentNode / currentIp / currentCountry / currentIps / currentMore）、CurrentI详见旧文档对应编号|
 |`design/src/main/java/com/github/kr328/clash/design/component/ProxyView.kt`|#1 #12 #55 #151|高|以上游新版为底，按 #1 表格的描述重做 IP 行的高度和绘制，再按 #12 加最后一行"N 分钟前测速"，不要硬合|
-|`design/src/main/res/layout/design_main.xml`|#7 #8 #20 #21 #22 #32 #53 #168 #174|中|以上游新版为底，按 #7 重做：新增变量 customIp、包住 App 名字并加红字 custom_geosite_notice、代理卡片 subtext 改成带 customIp、…|
+|`design/src/main/res/layout/design_main.xml`|#7 #8 #20 #21 #22 #32 #53 #168 #174|中|#7：加 customIp、名称区与红色 custom_geosite_notice；代理卡片 subtext 带 customIp 并去掉 visibility。#8/#20/#21/#22：加连接、底层连接、错误诊断、配置检查入口及对应 Request。#32：顶部加 custom_more（48dp），名称区设 0dp + weight=1。|
 |`design/src/main/res/layout/design_proxy.xml`|#169|低|顶部工具栏新增 carrier_switch_view，位于 ⚡ 左侧；返回栏的 layout_toStartOf 改为指向新图标；底部悬浮测速按钮不变。|
 |`service/src/main/java/com/github/kr328/clash/service/StatusProvider.kt`|#174|低|重加 3 处 CUSTOM 挂钩（import、call() 分支、serviceRunning setter）|
 |`design/src/main/java/com/github/kr328/clash/design/MainDesign.kt`|#7 #8 #20 #21 #22 #32 #53 #146 #174|低|重加 customCards、setCustomCards()；#146 setCustomIssues(IssuesDisplayState)；Request 枚举加 OpenCon…|
@@ -28,9 +28,9 @@
 |`service/src/main/java/com/github/kr328/clash/service/TunService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
 |`service/src/main/java/com/github/kr328/clash/service/ClashService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
 |`service/src/main/java/com/github/kr328/clash/service/clash/module/SuspendModule.kt`|#53|低|复用已有亮灭屏广播，在启动、屏幕状态变化和配置载入后通过 SORT_ISSUES 推送 isInteractive；不新增屏幕监听|
-|`service/src/main/java/com/github/kr328/clash/service/ClashManager.kt`|#7 #8 #15 #158 #169|低|queryTunnelState() 开头加 NodeIpNotifier.start(context)；加 queryCustomConnections(sort: Int, fil…|
+|`service/src/main/java/com/github/kr328/clash/service/ClashManager.kt`|#7 #8 #15 #158 #169|低|queryTunnelState() 启动 NodeIpNotifier；实现自定义连接查询 / 关闭（#8/#15）、复用 logcat 转发下载进度（#158），并增加 applyCarrierSwitch()（#169）。|
 |`service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt`|#8 #15 #158 #169|低|重加 queryCustomConnections(sort: Int, filter: String): String 和 closeCustomConnection(id: Str…|
-|`app/src/main/AndroidManifest.xml`|#8 #17 #20 #21 #22 #46 #156 #169|低|在 LogsActivity 前重加 .custom.ConnectionsActivity（#8）、.custom.BackupActivity（#17，必须带 android:th…|
+|`app/src/main/AndroidManifest.xml`|#8 #17 #20 #21 #22 #46 #156 #169|中|在 LogsActivity 前登记 Connections、Backup（需 BackupTranslucentTheme）、Mux、Errors、ConfigCheck、SavedIp（label=saved_ip_title）、Editor（configChanges 含 orientation|screenSize）和 CarrierSwitch Activity。|
 |`app/src/main/java/com/github/kr328/clash/FilesActivity.kt`|#46 #50|低|OpenFile 分支：EditorActivity.canOpen(...) 为真就 startActivity(EditorActivity.intent(..., uuid, "详见旧文档对应编号|
 |`design/src/main/res/layout/adapter_profile.xml`|#47 #53 #55|中|以上游新版为底：<data> 里加变量 edit；时间 TextView（elapsed_view）layout_marginEnd 改 20dp、layout_toStartOf 改…|
 |`design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt`|#47|低|构造函数末尾加带默认值的 onEditClicked，onBindViewHolder 里加 binding.setEdit { onEditClicked(current) }|
@@ -40,7 +40,7 @@
 |`core/src/main/golang/go.mod`|#79 #80|中|以上游版本的依赖选择为准，将 github.com/metacubex/http、github.com/metacubex/quic-go、github.com/metacubex/t…|
 |`app/src/main/java/com/github/kr328/clash/MainApplication.kt`|#16 #21|低|onCreate() 里 extractGeoFiles() 后重加一行 GeoFileKeeper.restoreAfterUpdate(this)（#16），在 onCreate(详见旧文档对应编号|
 |`design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt`|#17 #176|低|保留 `customBackup()` 挂钩；在“显示流量”下增加独立“显示 IP”开关，运行中禁用。|
-|`service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`|#27 #28 #56 #169 #170 #173|低|apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText…；#173 替换后异步检查；delete() 清理。|
+|`service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`|#27 #28 #56 #169 #170 #173|低|apply()：配置载入异常包装为行号提示（#27）；File 配置替换前保留历史（#28/#56）。delete()：清理历史、订阅快照及同 UUID 的运营商映射（#169）。|
 |`app/src/main/java/com/github/kr328/clash/LogsActivity.kt`|#31|低|setContentDesign(design) 后加一行 LogLevelControl.attach(this, design)；加一个 import|
 |`design/src/main/res/layout/design_logs.xml`|#31|低|在 delete_view（三横线）左边加 log_level_view（ 起是显示当前级别文字的 TextView，原来是图标 ImageView）；标题栏的 layout_toSt详见旧文档对应编号|
 |`design/src/main/java/com/github/kr328/clash/design/OverrideSettingsDesign.kt`|#31|低|删掉"日志级别"那一个 selectableList（换成一行 CUSTOM 注释）；入口搬到日志页|
