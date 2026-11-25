@@ -51,8 +51,9 @@ object YamlFixTests {
         val separateLists = "proxy-groups:\n  - name: g1\n    type: select\n    proxies:\n      - absent\n  - name: g2\n    type: select\n    proxies:\n      - nodeA\nproxies:\n  - name: nodeA\n    type: direct\n"
         val separateProblem = YamlLint.run(separateLists).first { it.kind == DiagKind.MissingProxy }
         val separatePlan = YamlFix.plan(separateLists, separateProblem)
-        check(separatePlan?.candidates?.none { it.description.kind == FixDescriptionKind.DeleteLine } == true,
-            "YamlFix does not treat another list's item as a deletion sibling")
+        check(separatePlan == null || separatePlan.candidates.none {
+            it.description.kind == FixDescriptionKind.DeleteLine
+        }, "YamlFix does not treat another list's item as a deletion sibling")
 
         val deleteOnlyText = "proxy-groups:\n  - name: g\n    type: select\n    use:\n      - missingA\n      - missingB\n"
         val deleteOnlyProblem = YamlLint.run(deleteOnlyText).first { it.kind == DiagKind.MissingProvider }
