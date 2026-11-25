@@ -1,5 +1,5 @@
 # Generated once with: python3 scripts/check-function-length.py --update
-app/src/main/java/com/github/kr328/clash/custom/BackupManager.kt::restore 196
+app/src/main/java/com/github/kr328/clash/custom/BackupRestore.kt::restore 196
 app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt 964
 app/src/main/java/com/github/kr328/clash/custom/EditorActivity.kt::history 225
 design/src/main/java/com/github/kr328/clash/design/custom/editor/CodeEditText.kt 2104
