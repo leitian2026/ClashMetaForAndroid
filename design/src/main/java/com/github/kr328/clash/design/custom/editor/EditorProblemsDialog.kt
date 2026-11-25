@@ -4,7 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.design.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
-// CUSTOM (CUSTOM.md #177, not upstream): displays the editor's YAML problem list and owns its descriptions.
+// CUSTOM: #177 (not upstream): displays the editor's YAML problem list and owns its descriptions.
 interface EditorProblemsHost {
     fun problemContext(): Context
     fun problemItems(): List<Diagnostic>
