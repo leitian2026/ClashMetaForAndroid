@@ -44,6 +44,10 @@ class EditorFixController(private val host: EditorProblemsHost) {
         val replacement = withContext(Dispatchers.Default) {
             if (YamlFix.validated(snapshot, diagnostic, candidate)) YamlRename.apply(snapshot, candidate.changes) else null
         }
+        if (host.currentProblemText() != snapshot) {
+            host.showProblemToast(host.problemContext().getString(R.string.editor_fix_changed))
+            return
+        }
         if (replacement == null || !host.replaceProblemText(replacement)) {
             host.showProblemToast(host.problemContext().getString(R.string.editor_fix_too_big))
             return
