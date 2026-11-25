@@ -4,7 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.service.R
 
-// CUSTOM #7/#176: the separate IP line in the status-bar notification:
+// CUSTOM #7: the separate IP line in the status-bar notification:
 // "<flag> <ip> [· <flag> <ip> ...] · <node>" (every address in use). It is rebuilt only after
 // NodeIpNotifier marks it stale (the core reports a node IP change); otherwise cached text is returned.
 object NodeIpText {

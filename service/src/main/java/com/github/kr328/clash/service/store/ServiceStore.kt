@@ -66,7 +66,7 @@ class ServiceStore(context: Context) {
         defaultValue = true
     )
 
-    // CUSTOM #176: independently controls the node IP notification line.
+    // CUSTOM: independently controls the node IP notification line.
     var showIp by store.boolean(
         key = "show_ip",
         defaultValue = true

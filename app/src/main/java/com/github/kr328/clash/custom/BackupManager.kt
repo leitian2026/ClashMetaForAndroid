@@ -549,7 +549,7 @@ object BackupManager {
             if (json.has("allowIpv6")) store.allowIpv6 = json.getBoolean("allowIpv6")
             if (json.has("tunStackMode")) store.tunStackMode = json.getString("tunStackMode")
             if (json.has("dynamicNotification")) store.dynamicNotification = json.getBoolean("dynamicNotification")
-            store.showIp = json.optBoolean("showIp", true) // CUSTOM #176: older backups default to enabled
+            store.showIp = json.optBoolean("showIp", true) // CUSTOM: older backups default to enabled
 
             any = true
         }

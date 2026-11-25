@@ -71,7 +71,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             trafficSubText = null
         }
 
-        // CUSTOM #176: do not read tunnel state when the IP line is disabled.
+        // CUSTOM: do not read tunnel state when the IP line is disabled.
         val ipText = if (showIp) NodeIpText.get(service) else null
         val contentText = trafficText ?: ipText
         val expandedText = if (trafficText != null && ipText != null) {
@@ -80,7 +80,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             null
         }
 
-        // CUSTOM #35/#176: avoid notifying Android when every displayed line is unchanged.
+        // CUSTOM #35: avoid notifying Android when every displayed line is unchanged.
         val key = "$contentText\n$trafficSubText\n$expandedText"
         if (key == lastPosted) return
 
@@ -114,7 +114,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             addAction(Intents.ACTION_PROFILE_LOADED)
         }
 
-        // CUSTOM #176: subscribe to IP events only when the IP line is enabled.
+        // CUSTOM: subscribe to IP events only when the IP line is enabled.
         val nodeIpChanged = if (showIp) {
             receiveBroadcast(capacity = Channel.CONFLATED) {
                 addAction(CustomIntents.ACTION_NODE_IP_CHANGED)
@@ -123,7 +123,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             null
         }
 
-        if (showIp) NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7/#176
+        if (showIp) NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7
 
         // CUSTOM #35/#176: traffic refreshes every 5 seconds only while enabled and interactive.
         val trafficTicker = if (showTraffic) ticker(TimeUnit.SECONDS.toMillis(5)) else null
@@ -148,7 +148,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                     }
                 }
                 if (nodeIpChanged != null) {
-                    nodeIpChanged.onReceive { // CUSTOM #7/#176: core event, never polled
+                    nodeIpChanged.onReceive { // CUSTOM #7: core event, never polled
                         if (NotificationDisplayPolicy.shouldRefreshIp(showIp, shouldUpdate)) {
                             update(showTraffic, showIp)
                         }

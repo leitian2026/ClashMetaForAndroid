@@ -29,6 +29,7 @@ class ClashService : BaseService() {
         val config = install(ConfigurationModule(self))
         val network = install(NetworkObserveModule(self))
 
+        // CUSTOM: choose dynamic notification when either notification line is enabled.
         if (NotificationDisplayPolicy.useDynamicNotification(store.dynamicNotification, store.showIp))
             install(DynamicNotificationModule(self))
         else
