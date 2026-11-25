@@ -1,7 +1,7 @@
 diff -ruN a/dns/fresh.go b/dns/fresh.go
 --- /dev/null
 +++ b/dns/fresh.go
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,87 @@
 +package dns
 +
 +// CUSTOM (ClashMetaForAndroid CUSTOM.md step 83): resolve an IPv4 domain without reading
@@ -56,4 +56,36 @@ diff -ruN a/dns/fresh.go b/dns/fresh.go
 +	default:
 +		return nil, false
 +	}
++}
++
++// LookupIPv6Fresh sends one AAAA-record lookup without reading the resolver cache.
++// It follows the same resolver selection and cache-write path as LookupIPv4Fresh.
++func LookupIPv6Fresh(ctx context.Context, host string) ([]netip.Addr, error) {
++	selected := resolver.DefaultResolver
++	if selected == nil || !selected.Invalid() {
++		selected = resolver.SystemResolver
++	}
++
++	r, ok := freshResolver(selected)
++	if !ok || r == nil {
++		return nil, ErrFreshUnsupported
++	}
++
++	query := &D.Msg{}
++	query.SetQuestion(D.Fqdn(host), D.TypeAAAA)
++	msg, err := r.exchangeWithoutCache(ctx, query)
++	if err != nil {
++		return nil, err
++	}
++
++	var ips []netip.Addr
++	for _, ip := range msgToIP(msg) {
++		if ip.Is6() && !ip.Is4In6() {
++			ips = append(ips, ip)
++		}
++	}
++	if len(ips) == 0 {
++		return nil, resolver.ErrIPNotFound
++	}
++	return ips, nil
 +}
