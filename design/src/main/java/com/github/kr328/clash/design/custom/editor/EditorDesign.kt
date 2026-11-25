@@ -963,6 +963,55 @@ class EditorDesign(
 
     override fun problemContext(): Context = context
     override fun problemItems(): List<Diagnostic> = editor.allProblems()
+    override fun selectProblem(diagnostic: Diagnostic) {
+        launch {
+            if (!supportsWholeTextReplace()) {
+                toast(context.getString(R.string.editor_fix_too_big))
+                goToLine(diagnostic.line + 1, false)
+                return@launch
+            }
+            val snapshot = currentText()
+            if (snapshot.length > 150_000 || snapshot.count { it == '\n' } >= 3000) {
+                toast(context.getString(R.string.editor_fix_too_big))
+                goToLine(diagnostic.line + 1, false)
+                return@launch
+            }
+            val plan = withContext(Dispatchers.Default) { YamlFix.plan(snapshot, diagnostic) }
+            if (plan == null || plan.candidates.isEmpty()) {
+                goToLine(diagnostic.line + 1, false)
+                toast(context.getString(R.string.editor_fix_no_suggestion))
+                return@launch
+            }
+            EditorFixDialog(
+                context,
+                diagnostic.line,
+                EditorProblemsDialog(this@EditorDesign).describe(diagnostic),
+                plan,
+                onApply = { candidate ->
+                    launch {
+                        val current = currentText()
+                        if (current != snapshot) {
+                            toast(context.getString(R.string.editor_fix_changed))
+                            return@launch
+                        }
+                        val replacement = withContext(Dispatchers.Default) {
+                            if (YamlFix.validated(snapshot, diagnostic, candidate)) {
+                                YamlRename.apply(snapshot, candidate.changes)
+                            } else null
+                        }
+                        if (replacement == null || !replaceWholeText(replacement)) {
+                            toast(context.getString(R.string.editor_fix_too_big))
+                            return@launch
+                        }
+                        refreshProblems()
+                        refreshStatus()
+                        toast(context.getString(R.string.editor_fix_done))
+                    }
+                },
+                onJump = { goToLine(diagnostic.line + 1, false) },
+            ).show()
+        }
+    }
     override fun jumpToProblemLine(line: Int) = goToLine(line + 1, false)
     override fun showProblemToast(message: String) {
         launch { toast(message) }
