@@ -73,7 +73,9 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
 
         // CUSTOM: do not read tunnel state when the IP line is disabled.
         val ipText = if (showIp) NodeIpText.get(service) else null
-        val contentText = trafficText ?: ipText
+        // Keep both values visible in the collapsed notification, whose standard template has
+        // room for only one content line. The expanded notification keeps them on separate lines.
+        val contentText = listOfNotNull(trafficText, ipText).joinToString(" · ").ifEmpty { null }
         val expandedText = if (trafficText != null && ipText != null) {
             "$trafficText\n$ipText"
         } else {
