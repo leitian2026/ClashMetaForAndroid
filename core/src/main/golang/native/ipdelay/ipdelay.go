@@ -187,6 +187,10 @@ func fireNotify() {
 		}
 	}
 
+	if deferNotifyIfScreenOff() {
+		return
+	}
+
 	f()
 }
 
