@@ -8,6 +8,8 @@ import com.github.kr328.clash.service.data.PendingDao
 import com.github.kr328.clash.service.data.Selection
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.model.Profile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /** Room-independent rows exposed to the app module for backup and restore. */
@@ -54,7 +56,7 @@ object SelectionBackup {
         val dao = SelectionDao()
         val existing = dao.querySelections(uuid).map { it.proxy }
         if (existing.isNotEmpty()) dao.removeSelections(uuid, existing)
-        rows.forEach { dao.setSelected(Selection(uuid, it.proxy, it.selected)) }
+        withContext(Dispatchers.IO) {\n            rows.forEach { dao.setSelected(Selection(uuid, it.proxy, it.selected)) }\n        }
     }
 
     suspend fun writeImportedRows(rows: List<ProfileBackupRow>) {
