@@ -962,8 +962,7 @@ class EditorDesign(
     override fun problemContext(): Context = context
     override fun problemItems(): List<Diagnostic> = editor.allProblems()
     override fun selectProblem(diagnostic: Diagnostic) = EditorFixController(this).selectProblem(diagnostic)
-    override fun currentProblemText(): String = currentText()
-    override fun canReplaceProblemText(): Boolean = supportsWholeTextReplace()
+    override fun currentProblemText(): String = currentText(); override fun canReplaceProblemText(): Boolean = supportsWholeTextReplace()
     override fun replaceProblemText(replacement: String): Boolean = replaceWholeText(replacement)
     override fun refreshProblemUi() { refreshProblems(); refreshStatus() }
     override fun launchProblemTask(task: suspend () -> Unit) { launch { task() } }
