@@ -924,7 +924,7 @@ class EditorDesign(
             val extra = if (here.size > 1) " (+${here.size - 1})" else ""
             val start = sb.length
 
-            sb.append("  ").append(describe(here[0])).append(extra)
+            sb.append("  ").append(EditorProblemsDialog(this).describe(here[0])).append(extra)
             sb.setSpan(
                 ForegroundColorSpan(if (here[0].severity == 0) colorBad else colorWarn),
                 start,
@@ -957,65 +957,18 @@ class EditorDesign(
     }
 
     // CUSTOM.md #177: problem descriptions and list UI live outside this large design class.
-    private fun describe(d: Diagnostic): String = EditorProblemsDialog(this).describe(d)
-
     private fun showProblems() = EditorProblemsDialog(this).showProblems()
 
     override fun problemContext(): Context = context
     override fun problemItems(): List<Diagnostic> = editor.allProblems()
-    override fun selectProblem(diagnostic: Diagnostic) {
-        launch {
-            if (!supportsWholeTextReplace()) {
-                toast(context.getString(R.string.editor_fix_too_big))
-                goToLine(diagnostic.line + 1, false)
-                return@launch
-            }
-            val snapshot = currentText()
-            if (snapshot.length > 150_000 || snapshot.count { it == '\n' } >= 3000) {
-                toast(context.getString(R.string.editor_fix_too_big))
-                goToLine(diagnostic.line + 1, false)
-                return@launch
-            }
-            val plan = withContext(Dispatchers.Default) { YamlFix.plan(snapshot, diagnostic) }
-            if (plan == null || plan.candidates.isEmpty()) {
-                goToLine(diagnostic.line + 1, false)
-                toast(context.getString(R.string.editor_fix_no_suggestion))
-                return@launch
-            }
-            EditorFixDialog(
-                context,
-                diagnostic.line,
-                EditorProblemsDialog(this@EditorDesign).describe(diagnostic),
-                plan,
-                onApply = { candidate ->
-                    launch {
-                        val current = currentText()
-                        if (current != snapshot) {
-                            toast(context.getString(R.string.editor_fix_changed))
-                            return@launch
-                        }
-                        val replacement = withContext(Dispatchers.Default) {
-                            if (YamlFix.validated(snapshot, diagnostic, candidate)) {
-                                YamlRename.apply(snapshot, candidate.changes)
-                            } else null
-                        }
-                        if (replacement == null || !replaceWholeText(replacement)) {
-                            toast(context.getString(R.string.editor_fix_too_big))
-                            return@launch
-                        }
-                        refreshProblems()
-                        refreshStatus()
-                        toast(context.getString(R.string.editor_fix_done))
-                    }
-                },
-                onJump = { goToLine(diagnostic.line + 1, false) },
-            ).show()
-        }
-    }
+    override fun selectProblem(diagnostic: Diagnostic) = EditorFixController(this).selectProblem(diagnostic)
+    override fun currentProblemText(): String = currentText()
+    override fun canReplaceProblemText(): Boolean = supportsWholeTextReplace()
+    override fun replaceProblemText(replacement: String): Boolean = replaceWholeText(replacement)
+    override fun refreshProblemUi() { refreshProblems(); refreshStatus() }
+    override fun launchProblemTask(task: suspend () -> Unit) { launch { task() } }
     override fun jumpToProblemLine(line: Int) = goToLine(line + 1, false)
-    override fun showProblemToast(message: String) {
-        launch { toast(message) }
-    }
+    override fun showProblemToast(message: String) { launch { toast(message) } }
 
     private fun askLine() {
         val input = TextInputEditText(context).apply {
