@@ -12,7 +12,7 @@ object YamlFixTests {
             check(YamlLint.run(fixed).none { it.kind == DiagKind.Tab }, "YamlFix Tab repair removes Tab diagnostic")
         }
 
-        val deeperText = "a: 1\n    b: 2\n      c: 3\n"
+        val deeperText = "root:\n  child: value\n      sibling:\n        nested: value\n"
         val deeper = YamlLint.run(deeperText).first { it.kind == DiagKind.IndentDeeper }
         val deeperPlan = YamlFix.plan(deeperText, deeper)
         check(deeperPlan?.candidates?.isNotEmpty() == true, "YamlFix offers a validated deeper-indent repair")
