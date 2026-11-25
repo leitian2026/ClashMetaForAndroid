@@ -134,9 +134,21 @@ object YamlFixName {
         val itemName = match.groupValues.drop(1).firstOrNull { it.isNotEmpty() } ?: return null
         if (itemName != diagnostic.arg) return null
         val lines = YamlFix.splitLines(text)
-        val siblings = lines.withIndex().count { (index, other) ->
-            index != diagnostic.line && other.text.takeWhile { it == ' ' }.length == indent &&
-                other.text.drop(indent).startsWith("-") && meaningfulItem(other.text.drop(indent))
+        val parentIndex = (diagnostic.line - 1 downTo 0).firstOrNull { index ->
+            val parentLine = lines[index].text
+            parentLine.isNotBlank() && !parentLine.trimStart().startsWith("#") &&
+                parentLine.takeWhile { it == ' ' }.length < indent
+        } ?: return null
+        val parentIndent = lines[parentIndex].text.takeWhile { it == ' ' }.length
+        var siblings = 0
+        for (index in parentIndex + 1 until lines.size) {
+            val other = lines[index].text
+            if (other.isBlank() || other.trimStart().startsWith("#")) continue
+            val otherIndent = other.takeWhile { it == ' ' }.length
+            if (otherIndent <= parentIndent) break
+            if (index != diagnostic.line && otherIndent == indent &&
+                other.drop(indent).startsWith("-") && meaningfulItem(other.drop(indent))
+            ) siblings++
         }
         if (siblings == 0) return null
         val end = line.start + line.text.length + line.ending.length
