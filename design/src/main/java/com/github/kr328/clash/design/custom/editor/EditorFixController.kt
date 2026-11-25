@@ -4,7 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.github.kr328.clash.design.R
 
-// CUSTOM (CUSTOM.md #177, not upstream): computes and applies a selected YAML repair outside EditorDesign.
+// CUSTOM: #177 (not upstream): computes and applies a selected YAML repair outside EditorDesign.
 class EditorFixController(private val host: EditorProblemsHost) {
     fun selectProblem(diagnostic: Diagnostic) {
         host.launchProblemTask { prepare(diagnostic) }
