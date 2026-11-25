@@ -4,7 +4,7 @@ import android.content.Context
 import com.github.kr328.clash.design.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
-// CUSTOM (CUSTOM.md #177, not upstream): presentation only; planning and applying stay with the host.
+// CUSTOM: #177 (not upstream): presentation only; planning and applying stay with the host.
 class EditorFixDialog(
     private val context: Context,
     private val line: Int,
