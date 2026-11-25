@@ -34,15 +34,23 @@ for name,source in sources:
   if value.startswith("custom/"): key="file:"+value
   else: key="file:"+value
   if key not in rows and value not in text: errors.append(f"{name}: path {value!r} missing inventory")
-# Markers are required and inventoried categories must be covered by each adapter's declared marker.
+# Unified extra-file manifest is handled by the shared export/import adapters.
 export=(ROOT/"app/src/main/java/com/github/kr328/clash/custom/BackupExtras.kt").read_text(encoding="utf-8")
 restore=(ROOT/"app/src/main/java/com/github/kr328/clash/custom/BackupExtrasRestore.kt").read_text(encoding="utf-8")
+manager=(ROOT/"app/src/main/java/com/github/kr328/clash/custom/BackupManager.kt").read_text(encoding="utf-8")
 for key,cells in rows.items():
  if cells[-1]!="备份": continue
- if key.startswith(("prefs:","room:","file:","dir:")):
-  category=key.split(":",1)[0]
-  if not re.search(r"BACKUP-EXPORT\s+"+category+r":",export): errors.append(f"{key}: missing export category marker")
-  if not re.search(r"BACKUP-IMPORT\s+"+category+r":",restore): errors.append(f"{key}: missing import category marker")
+ if key=="prefs:ui":
+  if "BACKUP-EXPORT prefs:ui" not in manager: errors.append("prefs:ui: missing export marker")
+  if "BACKUP-IMPORT prefs:ui" not in restore: errors.append("prefs:ui: missing import marker")
+ elif key.startswith("prefs:"):
+  name=key.split(":",1)[1]
+  if "BACKUP-EXPORT prefs:"+name not in export: errors.append(f"{key}: missing export marker")
+ elif key.startswith("room:"):
+  if "BACKUP-EXPORT "+key not in export: errors.append(f"{key}: missing export marker")
+ elif key.startswith(("file:","dir:")):
+  if "BACKUP-EXPORT extraFiles" not in export: errors.append(f"{key}: missing export marker")
+  if "BACKUP-IMPORT extraFiles" not in restore: errors.append(f"{key}: missing import marker")
 if errors:
  print("Backup inventory check failed:")
  for e in errors: print(" -",e)

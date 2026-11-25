@@ -132,7 +132,7 @@ object BackupManager {
                     }
                 })
                 put("sync", sync)
-                put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
+                // BACKUP-EXPORT prefs:ui\n                put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
                 put("geoUrls", JSONObject().apply {
                     val store = context.getSharedPreferences(
                         GeoSiteDownloader.STORE_NAME,
