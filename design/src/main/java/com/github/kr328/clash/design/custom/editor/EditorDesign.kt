@@ -70,7 +70,7 @@ class EditorDesign(
     // it in use, and the history and the compare against the config in use are in the menu
     private val split: Boolean = false,
     private val displayTitle: String = fileName,
-) : Design<EditorDesign.Request>(context) {
+) : Design<EditorDesign.Request>(context), EditorProblemsHost {
     // SaveAs, ImportFrom: CUSTOM.md #47; Apply, History, Compare: CUSTOM.md #56
     enum class Request { Save, Check, External, Leave, SaveAs, ImportFrom, Apply, History, Compare, JumpDefinition, Rename }
 
@@ -956,36 +956,16 @@ class EditorDesign(
         problemButton.setTextColor(colorWarn)
     }
 
-    private fun describe(d: Diagnostic): String = when (d.kind) {
-        DiagKind.Tab -> context.getString(R.string.editor_problem_tab)
-        DiagKind.IndentDeeper -> context.getString(R.string.editor_problem_deeper)
-        DiagKind.IndentMisaligned -> context.getString(R.string.editor_problem_misaligned)
-        DiagKind.DupKey -> context.getString(R.string.editor_problem_dup_key, d.arg, d.other)
-        DiagKind.DupName -> context.getString(R.string.editor_problem_dup_name, d.arg, d.other)
-        DiagKind.MissingProxy -> context.getString(R.string.editor_problem_missing_proxy, d.arg)
-        DiagKind.MissingPolicy -> context.getString(R.string.editor_problem_missing_policy, d.arg)
-        DiagKind.MissingProvider -> context.getString(R.string.editor_problem_missing_provider, d.arg)
-        DiagKind.MissingRuleSet -> context.getString(R.string.editor_problem_missing_ruleset, d.arg)
-    }
+    // CUSTOM.md #177: problem descriptions and list UI live outside this large design class.
+    private fun describe(d: Diagnostic): String = EditorProblemsDialog(this).describe(d)
 
-    // a list of the problems; a tap on one goes to its line
-    private fun showProblems() {
-        val all = editor.allProblems()
+    private fun showProblems() = EditorProblemsDialog(this).showProblems()
 
-        if (all.isEmpty()) {
-            launch { toast(context.getString(R.string.editor_problems_none)) }
-
-            return
-        }
-
-        val shown = all.take(300)
-        val items = shown.map { context.getString(R.string.editor_problem_item, it.line + 1, describe(it)) }.toTypedArray()
-
-        MaterialAlertDialogBuilder(context)
-            .setTitle(context.getString(R.string.editor_problems_title, all.size, shown.size))
-            .setItems(items) { _, which -> goToLine(shown[which].line + 1, false) }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    override fun problemContext(): Context = context
+    override fun problemItems(): List<Diagnostic> = editor.allProblems()
+    override fun jumpToProblemLine(line: Int) = goToLine(line + 1, false)
+    override fun showProblemToast(message: String) {
+        launch { toast(message) }
     }
 
     private fun askLine() {
