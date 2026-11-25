@@ -39,15 +39,22 @@ object IpTextFit {
         }.distinct()
         var best = "…"
         var bestLength = -1
+        var bestBalance = -1
 
         for (leftEnd in boundaries) {
             for (rightStart in boundaries) {
                 if (rightStart < leftEnd) continue
                 val candidate = text.substring(0, leftEnd) + "…" + text.substring(rightStart)
-                val kept = leftEnd + text.length - rightStart
-                if (kept > bestLength && measureText(candidate, textSize) <= availableWidth) {
+                val left = leftEnd
+                val right = text.length - rightStart
+                val kept = left + right
+                val balance = minOf(left, right)
+                if (measureText(candidate, textSize) <= availableWidth &&
+                    (kept > bestLength || (kept == bestLength && balance > bestBalance))
+                ) {
                     best = candidate
                     bestLength = kept
+                    bestBalance = balance
                 }
             }
         }
