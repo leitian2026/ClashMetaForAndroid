@@ -75,13 +75,13 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
         val ipText = if (showIp) NodeIpText.get(service) else null
         val contentText = trafficText ?: ipText
         val expandedText = if (trafficText != null && ipText != null) {
-            "$trafficText\\n$ipText"
+            "$trafficText\n$ipText"
         } else {
             null
         }
 
         // CUSTOM #35/#176: avoid notifying Android when every displayed line is unchanged.
-        val key = "$contentText\\n$trafficSubText\\n$expandedText"
+        val key = "$contentText\n$trafficSubText\n$expandedText"
         if (key == lastPosted) return
 
         lastPosted = key
