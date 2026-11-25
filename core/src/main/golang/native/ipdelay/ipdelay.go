@@ -72,11 +72,10 @@ type used struct {
 	ip   string
 }
 
-// CUSTOM.md #55: addresses found for the proxy page by resolving a server domain that has no `hosts:` entry:
-// server name -> sorted IPv4 addresses, resolved once per profile load (a failed lookup is tried again after
-// retryAfter, and only when the proxy page is opened). Guarded by `lock`.
+// CUSTOM.md #55 / #178: address families resolved for proxy cards, cached per profile load.
 var (
 	displayIPs    = map[string][]string{}
+	displayIPv6   = map[string][]string{}
 	displayFailed = map[string]time.Time{}
 )
 
@@ -379,6 +378,7 @@ func CaptureConfig(rawProxies any, rawHosts any) {
 	hosts = newHosts
 	results = map[string][]IPDelay{}
 	displayIPs = map[string][]string{} // CUSTOM.md #55
+	displayIPv6 = map[string][]string{} // CUSTOM.md #178
 	displayFailed = map[string]time.Time{}
 	tracked = newTracked
 	nodeIPs = newNodeIPs
@@ -545,15 +545,9 @@ func Get(name string) []IPDelay {
 	return out
 }
 
-// GetForDisplay is Get for the proxy page. A node that was never tested still lists its IPv4 addresses (at most
-// maxHostsIPs, the ones in use first, like a test would pick them), with Delay -1 = "not tested": the one address of a
-// server that is an IP, the ones written in `hosts:`, or the ones PrepareDisplay resolved once. It only reads what is
-// already in memory: no DNS lookup, no network.
+// GetForDisplay returns the existing IPv4 test results plus up to four IPv6 addresses.
+// IPv6 is display-only (Delay -1); this function never starts a lookup.
 func GetForDisplay(name string) []IPDelay {
-	if out := Get(name); len(out) > 0 {
-		return out
-	}
-
 	lock.RLock()
 	defer lock.RUnlock()
 
@@ -567,43 +561,56 @@ func GetForDisplay(name string) []IPDelay {
 		return nil
 	}
 
-	if v, _ := raw["ip-version"].(string); v == "ipv6" {
-		return nil
-	}
-
-	var all []string
-
-	if lit, err := netip.ParseAddr(server); err == nil {
-		// the server is one address: that is the only one there is
-		lit = lit.Unmap()
-
-		if !lit.Is4() {
-			return nil
-		}
-
-		all = []string{lit.String()}
-	} else if entry, found := hosts[server]; found {
-		all = onlyIPv4(toStrings(entry)) // the order the user wrote
-	} else {
-		all = displayIPs[server] // filled by PrepareDisplay
-	}
-
-	if len(all) == 0 {
-		return nil
-	}
-
+	version, _ := raw["ip-version"].(string)
 	inUse := inUseLocked(name)
-	ips, _ := pickIPs(all, inUse, maxHostsIPs, false)
-
-	usedNow := map[string]bool{}
+	usedNow := make(map[string]bool, len(inUse))
 	for _, ip := range inUse {
 		usedNow[ip] = true
 	}
 
-	out := make([]IPDelay, len(ips))
+	var out []IPDelay
+	if version != "ipv6" {
+		if tested := results[name]; len(tested) > 0 {
+			out = make([]IPDelay, len(tested))
+			copy(out, tested)
+			for i := range out {
+				out[i].InUse = usedNow[out[i].IP]
+			}
+		} else {
+			var all []string
+			if lit, err := netip.ParseAddr(server); err == nil {
+				lit = lit.Unmap()
+				if lit.Is4() {
+					all = []string{lit.String()}
+				}
+			} else if entry, found := hosts[server]; found {
+				all = onlyIPv4(toStrings(entry))
+			} else {
+				all = displayIPs[server]
+			}
 
-	for i, ip := range ips {
-		out[i] = IPDelay{IP: ip, Delay: -1, Country: countries[name+"|"+ip], InUse: usedNow[ip]}
+			ips, _ := pickIPs(all, inUse, maxHostsIPs, false)
+			for _, ip := range ips {
+				out = append(out, IPDelay{IP: ip, Delay: -1, Country: countries[name+"|"+ip], InUse: usedNow[ip]})
+			}
+		}
+	}
+
+	if version != "ipv4" {
+		var all []string
+		if lit, err := netip.ParseAddr(server); err == nil {
+			if lit.Is6() && !lit.Is4In6() {
+				all = []string{lit.String()}
+			}
+		} else if entry, found := hosts[server]; found {
+			all = onlyIPv6(toStrings(entry))
+		} else {
+			all = displayIPv6[server]
+		}
+
+		for _, ip := range pickDisplayIPv6(all, inUse) {
+			out = append(out, IPDelay{IP: ip, Delay: -1, Country: countries[name+"|"+ip], InUse: usedNow[ip]})
+		}
 	}
 
 	return out
@@ -629,10 +636,6 @@ func PrepareDisplay(names []string) {
 			continue
 		}
 
-		if v, _ := raw["ip-version"].(string); v == "ipv6" {
-			continue
-		}
-
 		if _, err := netip.ParseAddr(server); err == nil {
 			continue
 		}
@@ -641,7 +644,10 @@ func PrepareDisplay(names []string) {
 			continue
 		}
 
-		if _, done := displayIPs[server]; done {
+		if _, done4 := displayIPs[server]; done4 {
+			continue
+		}
+		if _, done6 := displayIPv6[server]; done6 {
 			continue
 		}
 
@@ -682,17 +688,22 @@ func PrepareDisplay(names []string) {
 				list = append(list, fmt.Sprint(a))
 			}
 
-			list = onlyIPv4(list)
+			list4 := onlyIPv4(list)
+			list6 := onlyIPv6(list)
 
-			sort.Slice(list, func(i, j int) bool {
-				return netip.MustParseAddr(list[i]).Less(netip.MustParseAddr(list[j]))
+			sort.Slice(list4, func(i, j int) bool {
+				return netip.MustParseAddr(list4[i]).Less(netip.MustParseAddr(list4[j]))
+			})
+			sort.Slice(list6, func(i, j int) bool {
+				return netip.MustParseAddr(list6[i]).Less(netip.MustParseAddr(list6[j]))
 			})
 
 			lock.Lock()
-			if err != nil || len(list) == 0 {
+			if err != nil || len(list4)+len(list6) == 0 {
 				displayFailed[server] = time.Now()
 			} else {
-				displayIPs[server] = list
+				displayIPs[server] = list4
+				displayIPv6[server] = list6
 			}
 			lock.Unlock()
 		}(server)
