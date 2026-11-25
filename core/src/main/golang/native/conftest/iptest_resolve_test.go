@@ -47,3 +47,35 @@ func TestNormalizeResolvedIPsLimit(t *testing.T) {
 		t.Fatalf("order = %v", got)
 	}
 }
+
+func TestNormalizeResolvedIPv6(t *testing.T) {
+	input := []netip.Addr{
+		netip.MustParseAddr("2001:db8::5"),
+		netip.MustParseAddr("2001:db8::1"),
+		netip.MustParseAddr("2001:db8::2"),
+		netip.MustParseAddr("2001:db8::3"),
+		netip.MustParseAddr("2001:db8::4"),
+		netip.MustParseAddr("2001:db8::4"),
+		netip.MustParseAddr("2001:db8:ffff::1"),
+		netip.MustParseAddr("192.0.2.1"),
+		netip.MustParseAddr("::ffff:192.0.2.2"),
+	}
+	got := normalizeResolvedIPv6(input, []string{"2001:db8:ffff::/48"})
+	want := []string{"2001:db8::1", "2001:db8::2", "2001:db8::3", "2001:db8::4"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("IPv6 ips = %v, want %v", got, want)
+	}
+}
+
+func TestNormalizeResolvedIPv6FiltersFakeRangesAndCapsAtFour(t *testing.T) {
+	got := normalizeResolvedIPv6([]netip.Addr{
+		netip.MustParseAddr("2001:db8::1"),
+		netip.MustParseAddr("2001:db8::2"),
+		netip.MustParseAddr("2001:db8::3"),
+		netip.MustParseAddr("2001:db8::4"),
+		netip.MustParseAddr("2001:db8::5"),
+	}, []string{"2001:db8::/64"})
+	if len(got) != 0 {
+		t.Fatalf("fake IPv6 range returned %v", got)
+	}
+}
