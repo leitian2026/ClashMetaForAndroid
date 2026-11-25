@@ -2,7 +2,7 @@ package com.github.kr328.clash.custom
 
 import android.content.Context
 import com.github.kr328.clash.service.PreferenceProvider
-import com.github.kr328.clash.service.data.Database
+import com.github.kr328.clash.service.custom.SelectionBackup
 import com.github.kr328.clash.service.util.processingDir
 import com.github.kr328.clash.util.logsDir
 import org.json.JSONArray
@@ -46,17 +46,13 @@ internal object BackupExtras {
         }
         manifest.put("extraPrefs", extraPrefs)
 
-        val database = Database.database
-        val importedDao = database.openImportedDao()
-        val pendingDao = database.openPendingDao()
-        val selectionDao = database.openSelectionProxyDao()
-        val imported = importedDao.queryAllUUIDs().mapNotNull { importedDao.queryByUUID(it) }
+        val imported = SelectionBackup.queryImportedRows()
         manifest.put("importedMetadata", JSONArray().apply {
             imported.forEach { item ->
                 put(JSONObject()
                     .put("uuid", item.uuid.toString())
                     .put("name", item.name)
-                    .put("type", item.type.name)
+                    .put("type", item.type)
                     .put("source", item.source)
                     .put("interval", item.interval)
                     .put("createdAt", item.createdAt)
@@ -64,13 +60,13 @@ internal object BackupExtras {
             }
         })
 
-        val pending = pendingDao.queryAllUUIDs().mapNotNull { pendingDao.queryByUUID(it) }
+        val pending = SelectionBackup.queryPendingRows()
         manifest.put("pendingMetadata", JSONArray().apply {
             pending.forEach { item ->
                 put(JSONObject()
                     .put("uuid", item.uuid.toString())
                     .put("name", item.name)
-                    .put("type", item.type.name)
+                    .put("type", item.type)
                     .put("source", item.source)
                     .put("interval", item.interval)
                     .put("createdAt", item.createdAt)
@@ -80,9 +76,9 @@ internal object BackupExtras {
 
         manifest.put("selections", JSONArray().apply {
             imported.forEach { item ->
-                selectionDao.querySelections(item.uuid).forEach { selection ->
+                SelectionBackup.querySelectionRows(item.uuid).forEach { selection ->
                     put(JSONObject()
-                        .put("uuid", selection.uuid.toString())
+                        .put("uuid", item.uuid.toString())
                         .put("proxy", selection.proxy)
                         .put("selected", selection.selected))
                 }
