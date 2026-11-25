@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">IPを表示</string>
+    <string name="custom_show_ip_summary">通知に現在のノード IP を表示</string>
+</resources>
