@@ -56,7 +56,9 @@ object SelectionBackup {
         val dao = SelectionDao()
         val existing = dao.querySelections(uuid).map { it.proxy }
         if (existing.isNotEmpty()) dao.removeSelections(uuid, existing)
-        withContext(Dispatchers.IO) {\n            rows.forEach { dao.setSelected(Selection(uuid, it.proxy, it.selected)) }\n        }
+        withContext(Dispatchers.IO) {
+            rows.forEach { dao.setSelected(Selection(uuid, it.proxy, it.selected)) }
+        }
     }
 
     suspend fun writeImportedRows(rows: List<ProfileBackupRow>) {
