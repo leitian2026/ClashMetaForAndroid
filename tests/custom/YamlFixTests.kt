@@ -25,19 +25,19 @@ object YamlFixTests {
                 "YamlFix rename removes missing proxy diagnostic")
         }
 
-        val siblingList = "proxy-groups:\\n  - name: g\\n    type: select\\n    proxies:\\n      - absent\\n      - nodeA\\nproxies:\\n  - name: nodeA\\n    type: direct\\n"
+        val siblingList = "proxy-groups:\n  - name: g\n    type: select\n    proxies:\n      - absent\n      - nodeA\nproxies:\n  - name: nodeA\n    type: direct\n"
         val siblingProblem = YamlLint.run(siblingList).first { it.kind == DiagKind.MissingProxy }
         val siblingPlan = YamlFix.plan(siblingList, siblingProblem)
         check(siblingPlan?.candidates?.any { it.description.kind == FixDescriptionKind.DeleteLine } == true,
             "YamlFix offers deletion when the same list has another item")
 
-        val separateLists = "proxy-groups:\\n  - name: g1\\n    type: select\\n    proxies:\\n      - absent\\n  - name: g2\\n    type: select\\n    proxies:\\n      - nodeA\\nproxies:\\n  - name: nodeA\\n    type: direct\\n"
+        val separateLists = "proxy-groups:\n  - name: g1\n    type: select\n    proxies:\n      - absent\n  - name: g2\n    type: select\n    proxies:\n      - nodeA\nproxies:\n  - name: nodeA\n    type: direct\n"
         val separateProblem = YamlLint.run(separateLists).first { it.kind == DiagKind.MissingProxy }
         val separatePlan = YamlFix.plan(separateLists, separateProblem)
         check(separatePlan?.candidates?.none { it.description.kind == FixDescriptionKind.DeleteLine } == true,
             "YamlFix does not treat another list's item as a deletion sibling")
 
-        val deleteOnlyText = "proxy-groups:\\n  - name: g\\n    type: select\\n    use:\\n      - missingA\\n      - missingB\\n"
+        val deleteOnlyText = "proxy-groups:\n  - name: g\n    type: select\n    use:\n      - missingA\n      - missingB\n"
         val deleteOnlyProblem = YamlLint.run(deleteOnlyText).first { it.kind == DiagKind.MissingProvider }
         val deleteOnlyPlan = YamlFix.plan(deleteOnlyText, deleteOnlyProblem)
         check(deleteOnlyPlan?.candidates?.singleOrNull()?.description?.kind == FixDescriptionKind.DeleteLine &&
