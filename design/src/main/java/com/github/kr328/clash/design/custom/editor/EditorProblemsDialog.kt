@@ -9,6 +9,11 @@ interface EditorProblemsHost {
     fun problemContext(): Context
     fun problemItems(): List<Diagnostic>
     fun selectProblem(diagnostic: Diagnostic)
+    fun currentProblemText(): String
+    fun canReplaceProblemText(): Boolean
+    fun replaceProblemText(replacement: String): Boolean
+    fun refreshProblemUi()
+    fun launchProblemTask(task: suspend () -> Unit)
     fun jumpToProblemLine(line: Int)
     fun showProblemToast(message: String)
 }
