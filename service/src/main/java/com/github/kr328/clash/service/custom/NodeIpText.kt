@@ -4,9 +4,9 @@ import android.content.Context
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.service.R
 
-// CUSTOM (CUSTOM.md #7): text of the status-bar notification (replaces the upload/download speed):
-// "<flag> <ip> [· <flag> <ip> ...] · <node>" (every address in use, CUSTOM.md #7). It is rebuilt only after NodeIpNotifier marked it stale (the core told us
-// the node IP changed), otherwise the cached text is returned.
+// CUSTOM #7/#176: the separate IP line in the status-bar notification:
+// "<flag> <ip> [· <flag> <ip> ...] · <node>" (every address in use). It is rebuilt only after
+// NodeIpNotifier marks it stale (the core reports a node IP change); otherwise cached text is returned.
 object NodeIpText {
     @Volatile
     private var dirty = true
