@@ -99,6 +99,16 @@ class AppSettingsDesign(
                 enabled = !running
             }
 
+            // CUSTOM #176: IP visibility is independent from traffic visibility.
+            switch(
+                value = srvStore::showIp,
+                icon = R.drawable.ic_baseline_domain,
+                title = R.string.custom_show_ip,
+                summary = R.string.custom_show_ip_summary
+            ) {
+                enabled = !running
+            }
+
             customBackup() // CUSTOM: backup / restore, CUSTOM.md #17
         }
 
