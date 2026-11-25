@@ -26,7 +26,6 @@ internal object BackupRestore {
     ): BackupManager.RestoreResult {
         val savedIps = backup.manifest.optJSONObject("savedIps")?.toString()
         savedIps?.let { SavedIpStore.validateBackup(it) }
-
         val settings = withContext(Dispatchers.IO) {
             applySettings && restoreSettings(context, backup.manifest)
         }

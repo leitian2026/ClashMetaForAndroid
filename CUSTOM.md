@@ -87,7 +87,7 @@
 | 14 | 构建前带重试地预下载 geo 文件（仅 build-debug） | [014.md](docs/custom/014.md) |
 | 15 | 连接页：搜索、排序、全部关闭、少做无用功（r12） | [015.md](docs/custom/015.md) |
 | 16 | 下载的 geo 文件更新应用后自动恢复；GeoIP / ASN 也能按地址下载（r12） | [016.md](docs/custom/016.md) |
-| 17 | 备份与恢复（r12；订阅备份保存运营商映射并按 UUID 恢复；普通恢复合并已保存 IP，replace 恢复整体覆盖；恢复结果显示 IP 合并和运营商映射摘要） | [017.md](docs/custom/017.md) |
+| 17 | 备份与恢复（r12；订阅备份保存运营商映射并按 UUID 恢复；普通恢复合并已保存 IP，replace 恢复整体覆盖；恢复结果显示 IP 合并和运营商映射摘要；新增备份实现见 `BackupRestore.kt`、`BackupExtras.kt`） | [017.md](docs/custom/017.md) |
 | 18 | 构建时的下载：缓存和重试（仅 build-debug） | [018.md](docs/custom/018.md) |
 | 19 | 自检脚本 `scripts/check-custom.sh`（含超大 Kotlin 文件告警，默认 2500 行，可用 BIG_FILE_LINES 调整；只告警不影响退出码） | [019.md](docs/custom/019.md) |
 | 20 | 底层连接页：每个节点的底层连接数（多路复用有没有生效）（r16，r27 加每个 IP 的开始时间，r156 完善说明与截断提示，r211 改成分组布局并限宽，r327 列表字号缩小 2sp、说明文字不变） | [020.md](docs/custom/020.md) |
