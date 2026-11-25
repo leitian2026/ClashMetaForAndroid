@@ -137,11 +137,12 @@ data class IpTestConfigFail(
     val detail: String = "",
 )
 
-/** CUSTOM.md step 67: one domain and the IPv4 answers returned by mode "resolve". */
+/** CUSTOM.md #178: one domain and its IPv4 / IPv6 answers returned by mode "resolve". */
 @Serializable
 data class IpTestResolveResult(
     val domain: String = "",
     val ips: List<String> = emptyList(),
+    val ipsV6: List<String> = emptyList(),
     val omitted: Int = 0,
     val error: String = "",
     val fromHosts: Boolean = false,
