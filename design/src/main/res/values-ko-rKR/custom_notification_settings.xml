@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">IP 표시</string>
+    <string name="custom_show_ip_summary">알림에 현재 노드 IP 표시</string>
+</resources>
