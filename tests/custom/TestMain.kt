@@ -29,6 +29,8 @@ fun main() {
     SavedIpSortVisibilityTests.run()
     UptimeFormatTests.run()
     NotificationDisplayPolicyTests.run()
+    IpTextFitTests.run()
+    IpTestIpv6Tests.run()
     println("Custom logic tests: $testPassed passed, $testFailed failed")
     if (testFailed > 0) kotlin.system.exitProcess(1)
 }
