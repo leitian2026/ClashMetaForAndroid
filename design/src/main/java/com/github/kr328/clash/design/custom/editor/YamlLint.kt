@@ -80,7 +80,7 @@ object YamlLint {
         return Resolution(link, definition, false)
     }
 
-    private val builtin = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL")
+    internal val builtin = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL")
     private const val MAX_LINE = 4000 // a longer line is not read
     private const val MAX_DIAG = 2000
     private const val NONE = '\u0000'
