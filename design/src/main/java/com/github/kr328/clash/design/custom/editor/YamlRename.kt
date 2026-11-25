@@ -17,7 +17,7 @@ object YamlRename {
     }
 
     private data class Line(val number: Int, val start: Int, val text: String)
-    private data class ValueRange(val start: Int, val end: Int, val quote: Char?)
+    internal data class ValueRange(val start: Int, val end: Int, val quote: Char?)
 
     private val builtIns = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL")
 
@@ -254,7 +254,7 @@ object YamlRename {
     }
 
     /** Exact scalar matches outside comments; quoted names are allowed, substrings of longer names are not. */
-    private fun occurrences(line: String, name: String): List<ValueRange> {
+    internal fun occurrences(line: String, name: String): List<ValueRange> {
         val result = ArrayList<ValueRange>()
         var commentAt = line.length
         var quote = '\u0000'
@@ -294,7 +294,7 @@ object YamlRename {
         return null
     }
 
-    private fun encode(value: String, originalQuote: Char?): String {
+    internal fun encode(value: String, originalQuote: Char?): String {
         // The recorded range excludes existing quote delimiters, so preserve only their escaped contents.
         if (originalQuote == '\'') return value.replace("'", "''")
         if (originalQuote == '"') return doubleQuotedContent(value)
@@ -302,7 +302,7 @@ object YamlRename {
         return doubleQuoted(value)
     }
 
-    private fun needsQuotes(value: String): Boolean {
+    internal fun needsQuotes(value: String): Boolean {
         if (value != value.trim()) return true
         if (value.contains(": ") || value.contains(" #")) return true
         if (value.firstOrNull() in listOf('&', '*', '!', '|', '>', '\'', '"', '%', '@', '`', '[', '{')) return true
