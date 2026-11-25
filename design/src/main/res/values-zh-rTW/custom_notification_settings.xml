@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">顯示 IP</string>
+    <string name="custom_show_ip_summary">在通知中顯示目前節點 IP</string>
+</resources>
