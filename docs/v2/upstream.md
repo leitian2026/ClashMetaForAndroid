@@ -23,7 +23,10 @@
 |`design/src/main/java/com/github/kr328/clash/design/ProxyDesign.kt`|#169|低|增加 carrier_switch_view 点击挂钩，通过 setClassName 打开运营商映射设置页；运营商入口、测速入口和更多菜单另有三处长按提示。业务逻辑放在新建的 Car…|
 |`design/src/main/java/com/github/kr328/clash/design/MetaFeatureSettingsDesign.kt`|#6 #16|低|重加 geoSiteDownload() 一行（#16 起它一次加 GeoSite / GeoIP / ASN 三块，不用再改这里）|
 |`app/src/main/java/com/github/kr328/clash/MainActivity.kt`|#6 #7 #8 #20 #21 #22 #35 #53 #174|低|重加 fetch() 里的 setCustomCards(...)、customNodeIpEvents() 和 select 里的 customNodeIp.onReceive 分支…|
-|`service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt`|#7 #35|低|通知正文改用 NodeIpText.get(service)（原来是上传/下载速度），去掉不再用的 queryTrafficNow；加 nodeIpChanged 通道、NodeIpN详见旧文档对应编号|
+|`service/src/main/java/com/github/kr328/clash/service/clash/module/DynamicNotificationModule.kt`|#7 #35 #176|低|恢复上游 `queryTrafficNow()`：正文实时上传 / 下载速度，副标题累计流量；保留 `NodeIpText`、`NodeIpNotifier`、`nodeIpChanged`，仅在显示 IP 时订阅事件并单独显示 IP 行；流量刷新仅在开关开启且亮屏时每 5 秒执行，内容不变跳过通知。|
+|`service/src/main/java/com/github/kr328/clash/service/store/ServiceStore.kt`|#176|低|新增 `showIp` 布尔设置，默认开启；与原 `dynamicNotification`（显示流量）互相独立。|
+|`service/src/main/java/com/github/kr328/clash/service/TunService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
+|`service/src/main/java/com/github/kr328/clash/service/ClashService.kt`|#176|低|动态通知模块的选择条件改为 `dynamicNotification || showIp`；两项都关闭时仍使用静态通知。|
 |`service/src/main/java/com/github/kr328/clash/service/clash/module/SuspendModule.kt`|#53|低|复用已有亮灭屏广播，在启动、屏幕状态变化和配置载入后通过 SORT_ISSUES 推送 isInteractive；不新增屏幕监听|
 |`service/src/main/java/com/github/kr328/clash/service/ClashManager.kt`|#7 #8 #15 #158 #169|低|queryTunnelState() 开头加 NodeIpNotifier.start(context)；加 queryCustomConnections(sort: Int, fil…|
 |`service/src/main/java/com/github/kr328/clash/service/remote/IClashManager.kt`|#8 #15 #158 #169|低|重加 queryCustomConnections(sort: Int, filter: String): String 和 closeCustomConnection(id: Str…|
@@ -36,7 +39,7 @@
 |`core/src/main/cpp/CMakeLists.txt`|#7|低|add_library 源文件末尾加 custom_bridge.c|
 |`core/src/main/golang/go.mod`|#79 #80|中|以上游版本的依赖选择为准，将 github.com/metacubex/http、github.com/metacubex/quic-go、github.com/metacubex/t…|
 |`app/src/main/java/com/github/kr328/clash/MainApplication.kt`|#16 #21|低|onCreate() 里 extractGeoFiles() 后重加一行 GeoFileKeeper.restoreAfterUpdate(this)（#16），在 onCreate(详见旧文档对应编号|
-|`design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt`|#17|低|preferenceScreen 块末尾（"服务"那个开关之后）重加一行 customBackup()|
+|`design/src/main/java/com/github/kr328/clash/design/AppSettingsDesign.kt`|#17 #176|低|保留 `customBackup()` 挂钩；在“显示流量”下增加独立“显示 IP”开关，运行中禁用。|
 |`service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`|#27 #28 #56 #169 #170 #173|低|apply() 里两处：① fetchProfile(...) 外面包 try { ... } catch (e: Exception) { throw ConfigErrorText…；#173 替换后异步检查；delete() 清理。|
 |`app/src/main/java/com/github/kr328/clash/LogsActivity.kt`|#31|低|setContentDesign(design) 后加一行 LogLevelControl.attach(this, design)；加一个 import|
 |`design/src/main/res/layout/design_logs.xml`|#31|低|在 delete_view（三横线）左边加 log_level_view（ 起是显示当前级别文字的 TextView，原来是图标 ImageView）；标题栏的 layout_toSt详见旧文档对应编号|
