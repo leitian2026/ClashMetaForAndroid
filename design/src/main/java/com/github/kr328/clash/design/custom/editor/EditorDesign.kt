@@ -956,7 +956,7 @@ class EditorDesign(
         problemButton.setTextColor(colorWarn)
     }
 
-    // CUSTOM.md #177: problem descriptions and list UI live outside this large design class.
+    // CUSTOM: #177; problem descriptions and list UI live outside this large design class.
     private fun showProblems() = EditorProblemsDialog(this).showProblems()
 
     override fun problemContext(): Context = context
