@@ -4,10 +4,8 @@ package conftest
 // nodes, so they can be put into the list of "test other IPs".
 //
 // Since #71 this is the same list as the proxy page's node cards (ipdelay.PrepareDisplay + ipdelay.GetForDisplay,
-// CUSTOM.md #55), not a second implementation of it: IPv4 only, at most maxHostsIPs per node, the ones in use first;
-// the one address of a server that is an IP, the ones written in `hosts:` (exact key), or the ones found by resolving
-// the domain once (cached, at most displayResolveTimeout). Nodes with `ip-version: ipv6` and nodes of providers are
-// not in it, as on the proxy page.
+// CUSTOM.md #55 / #178), not a second implementation: the existing IPv4 rows plus up to four display-only IPv6 rows;
+// nodes with `ip-version` select their address family, and provider nodes remain excluded.
 //
 // Nothing here depends on the core's source: it only calls the two functions above.
 //
@@ -83,10 +81,6 @@ func readConfigIPs() ConfigRead {
 	for _, name := range names {
 		raw := proxies[name]
 		server, _ := raw["server"].(string)
-
-		if v, _ := raw["ip-version"].(string); v == "ipv6" {
-			continue // not on the proxy page
-		}
 
 		n := displayNode{name: name}
 
