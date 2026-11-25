@@ -32,7 +32,7 @@ class EditorFixDialog(
                 selected?.let { plan.candidates.getOrNull(it)?.let(onApply) }
             }
 
-        if (plan.candidates.size > 1) {
+        if (plan.candidates.size > 1 || selected == null) {
             builder.setSingleChoiceItems(labels, selected ?: -1) { _, which -> selected = which }
         }
         val dialog = builder.create()
@@ -41,7 +41,7 @@ class EditorFixDialog(
         }
         dialog.show()
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).isEnabled = selected != null
-        if (plan.candidates.size > 1) {
+        if (plan.candidates.size > 1 || selected == null) {
             dialog.listView?.setOnItemClickListener { _, _, which, _ ->
                 selected = which
                 dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).isEnabled = true
