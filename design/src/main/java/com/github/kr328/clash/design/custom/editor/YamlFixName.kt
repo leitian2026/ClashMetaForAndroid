@@ -3,7 +3,7 @@ package com.github.kr328.clash.design.custom.editor
 import java.text.Normalizer
 import java.util.Locale
 
-// CUSTOM (CUSTOM.md #177, not upstream): suggest only uniquely located, syntax-checked reference repairs.
+// CUSTOM: #177 (not upstream): suggest only uniquely located, syntax-checked reference repairs.
 object YamlFixName {
     private data class NameChoice(val name: String, val line: Int, val builtIn: Boolean = false)
     private data class Ranked(val choice: NameChoice, val distance: Int, val prefix: Boolean)
