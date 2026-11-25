@@ -125,7 +125,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
 
         if (showIp) NodeIpNotifier.start(service) // CUSTOM: CUSTOM.md #7
 
-        // CUSTOM #35/#176: traffic refreshes every 5 seconds only while enabled and interactive.
+        // CUSTOM #35: traffic refreshes every 5 seconds only while enabled and interactive.
         val trafficTicker = if (showTraffic) ticker(TimeUnit.SECONDS.toMillis(5)) else null
 
         if (!showTraffic && NotificationDisplayPolicy.shouldRefreshIp(showIp, shouldUpdate)) {

@@ -526,7 +526,7 @@ object BackupManager {
         put("allowIpv6", store.allowIpv6)
         put("tunStackMode", store.tunStackMode)
         put("dynamicNotification", store.dynamicNotification)
-        put("showIp", store.showIp) // CUSTOM #176
+        put("showIp", store.showIp) // CUSTOM
     }
 
     private fun restoreSettings(context: Context, manifest: JSONObject): Boolean {
