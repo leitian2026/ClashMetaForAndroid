@@ -387,7 +387,8 @@ internal class IpTestDialogResolve(
                             latestResolveHints += context.getString(R.string.iptest_resolve_failed, displayDomain, reason)
                             continue
                         }
-                        val newAddresses = entry.ips.filter { knownAddresses.add(it) }
+                        // IPv4 and IPv6 share the same selectable list and snapshot format.
+                        val newAddresses = (entry.ips + entry.ipsV6).filter { knownAddresses.add(it) }
                         if (newAddresses.isNotEmpty()) {
                             resolvedGroups += ResolvedIpGroup(
                                 entry.domain,
