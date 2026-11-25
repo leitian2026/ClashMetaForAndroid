@@ -4,6 +4,7 @@
 
 ## 动手前清单（必须照做，每次任务开头先做完）
 1. 读本文件和 `docs/v2/rules.md`。
+2. 修改持久化数据/备份功能时先读 `docs/v2/backup-inventory.md`，同步登记及导出/导入标记。
 2. 改代码、写文档：只看 `docs/v2/rules.md`、`docs/v2/upstream.md`、`docs/v2/changes.md`，不看旧文档，不照着旧文档做。
 3. 合并上游：先看 `docs/v2/upstream.md`；新文档没写清、或冲突解决不了时，可以去 `docs/custom/` 查对应编号的旧文档，查到的事实补回 `docs/v2/upstream.md`（只补事实，写短）。找不到编号先问用户。
 4. 要改某个功能时，读 `docs/v2/changes.md` 对应编号；找不到编号先问用户，不要自行编编号。

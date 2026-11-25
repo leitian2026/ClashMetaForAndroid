@@ -231,7 +231,10 @@ if [ -f "$TEST_RUNNER" ] && [ -f "$TEST_WORKFLOW" ]; then
 fi
 
 
-# 9. Enforce custom Kotlin file and function size ceilings.
+# 9. Backup inventory completeness (#17).
+python3 scripts/check-backup.py || status=1
+
+# 10. Enforce custom Kotlin file and function size ceilings.
 python3 scripts/check-function-length.py || status=1
 
 if [ "$status" -eq 0 ]; then
