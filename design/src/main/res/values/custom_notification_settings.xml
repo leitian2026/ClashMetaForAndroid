@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">Show IP</string>
+    <string name="custom_show_ip_summary">Show the current node IP in the notification</string>
+</resources>
