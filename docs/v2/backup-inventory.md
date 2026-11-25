@@ -2,7 +2,8 @@
 每项持久化数据默认备份。仅允许排除可重新下载（注明来源）、账号密码、备份文件自身。
 | 键 | 持久化位置/来源 | 策略 |
 |---|---|---|
-| prefs:ui | App SharedPreferences ui，manifest 中保存（排除 hide_app_icon） | 备份| prefs:service | service SharedPreferences；排除 active_profile UUID | 备份 |
+| prefs:ui | App SharedPreferences ui，manifest 中保存（排除 hide_app_icon） | 备份 |
+| prefs:service | service SharedPreferences；排除 active_profile UUID | 备份 |
 | prefs:custom_config_check | SharedPreferences custom_config_check | 备份 |
 | prefs:custom_saved_ip_ui | SharedPreferences custom_saved_ip_ui | 备份 |
 | prefs:custom_editor | SharedPreferences custom_editor | 备份 |
@@ -16,10 +17,17 @@
 | dir:processing | processingDir | 备份 |
 | file:custom/ip_history.json | filesDir/custom/ip_history.json | 备份 |
 | dir:custom/update_guard | filesDir/custom/update_guard | 备份 |
-| dir:custom_backups | filesDir/custom_backups pre-restore safety ZIP archives | 不备份：备份文件自身| dir:custom/config_update_snapshot | filesDir/custom/config_update_snapshot/$uuid.yaml | 备份 |
+| dir:custom_backups | filesDir/custom_backups pre-restore safety ZIP archives | 不备份：备份文件自身 |
+| dir:custom/config_update_snapshot | filesDir/custom/config_update_snapshot/$uuid.yaml | 备份 |
 | dir:custom/crash | filesDir/custom/crash | 备份 |
 | dir:custom/config_history | filesDir/custom/config_history incl. markers and pinned configs | 备份 |
 | file:custom_network_identity.json | filesDir custom network identity | 备份 |
 | file:custom_carrier_switch_*.json | filesDir per-profile carrier mappings | 备份 |
-| dir:logs/clash-*.log | Clash logs | 备份 |
-| prefs:custom_cloud_backup | CloudBackup account/app_password/backup_password，密码凭据 | 不备份：账号密码| file:backup/archive | generated backup archives | 不备份：备份文件自身 |
+| file:logs/clash-*.log | Clash logs | 备份 |
+| prefs:custom_cloud_backup | CloudBackup account/app_password/backup_password，密码凭据 | 不备份：账号密码 |
+| file:backup/archive | generated backup archives | 不备份：备份文件自身 |
+| prefs:custom_saved_ips | SharedPreferences custom_saved_ips（已保存的 IP；导出为 manifest 的 savedIps） | 备份 |
+| prefs:custom_geosite | SharedPreferences custom_geosite（只导出下载地址 geoUrls） | 备份 |
+| dir:imported | filesDir/imported 订阅配置文件；导出为 ZIP 内 profiles/<uuid>/，恢复时写入 pending | 备份 |
+| dir:clash | filesDir/clash 内核 home（geo 数据库、provider 缓存、cache.db）；来源：订阅与 geo 下载地址；override.json 由 manifest 的 override 另行导出 | 不备份：可重新下载，来源注明 |
+| dir:custom/geo | filesDir/custom/geo 地理库保留副本；来源：geo 下载地址（geoUrls 已备份） | 不备份：可重新下载，来源注明 |

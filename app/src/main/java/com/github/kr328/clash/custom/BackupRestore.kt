@@ -84,7 +84,7 @@ internal object BackupRestore {
                 withProfile { patch(targetId, name, source, interval, ageKey) }
 
                 withContext(Dispatchers.IO) {
-                    val from = File(backup.root, BackupManager.PROFILES + oldId)
+                    val from = File(backup.root, BackupManager.PROFILES + oldId) // BACKUP-IMPORT dir:imported
                     if (type == Profile.Type.File) {
                         if (!from.isDirectory) throw BackupManager.BackupException("missing file subscription data: $name")
                         val pending = context.pendingDir.resolve(targetId.toString())
@@ -200,7 +200,7 @@ internal object BackupRestore {
         val extraSettings = BackupExtrasRestore.restore(context, backup, idMap, applySettings, failed)
         val restoredActiveUuid = withProfile { queryActive()?.uuid }
         val activeProfileChanged = active?.uuid != restoredActiveUuid
-        val savedIpStat = savedIps?.let {
+        val savedIpStat = savedIps?.let { // BACKUP-IMPORT prefs:custom_saved_ips
             SavedIpStore.restoreBackup(context, it, merge = !replace)
         }
 

@@ -132,7 +132,9 @@ object BackupManager {
                     }
                 })
                 put("sync", sync)
-                // BACKUP-EXPORT prefs:ui\n                put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
+                // BACKUP-EXPORT prefs:ui
+                put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
+                // BACKUP-EXPORT prefs:custom_geosite (download URLs only)
                 put("geoUrls", JSONObject().apply {
                     val store = context.getSharedPreferences(
                         GeoSiteDownloader.STORE_NAME,
@@ -145,6 +147,7 @@ object BackupManager {
                 })
                 put("override", readOverride(context) ?: JSONObject.NULL)
                 // CUSTOM.md #156 step 25: saved IP data is inside the ZIP and encrypted for local and cloud exports.
+                // BACKUP-EXPORT prefs:custom_saved_ips
                 put("savedIps", JSONObject(SavedIpStore.encodeBackup(context)))
             }
 
@@ -152,6 +155,7 @@ object BackupManager {
 
             ZipOutputStream(output.buffered()).use { zip ->
                 profiles.forEach { profile ->
+                    // BACKUP-EXPORT dir:imported/*
                     val dir = context.importedDir.resolve(profile.uuid.toString())
 
                     if (dir.isDirectory) {
@@ -367,6 +371,7 @@ object BackupManager {
             any = true
         }
 
+        // BACKUP-IMPORT prefs:ui
         manifest.optJSONObject("ui")?.let { json ->
             val editor = context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit()
 
@@ -378,6 +383,7 @@ object BackupManager {
             any = true
         }
 
+        // BACKUP-IMPORT prefs:custom_geosite
         manifest.optJSONObject("geoUrls")?.let { json ->
             val editor = context.getSharedPreferences(
                 GeoSiteDownloader.STORE_NAME,

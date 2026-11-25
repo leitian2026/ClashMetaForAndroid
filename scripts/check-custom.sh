@@ -232,6 +232,7 @@ fi
 
 
 # 9. Backup inventory completeness (#17).
+python3 scripts/check-backup.py --self-test > /dev/null || { python3 scripts/check-backup.py --self-test; status=1; }
 python3 scripts/check-backup.py || status=1
 
 # 10. Enforce custom Kotlin file and function size ceilings.

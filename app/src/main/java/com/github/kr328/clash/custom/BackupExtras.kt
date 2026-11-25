@@ -128,7 +128,8 @@ internal object BackupExtras {
             }
         }
 
-        // BACKUP-EXPORT extraFiles (manifest path list)\n        // BACKUP-EXPORT dir:pending/*
+        // BACKUP-EXPORT extraFiles (manifest path list)
+        // BACKUP-EXPORT dir:pending/*
         add(context.filesDir.resolve("pending"))
         // BACKUP-EXPORT dir:processing/*
         add(context.processingDir)
