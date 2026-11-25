@@ -208,7 +208,7 @@ fun bindOperatorRow(
             gravity = Gravity.CENTER_VERTICAL
         }
         title.addView(TextView(env.context).apply {
-            text = env.context.getString(R.string.saved_ip_group_title, savedIpDisplayName(env.context, operator), entries.size)
+            text = env.context.getString(R.string.saved_ip_group_title, savedIpDisplayName(env.context, operator), operator.ips.size)
             textSize = 15f
             setTextColor(env.colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
