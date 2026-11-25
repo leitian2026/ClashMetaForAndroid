@@ -23,6 +23,7 @@ fun main() {
     CarrierOperatorConsensusTests.run()
     CarrierSwitchTargetCheckTests.run()
     YamlRenameTests.run()
+    YamlFixTests.run()
     CarrierSwitchRenameTests.run()
     ConfigProxyCountTests.run()
     SavedIpSortVisibilityTests.run()
