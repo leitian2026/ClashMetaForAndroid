@@ -1,6 +1,6 @@
 package com.github.kr328.clash.design.custom.editor
 
-// CUSTOM (CUSTOM.md #177, not upstream): shared, Android-free repair plan types and Tab repair.
+// CUSTOM: #177 (not upstream): shared, Android-free repair plan types and Tab repair.
 enum class FixDescriptionKind { Tabs, Indent, Rename, DeleteLine }
 
 data class FixDescription(
