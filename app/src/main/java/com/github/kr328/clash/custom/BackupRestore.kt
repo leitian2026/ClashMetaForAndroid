@@ -33,7 +33,6 @@ internal object BackupRestore {
             if (!applySettings || backup.manifest.isNull("override")) false
             else BackupManager.writeOverride(context, backup.manifest.getString("override"))
         }
-
         val existing = withProfile { queryAll() }
         val active = withProfile { queryActive() }
         val deleteCandidates = if (replace) existing.filter {
