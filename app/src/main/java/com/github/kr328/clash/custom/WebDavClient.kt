@@ -38,7 +38,7 @@ class WebDavClient(account: String, password: String) {
 
     fun put(path: String, data: ByteArray) {
         if (data.size.toLong() > MAX_GET_BODY) {
-            throw IOException("备份太大（超过 32 MB），上传前已拦下")
+            throw IOException("备份太大：实际大小 ${data.size} 字节，限制 ${MAX_GET_BODY} 字节；上传前已拦下")
         }
         val r = request("PUT", path, data, mapOf("Content-Type" to "application/octet-stream"))
         if (r.code !in 200..299) fail(r.code, "PUT $path")

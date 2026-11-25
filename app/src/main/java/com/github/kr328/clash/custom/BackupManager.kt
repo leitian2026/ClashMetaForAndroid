@@ -132,7 +132,6 @@ object BackupManager {
                     }
                 })
                 put("sync", sync)
-                put("service", serviceToJson(ServiceStore(context), sync))
                 put("ui", prefsToJson(context, "ui", skip = UI_SKIP))
                 put("geoUrls", JSONObject().apply {
                     val store = context.getSharedPreferences(
@@ -152,10 +151,6 @@ object BackupManager {
             val output = open()
 
             ZipOutputStream(output.buffered()).use { zip ->
-                zip.putNextEntry(ZipEntry(MANIFEST))
-                zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
-                zip.closeEntry()
-
                 profiles.forEach { profile ->
                     val dir = context.importedDir.resolve(profile.uuid.toString())
 
@@ -179,6 +174,12 @@ object BackupManager {
                         zip.closeEntry()
                     }
                 }
+
+                BackupExtras.write(context, sync, manifest, zip)
+
+                zip.putNextEntry(ZipEntry(MANIFEST))
+                zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
             }
 
             profiles.size

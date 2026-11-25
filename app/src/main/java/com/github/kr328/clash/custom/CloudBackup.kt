@@ -99,6 +99,10 @@ object CloudBackup {
     /** Encrypts the backup and writes one history file. Blocking network: runs on IO. */
     suspend fun push(context: Context, settings: Settings): Pushed {
         val (zip, count) = BackupManager.exportBytes(context)
+        val maxZipBytes = 32L * 1024 * 1024
+        if (zip.size.toLong() > maxZipBytes) {
+            throw java.io.IOException("备份太大：ZIP 实际大小 ${zip.size} 字节，限制 ${maxZipBytes} 字节；已拒绝上传")
+        }
         val id = deviceId(context)
         val name = deviceName(context)
 
