@@ -8,6 +8,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 interface EditorProblemsHost {
     fun problemContext(): Context
     fun problemItems(): List<Diagnostic>
+    fun selectProblem(diagnostic: Diagnostic)
     fun jumpToProblemLine(line: Int)
     fun showProblemToast(message: String)
 }
@@ -39,7 +40,7 @@ class EditorProblemsDialog(private val host: EditorProblemsHost) {
         }.toTypedArray()
         MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.editor_problems_title, all.size, shown.size))
-            .setItems(items) { _, which -> host.jumpToProblemLine(shown[which].line) }
+            .setItems(items) { _, which -> host.selectProblem(shown[which]) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
