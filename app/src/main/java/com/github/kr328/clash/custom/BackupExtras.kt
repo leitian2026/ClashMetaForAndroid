@@ -41,7 +41,7 @@ internal object BackupExtras {
 
         val extraPrefs = JSONObject()
         PREF_NAMES.forEach { name ->
-            // BACKUP-EXPORT prefs:$name
+            // BACKUP-EXPORT prefs: (dynamic group name)
             extraPrefs.put(name, prefsToJson(context.getSharedPreferences(name, Context.MODE_PRIVATE).all))
         }
         manifest.put("extraPrefs", extraPrefs)

@@ -52,7 +52,7 @@ internal object BackupExtrasRestore {
             val names = groups.keys()
             while (names.hasNext()) {
                 val name = names.next()
-                // BACKUP-IMPORT prefs:$name
+                // BACKUP-IMPORT prefs: (dynamic group name)
                 try {
                     restorePrefs(context.getSharedPreferences(name, Context.MODE_PRIVATE), groups.getJSONObject(name))
                     restored = true

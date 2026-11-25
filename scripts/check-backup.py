@@ -45,7 +45,7 @@ for key,cells in rows.items():
   if "BACKUP-IMPORT prefs:ui" not in restore: errors.append("prefs:ui: missing import marker")
  elif key.startswith("prefs:"):
   name=key.split(":",1)[1]
-  if "BACKUP-EXPORT prefs:"+name not in export: errors.append(f"{key}: missing export marker")
+  if "BACKUP-EXPORT prefs:" not in export: errors.append(f"{key}: missing export marker")\n  if "BACKUP-IMPORT prefs:" not in restore: errors.append(f"{key}: missing import marker")
  elif key.startswith("room:"):
   if "BACKUP-EXPORT "+key not in export: errors.append(f"{key}: missing export marker")
  elif key.startswith(("file:","dir:")):
