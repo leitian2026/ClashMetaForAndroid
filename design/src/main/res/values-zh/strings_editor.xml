@@ -120,4 +120,18 @@
     <string name="editor_copy_failed">复制失败</string>
     <string name="editor_symbols">符号</string>
     <string name="editor_symbols_back">返回操作按钮</string>
+    <!-- CUSTOM (CUSTOM.md #177)：一键修复 YAML 问题 -->
+    <string name="editor_fix_title">修复：第 %1$d 行</string>
+    <string name="editor_fix_apply">应用修复</string>
+    <string name="editor_fix_jump">跳到该行</string>
+    <string name="editor_fix_tabs">把全文 %1$d 行缩进里的 Tab 换成 %2$d 个空格</string>
+    <string name="editor_fix_indent">缩进 %1$d → %2$d 个空格（本行及其下 %3$d 行一起移动）</string>
+    <string name="editor_fix_indent_single">缩进 %1$d → %2$d 个空格（只改这一行）</string>
+    <string name="editor_fix_rename">改为「%1$s」（定义在第 %2$d 行）</string>
+    <string name="editor_fix_rename_builtin">改为「%1$s」（内置）</string>
+    <string name="editor_fix_delete">删除这一行（第 %1$d 行）</string>
+    <string name="editor_fix_no_suggestion">这个问题暂时没有可靠的修复建议，已跳到该行</string>
+    <string name="editor_fix_too_big">文本太大（或正在分段显示），暂不支持一键修复，请手动修改</string>
+    <string name="editor_fix_changed">文本已变化，请重新打开问题列表</string>
+    <string name="editor_fix_done">已修复</string>
 </resources>
