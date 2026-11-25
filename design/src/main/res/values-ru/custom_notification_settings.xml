@@ -1,0 +1,4 @@
+<resources>
+    <string name="custom_show_ip">Показывать IP</string>
+    <string name="custom_show_ip_summary">Показывать IP текущего узла в уведомлении</string>
+</resources>
