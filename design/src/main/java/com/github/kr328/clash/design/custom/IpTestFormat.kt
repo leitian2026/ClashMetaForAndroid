@@ -80,11 +80,13 @@ internal fun explain(context: Context, code: String, reason: String): String {
         "auth" -> R.string.check_code_auth
         "reject" -> R.string.check_code_reject
         "echrejected" -> R.string.check_code_echrejected
+        "noipv6" -> R.string.iptest_no_ipv6_status
         else -> return context.getString(R.string.check_failed_raw, ErrorsText.explain(context, code), reason.ifEmpty { "-" })
     })
     return context.getString(R.string.check_failed, text)
 }
 internal fun savedFailureSummary(context: Context, row: IpTestRow): String {
+    if (row.code == "noipv6") return context.getString(R.string.iptest_no_ipv6_status)
     val reason = row.reason.lowercase(Locale.ROOT)
     val category = when {
         "certificate" in reason || "x509" in reason -> "证书校验失败"
