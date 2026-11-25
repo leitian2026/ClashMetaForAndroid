@@ -25,6 +25,18 @@ object YamlFixTests {
                 "YamlFix rename removes missing proxy diagnostic")
         }
 
+        val siblingList = "proxy-groups:\\n  - name: g\\n    type: select\\n    proxies:\\n      - absent\\n      - nodeA\\nproxies:\\n  - name: nodeA\\n    type: direct\\n"
+        val siblingProblem = YamlLint.run(siblingList).first { it.kind == DiagKind.MissingProxy }
+        val siblingPlan = YamlFix.plan(siblingList, siblingProblem)
+        check(siblingPlan?.candidates?.any { it.description.kind == FixDescriptionKind.DeleteLine } == true,
+            "YamlFix offers deletion when the same list has another item")
+
+        val separateLists = "proxy-groups:\\n  - name: g1\\n    type: select\\n    proxies:\\n      - absent\\n  - name: g2\\n    type: select\\n    proxies:\\n      - nodeA\\nproxies:\\n  - name: nodeA\\n    type: direct\\n"
+        val separateProblem = YamlLint.run(separateLists).first { it.kind == DiagKind.MissingProxy }
+        val separatePlan = YamlFix.plan(separateLists, separateProblem)
+        check(separatePlan?.candidates?.none { it.description.kind == FixDescriptionKind.DeleteLine } == true,
+            "YamlFix does not treat another list's item as a deletion sibling")
+
         val duplicate = Diagnostic(0, 0, DiagKind.DupKey, "port")
         check(YamlFix.plan("port: 1\nport: 2\n", duplicate) == null,
             "YamlFix does not guess a duplicate-key repair")
