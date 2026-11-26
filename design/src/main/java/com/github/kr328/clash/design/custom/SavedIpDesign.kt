@@ -142,7 +142,7 @@ class SavedIpDesign(
     }
     private var snapshotCache = SavedIpStore.emptySnapshot()
     private var hasLoadedSnapshot = false
-    private var configuredIpSources: Map<String, Set<String>> = emptyMap()
+    private var configuredIpSources: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>> = emptyMap()
     private var expandedOperatorId: String?
         get() = filterState.expandedOperatorId
         set(value) { filterState.expandedOperatorId = value }
@@ -402,7 +402,7 @@ class SavedIpDesign(
     fun updateSpeedResult(operatorId: String, address: String, direct: Boolean, speed: Double, short: Boolean) =
         renderer.updateSpeedResult(operatorId, address, direct, speed, short)
 
-    fun setConfigIpSources(value: Map<String, Set<String>>) = renderer.setConfigIpSources(value)
+    fun setConfigIpSources(value: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>>) = renderer.setConfigIpSources(value)
 
     fun saveState(outState: Bundle) {
         filterState.query = searchInput.text?.toString().orEmpty()
