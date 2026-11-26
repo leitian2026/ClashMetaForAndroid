@@ -6,5 +6,5 @@ design/src/main/java/com/github/kr328/clash/design/custom/editor/CodeEditText.kt
 design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorDesign.kt 1256
 design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt::walk 229
 design/src/main/java/com/github/kr328/clash/design/custom/IpTestView.kt 939
-design/src/main/java/com/github/kr328/clash/design/custom/SavedIpTableView.kt::savedTableView 322
+design/src/main/java/com/github/kr328/clash/design/custom/SavedIpTableView.kt::savedTableView 281
 service/src/main/java/com/github/kr328/clash/service/custom/CarrierSwitch.kt::apply 153
