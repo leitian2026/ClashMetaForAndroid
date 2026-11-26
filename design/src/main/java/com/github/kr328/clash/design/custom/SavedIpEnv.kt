@@ -47,7 +47,7 @@ internal interface SavedIpEnv {
     val searchClearButton: android.widget.TextView
     val moreButton: View
     val savedTableRenderers: MutableMap<String, Pair<IpTestView, IntArray>>
-    var configuredIpSources: Map<String, Set<String>>
+    var configuredIpSources: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>>
     var visibleSavedColumns: Set<String>
     var failureDetailDialog: android.app.Dialog?
 
