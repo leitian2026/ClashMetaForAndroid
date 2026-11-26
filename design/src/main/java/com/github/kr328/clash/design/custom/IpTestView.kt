@@ -730,7 +730,7 @@ class IpTestView(
         speedSortLabel: String = "",
         speedSortColumnName: String? = null,
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
-        configIpSources: Map<String, Set<String>> = emptyMap(),
+        configIpSources: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>> = emptyMap(),
         recommendedIps: Set<String> = emptySet(),
         speedAvailable: Boolean = true,
         speedBusy: Boolean = false,
