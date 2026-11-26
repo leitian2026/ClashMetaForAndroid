@@ -371,7 +371,17 @@ class IpTestView(
         while (details.isNotEmpty() && details[details.length - 1] == '\n') details.delete(details.length - 1, details.length)
 
         infoText = sb
-        infoHead.text = head
+        val highlightedHead = SpannableStringBuilder(head)
+        val unicomIpv4Start = head.indexOf("联通ipv4")
+        if (unicomIpv4Start >= 0) {
+            highlightedHead.setSpan(
+                ForegroundColorSpan(colorBad),
+                unicomIpv4Start,
+                unicomIpv4Start + "联通ipv4".length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+        infoHead.text = highlightedHead
         info.text = details
         info.setPadding(0, 0, 0, if (note.isEmpty()) dp(8) else 0)
 
