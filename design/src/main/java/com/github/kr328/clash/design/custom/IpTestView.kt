@@ -13,11 +13,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.widget.CheckBox
 import android.widget.FrameLayout
-import android.text.SpannableStringBuilder
 import android.text.StaticLayout
 import android.text.Spanned
 import android.text.TextUtils
-import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.MotionEvent
