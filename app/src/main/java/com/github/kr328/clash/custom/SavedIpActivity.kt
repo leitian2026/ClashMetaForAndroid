@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.github.kr328.clash.BaseActivity
 import com.github.kr328.clash.core.custom.CustomConnections
+import com.github.kr328.clash.core.model.IpTestConfigIp
 import com.github.kr328.clash.core.model.IpTestReport
 import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.custom.SavedIpDesign
@@ -23,7 +24,7 @@ import org.json.JSONObject
 class SavedIpActivity : BaseActivity<SavedIpDesign>() {
     private var page: SavedIpDesign? = null
     private var restoredState: Bundle? = null
-    private var configuredIpSources: Map<String, Set<String>> = emptyMap()
+    private var configuredIpSources: Map<String, List<IpTestConfigIp>> = emptyMap()
     private var configReadJob: Job? = null
     private var savedIpReadJob: Job? = null
     private var savedIpLoaded = false
@@ -97,14 +98,14 @@ class SavedIpActivity : BaseActivity<SavedIpDesign>() {
         page?.setSpeedState(clashRunning, IpSpeedTestCoordinator.isBusy)
         configReadJob?.cancel()
         configReadJob = launch {
-            val sources: Map<String, Set<String>> = try {
+            val sources: Map<String, List<IpTestConfigIp>> = try {
                 if (!clashRunning) emptyMap() else {
                     val request = JSONObject().put("kind", "ip").put("mode", "config").toString()
                     IpTestReport.parse(
                         withClash { queryCustomConnections(CustomConnections.SORT_CHECK, request) },
                     ).config.filter { it.ip.isNotBlank() }
-                        .groupBy({ it.ip.trim() }, { it.via })
-                        .mapValues { (_, vias) -> vias.toSet() }
+                        .groupBy({ it.ip.trim() }, { it })
+                        .mapValues { (_, items) -> items.distinct() }
                 }
             } catch (e: CancellationException) {
                 throw e
