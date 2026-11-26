@@ -408,42 +408,11 @@ internal class SavedIpTableView(
             grid.addView(gridRowContainer, lp(gridWidth, height))
             state.savedRowViews[entry.address] = leftRowContainer to gridRowContainer
 
-            // CUSTOM.md #163: while selecting, every part of the row toggles selection; replace cell
-            // click handlers so a tap cannot open a port / detail dialog or copy the IP.
-            // CUSTOM (CUSTOM.md #163 r330): active multi-selection updates only this row;
-            // entering / leaving selection mode still rebuilds once to add / remove the checkbox column.
-            fun toggleRowSelection() {
-                val nowSelected = onLongPress(entry.address)
-                if (isSelectionMode()) {
-                    val background = if (nowSelected) selectedBackground else env.colorSurface
-                    leftRow.setBackgroundColor(background)
-                    line.setBackgroundColor(background)
-                    leftRowContainer.setBackgroundColor(background)
-                    gridRowContainer.setBackgroundColor(background)
-                    selectionCheckBox?.isChecked = nowSelected
-                }
-            }
-
-            if (selectionMode) {
-                fun attachSelectionClick(view: View) {
-                    if (view !is CheckBox) {
-                        view.setOnClickListener { toggleRowSelection() }
-                    }
-                    if (view is ViewGroup) {
-                        for (childIndex in 0 until view.childCount) attachSelectionClick(view.getChildAt(childIndex))
-                    }
-                }
-                attachSelectionClick(leftRow)
-                attachSelectionClick(line)
-                selectionCheckBox?.setOnClickListener { toggleRowSelection() }
-            }
-
-            fun attachLongPress(view: View) {
-                view.setOnLongClickListener { toggleRowSelection(); true }
-                if (view is ViewGroup) for (childIndex in 0 until view.childCount) attachLongPress(view.getChildAt(childIndex))
-            }
-            attachLongPress(leftRow)
-            attachLongPress(line)
+            // CUSTOM.md #163: preserve row-wide tap and long-press selection behavior.
+            SavedIpRowSelection.attach(
+                leftRow, line, leftRowContainer, gridRowContainer, selectionMode, selectionCheckBox,
+                isSelectionMode, { onLongPress(entry.address) }, selectedBackground, env.colorSurface,
+            )
         }
 
         state.savedRowsLeft = left
