@@ -68,7 +68,7 @@ internal object SavedIpSourcePills {
         if (names.isNotEmpty()) {
             val preview = buildString {
                 append(names.take(2).joinToString("、"))
-                if (names.size > 2) append(" 等 ${names.size} 个")
+                if (names.size > 2) append(" 等 ${names.size - 2} 个")
             }
             group.addView(TextView(context).apply {
                 text = preview
