@@ -68,7 +68,7 @@ internal class SavedIpRenderer(
         }
     }
 
-    fun setConfigIpSources(value: Map<String, Set<String>>) {
+    fun setConfigIpSources(value: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>>) {
         if (env.configuredIpSources == value) return
         val changedIps = (env.configuredIpSources.keys + value.keys).filterTo(HashSet()) { ip ->
             env.configuredIpSources[ip] != value[ip]
