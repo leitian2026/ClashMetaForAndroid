@@ -266,7 +266,7 @@ class SavedIpDesign(
         override val operatorList get() = this@SavedIpDesign.operatorList
         override val stickyHeaderContainer get() = this@SavedIpDesign.stickyHeaderContainer
         override val savedTableRenderers get() = renderState.savedTableRenderers
-        override var configuredIpSources: Map<String, Set<String>>
+        override var configuredIpSources: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>>
             get() = this@SavedIpDesign.configuredIpSources
             set(value) { this@SavedIpDesign.configuredIpSources = value }
         override var renderedDataVersion: Long
