@@ -195,7 +195,7 @@ internal class SavedIpTableView(
         speedSortLabel: String = "",
         speedSortColumnName: String? = null,
         onHeaderClick: (Int, View) -> Unit = { _, _ -> },
-        configIpSources: Map<String, Set<String>> = emptyMap(),
+        configIpSources: Map<String, List<com.github.kr328.clash.core.model.IpTestConfigIp>> = emptyMap(),
         recommendedIps: Set<String> = emptySet(),
         speedAvailable: Boolean = true,
         speedBusy: Boolean = false,
@@ -257,19 +257,11 @@ internal class SavedIpTableView(
             renderer.onDetail = onDetail
             val ipView = renderer.ipCell(row, showRecommendation = false, showFailureDetail = false)
             // CUSTOM (CUSTOM.md #156): configuration source is the second line; test details follow it.
-            val sourceLabels = configIpSources[entry.address].orEmpty().mapNotNull { via ->
-                when (via) {
-                    "server" -> "已在 server"
-                    "hosts", "alias" -> "已在 hosts"
-                    "dns" -> "配置解析 IP"
-                    else -> null
-                }
-            }.distinct()
-            if (sourceLabels.isNotEmpty()) {
-                // CUSTOM (changes.md #156): source-pill drawing is extracted to keep savedTableView below its limit.
-                val pillRow = SavedIpSourcePills.create(env.context, sourceLabels, env.night, ::dp)
+            val configSources = configIpSources[entry.address].orEmpty()
+            if (configSources.isNotEmpty()) {
+                // CUSTOM (changes.md #156): capsules and source names share the same 12sp text size.
                 (ipView as? LinearLayout)?.addView(
-                    pillRow,
+                    SavedIpSourcePills.create(env.context, configSources, env.night, ::dp),
                     1,
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
                 )
@@ -302,7 +294,7 @@ internal class SavedIpTableView(
                         ellipsize = TextUtils.TruncateAt.END
                         setTextColor(if (now - entry.lastTestedAt > 7L * 24L * 60L * 60L * 1000L) env.colorWarn else env.colorMuted)
                     },
-                    if (sourceLabels.isNotEmpty()) 2 else 1,
+                    if (configSources.isNotEmpty()) 2 else 1,
                     LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
                 )
             }
