@@ -344,7 +344,7 @@ class IpTestView(
 
     /** The lines above the table: [head] bold, [sub] grey, [warnings] orange (invalid words, skipped domains and cut entries). */
     fun setInfo(head: String, sub: String, warnings: List<String>) {
-        val sb = SpannableStringBuilder()
+        val sb = android.text.SpannableStringBuilder()
 
         // CUSTOM.md #156 step 75: the first line of [sub] stays visible; the explanation after it goes into the collapsible block.
         val cut = sub.indexOf('\n')
@@ -352,7 +352,7 @@ class IpTestView(
         val note = if (cut >= 0) sub.substring(cut + 1) else ""
 
         add(sb, head + "\n", bold = true)
-        val details = SpannableStringBuilder()
+        val details = android.text.SpannableStringBuilder()
 
         if (shownSub.isNotEmpty()) {
             val highlightedSub = highlightTargetUrl(shownSub, colorMuted, colorBad)
@@ -501,25 +501,25 @@ class IpTestView(
         val progress = if (totalIps > 0) {
             context.getString(R.string.iptest_log_progress, totalIps, testedIps)
         } else ""
-        val title = SpannableStringBuilder(progress)
+        val title = android.text.SpannableStringBuilder(progress)
         if (progress.isNotEmpty()) {
             // CUSTOM (CUSTOM.md #156 step 23): keep the original two-part count highlighting.
             val testedAt = progress.indexOf("，已测")
             if (testedAt > 0) {
                 title.setSpan(
-                    ForegroundColorSpan(if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")),
+                    android.text.style.ForegroundColorSpan(if (night) Color.parseColor("#81C784") else Color.parseColor("#2E7D32")),
                     0,
                     testedAt,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
                 title.setSpan(
-                    ForegroundColorSpan(if (night) Color.parseColor("#66BB6A") else Color.parseColor("#1B5E20")),
+                    android.text.style.ForegroundColorSpan(if (night) Color.parseColor("#66BB6A") else Color.parseColor("#1B5E20")),
                     testedAt,
                     title.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             } else {
-                title.setSpan(ForegroundColorSpan(colorMuted), 0, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                title.setSpan(android.text.style.ForegroundColorSpan(colorMuted), 0, title.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
         infoProgress.text = title
