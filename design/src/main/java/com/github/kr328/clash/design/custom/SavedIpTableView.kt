@@ -266,30 +266,8 @@ internal class SavedIpTableView(
                 }
             }.distinct()
             if (sourceLabels.isNotEmpty()) {
-                // CUSTOM.md #156 (r328): each config source is a capsule - translucent green fill, blue text; static, no animation.
-                val pillFill = if (env.night) Color.argb(64, 129, 199, 132) else Color.argb(48, 46, 125, 50)
-                val pillText = if (env.night) Color.parseColor("#90CAF9") else Color.parseColor("#1565C0")
-                val pillRow = LinearLayout(env.context).apply { orientation = LinearLayout.HORIZONTAL }
-                sourceLabels.forEachIndexed { i, label ->
-                    pillRow.addView(
-                        TextView(env.context).apply {
-                            text = label
-                            textSize = 12f
-                            maxLines = 1
-                            ellipsize = TextUtils.TruncateAt.END
-                            setTextColor(pillText)
-                            setPadding(dp(8), dp(1), dp(8), dp(1))
-                            background = GradientDrawable().apply {
-                                setColor(pillFill)
-                                cornerRadius = dp(12).toFloat()
-                            }
-                        },
-                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                            topMargin = dp(1); bottomMargin = dp(1)
-                            if (i > 0) marginStart = dp(4)
-                        },
-                    )
-                }
+                // CUSTOM (changes.md #156): source-pill drawing is extracted to keep savedTableView below its limit.
+                val pillRow = SavedIpSourcePills.create(env.context, sourceLabels, env.night, ::dp)
                 (ipView as? LinearLayout)?.addView(
                     pillRow,
                     1,
