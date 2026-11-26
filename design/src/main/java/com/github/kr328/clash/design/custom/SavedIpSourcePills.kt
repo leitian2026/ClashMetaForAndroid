@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
-import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -64,7 +63,7 @@ internal object SavedIpSourcePills {
                 "server" -> source.from.ifEmpty { listOf(source.name) }
                 else -> listOf(source.name)
             }
-        }.map(String::trim).filter(String::isNotEmpty).distinct()
+        }.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         if (names.isNotEmpty()) {
             val preview = buildString {
                 append(names.take(2).joinToString("、"))
