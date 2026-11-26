@@ -357,8 +357,30 @@ class IpTestView(
         val details = SpannableStringBuilder()
 
         if (shownSub.isNotEmpty()) {
-            add(sb, shownSub + "\n", colorMuted)
-            add(details, shownSub + "\n", colorMuted)
+            val highlightedSub = SpannableStringBuilder(shownSub)
+            val targetUrl = Regex("https?://\\S+", RegexOption.IGNORE_CASE).find(shownSub)
+            if (targetUrl != null && shownSub.contains("目标网址")) {
+                highlightedSub.setSpan(
+                    ForegroundColorSpan(colorBad),
+                    targetUrl.range.first,
+                    targetUrl.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            add(sb, highlightedSub.toString() + "\\n", colorMuted)
+            add(details, highlightedSub.toString() + "\\n", colorMuted)
+            // Apply the URL emphasis to the actual rendered text as well as the saved detail text.
+            val renderedSub = SpannableStringBuilder(shownSub)
+            if (targetUrl != null && shownSub.contains("目标网址")) {
+                renderedSub.setSpan(
+                    ForegroundColorSpan(colorBad),
+                    targetUrl.range.first,
+                    targetUrl.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            sb.replace(sb.length - shownSub.length - 1, sb.length - 1, renderedSub)
+            details.replace(details.length - shownSub.length - 1, details.length - 1, renderedSub)
         }
 
         for (w in warnings) {
