@@ -357,15 +357,9 @@ class IpTestView(
         val details = SpannableStringBuilder()
 
         if (shownSub.isNotEmpty()) {
-            add(sb, shownSub + "\n", colorMuted)
-            add(details, shownSub + "\n", colorMuted)
-            val targetUrl = Regex("https?://\\S+", RegexOption.IGNORE_CASE).find(shownSub)
-            if (targetUrl != null && shownSub.contains("目标网址")) {
-                val start = sb.length - shownSub.length - 1
-                sb.setSpan(ForegroundColorSpan(colorBad), start + targetUrl.range.first, start + targetUrl.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                val detailStart = details.length - shownSub.length - 1
-                details.setSpan(ForegroundColorSpan(colorBad), detailStart + targetUrl.range.first, detailStart + targetUrl.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
+            val highlightedSub = highlightTargetUrl(shownSub, colorMuted, colorBad)
+            sb.append(highlightedSub).append('\n')
+            details.append(highlightedSub).append('\n')
         }
 
         for (w in warnings) {
@@ -378,17 +372,7 @@ class IpTestView(
         while (details.isNotEmpty() && details[details.length - 1] == '\n') details.delete(details.length - 1, details.length)
 
         infoText = sb
-        val highlightedHead = SpannableStringBuilder(head)
-        val unicomIpv4Start = head.indexOf("联通ipv4")
-        if (unicomIpv4Start >= 0) {
-            highlightedHead.setSpan(
-                ForegroundColorSpan(colorBad),
-                unicomIpv4Start,
-                unicomIpv4Start + "联通ipv4".length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-        }
-        infoHead.text = highlightedHead
+        infoHead.text = highlightUnicomIpv4(head, colorBad)
         info.text = details
         info.setPadding(0, 0, 0, if (note.isEmpty()) dp(8) else 0)
 
