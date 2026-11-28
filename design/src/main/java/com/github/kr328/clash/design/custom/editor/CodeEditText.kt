@@ -77,6 +77,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val colorErrorBand = if (night) Color.parseColor("#55E57373") else Color.parseColor("#33D32F2F")
     private val colorMatch = if (night) Color.parseColor("#88FFB300") else Color.parseColor("#88FFEB3B")
     private val colorGuide = if (night) Color.parseColor("#2EFFFFFF") else Color.parseColor("#26000000")
+    private val colorWrapSeparator = if (night) Color.parseColor("#2AFFFFFF") else Color.parseColor("#1A000000")
     private val colorTrailing = if (night) Color.parseColor("#66FF8A65") else Color.parseColor("#55FF7043")
     private val colorTabBg = if (night) Color.parseColor("#44FFCA28") else Color.parseColor("#55FFB300")
     private val colorPair = Color.parseColor("#664FC3F7")
@@ -107,6 +108,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val bandPaint = Paint().apply { color = colorErrorBand }
     private val fillPaint = Paint()
     private val guideRenderer = EditorGuideRenderer(colorGuide, colorGutterText, colorTrailing, colorTabBg)
+    private val wrapRenderer = EditorWrapRenderer(density, colorWrapSeparator)
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
@@ -286,6 +288,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                     return
                 }
 
+                wrapRenderer.updateEditedLines(s, lineStarts, atStart, wasInserted.length, visibleColumns(), charW)
+
                 errorLine = -1
 
                 if (!replaying) undo.record(UndoStack.Edit(atStart, wasRemoved, wasInserted), autoIndenting)
@@ -456,7 +460,10 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         highlightStale = true
         wholeDone = false
 
-        this.text?.let { rebuildLineStarts(it) }
+        this.text?.let {
+            rebuildLineStarts(it)
+            wrapRenderer.reset(it, lineStarts, visibleColumns(), charW)
+        }
 
         flinger.abortAnimation()
         updateGutter(totalLines())
@@ -527,6 +534,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         charW = paint.measureText("M")
         gutterDigits = 0 // the gutter is as wide as its digits: measure it again
         updateGutter(totalLines())
+        text?.let { wrapRenderer.updateAll(it, lineStarts, visibleColumns(), charW, force = true) }
         invalidate()
 
         post {
@@ -631,6 +639,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         lineStarts = starts
     }
 
+    private fun visibleColumns(): Int = EditorWrapStyle.visibleColumns(width - totalPaddingLeft - totalPaddingRight, charW)
+
     private fun updateGutter(lines: Int) {
         val digits = maxOf(2, lines.toString().length)
 
@@ -720,6 +730,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             }
 
             if (hasDiffMarks) drawDiff(canvas, l, t, first, last, padLeft, padTop, true)
+
+            wrapRenderer.drawSeparators(canvas, l, t, first, last, lineStarts, visibleColumns(), padLeft, totalPaddingRight, padTop, width, scrollX)
         }
 
         super.onDraw(canvas)
@@ -976,6 +988,8 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+
+        text?.let { wrapRenderer.updateAll(it, lineStarts, visibleColumns(), charW) }
 
         if (wholeDone && wholeMode()) return // CUSTOM.md #48: the colours do not depend on the size
 
