@@ -14,6 +14,7 @@ fun check(condition: Boolean, name: String) {
 }
 
 fun main() {
+    YamlHighlighterTests.run()
     YamlPairsTests.run()
     TextSearchTests.run()
     YamlLintTests.run()
