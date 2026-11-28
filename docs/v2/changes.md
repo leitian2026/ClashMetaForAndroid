@@ -180,4 +180,4 @@
 #176｜通知栏拆分为独立流量行与 IP 行：原“显示流量”开关控制实时速度与累计流量，新增默认开启的“显示 IP”开关并按内核事件更新；收起通知时将实时速度与 IP/节点合并显示在同一正文行，展开时分行显示；仅流量开启时亮屏每 5 秒刷新、息屏暂停，旧备份缺少 showIp 时恢复为开启。测试：NotificationDisplayPolicyTests.kt
 #177｜编辑器问题一键修复：问题列表点击后在后台计算 Tab、缩进和引用名修复候选；逐项经 YamlLint 验证，应用前及后台验证后再次核对全文未变化，并以整段替换形成单次撤销。问题列表、修复对话框和修复控制器分别拆为 EditorProblemsDialog.kt、EditorFixDialog.kt、EditorFixController.kt；纯逻辑拆为 YamlFix.kt、YamlFixIndent.kt、YamlFixName.kt；复用并开放 YamlLint.kt、YamlRename.kt 的必要接口，EditorDesign.kt 仅保留宿主转发。文案位于 strings_editor.xml（英文及中文）；测试登记于 YamlFixTests.kt、TestMain.kt、run-custom-tests.sh 和 test-custom.yaml。
 #178｜IPv6 地址显示与测试：代理卡片按 `ip-version` 选择地址族，IPv6 独立最多显示 4 个且不测速；域名解析并发查询 A / AAAA，共用 10 秒总超时，IPv4 / IPv6 分别最多 8 / 4 个并过滤 fake-ip；无 IPv6 网络时仅直连测试跳过 IPv6。测试：display_v6_test.go、iptest_config_test.go、iptest_resolve_test.go、IpTextFitTests.kt、IpTestIpv6Tests.kt；Go 测试未纳入 CI。
-#179｜配置列表显示 config.yaml 大小：类型旁显示，间距 14dp，固定两位小数。
+#179｜配置列表在文件/URL旁显示 config.yaml 大小，间距 14dp、两位小数；仅读取 pending/imported 对应文件，不扫描目录、不请求网络。
