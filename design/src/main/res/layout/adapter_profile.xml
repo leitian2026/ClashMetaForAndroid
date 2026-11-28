@@ -65,12 +65,27 @@
                 android:text="@{profile.name}"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
 
-            <TextView
+            <!-- CUSTOM (CUSTOM.md #179): keep the type and size visibly separated. -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/item_text_margin"
-                android:text="@{(profile.pending ? @string/format_type_unsaved(I18nKt.toString(profile.type, context)) : I18nKt.toString(profile.type, context)) + ' · ' + configSize}"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{profile.pending ? @string/format_type_unsaved(I18nKt.toString(profile.type, context)) : I18nKt.toString(profile.type, context)}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:text="@{configSize}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+            </LinearLayout>
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
