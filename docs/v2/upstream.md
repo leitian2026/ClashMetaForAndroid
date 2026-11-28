@@ -33,7 +33,7 @@
 |`app/src/main/AndroidManifest.xml`|#8 #17 #20 #21 #22 #46 #156 #169|中|详见下方“细节”。|
 |`app/src/main/java/com/github/kr328/clash/FilesActivity.kt`|#46 #50|低|OpenFile 分支：EditorActivity.canOpen(...) 为真就 startActivity(EditorActivity.intent(..., uuid, "详见旧文档对应编号|
 |`design/src/main/res/layout/adapter_profile.xml`|#47 #53 #55 #179|中|保留 edit、configSize；类型与大小分开显示，间距 14dp。|
-|`design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt`|#47 #179|低|保留 #47 的 onEditClicked 挂钩；绑定时按 pending / imported 目录读取对应 config.yaml 文件长度，格式化后赋给 configSize。|
+|`design/src/main/java/com/github/kr328/clash/design/adapter/ProfileAdapter.kt`|#47 #179|低|保留 #47 的 onEditClicked 挂钩；绑定时读取对应 config.yaml 文件长度，按两位小数格式化后赋给 configSize。|
 |`design/src/main/java/com/github/kr328/clash/design/ProfilesDesign.kt`|#47|低|Request 加 EditConfig(profile)；创建 ProfileAdapter 时多传一个 lambda（requests.trySend(Request.EditCo详见旧文档对应编号|
 |`app/src/main/java/com/github/kr328/clash/ProfilesActivity.kt`|#47 #50|低|when 里加 EditConfig 分支：startActivity(EditorActivity.intent(this@ProfilesActivity, "${uuid}/co详见旧文档对应编号|
 |`core/src/main/cpp/CMakeLists.txt`|#7|低|add_library 源文件末尾加 custom_bridge.c|
