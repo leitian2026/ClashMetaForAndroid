@@ -14,6 +14,7 @@ internal fun highlightTargetUrl(text: String, mutedColor: Int, badColor: Int): S
 
 internal fun highlightUnicomIpv4(text: String, badColor: Int): SpannableStringBuilder =
     SpannableStringBuilder(text).apply {
-        val start = text.indexOf("联通ipv4")
-        if (start >= 0) setSpan(ForegroundColorSpan(badColor), start, start + "联通ipv4".length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        // #43: highlight every IPv4 node label, regardless of carrier, not just Unicom.
+        val match = Regex("(?:节点\\s*)?[\\p{L}\\p{N} _-]*ipv4", RegexOption.IGNORE_CASE).find(text)
+        if (match != null) setSpan(ForegroundColorSpan(badColor), match.range.first, match.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     }
