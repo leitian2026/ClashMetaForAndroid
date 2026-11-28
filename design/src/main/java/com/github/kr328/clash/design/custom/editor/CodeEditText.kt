@@ -1774,7 +1774,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
                         val from = shown.length
 
                         shown.append("   ").append(item.detail)
-                        shown.setSpan(ForegroundColorSpan(colorComment), from, shown.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        shown.setSpan(ForegroundColorSpan(tokStyle.colorOf(Tok.Comment)), from, shown.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     }
 
                     view.text = shown
