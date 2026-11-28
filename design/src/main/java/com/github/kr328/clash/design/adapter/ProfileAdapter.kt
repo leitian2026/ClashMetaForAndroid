@@ -1,7 +1,8 @@
 package com.github.kr328.clash.design.adapter
 
 import android.content.Context
-import android.text.format.Formatter // CUSTOM (CUSTOM.md #179)
+import java.text.DecimalFormat // CUSTOM (CUSTOM.md #179)
+import java.text.DecimalFormatSymbols // CUSTOM (CUSTOM.md #179)
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.github.kr328.clash.design.databinding.AdapterProfileBinding
@@ -50,7 +51,7 @@ class ProfileAdapter(
         val profileDirectory = if (current.pending) context.pendingDir else context.importedDir
         val configFile = profileDirectory.resolve(current.uuid.toString()).resolve("config.yaml")
         binding.configSize = if (configFile.isFile) {
-            Formatter.formatShortFileSize(context, configFile.length())
+            formatConfigSize(configFile.length())
         } else {
             "—"
         }
@@ -64,6 +65,19 @@ class ProfileAdapter(
         binding.setEdit {
             onEditClicked(current)
         }
+    }
+
+    // CUSTOM (CUSTOM.md #179): always show exactly two fractional digits.
+    private fun formatConfigSize(bytes: Long): String {
+        val units = arrayOf("B", "kB", "MB", "GB", "TB")
+        var value = bytes.toDouble()
+        var unitIndex = 0
+        while (value >= 1000.0 && unitIndex < units.lastIndex) {
+            value /= 1000.0
+            unitIndex++
+        }
+        val number = DecimalFormat("0.00", DecimalFormatSymbols.getInstance()).format(value)
+        return "$number ${units[unitIndex]}"
     }
 
     override fun getItemCount(): Int {
