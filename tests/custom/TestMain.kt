@@ -31,6 +31,7 @@ fun main() {
     NotificationDisplayPolicyTests.run()
     IpTextFitTests.run()
     IpTestIpv6Tests.run()
+    EditorWrapStyleTests.run()
     println("Custom logic tests: $testPassed passed, $testFailed failed")
     if (testFailed > 0) kotlin.system.exitProcess(1)
 }
