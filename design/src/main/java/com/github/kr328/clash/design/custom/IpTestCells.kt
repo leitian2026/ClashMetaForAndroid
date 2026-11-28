@@ -165,7 +165,12 @@ internal class IpTestCells(private val env: IpTestEnv) {
 
     fun headCell(text: String, w: Int): TextView {
         return TextView(env.context).apply {
+            // #43: remove accidental whitespace splitting latency header phrases.
             this.text = text
+                .replace("平均 延迟", "平均延迟")
+                .replace("最小 延迟", "最小延迟")
+                .replace("最大 延迟", "最大延迟")
+                .replace("延迟 波动", "延迟波动")
             textSize = 14f
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
