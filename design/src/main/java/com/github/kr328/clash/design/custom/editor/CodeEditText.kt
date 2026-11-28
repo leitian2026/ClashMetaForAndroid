@@ -106,20 +106,12 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val gutterPaint = Paint().apply { color = colorGutterBg }
     private val bandPaint = Paint().apply { color = colorErrorBand }
     private val fillPaint = Paint()
-    private val guidePaint = Paint().apply {
-        color = colorGuide
-        strokeWidth = maxOf(1f, density)
-    }
+    private val guideRenderer = EditorGuideRenderer(colorGuide, colorGutterText, colorTrailing, colorTabBg)
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.MONOSPACE
         color = colorDelBar
         isStrikeThruText = true
-    }
-    private val tabPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.MONOSPACE
-        textAlign = Paint.Align.CENTER
-        color = colorGutterText
     }
 
     private class TokSpan(color: Int) : ForegroundColorSpan(color)
@@ -687,9 +679,13 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             for (i in first..last) {
                 val start = l.getLineStart(i)
 
-                if (start == 0 || t[start - 1] == '\n') drawGuides(canvas, l, t, i, start, padLeft, padTop)
+                if (start == 0 || t[start - 1] == '\n') {
+                    guideRenderer.drawGuides(canvas, l, t, i, start, padLeft, padTop, charW, density, lineStarts)
+                }
 
-                if (showWhitespace) drawWhitespace(canvas, l, t, i, start, padLeft, padTop)
+                if (showWhitespace) {
+                    guideRenderer.drawWhitespace(canvas, l, t, i, start, padLeft, padTop, charW, density, selectionStart, selectionEnd, mayHaveTab)
+                }
             }
 
             canvas.drawRect(scrollX.toFloat(), top.toFloat(), (scrollX + gutterWidth).toFloat(), bottom.toFloat(), gutterPaint)
@@ -885,129 +881,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         }
     }
 
-    // ---- guides, whitespace, pairs (CUSTOM.md #50) -----------------------------------------------------
-
-    // a thin vertical line at every second column inside the indent of the line that starts at [start]
-    private fun drawGuides(canvas: Canvas, l: Layout, t: Editable, line: Int, start: Int, padLeft: Int, padTop: Int) {
-        val lineEnd = l.getLineEnd(line)
-        var indent = 0
-
-        while (start + indent < lineEnd && t[start + indent] == ' ') indent++
-
-        // an empty line takes the depth of the lines around it, so that the guides run through it
-        if (start + indent >= lineEnd || t[start + indent] == '\n' || t[start + indent] == '\r') indent = blankDepth(start)
-
-        if (indent < 3) return
-
-        val top = (l.getLineTop(line) + padTop).toFloat()
-        val bottom = (l.getLineBottom(line) + padTop).toFloat()
-        var k = 2
-
-        while (k < indent) {
-            val x = padLeft + k * charW
-
-            canvas.drawLine(x, top, x, bottom, guidePaint)
-
-            k += 2
-        }
-    }
-
-    // the indent of the nearest lines above and below an empty line (the smaller one)
-    private fun blankDepth(start: Int): Int {
-        val t = text ?: return 0
-        val index = lineIndexAt(start)
-        var above = 0
-        var i = index - 1
-        var steps = 0
-
-        while (i >= 0 && steps < 60) {
-            val d = indentAt(t, lineStarts[i], lineEnd(i, t.length))
-
-            if (d >= 0) {
-                above = d
-
-                break
-            }
-
-            i--
-            steps++
-        }
-
-        var below = 0
-
-        i = index + 1
-        steps = 0
-
-        while (i < lineStarts.size && steps < 60) {
-            val d = indentAt(t, lineStarts[i], lineEnd(i, t.length))
-
-            if (d >= 0) {
-                below = d
-
-                break
-            }
-
-            i++
-            steps++
-        }
-
-        return minOf(above, below)
-    }
-
-    // the number of spaces the line [s, e) starts with; -1 when it has nothing else
-    private fun indentAt(t: CharSequence, s: Int, e: Int): Int {
-        var k = s
-
-        while (k < e && t[k] == ' ') k++
-
-        return if (k >= e || t[k] == '\r') -1 else k - s
-    }
-
-    // Tabs get a tinted box with an arrow; spaces and Tabs at the end of a line get a tinted box
-    private fun drawWhitespace(canvas: Canvas, l: Layout, t: Editable, line: Int, start: Int, padLeft: Int, padTop: Int) {
-        val le = l.getLineEnd(line).coerceAtMost(t.length)
-
-        if (le <= start) return
-
-        val top = (l.getLineTop(line) + padTop).toFloat()
-        val bottom = (l.getLineBottom(line) + padTop).toFloat()
-        val endsLogical = le >= t.length || t[le - 1] == '\n'
-        val textEnd = if (t[le - 1] == '\n') le - 1 else le
-
-        if (mayHaveTab) {
-            for (k in start until textEnd) {
-                if (t[k] != '\t') continue
-
-                val x1 = padLeft + l.getPrimaryHorizontal(k)
-                val x2 = padLeft + (if (k + 1 < le) l.getPrimaryHorizontal(k + 1) else l.getLineRight(line))
-
-                fillPaint.color = colorTabBg
-                canvas.drawRect(x1, top, x2, bottom, fillPaint)
-                canvas.drawText("\u2192", (x1 + x2) / 2f, (l.getLineBaseline(line) + padTop).toFloat(), tabPaint)
-            }
-        }
-
-        if (!endsLogical) return
-
-        var end = textEnd
-
-        if (end > start && t[end - 1] == '\r') end--
-
-        var from = end
-
-        while (from > start && (t[from - 1] == ' ' || t[from - 1] == '\t')) from--
-
-        if (from == end) return
-
-        // while the caret is in it the line is still being typed
-        if (selectionStart == selectionEnd && selectionStart in from..end) return
-
-        val x1 = padLeft + l.getPrimaryHorizontal(from)
-        val x2 = padLeft + l.getPrimaryHorizontal(end)
-
-        fillPaint.color = colorTrailing
-        canvas.drawRect(x1, top, x2, bottom, fillPaint)
-    }
+    // ---- guides, whitespace, pairs (CUSTOM.md #50) ----------------------------------------------
 
     private fun drawPair(canvas: Canvas, l: Layout, t: Editable, padLeft: Int, padTop: Int) {
         for (o in intArrayOf(pairA, pairB)) {
