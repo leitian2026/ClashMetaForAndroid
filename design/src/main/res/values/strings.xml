@@ -57,7 +57,7 @@
     <string name="name">Name</string>
     <string name="profile_name">Profile Name</string>
     <string name="profile_url">Profile URL</string>
-    <string name="auto_update">Auto Update</string>
+    <string name="auto_update">Auto Update (Clear input to disable)</string>
     <string name="auto_update_minutes">Auto Update (Minutes)</string>
 
     <string name="accept_http_content">Accept only http(s)</string>
