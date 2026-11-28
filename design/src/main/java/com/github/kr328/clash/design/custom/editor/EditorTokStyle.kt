@@ -11,6 +11,7 @@ internal class EditorTokStyle(night: Boolean) {
     private val colorAnchor = if (night) Color.parseColor("#FFCB6B") else Color.parseColor("#8D6E00")
     private val colorComment = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#757575")
     private val colorPunct = if (night) Color.parseColor("#89DDFF") else Color.parseColor("#00838F")
+    private val colorNodeName = if (night) Color.parseColor("#F071C8") else Color.parseColor("#AD1457")
 
     fun colorOf(kind: Tok): Int = when (kind) {
         Tok.Key -> colorKey
@@ -20,5 +21,6 @@ internal class EditorTokStyle(night: Boolean) {
         Tok.Anchor -> colorAnchor
         Tok.Comment -> colorComment
         Tok.Punct -> colorPunct
+        Tok.NodeName -> colorNodeName
     }
 }
