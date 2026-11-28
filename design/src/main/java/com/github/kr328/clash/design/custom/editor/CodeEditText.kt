@@ -247,7 +247,6 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
 
         numberPaint.textSize = textSize * 0.9f
-        tabPaint.textSize = textSize * 0.9f
         charW = paint.measureText("M")
 
         updateGutter(1)
@@ -530,7 +529,6 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
 
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp)
         numberPaint.textSize = textSize * 0.9f
-        tabPaint.textSize = textSize * 0.9f
         charW = paint.measureText("M")
         gutterDigits = 0 // the gutter is as wide as its digits: measure it again
         updateGutter(totalLines())
