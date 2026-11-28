@@ -7,6 +7,8 @@ on:
       - custom
     paths:
       # 源文件列表和触发路径要保持一致
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlHighlighter.kt'
+      - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLines.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlRename.kt'
       - 'design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFix.kt'
@@ -45,6 +47,7 @@ on:
       - 'tests/custom/IpTestIpv6Tests.kt'
       - 'tests/custom/EditorWrapStyleTests.kt'
       - 'tests/custom/TextSearchTests.kt'
+      - 'tests/custom/YamlHighlighterTests.kt'
       - 'tests/custom/YamlLintTests.kt'
       - 'tests/custom/YamlRenameTests.kt'
       - 'tests/custom/YamlFixTests.kt'
