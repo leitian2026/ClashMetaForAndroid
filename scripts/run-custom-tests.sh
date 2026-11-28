@@ -21,6 +21,8 @@ fi
 
 # 源文件列表和触发路径要保持一致
 "$compiler" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlHighlighter.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLines.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlLint.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlRename.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/YamlFix.kt" \
@@ -59,6 +61,7 @@ fi
   "$ROOT/tests/custom/IpTestIpv6Tests.kt" \
   "$ROOT/tests/custom/EditorWrapStyleTests.kt" \
   "$ROOT/tests/custom/TextSearchTests.kt" \
+  "$ROOT/tests/custom/YamlHighlighterTests.kt" \
   "$ROOT/tests/custom/YamlLintTests.kt" \
   "$ROOT/tests/custom/YamlRenameTests.kt" \
   "$ROOT/tests/custom/YamlFixTests.kt" \
