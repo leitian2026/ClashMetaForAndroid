@@ -1,6 +1,7 @@
 package com.github.kr328.clash.design.adapter
 
 import android.content.Context
+import android.text.format.Formatter // CUSTOM (CUSTOM.md #179)
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.github.kr328.clash.design.databinding.AdapterProfileBinding
@@ -43,6 +44,14 @@ class ProfileAdapter(
             return
 
         binding.profile = current
+        // CUSTOM (CUSTOM.md #179): read only config.yaml in the profile's current directory.
+        val profileDirectory = if (current.pending) "pending" else "imported"
+        val configFile = context.filesDir.resolve("$profileDirectory/" + current.uuid + "/config.yaml")
+        binding.configSize = if (configFile.isFile) {
+            Formatter.formatShortFileSize(context, configFile.length())
+        } else {
+            "—"
+        }
         binding.setClicked {
             onClicked(current)
         }
