@@ -10,6 +10,8 @@ import com.github.kr328.clash.design.model.ProxyPageState
 import com.github.kr328.clash.design.ui.ObservableCurrentTime
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.service.model.Profile
+import com.github.kr328.clash.service.util.importedDir // CUSTOM (CUSTOM.md #179)
+import com.github.kr328.clash.service.util.pendingDir // CUSTOM (CUSTOM.md #179)
 
 class ProfileAdapter(
     private val context: Context,
@@ -45,8 +47,8 @@ class ProfileAdapter(
 
         binding.profile = current
         // CUSTOM (CUSTOM.md #179): read only config.yaml in the profile's current directory.
-        val profileDirectory = if (current.pending) "pending" else "imported"
-        val configFile = context.filesDir.resolve("$profileDirectory/" + current.uuid + "/config.yaml")
+        val profileDirectory = if (current.pending) context.pendingDir else context.importedDir
+        val configFile = profileDirectory.resolve(current.uuid.toString()).resolve("config.yaml")
         binding.configSize = if (configFile.isFile) {
             Formatter.formatShortFileSize(context, configFile.length())
         } else {
