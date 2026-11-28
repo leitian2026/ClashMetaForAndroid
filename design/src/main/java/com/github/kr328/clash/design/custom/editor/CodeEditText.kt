@@ -53,13 +53,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     private val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
 
-    private val colorKey = if (night) Color.parseColor("#82AAFF") else Color.parseColor("#1565C0")
-    private val colorStr = if (night) Color.parseColor("#C3E88D") else Color.parseColor("#2E7D32")
-    private val colorNum = if (night) Color.parseColor("#F78C6C") else Color.parseColor("#E65100")
-    private val colorWord = if (night) Color.parseColor("#C792EA") else Color.parseColor("#7B1FA2")
-    private val colorAnchor = if (night) Color.parseColor("#FFCB6B") else Color.parseColor("#8D6E00")
-    private val colorComment = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#757575")
-    private val colorPunct = if (night) Color.parseColor("#89DDFF") else Color.parseColor("#00838F")
+    private val tokStyle = EditorTokStyle(night)
     private val colorGutterText = if (night) Color.parseColor("#7F8C98") else Color.parseColor("#9E9E9E")
     private val colorGutterBg = context.resolveThemedColor(com.google.android.material.R.attr.colorSurface) // CUSTOM.md #74
     private val colorPopupOutline = context.resolveThemedColor(android.R.attr.textColorSecondary).let {
@@ -1287,15 +1281,6 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
     // true while every line of the text has its colours
     private var wholeDone = false
 
-    private fun colorOf(kind: Tok): Int = when (kind) {
-        Tok.Key -> colorKey
-        Tok.Str -> colorStr
-        Tok.Num -> colorNum
-        Tok.Word -> colorWord
-        Tok.Anchor -> colorAnchor
-        Tok.Comment -> colorComment
-        Tok.Punct -> colorPunct
-    }
 
     // adds the colours of the lines [firstLine, lastLine]; the old ones of these lines must be gone
     private fun colourLines(editable: Editable, firstLine: Int, lastLine: Int) {
@@ -1309,7 +1294,7 @@ class CodeEditText(context: Context) : AppCompatEditText(context) {
             val text = TextUtils.substring(editable, start, end).trimEnd('\r')
 
             YamlHighlighter.line(text) { a, b, kind ->
-                editable.setSpan(TokSpan(colorOf(kind)), start + a, start + b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                editable.setSpan(TokSpan(tokStyle.colorOf(kind)), start + a, start + b, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
     }
