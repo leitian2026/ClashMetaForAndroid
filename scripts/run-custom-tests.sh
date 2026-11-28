@@ -43,6 +43,7 @@ fi
   "$ROOT/service/src/main/java/com/github/kr328/clash/service/custom/NotificationDisplayPolicy.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/IpTextFit.kt" \
   "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/IpTestIpv6.kt" \
+  "$ROOT/design/src/main/java/com/github/kr328/clash/design/custom/editor/EditorWrapStyle.kt" \
   "$ROOT/tests/custom/CarrierOperatorConsensusTests.kt" \
   "$ROOT/tests/custom/CarrierSwitchRenameTests.kt" \
   "$ROOT/tests/custom/ConfigProxyCountTests.kt" \
@@ -56,6 +57,7 @@ fi
   "$ROOT/tests/custom/NotificationDisplayPolicyTests.kt" \
   "$ROOT/tests/custom/IpTextFitTests.kt" \
   "$ROOT/tests/custom/IpTestIpv6Tests.kt" \
+  "$ROOT/tests/custom/EditorWrapStyleTests.kt" \
   "$ROOT/tests/custom/TextSearchTests.kt" \
   "$ROOT/tests/custom/YamlLintTests.kt" \
   "$ROOT/tests/custom/YamlRenameTests.kt" \
