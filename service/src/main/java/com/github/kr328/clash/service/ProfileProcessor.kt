@@ -70,9 +70,8 @@ object ProfileProcessor {
                         context.processingDir.copyRecursively(context.importedDir.resolve(snapshot.uuid.toString()))
 
                         val old = ImportedDao().queryByUUID(snapshot.uuid)
-                        val updateInterval = subscriptionInfo?.subUpdateInterval
-                            ?.takeIf { old == null && snapshot.interval == 0L }
-                            ?: snapshot.interval
+                        // CUSTOM: Auto-update disabled by default; ignore subscription-provided interval on first import.
+                        val updateInterval = snapshot.interval
                         val new = Imported(
                             snapshot.uuid,
                             snapshot.name,
