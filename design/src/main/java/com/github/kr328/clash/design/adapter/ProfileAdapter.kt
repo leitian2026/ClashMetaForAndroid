@@ -69,11 +69,11 @@ class ProfileAdapter(
 
     // CUSTOM (CUSTOM.md #179): always show exactly two fractional digits.
     private fun formatConfigSize(bytes: Long): String {
-        val units = arrayOf("B", "kB", "MB", "GB", "TB")
+        val units = arrayOf("B", "KiB", "MiB", "GiB", "TiB")
         var value = bytes.toDouble()
         var unitIndex = 0
-        while (value >= 1000.0 && unitIndex < units.lastIndex) {
-            value /= 1000.0
+        while (value >= 1024.0 && unitIndex < units.lastIndex) {
+            value /= 1024.0
             unitIndex++
         }
         val number = DecimalFormat("0.00", DecimalFormatSymbols.getInstance()).format(value)
