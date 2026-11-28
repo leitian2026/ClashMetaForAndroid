@@ -24,8 +24,8 @@ object YamlHighlighterTests {
         check(single.count { it.second == Tok.Punct && it.first == ":" } == 3, "flow map key colons are punctuation")
 
         val quoted = yamlTokens("""- {name: "[Vless] HK TG:@MiaChatChannel", url: "https://example.test/a,b"}""")
-        check(hasYamlToken(quoted, "[Vless] HK TG:@MiaChatChannel", Tok.NodeName), "quoted node name has its own token")
-        check(hasYamlToken(quoted, "https://example.test/a,b", Tok.Str), "quoted colon and comma remain string content")
+        check(hasYamlToken(quoted, "\"[Vless] HK TG:@MiaChatChannel\"", Tok.NodeName), "quoted node name has its own token")
+        check(hasYamlToken(quoted, "\"https://example.test/a,b\"", Tok.Str), "quoted colon and comma remain string content")
         check(
             quoted.filter { it.second == Tok.Key }.map { it.first } == listOf("name", "url"),
             "quoted colons and commas do not create false keys",
@@ -54,14 +54,14 @@ object YamlHighlighterTests {
 
         val quotedName = yamlTokens("""{name: "JP-1"}""")
         val plainName = yamlTokens("{name: JP-2}")
-        check(hasYamlToken(quotedName, "JP-1", Tok.NodeName), "quoted node name is highlighted")
+        check(hasYamlToken(quotedName, "\"JP-1\"", Tok.NodeName), "quoted node name is highlighted")
         check(hasYamlToken(plainName, "JP-2", Tok.NodeName), "plain node name is highlighted")
 
         val blockName = yamlTokens("""name: "block" """.trimEnd())
         val comment = yamlTokens("# name: comment")
         val ordinary = yamlTokens("server: https://example.test/a,b")
         check(hasYamlToken(blockName, "name", Tok.Key), "block key keeps existing key colour")
-        check(hasYamlToken(blockName, "block", Tok.Str), "block value keeps existing string colour")
+        check(hasYamlToken(blockName, "\"block\"", Tok.Str), "block value keeps existing string colour")
         check(blockName.none { it.second == Tok.NodeName }, "block name value is not recoloured")
         check(comment.any { it.second == Tok.Comment }, "comment keeps existing comment colour")
         check(ordinary.filter { it.second == Tok.Key }.map { it.first } == listOf("server"), "ordinary key-value line is unchanged")
